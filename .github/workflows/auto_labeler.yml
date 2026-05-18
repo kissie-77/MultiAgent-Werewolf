@@ -22,7 +22,7 @@ jobs:
 
       - name: Labeler
         id: labeler
-        uses: actions/labeler@v6.0.1
+        uses: actions/labeler@v6.1.0
         with:
           sync-labels: true
           configuration-path: .github/labeler.yml

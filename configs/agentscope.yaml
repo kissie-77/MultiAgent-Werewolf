@@ -1,0 +1,62 @@
+language: zh-TW
+
+players:
+  - name: Player1
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player2
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player3
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player4
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player5
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player6
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player7
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player8
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player9
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player10
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player11
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY
+
+  - name: Player12
+    model: gemini-3.1-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: WEREWOLF_API_KEY

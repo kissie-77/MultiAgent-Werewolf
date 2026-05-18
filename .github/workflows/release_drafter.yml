@@ -1,0 +1,47 @@
+name: Release Drafter
+
+on:
+  push:
+    # branches to consider in the event; optional, defaults to all
+    branches:
+      - main
+      - master
+
+permissions: write-all
+
+jobs:
+  update_release_draft:
+    name: Update Release Draft
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Disable SSL Verify
+        run: git config --global http.sslVerify false
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate a tag
+        id: git-cliff-tag
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: ./.github/cliff.toml
+          args: --bumped-version
+
+      - name: Generate a changelog
+        id: git-cliff-changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: ./.github/cliff.toml
+          args: --bump --unreleased
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.git-cliff-tag.outputs.content }}
+          name: ${{ steps.git-cliff-tag.outputs.content }} 🌈
+          body: ${{ steps.git-cliff-changelog.outputs.content }}
+          draft: true

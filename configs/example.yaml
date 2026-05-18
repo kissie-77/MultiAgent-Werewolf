@@ -1,0 +1,27 @@
+language: en-US
+
+players:
+  - name: Player1
+    model: YOUR_MODEL_NAME
+    base_url: YOUR_API_BASE_URL
+    api_key_env: YOUR_API_KEY
+  - name: Player2
+    model: YOUR_MODEL_NAME
+    base_url: YOUR_API_BASE_URL
+    api_key_env: YOUR_API_KEY
+  - name: Player3
+    model: YOUR_MODEL_NAME
+    base_url: YOUR_API_BASE_URL
+    api_key_env: YOUR_API_KEY
+  - name: Player4
+    model: YOUR_MODEL_NAME
+    base_url: YOUR_API_BASE_URL
+    api_key_env: YOUR_API_KEY
+  - name: Player5
+    model: YOUR_MODEL_NAME
+    base_url: YOUR_API_BASE_URL
+    api_key_env: YOUR_API_KEY
+  - name: Player6
+    model: YOUR_MODEL_NAME
+    base_url: YOUR_API_BASE_URL
+    api_key_env: YOUR_API_KEY

@@ -1,0 +1,182 @@
+from llm_werewolf.core.types import PlayerInfo, PlayerStatus, RoleProtocol, AgentProtocol
+
+
+class Player:
+    """Represents a player in the Werewolf game."""
+
+    def __init__(
+        self,
+        player_id: str,
+        name: str,
+        role: type[RoleProtocol],
+        agent: AgentProtocol | None = None,
+        ai_model: str = "unknown",
+    ) -> None:
+        """Initialize a player.
+
+        Args:
+            player_id: Unique identifier for the player.
+            name: Display name for the player.
+            role: The role assigned to this player.
+            agent: AI agent controlling this player (optional).
+            ai_model: Name of the AI model being used.
+        """
+        self.player_id = player_id
+        self.name = name
+        self.role = role(self)
+        self.agent = agent
+        self.ai_model = ai_model
+
+        self._alive = True
+        self.statuses: set[PlayerStatus] = {PlayerStatus.ALIVE}
+        self.lover_partner_id: str | None = None
+
+        self.can_vote_flag = True
+
+    def is_alive(self) -> bool:
+        """Check if the player is alive.
+
+        Returns:
+            bool: True if the player is alive.
+        """
+        return self._alive
+
+    def kill(self) -> None:
+        """Mark the player as dead."""
+        self._alive = False
+        self.statuses.discard(PlayerStatus.ALIVE)
+        self.statuses.add(PlayerStatus.DEAD)
+
+    def revive(self) -> None:
+        """Revive the player (e.g., by Witch's save potion)."""
+        self._alive = True
+        self.statuses.discard(PlayerStatus.DEAD)
+        self.statuses.add(PlayerStatus.ALIVE)
+
+    def add_status(self, status: PlayerStatus) -> None:
+        """Add a status to the player.
+
+        Args:
+            status: The status to add.
+        """
+        self.statuses.add(status)
+
+    def remove_status(self, status: PlayerStatus) -> None:
+        """Remove a status from the player.
+
+        Args:
+            status: The status to remove.
+        """
+        self.statuses.discard(status)
+
+    def has_status(self, status: PlayerStatus) -> bool:
+        """Check if the player has a specific status.
+
+        Args:
+            status: The status to check for.
+
+        Returns:
+            bool: True if the player has the status.
+        """
+        return status in self.statuses
+
+    def can_vote(self) -> bool:
+        """Check if the player can vote.
+
+        Returns:
+            bool: True if the player can vote.
+        """
+        return self._alive and self.can_vote_flag
+
+    def disable_voting(self) -> None:
+        """Disable the player's voting rights."""
+        self.can_vote_flag = False
+        self.add_status(PlayerStatus.NO_VOTE)
+
+    def set_lover(self, partner_id: str) -> None:
+        """Set this player as a lover with another player.
+
+        Args:
+            partner_id: The ID of the lover partner.
+        """
+        self.lover_partner_id = partner_id
+        self.add_status(PlayerStatus.LOVER)
+
+    def is_lover(self) -> bool:
+        """Check if the player is a lover.
+
+        Returns:
+            bool: True if the player is a lover.
+        """
+        return self.has_status(PlayerStatus.LOVER)
+
+    def is_sheriff(self) -> bool:
+        """Check if the player is the sheriff.
+
+        Returns:
+            bool: True if the player is the sheriff.
+        """
+        return self.has_status(PlayerStatus.SHERIFF)
+
+    def make_sheriff(self) -> None:
+        """Make this player the sheriff."""
+        self.add_status(PlayerStatus.SHERIFF)
+
+    def remove_sheriff(self) -> None:
+        """Remove sheriff status from this player."""
+        self.remove_status(PlayerStatus.SHERIFF)
+
+    def get_vote_weight(self) -> float:
+        """Get the player's vote weight.
+
+        Returns:
+            float: Vote weight (1.5 for sheriff, 1.0 for others).
+        """
+        return 1.5 if self.is_sheriff() else 1.0
+
+    def get_public_info(self) -> PlayerInfo:
+        """Get public information about the player.
+
+        Returns:
+            PlayerInfo: Public player information.
+        """
+        return PlayerInfo(
+            player_id=self.player_id,
+            name=self.name,
+            is_alive=self._alive,
+            statuses=self.statuses.copy(),
+            ai_model=self.ai_model,
+        )
+
+    def get_role_name(self) -> str:
+        """Get the player's role name.
+
+        Returns:
+            str: The role name.
+        """
+        return self.role.name
+
+    def get_camp(self) -> str:
+        """Get the player's camp.
+
+        Returns:
+            str: The camp name.
+        """
+        return self.role.camp.value
+
+    def __str__(self) -> str:
+        """String representation of the player.
+
+        Returns:
+            str: Player name and status.
+        """
+        status = "alive" if self._alive else "dead"
+        return f"{self.name} ({status})"
+
+    def __repr__(self) -> str:
+        """Repr of the player.
+
+        Returns:
+            str: Player representation.
+        """
+        return f"Player(id={self.player_id}, name={self.name}, role={self.role.name})"

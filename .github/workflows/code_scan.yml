@@ -1,0 +1,99 @@
+name: Code Scanning
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions: write-all
+
+jobs:
+  secret-scanning:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Disable SSL Verify
+        run: git config --global http.sslVerify false
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: GitLeaks Scanning
+        uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trufflehog Scanning
+        uses: trufflesecurity/trufflehog@v3.93.7
+        with:
+          extra_args: --results=verified,unknown
+
+  codeql-scanning:
+    name: CodeQL Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Disable SSL Verify
+        run: git config --global http.sslVerify false
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: CodeQL Initialize
+        uses: github/codeql-action/init@v4.32.6
+
+      - name: CodeQL Analyze
+        uses: github/codeql-action/analyze@v4.32.6
+
+  trivy-scanning:
+    name: Trivy Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Disable SSL Verify
+        run: git config --global http.sslVerify false
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+
+      - name: Trivy Scanning
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: 0
+          severity: HIGH,CRITICAL
+          skip-setup-trivy: true
+
+      - name: Trivy Scanning Result
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          ignore-unfixed: true
+          format: table
+          exit-code: 0
+          severity: HIGH,CRITICAL
+          skip-setup-trivy: true
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v4.32.6
+        with:
+          # Path to SARIF file relative to the root of the repository
+          sarif_file: trivy-results.sarif

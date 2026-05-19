@@ -25,7 +25,14 @@ from llm_werewolf.evaluation.scenarios import EvaluationScenario
 
 
 class EvaluationRunner:
-    """Runs offline game correctness evaluations."""
+    """离线评测运行器。
+
+    runner 是整个 evaluation 包的编排层：
+    1. 根据场景创建游戏。
+    2. 接管事件回调并写入 recorder。
+    3. 用超时保护运行 `play_game()`。
+    4. 跑 checker 并生成最终报告。
+    """
 
     def __init__(self, output_dir: str | Path, scenarios: list[EvaluationScenario]) -> None:
         self.output_dir = Path(output_dir)
@@ -33,13 +40,14 @@ class EvaluationRunner:
         self.games_dir = self.output_dir / "games"
 
     async def run(self) -> list[GameRunResult]:
-        """Run all configured scenarios and write reports."""
+        """运行所有场景并写出批量报告。"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.games_dir.mkdir(parents=True, exist_ok=True)
         self._write_manifest()
 
         results: list[GameRunResult] = []
         for scenario in self.scenarios:
+            # repetition 用于同一场景跑多局；每局 seed 递增，保证既可复现又有变化。
             for repetition in range(scenario.repetitions):
                 seed = scenario.seed + repetition
                 game_id = f"{scenario.name}-{seed}-{repetition + 1}"
@@ -55,7 +63,11 @@ class EvaluationRunner:
         game_id: str,
         seed: int,
     ) -> GameRunResult:
-        """Run one game for one scenario."""
+        """运行单局游戏并返回摘要结果。
+
+        这个方法必须保证“单局失败不影响整批评测”：
+        所有超时、崩溃和 observation 构建异常都会被记录，然后继续返回 GameRunResult。
+        """
         random.seed(seed)
         game_dir = self.games_dir / game_id
         recorder = EvaluationRecorder(game_dir)
@@ -69,13 +81,16 @@ class EvaluationRunner:
         error_message: str | None = None
 
         def on_event(event: Event) -> None:
+            # 接管 GameEngine 事件出口：内存中保留一份给 checker，磁盘写一份给复盘。
             events.append(event)
             recorder.record_event(event)
 
         engine.on_event = on_event
+        # setup 后立即保存快照，方便确认初始角色、玩家状态和配置。
         recorder.record_snapshot(engine.game_state, label="after_setup")
 
         try:
+            # wait_for 是异步流程正确性评测的安全网：游戏卡住会变成 timeout 产物。
             await asyncio.wait_for(engine.play_game(), timeout=scenario.timeout_seconds)
         except asyncio.TimeoutError as exc:
             timed_out = True
@@ -99,6 +114,7 @@ class EvaluationRunner:
         if engine.game_state is not None:
             for player in engine.game_state.players:
                 try:
+                    # 收集每个玩家最终 observation，用于检查私有事件是否泄露。
                     observations_by_player[player.player_id] = engine.build_player_observation(player)
                 except Exception as exc:
                     if not crashed:
@@ -112,6 +128,7 @@ class EvaluationRunner:
                         role_name=player.get_role_name(),
                     )
 
+        # final 快照无论成功、崩溃还是超时都尽量保存，便于比较终局状态。
         recorder.record_snapshot(engine.game_state, label="final")
         checks = self._run_checkers(events, observations_by_player, engine)
         recorder.finalize_checks(checks)
@@ -134,6 +151,10 @@ class EvaluationRunner:
         )
 
     def _build_engine(self, scenario: EvaluationScenario) -> GameEngine:
+        """按场景构建一局离线游戏。
+
+        第一版固定使用 DemoAgent，避免真实模型 API 成本和随机延迟影响系统正确性评测。
+        """
         config = GameConfig(
             num_players=scenario.num_players,
             role_names=scenario.role_names,
@@ -153,6 +174,10 @@ class EvaluationRunner:
         observations_by_player: dict[str, str],
         engine: GameEngine,
     ) -> list[CheckResult]:
+        """运行所有正确性 checker。
+
+        checker 自身不应该让评测中断；如果 checker 代码抛异常，也会转成失败结果。
+        """
         final_winner = engine.game_state.winner if engine.game_state else None
         checks: list[CheckResult] = []
         checkers: list[tuple[Any, dict[str, Any]]] = [
@@ -181,6 +206,11 @@ class EvaluationRunner:
         return checks
 
     def _error_event_checks(self, events: list[Event]) -> list[CheckResult]:
+        """把游戏内部记录的 ERROR 事件转成评测失败。
+
+        有些角色动作异常会被引擎捕获并记录为 EventType.ERROR，不会导致 play_game 崩溃。
+        如果不把这些事件纳入 checks，报告会误以为该局完全健康。
+        """
         results: list[CheckResult] = []
         for event in events:
             if event.event_type != EventType.ERROR:
@@ -203,6 +233,7 @@ class EvaluationRunner:
         return results
 
     def _write_manifest(self) -> None:
+        """写本次评测批次的元数据，记录场景和创建时间。"""
         payload = {
             "created_at": datetime.now().isoformat(),
             "scenarios": [scenario.model_dump(mode="json") for scenario in self.scenarios],

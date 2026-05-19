@@ -3,7 +3,12 @@ from llm_werewolf.evaluation.models import CheckResult, CheckSeverity
 
 
 class InformationIsolationChecker:
-    """Detects private event messages in unauthorized observations."""
+    """检查私有事件是否泄露到无权限玩家视角。
+
+    当前实现用“事件 message 是否出现在 observation 文本中”做保守检测。
+    这不是最终形态的语义级信息流分析，但足够发现最危险的一类问题：
+    `visible_to` 限定的内容被拼进了其他玩家 prompt。
+    """
 
     def check(
         self,
@@ -14,13 +19,16 @@ class InformationIsolationChecker:
         results: list[CheckResult] = []
 
         for event in events:
+            # 没有 visible_to 的事件是公开事件；没有 message 的事件也无法做文本泄露检查。
             if not event.visible_to or not event.message:
                 continue
 
             allowed = set(event.visible_to)
             for player_id, observation in observations_by_player.items():
+                # 授权玩家看到私有事件是合法的。
                 if player_id in allowed:
                     continue
+                # 非授权玩家的 observation 中出现完整私有消息，判为严重信息泄露。
                 if event.message in observation:
                     results.append(
                         CheckResult(
@@ -41,8 +49,13 @@ class InformationIsolationChecker:
 
 
 class AsyncFlowChecker:
-    """Checks phase transition consistency."""
+    """检查游戏阶段流转是否符合引擎允许顺序。
 
+    这个 checker 只看 `PHASE_CHANGED` 事件，不直接读取 GameState。
+    这样可以对历史事件流做离线复盘，也能发现“事件记录和状态推进不一致”的问题。
+    """
+
+    # 允许的有向状态转移。ended 是终态，之后不应该再有新阶段。
     _allowed_transitions = {
         "setup": {"night", "ended"},
         "night": {"sheriff_election", "day_discussion", "ended"},
@@ -56,6 +69,7 @@ class AsyncFlowChecker:
         phase_events = [event for event in events if event.event_type == EventType.PHASE_CHANGED]
         results: list[CheckResult] = []
 
+        # 逐对比较相邻阶段事件；只要出现不在白名单里的跳转就记录违规。
         for previous, current in zip(phase_events, phase_events[1:], strict=False):
             allowed = self._allowed_transitions.get(previous.phase, set())
             if current.phase not in allowed:
@@ -77,9 +91,14 @@ class AsyncFlowChecker:
 
 
 class VictoryCheckerEvaluator:
-    """Checks final winner consistency between engine state and events."""
+    """检查胜负事件与最终状态是否一致。
+
+    `GameEngine.check_victory()` 会写入 `game_state.winner`，同时记录 GAME_ENDED。
+    如果两者不一致，后续报告和复盘会互相矛盾，所以这里单独检测。
+    """
 
     def check(self, events: list[Event], final_winner: str | None = None) -> list[CheckResult]:
+        # 游戏未结束或没有 winner 时，不做胜负一致性判断。
         if final_winner is None:
             return []
 
@@ -104,8 +123,14 @@ class VictoryCheckerEvaluator:
 
 
 class RoleSkillChecker:
-    """Checks whether role action events contain enough structured data."""
+    """检查角色动作事件是否具备最小结构化字段。
 
+    第一版还不尝试完整验证每个角色技能语义，而是先保证事件能被机器读懂。
+    例如女巫救人事件至少要有 `target_id`，预言家查验至少要有 `target_id/result`。
+    这些字段是后续做更细角色规则检查和 Web 复盘的基础。
+    """
+
+    # 不同事件需要的最小字段集合。字段缺失时，报告会提示 missing_structured_event。
     _required_fields = {
         EventType.WEREWOLF_KILLED: {"target_id"},
         EventType.WITCH_SAVED: {"target_id"},
@@ -124,6 +149,7 @@ class RoleSkillChecker:
             if not required:
                 continue
 
+            # 只检查字段是否存在，不在这里判断目标是否合法；非法动作后续由专门 checker 负责。
             missing = sorted(field for field in required if field not in event.data)
             if missing:
                 results.append(

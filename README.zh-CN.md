@@ -626,3 +626,10 @@ src/llm_werewolf/
 ## 更新日志
 
 请参阅 [Releases](https://github.com/kissie-77/MultiAgent-Werewolf/releases) 页面查看版本更新记录。
+
+## 约定
+
+- **Commit**：用 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/) 格式。详见 [docs/workflow.md](docs/workflow.md)。
+- **ADR**：跨模块/接口/性能取舍的决策写一篇 5 分钟 ADR。详见 [docs/adr/](docs/adr/)。
+- **CHANGELOG**：由 git-cliff 自动生成，不手写。
+- **Roadmap**：见 [docs/roadmap.md](docs/roadmap.md)。

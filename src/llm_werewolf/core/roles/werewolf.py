@@ -115,15 +115,12 @@ class Werewolf(Role):
         return []
 
 
-class AlphaWolf(Role):
+class AlphaWolf(Werewolf):
     """Alpha Wolf (Wolf King) role.
 
     Similar to a standard werewolf, but when eliminated (by vote or hunter),
     can take another player down with them.
     """
-
-    def get_private_notes(self, game_state: GameStateProtocol | None = None) -> list[str]:
-        return Werewolf.get_private_notes(self, game_state)
 
     async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
         """Get the night actions for the Alpha Wolf role.

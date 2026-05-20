@@ -119,47 +119,9 @@ class AlphaWolf(Werewolf):
     """Alpha Wolf (Wolf King) role.
 
     Similar to a standard werewolf, but when eliminated (by vote or hunter),
-    can take another player down with them.
+    can take another player down with them. Inherits night-vote behaviour
+    and teammate-notes from Werewolf; only the role config differs.
     """
-
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Alpha Wolf role.
-
-        Alpha Wolf participates in the standard werewolf vote.
-        """
-        if not self.player.is_alive():
-            return []
-
-        # Get possible targets (non-werewolf players)
-        possible_targets = [
-            p for p in game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
-        ]
-        if not possible_targets:
-            return []
-
-        # Get target from AI agent (participate in werewolf vote)
-        if self.player.agent:
-            # Build context for werewolves
-            werewolves = [w for w in game_state.get_players_by_camp(Camp.WEREWOLF) if w.is_alive()]
-            werewolf_names = [w.name for w in werewolves]
-            context = self.player.agent.get_decision_context() if self.player.agent else ""
-            context = "\n\n".join(filter(None, [context, build_werewolf_team_context(self, game_state, werewolf_names)]))
-
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
-                role_name="Alpha Wolf",
-                action_description="Vote for a player to kill tonight",
-                possible_targets=possible_targets,
-                allow_skip=False,
-                additional_context=context,
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-
-            if target:
-                return [WerewolfVoteAction(self.player, target, game_state)]
-
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Alpha Wolf role."""

@@ -86,6 +86,7 @@ llm-werewolf = "llm_werewolf.cli:entry"
 llm-werewolf-tui = "llm_werewolf.tui:entry"
 werewolf = "llm_werewolf.cli:entry"
 werewolf-tui = "llm_werewolf.tui:entry"
+werewolf-eval = "llm_werewolf.eval_cli:entry"
 
 [dependency-groups]
 dev = [

@@ -458,80 +458,39 @@ Console 模式会显示实时状态提示，让你了解游戏进度：
 
 ## 项目架构
 
-项目采用模块化架构，各模块职责清晰：
+分层说明见 [docs/arch.md](docs/arch.md) 与 [docs/project-structure.md](docs/project-structure.md)。
 
 ```
 src/llm_werewolf/
-├── cli.py                 # 命令行入口（控制台模式）
-├── tui.py                 # TUI 入口（交互模式）
-├── ai/                    # 代理系统
-│   └── agents.py         # LLM 代理实现和配置模型
-├── core/                 # 核心游戏逻辑
-│   ├── agent.py          # 基础代理、HumanAgent 和 DemoAgent
-│   ├── game_state.py     # 游戏状态管理
-│   ├── player.py         # 玩家类
-│   ├── action_selector.py # 动作选择逻辑
-│   ├── events.py         # 事件系统
-│   ├── event_formatter.py # 事件格式化显示
-│   ├── locale.py         # 本地化与语言支持
-│   ├── victory.py        # 胜利条件检查
-│   ├── serialization.py  # 序列化工具
-│   ├── role_registry.py  # 角色注册与验证
-│   ├── engine/           # 游戏引擎（拆分为多个 mixin）
-│   │   ├── game_engine.py     # 主要游戏引擎（组合所有 mixin）
-│   │   ├── base.py            # 核心初始化与游戏循环
-│   │   ├── night_phase.py     # 夜晚阶段执行逻辑
-│   │   ├── day_phase.py       # 白天讨论阶段逻辑
-│   │   ├── voting_phase.py    # 投票阶段逻辑
-│   │   ├── death_handler.py   # 死亡相关逻辑
-│   │   └── action_processor.py # 处理游戏动作
-│   ├── actions/          # 动作系统
-│   │   ├── base.py       # 基础动作类
-│   │   ├── common.py     # 通用动作
-│   │   ├── villager.py   # 村民阵营动作
-│   │   └── werewolf.py   # 狼人阵营动作
-│   ├── config/           # 配置系统
-│   │   ├── game_config.py    # 游戏配置模型
-│   │   └── presets.py        # 根据人数自动生成角色配置
-│   ├── types/            # 类型定义
-│   │   ├── enums.py      # 枚举（阵营、阶段、状态等）
-│   │   ├── models.py     # 数据模型
-│   │   └── protocols.py  # 协议定义
-│   └── roles/            # 角色实现
-│       ├── base.py       # 角色基类
-│       ├── werewolf.py   # 狼人阵营角色
-│       ├── villager.py   # 村民阵营角色
-│       └── neutral.py    # 中立角色
-└── ui/                   # 用户界面
-    ├── tui_app.py        # TUI 应用程序
-    ├── styles.py         # TUI 样式
-    └── components/       # TUI 组件
-        ├── player_panel.py
-        ├── game_panel.py
-        └── chat_panel.py
+├── cli.py / tui.py / eval_cli.py   # 应用入口
+├── adapter/                        # LLM 适配层（禁止被 roles 直接 import）
+│   ├── information_hub.py          # MsgHub 通道与 Agent I/O
+│   ├── bridge.py                   # Prompt、座位解析、结构化输出
+│   ├── agent.py / factory.py       # AgentScope 集成
+│   └── prompts.py                  # GamePrompts / RolePrompts
+├── core/                           # 领域层：规则、状态、阶段编排
+│   ├── engine/                     # GameEngine（Mixin）
+│   ├── night_scheduler.py          # 夜间技能顺序（狼票 → 女巫）
+│   ├── role_night_plans.py         # 核心四角色夜间 LLM 规划
+│   ├── phase_interaction.py        # 引擎/角色 → Hub 门面
+│   ├── event_visibility.py         # Event.visible_to 默认规则
+│   ├── roles/ / actions/           # 角色产 Action、Action 改状态
+│   └── game_state.py / events.py   # 状态与事件（观察单一事实源）
+├── evaluation/                     # 离线评测（werewolf-eval）
+└── ui/                             # 展示（只读 Event，支持 viewer 过滤）
 ```
 
 ### 模块说明
 
-- **cli.py**：控制台模式的命令行界面，负责加载配置并自动启动游戏
-- **tui.py**：交互模式的 TUI 入口，提供终端用户界面
-- **ai/**：LLM 代理实现和配置模型（PlayerConfig、PlayersConfig）
-- **core/agent.py**：基础代理协议和内置代理（HumanAgent、DemoAgent）
-- **core/engine/**：游戏引擎实现，拆分为多个 mixin 以清楚分离职责：
-    - **game_engine.py**：主要 GameEngine 类，组合所有 mixin
-    - **base.py**：核心初始化、事件处理与主要游戏循环
-    - **night_phase.py**：夜晚阶段执行逻辑（狼人讨论、角色行动）
-    - **day_phase.py**：白天讨论阶段逻辑
-    - **voting_phase.py**：投票阶段逻辑
-    - **death_handler.py**：死亡相关逻辑（狼人杀人、恋人殉情等）
-    - **action_processor.py**：处理并应用游戏动作
-- **core/actions/**：动作系统，包含基础类和阵营特定动作
-- **core/config/**：配置系统，包含游戏参数和自动角色生成
-- **core/types/**：类型定义，包含枚举、数据模型和协议定义
-- **core/event_formatter.py**：集中式事件格式化，确保控制台和 TUI 模式的显示一致性
-- **core/locale.py**：多语言本地化支持（en-US、zh-TW、zh-CN）
-- **core/**：游戏核心逻辑，包含角色、玩家、游戏状态、动作选择、事件和胜利检查
-- **ui/**：基于 Textual 框架的终端用户界面
+- **cli.py**：控制台自动对局；`--viewer player_N` 可按玩家视角过滤事件
+- **tui.py**：Textual 交互界面
+- **adapter/**：所有 LLM 调用经 `PhaseInteraction` → `InformationHub` → `WerewolfAdapterBridge`
+- **core/engine/**：阶段编排；夜晚委托 `NightSkillScheduler`（守卫等 → 狼票结算 → 女巫 → 其余）
+- **core/roles/**：角色规则，目标态只产 `Action`、不调模型（扩展狼角色仍在迁移）
+- **evaluation/**：规则正确性与信息隔离检查
+- **ui/**：事件展示，与引擎解耦
+
+文档索引：[docs/README.md](docs/README.md)
 
 ## 系统需求
 

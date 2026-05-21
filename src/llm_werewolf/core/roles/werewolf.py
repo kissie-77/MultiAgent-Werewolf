@@ -14,7 +14,6 @@ from llm_werewolf.core.actions import (
     GuardianWolfProtectAction,
 )
 from llm_werewolf.core.roles.base import Role
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 def build_werewolf_team_context(
@@ -71,48 +70,14 @@ class Werewolf(Role):
         )
 
     async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Werewolf role.
+        """Get the night actions for the Werewolf role (delegates to night planner)."""
+        from llm_werewolf.core.role_night_plans import plan_werewolf_vote
 
-        All werewolves vote on a target, and the majority vote determines the kill.
-        """
-        if not self.player.is_alive():
-            return []
-
-        # Get all alive werewolves
-        werewolves = [w for w in game_state.get_players_by_camp(Camp.WEREWOLF) if w.is_alive()]
-
-        if not werewolves:
-            return []
-
-        # Get possible targets (non-werewolf players)
-        possible_targets = [
-            p for p in game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
-        ]
-        if not possible_targets:
-            return []
-
-        # Get target from AI agent (each werewolf votes)
-        if self.player.agent:
-            # Build context for werewolves
-            werewolf_names = [w.name for w in werewolves]
-            context = self.player.agent.get_decision_context() if self.player.agent else ""
-            context = "\n\n".join(filter(None, [context, build_werewolf_team_context(self, game_state, werewolf_names)]))
-
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
-                role_name="Werewolf",
-                action_description="Vote for a player to kill tonight",
-                possible_targets=possible_targets,
-                allow_skip=False,
-                additional_context=context,
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-
-            if target:
-                return [WerewolfVoteAction(self.player, target, game_state)]
-
-        return []
+        return await plan_werewolf_vote(
+            self,
+            game_state,
+            game_state.require_phase_interaction(),
+        )
 
 
 class AlphaWolf(Werewolf):
@@ -168,8 +133,9 @@ class WhiteWolf(Role):
             context = self.player.agent.get_decision_context() if self.player.agent else ""
             context = "\n\n".join(filter(None, [context, build_werewolf_team_context(self, game_state, werewolf_names)]))
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
+            target = await game_state.require_phase_interaction().request_seat_choice(
+                self.player,
+                self.player.agent,
                 role_name="White Wolf",
                 action_description="Vote for a player to kill tonight",
                 possible_targets=possible_targets,
@@ -191,8 +157,9 @@ class WhiteWolf(Role):
             ]
 
             if werewolf_targets and self.player.agent:
-                target = await ActionSelector.get_target_from_agent(
-                    agent=self.player.agent,
+                target = await game_state.require_phase_interaction().request_seat_choice(
+                    self.player,
+                    self.player.agent,
                     role_name="White Wolf",
                     action_description="Choose a werewolf to kill (or skip)",
                     possible_targets=werewolf_targets,
@@ -261,8 +228,9 @@ class WolfBeauty(Role):
             context = self.player.agent.get_decision_context() if self.player.agent else ""
             context = "\n\n".join(filter(None, [context, build_werewolf_team_context(self, game_state, werewolf_names)]))
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
+            target = await game_state.require_phase_interaction().request_seat_choice(
+                self.player,
+                self.player.agent,
                 role_name="Wolf Beauty",
                 action_description="Vote for a player to kill tonight",
                 possible_targets=possible_targets,
@@ -280,8 +248,9 @@ class WolfBeauty(Role):
             charm_targets = game_state.get_alive_players()
 
             if charm_targets and self.player.agent:
-                target = await ActionSelector.get_target_from_agent(
-                    agent=self.player.agent,
+                target = await game_state.require_phase_interaction().request_seat_choice(
+                    self.player,
+                    self.player.agent,
                     role_name="Wolf Beauty",
                     action_description="Choose a player to charm",
                     possible_targets=charm_targets,
@@ -343,8 +312,9 @@ class GuardianWolf(Role):
             context = self.player.agent.get_decision_context() if self.player.agent else ""
             context = "\n\n".join(filter(None, [context, build_werewolf_team_context(self, game_state, werewolf_names)]))
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
+            target = await game_state.require_phase_interaction().request_seat_choice(
+                self.player,
+                self.player.agent,
                 role_name="Guardian Wolf",
                 action_description="Vote for a player to kill tonight",
                 possible_targets=possible_targets,
@@ -361,8 +331,9 @@ class GuardianWolf(Role):
         werewolf_targets = [p for p in game_state.get_players_by_camp("werewolf") if p.is_alive()]
 
         if werewolf_targets and self.player.agent:
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
+            target = await game_state.require_phase_interaction().request_seat_choice(
+                self.player,
+                self.player.agent,
                 role_name="Guardian Wolf",
                 action_description="Choose a werewolf to protect tonight",
                 possible_targets=werewolf_targets,
@@ -427,8 +398,9 @@ class HiddenWolf(Role):
             context = self.player.agent.get_decision_context() if self.player.agent else ""
             context = "\n\n".join(filter(None, [context, build_werewolf_team_context(self, game_state, werewolf_names)]))
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
+            target = await game_state.require_phase_interaction().request_seat_choice(
+                self.player,
+                self.player.agent,
                 role_name="Hidden Wolf",
                 action_description="Vote for a player to kill tonight",
                 possible_targets=possible_targets,
@@ -498,8 +470,9 @@ class BloodMoonApostle(Role):
                 return []
 
             if self.player.agent:
-                target = await ActionSelector.get_target_from_agent(
-                    agent=self.player.agent,
+                target = await game_state.require_phase_interaction().request_seat_choice(
+                    self.player,
+                    self.player.agent,
                     role_name="Blood Moon Apostle",
                     action_description="Vote for a player to kill tonight",
                     possible_targets=possible_targets,
@@ -562,8 +535,9 @@ class NightmareWolf(Role):
             context = self.player.agent.get_decision_context() if self.player.agent else ""
             context = "\n\n".join(filter(None, [context, build_werewolf_team_context(self, game_state, werewolf_names)]))
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
+            target = await game_state.require_phase_interaction().request_seat_choice(
+                self.player,
+                self.player.agent,
                 role_name="Nightmare Wolf",
                 action_description="Vote for a player to kill tonight",
                 possible_targets=possible_targets,
@@ -580,8 +554,9 @@ class NightmareWolf(Role):
         block_targets = game_state.get_alive_players(except_ids=[self.player.player_id])
 
         if block_targets and self.player.agent:
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
+            target = await game_state.require_phase_interaction().request_seat_choice(
+                self.player,
+                self.player.agent,
                 role_name="Nightmare Wolf",
                 action_description="Choose a player to block tonight",
                 possible_targets=block_targets,

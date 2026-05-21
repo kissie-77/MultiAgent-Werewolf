@@ -1,12 +1,11 @@
 """Sheriff election phase logic for the game engine."""
 
-import asyncio
 from collections.abc import Callable
 
+from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.types import EventType, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 class SheriffElectionMixin:
@@ -15,6 +14,9 @@ class SheriffElectionMixin:
     game_state: GameState | None
     locale: Locale
     _log_event: Callable
+    build_player_observation: Callable[[PlayerProtocol], str]
+    information_hub: object
+    phase_interaction: object
 
     async def execute_sheriff_election(self) -> None:
         """Execute the sheriff election phase.
@@ -58,7 +60,7 @@ class SheriffElectionMixin:
         self.game_state.sheriff_election_done = True
 
     async def _collect_sheriff_candidates(self) -> list[PlayerProtocol]:
-        """Ask all alive players concurrently if they want to run for sheriff.
+        """Ask all alive players sequentially if they want to run for sheriff.
 
         Returns:
             list[PlayerProtocol]: List of players who want to run for sheriff.
@@ -72,8 +74,14 @@ class SheriffElectionMixin:
         async def _ask_player(player: PlayerProtocol) -> PlayerProtocol | None:
             context = self._build_campaign_context(player)
             try:
-                decision = await ActionSelector.ask_yes_no(
-                    player.agent, context, "Do you want to campaign for sheriff? (yes/no)"
+                decision = await self.phase_interaction.request_yes_no(
+                    player,
+                    player.agent,
+                    player.get_role_name(),
+                    "Do you want to campaign for sheriff? (yes/no)",
+                    context,
+                    round_number=self.game_state.round_number,
+                    phase="Sheriff Election",
                 )
                 return player if decision else None
             except Exception:
@@ -104,7 +112,14 @@ class SheriffElectionMixin:
         if not self.game_state:
             return ""
 
-        context_parts = [
+        context_parts = []
+        if hasattr(self, "build_player_observation"):
+            context_parts.append(
+                self.build_player_observation(
+                    player, include_visible_events=True, include_private_notes=True
+                )
+            )
+        context_parts.extend([
             f"You are {player.name}, a {player.get_role_name()}.",
             f"Current: Round {self.game_state.round_number} - Sheriff Election",
             "",
@@ -120,8 +135,7 @@ class SheriffElectionMixin:
             "- May help you mislead the village if you're a werewolf",
             "",
             "Consider your role and strategy before deciding.",
-        ]
-
+        ])
         return "\n".join(context_parts)
 
     async def _conduct_campaign_speeches(self, candidates: list[PlayerProtocol]) -> None:
@@ -137,22 +151,30 @@ class SheriffElectionMixin:
             EventType.MESSAGE, self.locale.get("campaign_speeches_start", count=len(candidates))
         )
 
-        for candidate in candidates:
-            if not candidate.agent:
-                continue
+        alive = self.game_state.get_alive_players()
 
-            context = self._build_speech_context(candidate, candidates)
-            speech = await ActionSelector.get_free_response(
-                candidate.agent,
-                context,
-                "Give your campaign speech (explain why you should be sheriff):",
-            )
-
+        def _on_speech(speaker, decision, _routed) -> None:
+            speech = decision.public_speech.strip()
             self._log_event(
                 EventType.SHERIFF_CANDIDATE_SPEECH,
-                self.locale.get("candidate_speech", candidate=candidate.name, speech=speech),
-                data={"player_id": candidate.player_id, "speech": speech},
+                self.locale.get("candidate_speech", candidate=speaker.name, speech=speech),
+                data={
+                    "player_id": speaker.player_id,
+                    "speech": speech,
+                    "private_thought": decision.private_thought,
+                },
             )
+
+        await self.information_hub.run_roundtable(
+            candidates,
+            channel=VisibilityChannel.PUBLIC,
+            audience=alive,
+            context_builder=lambda p: self._build_speech_context(p, candidates),
+            instruction="Give your campaign speech (explain why you should be sheriff):",
+            phase="sheriff",
+            round_number=self.game_state.round_number,
+            on_speech=_on_speech,
+        )
 
     def _build_speech_context(
         self, player: PlayerProtocol, candidates: list[PlayerProtocol]
@@ -171,7 +193,14 @@ class SheriffElectionMixin:
 
         other_candidates = [c.name for c in candidates if c.player_id != player.player_id]
 
-        context_parts = [
+        context_parts = []
+        if hasattr(self, "build_player_observation"):
+            context_parts.append(
+                self.build_player_observation(
+                    player, include_visible_events=True, include_private_notes=True
+                )
+            )
+        context_parts.extend([
             f"You are {player.name}, a {player.get_role_name()}.",
             f"Current: Round {self.game_state.round_number} - Sheriff Election (Speech Phase)",
             "",
@@ -187,12 +216,11 @@ class SheriffElectionMixin:
             "- Make promises about how you'll use your sheriff powers",
             "",
             "Keep your speech concise (2-3 sentences).",
-        ]
-
+        ])
         return "\n".join(context_parts)
 
     async def _conduct_sheriff_voting(self, candidates: list[PlayerProtocol]) -> dict[str, int]:
-        """Have all players vote for sheriff concurrently.
+        """Have all players vote for sheriff sequentially.
 
         Args:
             candidates: List of sheriff candidates.
@@ -227,14 +255,17 @@ class SheriffElectionMixin:
 
             try:
                 context = self._build_sheriff_voting_context(voter, available_candidates)
-                vote_target = await ActionSelector.get_target_from_agent(
-                    agent=voter.agent,
-                    role_name=voter.get_role_name(),
-                    action_description="Vote for sheriff",
-                    possible_targets=available_candidates,
+                vote_target = await self.phase_interaction.request_seat_choice(
+                    voter,
+                    voter.agent,
+                    voter.get_role_name(),
+                    "Vote for sheriff",
+                    available_candidates,
                     allow_skip=True,
                     additional_context=context,
                     fallback_random=False,
+                    round_number=self.game_state.round_number,
+                    phase="Sheriff Election",
                 )
                 return (voter, vote_target)
             except Exception:
@@ -279,7 +310,14 @@ class SheriffElectionMixin:
 
         candidate_names = [c.name for c in candidates]
 
-        context_parts = [
+        context_parts = []
+        if hasattr(self, "build_player_observation"):
+            context_parts.append(
+                self.build_player_observation(
+                    player, include_visible_events=True, include_private_notes=True
+                )
+            )
+        context_parts.extend([
             f"You are {player.name}, a {player.get_role_name()}.",
             f"Current: Round {self.game_state.round_number} - Sheriff Election (Voting Phase)",
             "",
@@ -293,8 +331,7 @@ class SheriffElectionMixin:
             "- Your role and win conditions",
             "",
             "You may also abstain from voting.",
-        ]
-
+        ])
         return "\n".join(context_parts)
 
     def _determine_sheriff_winner(

@@ -13,6 +13,7 @@ from llm_werewolf.core.role_registry import create_roles
 from llm_werewolf.core.types import Event, EventType
 from llm_werewolf.evaluation.checkers import (
     AsyncFlowChecker,
+    DecisionConsistencyChecker,
     InformationIsolationChecker,
     RoleSkillChecker,
     VictoryCheckerEvaluator,
@@ -188,6 +189,7 @@ class EvaluationRunner:
             ),
             (VictoryCheckerEvaluator(), {"events": events, "final_winner": final_winner}),
             (AsyncFlowChecker(), {"events": events}),
+            (DecisionConsistencyChecker(), {"events": events}),
         ]
 
         for checker, kwargs in checkers:

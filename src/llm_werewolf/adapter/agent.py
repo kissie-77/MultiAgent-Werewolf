@@ -5,16 +5,19 @@ to be compatible with LLMWerewolf's AgentProtocol interface.
 """
 import re
 import asyncio
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
-from pydantic import Field
+from pydantic import BaseModel, Field
+from openai import RateLimitError
 
 # 使用AgentScope原生的Msg类
 from agentscope.message import Msg as AgentScopeMsg
 
 from llm_werewolf.core.agent import BaseAgent
+from llm_werewolf.core.decisions import extract_public_text
 from llm_werewolf.adapter.message import MessageAdapter, Msg
 from llm_werewolf.adapter.prompts import RolePrompts, PlanStrategies
+from llm_werewolf.adapter.serial_calls import run_serial_agent_call
 
 
 class AgentScopeWerewolfAgent(BaseAgent):
@@ -28,8 +31,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
     role: str = Field(default="villager")
     number: int = Field(default=1)
     plan: str = Field(default="自由发挥")
+    plan_name: str = Field(default="default")
+    game_role_name: str = Field(default="")
     language: str = Field(default="zh-TW")
     agentscope_agent: Any = Field(default=None, exclude=True)
+    player_config: Any = Field(default=None, exclude=True)
     decision_history: list[str] = Field(default=[])
     chat_history: list[dict] = Field(default=[])
 
@@ -40,8 +46,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
         role: str = "villager",
         number: int = 1,
         plan: str = "自由发挥",
+        plan_name: str = "default",
         language: str = "zh-TW",
         agentscope_agent: Any = None,
+        player_config: Any = None,
     ):
         """Initialize the werewolf agent.
 
@@ -50,33 +58,69 @@ class AgentScopeWerewolfAgent(BaseAgent):
             model: Model name.
             role: Role type (villager, prophet, witch, wolf, wolf_king, guard, hunter).
             number: Seat number (1-12).
-            plan: Strategy plan.
+            plan: Strategy plan text (resolved from plan_name after role assignment).
+            plan_name: Plan strategy key (default, complicated, bold, ...).
             language: Response language.
-            agentscope_agent: Pre-created AgentScope AgentBase instance.
+            agentscope_agent: Pre-created AgentScope ReActAgent instance (optional).
+            player_config: PlayerConfig used to build the ReActAgent after role assignment.
         """
         super().__init__(name=name, model=model)
         self.role = role
         self.number = number
         self.plan = plan
+        self.plan_name = plan_name
+        self.game_role_name = ""
         self.language = language
+        self.player_config = player_config
         self.agentscope_agent = agentscope_agent
+        self.decision_history = []
+        self.chat_history = []
+        if agentscope_agent is not None:
+            self._init_system_prompt()
+
+    def configure_role(
+        self,
+        seat_number: int,
+        game_role_name: str,
+        plan_text: str,
+    ) -> None:
+        """Apply role-specific system prompt after the engine assigns roles."""
+        from llm_werewolf.adapter.factory import GAME_ROLE_TO_PROMPT_KEY, build_system_prompt, create_react_agent
+
+        self.number = seat_number
+        self.game_role_name = game_role_name
+        self.role = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
+        self.plan = plan_text
+
+        sys_prompt = build_system_prompt(seat_number, game_role_name, plan_text)
+        if self.player_config is not None:
+            self.agentscope_agent = create_react_agent(
+                self.player_config,
+                agent_name=self.name,
+                sys_prompt=sys_prompt,
+            )
+
         self.decision_history = []
         self.chat_history = []
         self._init_system_prompt()
 
     def _init_system_prompt(self) -> None:
-        """Initialize system prompt from role configuration."""
-        role_config = self._get_role_config()
+        """Initialize local chat history mirror from role configuration."""
+        if self.game_role_name:
+            from llm_werewolf.adapter.factory import build_system_prompt
 
-        sys_prompt = RolePrompts.BASE_PROMPT.format(
-            number=self.number,
-            role_name=role_config["role_name"],
-            role_instruction=role_config["role_instruction"],
-            suggestion=role_config["suggestion"],
-            plan=self.plan,
-        )
+            sys_prompt = build_system_prompt(self.number, self.game_role_name, self.plan)
+        else:
+            role_config = self._get_role_config()
+            sys_prompt = RolePrompts.BASE_PROMPT.format(
+                number=self.number,
+                role_name=role_config["role_name"],
+                role_instruction=role_config["role_instruction"],
+                suggestion=role_config["suggestion"],
+                plan=self.plan,
+            )
 
-        self.chat_history.append({"role": "system", "content": sys_prompt})
+        self.chat_history = [{"role": "system", "content": sys_prompt}]
 
     def _get_role_config(self) -> dict:
         """Get role configuration."""
@@ -114,13 +158,14 @@ class AgentScopeWerewolfAgent(BaseAgent):
         """
         self.chat_history.append({"role": "user", "content": message})
 
-        if self.agentscope_agent is not None:
-            return await self._call_agentscope_agent(message)
-        else:
-            return await self._call_direct_model(message)
+        if self.agentscope_agent is None:
+            msg = f"AgentScope backend not initialized for player {self.name}"
+            raise RuntimeError(msg)
+
+        return await self._call_agentscope_agent(message)
 
     async def _call_agentscope_agent(self, message: str) -> str:
-        """Call AgentScope agent for response.
+        """Call AgentScope agent for response (serialized across all 12 players).
 
         Args:
             message: The prompt message.
@@ -128,56 +173,113 @@ class AgentScopeWerewolfAgent(BaseAgent):
         Returns:
             str: The agent's response text.
         """
-        # 使用AgentScope原生的Msg类
         input_msg = AgentScopeMsg(name="Moderator", content=message, role="user")
+        response_text = ""
+        last_error: Exception | None = None
 
-        try:
-            print(f"[API调用] {self.name} 正在调用API...")
-            response_msg = await self.agentscope_agent(input_msg)
-            print(f"[API调用] {self.name} API调用成功")
+        for attempt in range(3):
+            try:
+                response_msg = await run_serial_agent_call(
+                    lambda: self.agentscope_agent(input_msg)
+                )
+                response_text = self._extract_agentscope_text(response_msg)
+                if not response_text:
+                    response_text = self._generate_fallback_response(message, "空内容")
+                last_error = None
+                break
+            except RateLimitError as exc:
+                last_error = exc
+                if attempt < 2:
+                    await asyncio.sleep(2**attempt)
+            except Exception as exc:
+                last_error = exc
+                if "429" in str(exc) and attempt < 2:
+                    await asyncio.sleep(2**attempt)
+                    continue
+                break
 
-            # Handle both Msg objects and raw responses
-            if hasattr(response_msg, 'get_text_content'):
-                response_text = response_msg.get_text_content() or ""
-            elif hasattr(response_msg, 'content'):
-                content = response_msg.content
-                if isinstance(content, str):
-                    response_text = content
-                elif isinstance(content, list):
-                    # Extract text from content blocks
-                    texts = []
-                    for block in content:
-                        if isinstance(block, dict):
-                            if block.get("type") == "text":
-                                texts.append(block.get("text", ""))
-                            elif "text" in block:
-                                texts.append(block["text"])
-                        elif isinstance(block, str):
-                            texts.append(block)
-                    response_text = "\n".join(texts)
-                else:
-                    response_text = str(content)
-            else:
-                response_text = str(response_msg)
-
-            if not response_text:
-                print(f"[API警告] {self.name} API返回空内容，使用fallback")
-                response_text = self._generate_fallback_response(message, "空内容")
-
-            # 调用完成后等待3秒，避免触发速率限制
-            print(f"[API等待] {self.name} 等待3秒...")
-            await asyncio.sleep(3)
-
-        except Exception as e:
-            # Fallback response when API call fails
-            print(f"[API失败] {self.name} 调用失败: {e}")
-            import traceback
-            traceback.print_exc()
-            response_text = self._generate_fallback_response(message, str(e))
+        if last_error is not None:
+            response_text = self._generate_fallback_response(message, str(last_error))
 
         self.chat_history.append({"role": "assistant", "content": response_text})
 
-        return response_text
+        # Prefer content inside [[...]] when the model follows RolePrompts format
+        extracted = self.extract_content(response_text)
+        if extracted:
+            return extracted
+
+        return extract_public_text(response_text)
+
+    async def get_structured_response(
+        self,
+        message: str,
+        structured_model: Type[BaseModel],
+    ) -> BaseModel | None:
+        """Get a typed response from AgentScope when the backend supports it."""
+        self.chat_history.append({"role": "user", "content": message})
+
+        if self.agentscope_agent is None:
+            msg = f"AgentScope backend not initialized for player {self.name}"
+            raise RuntimeError(msg)
+
+        input_msg = AgentScopeMsg(name="Moderator", content=message, role="user")
+        last_error: Exception | None = None
+
+        for attempt in range(3):
+            try:
+                response_msg = await run_serial_agent_call(
+                    lambda: self.agentscope_agent(
+                        input_msg,
+                        structured_model=structured_model,
+                    )
+                )
+                metadata = getattr(response_msg, "metadata", None)
+                if metadata:
+                    decision = structured_model.model_validate(metadata)
+                    self.chat_history.append(
+                        {"role": "assistant", "content": decision.model_dump_json()}
+                    )
+                    return decision
+                return None
+            except RateLimitError as exc:
+                last_error = exc
+                if attempt < 2:
+                    await asyncio.sleep(2**attempt)
+            except Exception as exc:
+                last_error = exc
+                if "429" in str(exc) and attempt < 2:
+                    await asyncio.sleep(2**attempt)
+                    continue
+                break
+
+        if last_error is not None:
+            self.chat_history.append(
+                {"role": "assistant", "content": f"structured_output_failed: {last_error}"}
+            )
+        return None
+
+    @staticmethod
+    def _extract_agentscope_text(response_msg: Any) -> str:
+        """Normalize AgentScope Msg / raw response to plain text."""
+        if hasattr(response_msg, "get_text_content"):
+            return response_msg.get_text_content() or ""
+        if hasattr(response_msg, "content"):
+            content = response_msg.content
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                texts: list[str] = []
+                for block in content:
+                    if isinstance(block, dict):
+                        if block.get("type") == "text":
+                            texts.append(block.get("text", ""))
+                        elif "text" in block:
+                            texts.append(block["text"])
+                    elif isinstance(block, str):
+                        texts.append(block)
+                return "\n".join(texts)
+            return str(content)
+        return str(response_msg)
 
     def _generate_fallback_response(self, message: str, error: str) -> str:
         """Generate a fallback response when the agent fails.
@@ -216,19 +318,6 @@ class AgentScopeWerewolfAgent(BaseAgent):
             f"我觉得我们应该团结起来找出狼人",
         ]
         return random.choice(speeches)
-
-    async def _call_direct_model(self, message: str) -> str:
-        """Call model directly without AgentScope agent wrapper.
-
-        This is a fallback method for compatibility.
-
-        Args:
-            message: The prompt message.
-
-        Returns:
-            str: The agent's response text.
-        """
-        return f"[[{self.number}]]"
 
     def add_decision(self, decision: str) -> None:
         """Add a decision to the decision history.

@@ -3,10 +3,13 @@
 import random
 from collections.abc import Callable
 
+from llm_werewolf.core.death_abilities import (
+    DEATH_ABILITY_ROLE_NAMES,
+    POISON_BLOCKS_DEATH_ABILITY,
+)
 from llm_werewolf.core.types import Camp, EventType, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 class DeathHandlerMixin:
@@ -15,6 +18,7 @@ class DeathHandlerMixin:
     game_state: GameState | None
     locale: Locale
     _log_event: Callable
+    phase_interaction: object
 
     def _handle_lover_death(self, dead_player: PlayerProtocol) -> None:
         """Handle lover partner death when a player dies.
@@ -88,15 +92,15 @@ class DeathHandlerMixin:
 
         if self.game_state.witch_saved_target == target.player_id:
             self._log_event(
-                EventType.WITCH_SAVED,
+                EventType.MESSAGE,
                 self.locale.get("saved_by_witch", player=target.name),
-                data={"player_id": target.player_id},
+                data={"action": "witch_save_resolved", "target_id": target.player_id},
             )
         elif self.game_state.guard_protected == target.player_id:
             self._log_event(
-                EventType.GUARD_PROTECTED,
+                EventType.MESSAGE,
                 self.locale.get("protected_by_guard", player=target.name),
-                data={"player_id": target.player_id},
+                data={"action": "guard_protect_resolved", "target_id": target.player_id},
             )
         elif hasattr(target.role, "lives") and target.role.lives > 1:
             target.role.lives -= 1
@@ -174,11 +178,12 @@ class DeathHandlerMixin:
                 f"Living players: {', '.join([p.name for p in possible_targets])}\n"
             )
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=sheriff.agent,
-                role_name="Sheriff",
-                action_description="Choose a player to transfer the sheriff badge to (or skip to tear it)",
-                possible_targets=possible_targets,
+            target = await self.phase_interaction.request_seat_choice(
+                sheriff,
+                sheriff.agent,
+                "Sheriff",
+                "Choose a player to transfer the sheriff badge to (or skip to tear it)",
+                possible_targets,
                 allow_skip=True,
                 additional_context=context,
             )
@@ -230,11 +235,12 @@ class DeathHandlerMixin:
 
         # Get target from agent or random
         if player.agent:
-            target = await ActionSelector.get_target_from_agent(
-                agent=player.agent,
-                role_name=role_name,
-                action_description="Choose a player to shoot before you die",
-                possible_targets=possible_targets,
+            target = await self.phase_interaction.request_seat_choice(
+                player,
+                player.agent,
+                role_name,
+                "Choose a player to shoot before you die",
+                possible_targets,
                 allow_skip=False,
                 additional_context=f"You ({player.name}) have been killed. You can take one player down with you.",
             )
@@ -316,10 +322,9 @@ class DeathHandlerMixin:
             if not player:
                 continue
 
-            if player.role.name in ("Hunter", "AlphaWolf"):
-                # Check if poisoned
+            if player.role.name in DEATH_ABILITY_ROLE_NAMES:
                 death_cause = self.game_state.death_causes.get(player_id)
-                if death_cause == "witch_poison":
+                if death_cause == POISON_BLOCKS_DEATH_ABILITY:
                     self._log_event(
                         EventType.MESSAGE,
                         self.locale.get("poisoned_no_ability", player=player.name),
@@ -349,9 +354,9 @@ class DeathHandlerMixin:
         self.game_state.death_causes[target.player_id] = "witch_poison"
 
         self._log_event(
-            EventType.WITCH_POISONED,
+            EventType.PLAYER_DIED,
             self.locale.get("witch_poisoned_target", target=target.name),
-            data={"player_id": target.player_id},
+            data={"player_id": target.player_id, "reason": "witch_poison"},
         )
 
         # Handle lover death

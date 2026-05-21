@@ -1,0 +1,33 @@
+# 6 人 LLM 对局 - wenhuichen 网关 + gemini-3.1-flash
+language: zh-CN
+
+players:
+  - name: 玩家1
+    model: gemini-3-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家2
+    model: gemini-3-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家3
+    model: gemini-3-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家4
+    model: gemini-3-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家5
+    model: gemini-3-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家6
+    model: gemini-3-flash
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY

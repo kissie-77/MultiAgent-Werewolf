@@ -183,7 +183,7 @@ class LLMAgent(BaseAgent):
         """
         return AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
-    async def get_response(self, message: str, max_retries: int = 3, timeout: float = 30.0) -> str:
+    async def get_response(self, message: str, max_retries: int = 3, timeout: float = 90.0) -> str:
         """Get a response from the LLM with retry and timeout.
 
         Args:
@@ -209,6 +209,7 @@ class LLMAgent(BaseAgent):
                             model=self.model,
                             messages=self.chat_history,
                             reasoning_effort=self.reasoning_effort,
+                            max_tokens=2048,
                             stream=False,
                         ),
                         timeout=timeout,
@@ -218,6 +219,7 @@ class LLMAgent(BaseAgent):
                         self.client.chat.completions.create(
                             model=self.model,
                             messages=self.chat_history,
+                            max_tokens=2048,
                             stream=False,
                         ),
                         timeout=timeout,
@@ -262,14 +264,18 @@ class LLMAgent(BaseAgent):
 
 
 def create_agent(
-    config: PlayerConfig, language: str = "en-US", use_agentscope: bool = False
+    config: PlayerConfig,
+    language: str = "en-US",
+    use_agentscope: bool = True,
+    default_plan: str = "default",
 ) -> DemoAgent | HumanAgent | LLMAgent:
     """Create an agent instance from player configuration.
 
     Args:
         config: Player configuration.
         language: Language code for the agent (e.g., "en-US", "zh-TW").
-        use_agentscope: Whether to use AgentScope agent.
+        use_agentscope: Whether to use AgentScope ReActAgent (default True).
+        default_plan: Plan strategy when config.plan is not set.
 
     Returns:
         DemoAgent | HumanAgent | LLMAgent: Created agent instance.
@@ -288,10 +294,14 @@ def create_agent(
     if use_agentscope:
         from llm_werewolf.adapter.agent import AgentScopeWerewolfAgent
 
+        plan_name = config.plan or default_plan
+
         return AgentScopeWerewolfAgent(
             name=config.name,
             model=config.model,
             language=language,
+            plan_name=plan_name,
+            player_config=config,
         )
 
     api_key = None

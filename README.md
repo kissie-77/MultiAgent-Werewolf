@@ -64,40 +64,30 @@ uv run werewolf configs/demo.yaml
 
 ## 项目架构
 
+详见 [docs/arch.md](docs/arch.md)、[docs/README.md](docs/README.md)。
+
 ```
 src/llm_werewolf/
-├── cli.py                 # 控制台模式入口
-├── tui.py                 # TUI 模式入口
-├── ai/                    # Agent 系统（后续将替换为 AgentScope）
-│   └── agents.py
-├── core/                  # 核心游戏逻辑
-│   ├── engine/            # 游戏引擎（Mixin 拆分）
-│   │   ├── game_engine.py      # 主引擎
-│   │   ├── base.py             # 主循环
-│   │   ├── night_phase.py      # 夜晚阶段
-│   │   ├── day_phase.py        # 白天讨论
-│   │   ├── voting_phase.py     # 投票阶段
-│   │   ├── death_handler.py    # 死亡处理
-│   │   └── action_processor.py # 行动处理
-│   ├── actions/           # 行动系统
-│   ├── roles/             # 角色实现（20+ 角色）
-│   ├── config/            # 配置系统
-│   └── types/             # 类型定义
-└── ui/                    # TUI 界面
+├── cli.py / tui.py / eval_cli.py   # 应用入口
+├── adapter/                        # LLM 适配（InformationHub + Bridge）
+├── core/                           # 规则引擎（GameEngine + NightSkillScheduler）
+│   ├── engine/                     # 阶段 Mixin
+│   ├── roles/ / actions/           # 角色与动作
+│   └── events + event_visibility   # 事件与可见性（观察单一事实源）
+├── evaluation/                     # 离线评测 werewolf-eval
+└── ui/                             # TUI / Console 展示
 ```
 
 ## 当前进度
 
-- [x] 游戏引擎核心流程（异步化改造完成）
-- [x] 多模型支持（OpenAI/Anthropic/DeepSeek/Ollama）
-- [x] 20+ 角色系统
-- [x] YAML 配置
-- [x] Demo 模式验证
-- [ ] AgentScope 接入
-- [ ] 信息隔离层（ObservationBuilder）
-- [ ] 结构化日志（JSON 事件流）
-- [ ] Web 前端观战 UI
-- [ ] 评测与复盘体系
+- [x] 游戏引擎核心流程（异步）
+- [x] 多模型 + AgentScope 适配层（`adapter/`）
+- [x] 信息隔离（`Event.visible_to` + `InformationHub` + 评测 Checker）
+- [x] 夜间技能调度（狼票结算后再女巫）
+- [x] 离线评测 CLI（`werewolf-eval`）
+- [ ] 扩展狼角色迁入 `role_night_plans`
+- [ ] Web 观战 UI
+- [ ] 信念矩阵（远期）
 
 ## 团队分工
 

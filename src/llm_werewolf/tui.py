@@ -24,14 +24,26 @@ def main(config: str) -> None:
     num_players = len(players_config.players)
     game_config = create_game_config_from_player_count(num_players)
 
+    use_agentscope = players_config.agent_backend.lower() != "openai"
+
     players = [
-        create_agent(player_cfg, language=players_config.language)
+        create_agent(
+            player_cfg,
+            language=players_config.language,
+            use_agentscope=use_agentscope,
+            default_plan=players_config.default_plan,
+        )
         for player_cfg in players_config.players
     ]
     roles = create_roles(role_names=game_config.role_names)
 
     engine = GameEngine(game_config, language=players_config.language)
     engine.setup_game(players=players, roles=roles)
+
+    if use_agentscope:
+        from llm_werewolf.adapter.setup import bind_agentscope_roles
+
+        bind_agentscope_roles(engine.game_state, default_plan=players_config.default_plan)
     logfire.info("tui_started", config_path=str(config_path), num_players=num_players)
 
     try:

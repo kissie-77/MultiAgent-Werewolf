@@ -1,0 +1,52 @@
+# 12 人 LLM 对局 - wenhuichen + gemini-3.1-flash-lite-preview
+language: zh-CN
+
+players:
+  - name: 玩家1
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家2
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家3
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家4
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家5
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家6
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家7
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家8
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家9
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家10
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家11
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+  - name: 玩家12
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY

@@ -8,8 +8,9 @@
 - [x] Demo 模式验证（DemoAgent 无 API 跑通）
 - [x] 修复 AlphaWolf super() chain bug
 - [x] 离线游戏正确性评测第一版（`werewolf-eval` → ADR-0004）
-- [ ] AgentScope 接入 → 待写 ADR
-- [ ] 信息隔离层（ObservationBuilder 完整化）
+- [x] AgentScope 接入（`adapter/agent.py` + Hub；ADR 待补简短说明）
+- [x] 信息隔离层第一版（Event `visible_to` + MsgHub + 评测 checker）
+- [ ] 核心重构收尾 → 见 [project-master-plan.md](./project-master-plan.md)
 
 ## 下个迭代
 - [ ] 结构化日志（JSON 事件流，供 Web 端订阅）

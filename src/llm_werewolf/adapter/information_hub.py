@@ -1,0 +1,452 @@
+"""MsgHub-based information isolation for all agent interactions.
+
+Every LLM call runs inside a MsgHub scoped to the correct audience:
+- PUBLIC: all alive players hear broadcasts (day discussion, sheriff speeches, narrator)
+- WOLF_TEAM: werewolves only
+- PRIVATE: single actor only (votes, night skills, yes/no decisions)
+
+Engine Event.visible_to remains the authoritative log filter; MsgHub controls
+ReActAgent memory isolation.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable
+
+from agentscope.message import Msg as AgentScopeMsg
+from agentscope.pipeline import MsgHub
+
+from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
+from llm_werewolf.adapter.visibility import (
+    RoutedMessage,
+    VisibilityChannel,
+    audience_for_channel,
+)
+from llm_werewolf.core.decisions import SpeechDecision
+from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
+
+if TYPE_CHECKING:
+    from llm_werewolf.core.player import Player
+
+
+class InformationHub:
+    """Routes all agent traffic through MsgHub with channel-based visibility."""
+
+    def __init__(self) -> None:
+        self._build_observation: Callable[[PlayerProtocol], str] | None = None
+        self._get_alive_players: Callable[[], list[PlayerProtocol]] | None = None
+
+    def set_context_provider(
+        self,
+        *,
+        build_observation: Callable[[PlayerProtocol], str],
+        get_alive_players: Callable[[], list[PlayerProtocol]],
+    ) -> None:
+        """Wire engine observation builders (called from GameEngine.setup_game)."""
+        self._build_observation = build_observation
+        self._get_alive_players = get_alive_players
+
+    @staticmethod
+    def _react_agent(player: PlayerProtocol) -> Any | None:
+        agent = player.agent
+        if agent is None:
+            return None
+        return getattr(agent, "agentscope_agent", None)
+
+    def _resolve_audience(
+        self,
+        channel: VisibilityChannel,
+        *,
+        audience: list[PlayerProtocol] | None = None,
+        actor: PlayerProtocol | None = None,
+    ) -> list[PlayerProtocol]:
+        if audience is not None:
+            return [p for p in audience if p.is_alive() and self._react_agent(p)]
+        if channel == VisibilityChannel.PRIVATE and actor is not None:
+            return [actor] if actor.is_alive() and self._react_agent(actor) else []
+        if self._get_alive_players is None:
+            return []
+        alive = self._get_alive_players()
+        ids = audience_for_channel(channel, list(alive))
+        id_set = set(ids)
+        return [p for p in alive if p.player_id in id_set and self._react_agent(p)]
+
+    def _merge_private_context(
+        self,
+        actor: PlayerProtocol,
+        additional_context: str,
+    ) -> str:
+        parts: list[str] = []
+        if self._build_observation:
+            observation = self._build_observation(actor)
+            if observation:
+                parts.append(observation)
+        if actor.agent:
+            decision_context = actor.agent.get_decision_context()
+            if decision_context:
+                parts.append(decision_context)
+        if additional_context:
+            parts.append(additional_context)
+        return "\n\n".join(parts)
+
+    async def _deliver_private(
+        self,
+        react_agent: Any,
+        speaker_name: str,
+        private_thought: str,
+    ) -> None:
+        if not private_thought.strip():
+            return
+        private_msg = AgentScopeMsg(
+            name="Moderator",
+            content=f"[内心 · 仅{speaker_name}可见] {private_thought.strip()}",
+            role="user",
+            metadata={"visibility": VisibilityChannel.PRIVATE.value},
+        )
+        await react_agent.observe(private_msg)
+
+    async def _broadcast_moderator(
+        self,
+        hub: MsgHub,
+        content: str,
+        *,
+        channel: VisibilityChannel,
+        phase: str = "",
+        round_number: int = 0,
+    ) -> None:
+        if not content.strip():
+            return
+        msg = AgentScopeMsg(
+            name="Moderator",
+            content=content.strip(),
+            role="user",
+            metadata={
+                "visibility": channel.value,
+                "phase": phase,
+                "round": round_number,
+            },
+        )
+        await hub.broadcast(msg)
+
+    async def _broadcast_public(
+        self,
+        hub: MsgHub,
+        speaker: PlayerProtocol,
+        public_speech: str,
+        channel: VisibilityChannel,
+        phase: str,
+        round_number: int,
+        audience_players: list[PlayerProtocol],
+    ) -> RoutedMessage:
+        seat = WerewolfAdapterBridge.get_player_seat(speaker) or 0
+        audience = [p.player_id for p in audience_players]
+        routed = RoutedMessage(
+            speaker_seat=seat,
+            speaker_player_id=speaker.player_id,
+            speaker_name=speaker.name,
+            public_speech=public_speech,
+            private_thought=None,
+            channel=channel,
+            phase=phase,
+            round_number=round_number,
+            audience_player_ids=audience,
+        )
+        public_msg = AgentScopeMsg(
+            name=speaker.name,
+            content=public_speech,
+            role="assistant",
+            metadata={
+                "visibility": channel.value,
+                "seat": seat,
+                "phase": phase,
+                "round": round_number,
+            },
+        )
+        await hub.broadcast(public_msg)
+        return routed
+
+    async def announce(
+        self,
+        content: str,
+        *,
+        channel: VisibilityChannel = VisibilityChannel.PUBLIC,
+        audience: list[PlayerProtocol] | None = None,
+        phase: str = "",
+        round_number: int = 0,
+    ) -> None:
+        """Broadcast narrator/context to a channel via MsgHub."""
+        members = self._resolve_audience(channel, audience=audience)
+        react_agents = [a for a in (self._react_agent(p) for p in members) if a is not None]
+        if not react_agents:
+            return
+        async with MsgHub(
+            participants=react_agents,
+            enable_auto_broadcast=False,
+            name=f"announce-{channel.value}-r{round_number}",
+        ) as hub:
+            await self._broadcast_moderator(
+                hub, content, channel=channel, phase=phase, round_number=round_number
+            )
+
+    async def run_roundtable(
+        self,
+        speakers: list[PlayerProtocol],
+        *,
+        channel: VisibilityChannel,
+        context_builder: Callable[[PlayerProtocol], str],
+        instruction: str,
+        phase: str,
+        round_number: int,
+        audience: list[PlayerProtocol] | None = None,
+        opening_announcement: str = "",
+        on_speech: Callable[
+            [PlayerProtocol, SpeechDecision, RoutedMessage | None], None
+        ]
+        | None = None,
+    ) -> list[RoutedMessage]:
+        """Sequential discussion; MsgHub audience hears only public lines."""
+        routed_messages: list[RoutedMessage] = []
+        audience_players = self._resolve_audience(channel, audience=audience)
+        react_agents = [a for a in (self._react_agent(p) for p in audience_players) if a]
+
+        if not react_agents:
+            return routed_messages
+
+        async with MsgHub(
+            participants=react_agents,
+            enable_auto_broadcast=False,
+            name=f"roundtable-{channel.value}-r{round_number}",
+        ) as hub:
+            if opening_announcement:
+                await self._broadcast_moderator(
+                    hub,
+                    opening_announcement,
+                    channel=channel,
+                    phase=phase,
+                    round_number=round_number,
+                )
+
+            for speaker in speakers:
+                if not speaker.is_alive() or speaker.agent is None:
+                    continue
+
+                context = context_builder(speaker)
+                decision = await WerewolfAdapterBridge.request_speech(
+                    speaker.agent,
+                    context,
+                    instruction,
+                )
+
+                react_self = self._react_agent(speaker)
+                routed: RoutedMessage | None = None
+
+                if react_self and decision.private_thought:
+                    await self._deliver_private(
+                        react_self, speaker.name, decision.private_thought
+                    )
+
+                if decision.public_speech.strip():
+                    routed = await self._broadcast_public(
+                        hub,
+                        speaker,
+                        decision.public_speech.strip(),
+                        channel,
+                        phase,
+                        round_number,
+                        audience_players,
+                    )
+                    routed.private_thought = decision.private_thought
+                    routed_messages.append(routed)
+
+                if speaker.agent:
+                    speaker.agent.add_decision(
+                        f"Round {round_number} ({channel.value}): "
+                        f"You said: {decision.public_speech}"
+                    )
+
+                if on_speech:
+                    on_speech(speaker, decision, routed)
+
+        return routed_messages
+
+    async def _run_private_session(
+        self,
+        actor: PlayerProtocol,
+        channel: VisibilityChannel,
+        phase: str,
+        round_number: int,
+        context: str,
+        action: Callable[[], Any],
+    ) -> Any:
+        """Run an agent call inside a single-participant MsgHub."""
+        react = self._react_agent(actor)
+        if react is None:
+            return await action()
+
+        async with MsgHub(
+            participants=[react],
+            enable_auto_broadcast=False,
+            name=f"private-{channel.value}-{actor.player_id}-r{round_number}",
+        ) as hub:
+            await self._broadcast_moderator(
+                hub,
+                context,
+                channel=VisibilityChannel.PRIVATE,
+                phase=phase,
+                round_number=round_number,
+            )
+            return await action()
+
+    async def request_private_seat_choice(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        action_description: str,
+        possible_targets: list[PlayerProtocol],
+        allow_skip: bool = False,
+        additional_context: str = "",
+        fallback_random: bool = True,
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> PlayerProtocol | None:
+        context = self._merge_private_context(actor, additional_context)
+
+        async def _call() -> PlayerProtocol | None:
+            return await WerewolfAdapterBridge.request_seat_choice(
+                agent,
+                role_name,
+                action_description,
+                possible_targets,
+                allow_skip,
+                context,
+                fallback_random,
+                round_number,
+                phase,
+            )
+
+        return await self._run_private_session(
+            actor,
+            VisibilityChannel.PRIVATE,
+            phase or "",
+            round_number or 0,
+            context,
+            _call,
+        )
+
+    async def request_private_yes_no(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        question: str,
+        context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> bool:
+        full_context = self._merge_private_context(actor, context)
+
+        async def _call() -> bool:
+            return await WerewolfAdapterBridge.request_yes_no(
+                agent,
+                role_name,
+                question,
+                full_context,
+                round_number,
+                phase,
+            )
+
+        return await self._run_private_session(
+            actor,
+            VisibilityChannel.PRIVATE,
+            phase or "",
+            round_number or 0,
+            full_context,
+            _call,
+        )
+
+    async def request_private_multi_target(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        action_description: str,
+        possible_targets: list[PlayerProtocol],
+        num_targets: int,
+        additional_context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> list[PlayerProtocol] | None:
+        context = self._merge_private_context(actor, additional_context)
+        prompt = WerewolfAdapterBridge.build_multi_target_prompt(
+            role_name,
+            action_description,
+            possible_targets,
+            num_targets,
+            context,
+            round_number,
+            phase,
+        )
+
+        async def _call() -> list[PlayerProtocol] | None:
+            try:
+                response = await agent.get_response(prompt)
+                return WerewolfAdapterBridge.parse_multi_target_selection(
+                    response, possible_targets, num_targets
+                )
+            except Exception:
+                return None
+
+        return await self._run_private_session(
+            actor,
+            VisibilityChannel.PRIVATE,
+            phase or "",
+            round_number or 0,
+            context,
+            _call,
+        )
+
+    async def collect_speech(
+        self,
+        speaker: PlayerProtocol,
+        context: str,
+        *,
+        channel: VisibilityChannel,
+        instruction: str = "",
+        phase: str = "",
+        round_number: int = 0,
+        audience: list[PlayerProtocol] | None = None,
+    ) -> SpeechDecision:
+        """Single speech with MsgHub routing (used when not in roundtable)."""
+        audience_players = self._resolve_audience(channel, audience=audience, actor=speaker)
+        react_agents = [a for a in (self._react_agent(p) for p in audience_players) if a]
+
+        if speaker.agent is None:
+            return SpeechDecision(public_speech="（无公开发言）", private_thought=None)
+
+        decision = await WerewolfAdapterBridge.request_speech(
+            speaker.agent, context, instruction
+        )
+        react_self = self._react_agent(speaker)
+        if not react_self or not react_agents:
+            return decision
+
+        async with MsgHub(
+            participants=react_agents,
+            enable_auto_broadcast=False,
+            name=f"speech-{channel.value}-r{round_number}",
+        ) as hub:
+            if decision.private_thought:
+                await self._deliver_private(react_self, speaker.name, decision.private_thought)
+            if decision.public_speech.strip():
+                await self._broadcast_public(
+                    hub,
+                    speaker,
+                    decision.public_speech.strip(),
+                    channel,
+                    phase,
+                    round_number,
+                    audience_players,
+                )
+
+        return decision

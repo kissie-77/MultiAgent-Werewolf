@@ -37,6 +37,10 @@ class PlayerConfig(BaseModel):
     reasoning_effort: ReasoningEffort | None = Field(
         default=None, title="Reasoning Effort", description="Reasoning effort level for LLM"
     )
+    plan: str | None = Field(
+        default=None,
+        description="Plan strategy name (default, complicated, bold, ...) for AgentScope prompts",
+    )
 
     @field_validator("base_url")
     @classmethod
@@ -57,6 +61,14 @@ class PlayersConfig(BaseModel):
         title="Language",
         description="Language code for the game.",
         examples=["en-US", "zh-TW"],
+    )
+    agent_backend: str = Field(
+        default="agentscope",
+        description="Agent backend: 'agentscope' (default) or 'openai' (legacy LLMAgent)",
+    )
+    default_plan: str = Field(
+        default="default",
+        description="Default plan strategy for AgentScope RolePrompts / PlanStrategies",
     )
     players: list[PlayerConfig] = Field(
         ...,

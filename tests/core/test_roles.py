@@ -1,4 +1,4 @@
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from llm_werewolf.core.agent import DemoAgent
 from llm_werewolf.core.roles import Camp, Seer, Guard, Witch, Villager, Werewolf
@@ -70,17 +70,17 @@ async def test_werewolf_get_night_actions() -> None:
     )
     players = [werewolf_player, villager_player]
     game_state = GameState(players)
-
+    game_state.phase_interaction = MagicMock()
     with patch(
-        "llm_werewolf.core.action_selector.ActionSelector.get_target_from_agent",
+        "llm_werewolf.core.role_night_plans.plan_werewolf_vote",
         new_callable=AsyncMock,
-        return_value=villager_player,
-    ):
+        return_value=[WerewolfVoteAction(werewolf_player, villager_player, game_state)],
+    ) as plan_mock:
         actions = await werewolf_player.role.get_night_actions(game_state)
-        assert len(actions) == 1
-        # Now using WerewolfVoteAction instead of WerewolfKillAction (voting mechanism)
-        assert isinstance(actions[0], WerewolfVoteAction)
-        assert actions[0].target == villager_player
+        plan_mock.assert_awaited_once()
+    assert len(actions) == 1
+    assert isinstance(actions[0], WerewolfVoteAction)
+    assert actions[0].target == villager_player
 
 
 async def test_seer_get_night_actions() -> None:
@@ -91,16 +91,16 @@ async def test_seer_get_night_actions() -> None:
     )
     players = [seer_player, villager_player]
     game_state = GameState(players)
-
+    game_state.phase_interaction = MagicMock()
     with patch(
-        "llm_werewolf.core.action_selector.ActionSelector.get_target_from_agent",
+        "llm_werewolf.core.role_night_plans.plan_seer_check",
         new_callable=AsyncMock,
-        return_value=villager_player,
+        return_value=[SeerCheckAction(seer_player, villager_player, game_state)],
     ):
         actions = await seer_player.role.get_night_actions(game_state)
-        assert len(actions) == 1
-        assert isinstance(actions[0], SeerCheckAction)
-        assert actions[0].target == villager_player
+    assert len(actions) == 1
+    assert isinstance(actions[0], SeerCheckAction)
+    assert actions[0].target == villager_player
 
 
 async def test_witch_get_night_actions_save() -> None:
@@ -112,12 +112,17 @@ async def test_witch_get_night_actions_save() -> None:
     players = [witch_player, villager_player]
     game_state = GameState(players)
     game_state.werewolf_target = "p2"
+    game_state.phase_interaction = MagicMock()
 
-    with patch("llm_werewolf.core.action_selector.ActionSelector.parse_yes_no", return_value=True):
+    with patch(
+        "llm_werewolf.core.role_night_plans.plan_witch_actions",
+        new_callable=AsyncMock,
+        return_value=[WitchSaveAction(witch_player, villager_player, game_state)],
+    ):
         actions = await witch_player.role.get_night_actions(game_state)
-        assert len(actions) == 1
-        assert isinstance(actions[0], WitchSaveAction)
-        assert actions[0].target == villager_player
+    assert len(actions) == 1
+    assert isinstance(actions[0], WitchSaveAction)
+    assert actions[0].target == villager_player
 
 
 async def test_witch_get_night_actions_poison() -> None:
@@ -127,8 +132,16 @@ async def test_witch_get_night_actions_poison() -> None:
     players = [witch_player, villager_player]
     game_state = GameState(players)
     witch_player.role.has_save_potion = False
+    game_state.phase_interaction = MagicMock()
 
-    with patch("random.choice", return_value=villager_player):
+    with (
+        patch("random.choice", return_value=villager_player),
+        patch(
+            "llm_werewolf.core.role_night_plans.plan_witch_actions",
+            new_callable=AsyncMock,
+            return_value=[WitchPoisonAction(witch_player, villager_player, game_state)],
+        ),
+    ):
         actions = await witch_player.role.get_night_actions(game_state)
         if actions:
             assert len(actions) == 1
@@ -144,13 +157,13 @@ async def test_guard_get_night_actions() -> None:
     )
     players = [guard_player, villager_player]
     game_state = GameState(players)
-
+    game_state.phase_interaction = MagicMock()
     with patch(
-        "llm_werewolf.core.action_selector.ActionSelector.get_target_from_agent",
+        "llm_werewolf.core.role_night_plans.plan_guard_protect",
         new_callable=AsyncMock,
-        return_value=villager_player,
+        return_value=[GuardProtectAction(guard_player, villager_player, game_state)],
     ):
         actions = await guard_player.role.get_night_actions(game_state)
-        assert len(actions) == 1
-        assert isinstance(actions[0], GuardProtectAction)
-        assert actions[0].target == villager_player
+    assert len(actions) == 1
+    assert isinstance(actions[0], GuardProtectAction)
+    assert actions[0].target == villager_player

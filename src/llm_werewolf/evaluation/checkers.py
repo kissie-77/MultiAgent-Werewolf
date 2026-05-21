@@ -5,10 +5,15 @@ from llm_werewolf.evaluation.models import CheckResult, CheckSeverity
 class InformationIsolationChecker:
     """检查私有事件是否泄露到无权限玩家视角。
 
-    当前实现用“事件 message 是否出现在 observation 文本中”做保守检测。
-    这不是最终形态的语义级信息流分析，但足够发现最危险的一类问题：
-    `visible_to` 限定的内容被拼进了其他玩家 prompt。
+    检测 message 全文与 data 内敏感字段（如验人 result、狼票明细）是否出现在他人 observation。
     """
+
+    _SENSITIVE_DATA_KEYS = frozenset({
+        "result",
+        "werewolf_votes",
+        "private_thought",
+        "decision",
+    })
 
     def check(
         self,
@@ -19,33 +24,57 @@ class InformationIsolationChecker:
         results: list[CheckResult] = []
 
         for event in events:
-            # 没有 visible_to 的事件是公开事件；没有 message 的事件也无法做文本泄露检查。
-            if not event.visible_to or not event.message:
+            if not event.visible_to:
                 continue
 
             allowed = set(event.visible_to)
+            sensitive_fragments = self._collect_sensitive_fragments(event)
+
             for player_id, observation in observations_by_player.items():
-                # 授权玩家看到私有事件是合法的。
                 if player_id in allowed:
                     continue
-                # 非授权玩家的 observation 中出现完整私有消息，判为严重信息泄露。
-                if event.message in observation:
-                    results.append(
-                        CheckResult(
-                            checker=self.__class__.__name__,
-                            passed=False,
-                            message="Private event appeared in unauthorized observation",
-                            severity=CheckSeverity.CRITICAL,
-                            data={
-                                "player_id": player_id,
-                                "event_type": event.event_type.value,
-                                "round_number": event.round_number,
-                                "phase": event.phase,
-                            },
+                for fragment in sensitive_fragments:
+                    if fragment and fragment in observation:
+                        results.append(
+                            CheckResult(
+                                checker=self.__class__.__name__,
+                                passed=False,
+                                message="Private event content appeared in unauthorized observation",
+                                severity=CheckSeverity.CRITICAL,
+                                data={
+                                    "player_id": player_id,
+                                    "event_type": event.event_type.value,
+                                    "round_number": event.round_number,
+                                    "phase": event.phase,
+                                    "leaked_fragment": fragment[:80],
+                                },
+                            )
                         )
-                    )
+                        break
 
         return results
+
+    def _collect_sensitive_fragments(self, event: Event) -> list[str]:
+        fragments: list[str] = []
+        if event.message:
+            fragments.append(event.message)
+        data = event.data or {}
+        for key in self._SENSITIVE_DATA_KEYS:
+            value = data.get(key)
+            if value is None:
+                continue
+            if isinstance(value, str):
+                fragments.append(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        for part in item.values():
+                            if isinstance(part, str) and part:
+                                fragments.append(part)
+        result = data.get("result")
+        if isinstance(result, str) and result:
+            fragments.append(result)
+        return fragments
 
 
 class AsyncFlowChecker:
@@ -166,5 +195,64 @@ class RoleSkillChecker:
                         },
                     )
                 )
+
+        return results
+
+
+class DecisionConsistencyChecker:
+    """Check that parsed decisions agree with resolved action targets."""
+
+    _target_events = {
+        EventType.GUARD_PROTECTED,
+        EventType.WITCH_SAVED,
+        EventType.WITCH_POISONED,
+        EventType.SEER_CHECKED,
+        EventType.VOTE_CAST,
+    }
+
+    _public_speech_events = {
+        EventType.PLAYER_SPEECH,
+        EventType.PLAYER_DISCUSSION,
+    }
+
+    def check(self, events: list[Event]) -> list[CheckResult]:
+        results: list[CheckResult] = []
+
+        for event in events:
+            if event.event_type in self._target_events:
+                decision = event.data.get("decision") or {}
+                resolved_target_id = decision.get("resolved_target_id")
+                if resolved_target_id and resolved_target_id != event.data.get("target_id"):
+                    results.append(
+                        CheckResult(
+                            checker=self.__class__.__name__,
+                            passed=False,
+                            message="Parsed decision target does not match resolved event target",
+                            severity=CheckSeverity.CRITICAL,
+                            data={
+                                "event_type": event.event_type.value,
+                                "round_number": event.round_number,
+                                "decision_target_id": resolved_target_id,
+                                "event_target_id": event.data.get("target_id"),
+                            },
+                        )
+                    )
+
+            if event.event_type in self._public_speech_events:
+                speech = event.data.get("speech", event.message)
+                if "{" in speech or "}" in speech:
+                    results.append(
+                        CheckResult(
+                            checker=self.__class__.__name__,
+                            passed=False,
+                            message="Public speech contains private-thought markers",
+                            severity=CheckSeverity.WARNING,
+                            data={
+                                "event_type": event.event_type.value,
+                                "round_number": event.round_number,
+                                "player_id": event.data.get("player_id"),
+                            },
+                        )
+                    )
 
         return results

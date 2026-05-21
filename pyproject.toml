@@ -64,6 +64,7 @@ name = "llm_werewolf"
 version = "0.1.0"
 description = "AI-powered Werewolf game with LLM integration and TUI interface"
 dependencies = [
+    "agentscope>=1.0.20",
     "fire>=0.7.1",
     "logfire>=4.27.0",
     "openai>=2.26.0",

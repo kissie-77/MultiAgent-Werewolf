@@ -1,4 +1,12 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from llm_werewolf.core.types import Event, GamePhase, GameStateInfo, PlayerProtocol
+
+if TYPE_CHECKING:
+    from llm_werewolf.adapter.information_hub import InformationHub
+    from llm_werewolf.core.phase_interaction import PhaseInteraction
 
 
 class GameState:
@@ -41,6 +49,16 @@ class GameState:
         self.sheriff_votes: dict[str, str] = {}
 
         self.winner: str | None = None
+
+        self.information_hub: InformationHub | None = None
+        self.phase_interaction: PhaseInteraction | None = None
+
+    def require_phase_interaction(self) -> PhaseInteraction:
+        """Return the injected phase interaction API for this game."""
+        if self.phase_interaction is None:
+            msg = "PhaseInteraction is not initialized on GameState"
+            raise RuntimeError(msg)
+        return self.phase_interaction
 
     def reset_deaths(self) -> None:
         """Reset the death sets for a new round."""

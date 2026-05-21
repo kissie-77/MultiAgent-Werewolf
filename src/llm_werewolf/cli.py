@@ -16,11 +16,12 @@ from llm_werewolf.ui.console_presenter import ConsolePresenter
 console = Console()
 
 
-async def main(config: str) -> None:
+async def main(config: str, viewer: str | None = None) -> None:
     """Run Werewolf game in console mode (auto-play).
 
     Args:
         config: Path to the YAML configuration file
+        viewer: Optional player_id for filtered view (e.g. player_3). None = god view.
     """
     config_path = Path(config)
     players_config = load_config(config_path=config_path)
@@ -29,8 +30,15 @@ async def main(config: str) -> None:
     num_players = len(players_config.players)
     game_config = create_game_config_from_player_count(num_players)
 
+    use_agentscope = players_config.agent_backend.lower() != "openai"
+
     players = [
-        create_agent(player_cfg, language=players_config.language)
+        create_agent(
+            player_cfg,
+            language=players_config.language,
+            use_agentscope=use_agentscope,
+            default_plan=players_config.default_plan,
+        )
         for player_cfg in players_config.players
     ]
     roles = create_roles(role_names=game_config.role_names)
@@ -41,15 +49,25 @@ async def main(config: str) -> None:
 
     # Set up beautified console presenter
     presenter = ConsolePresenter(locale)
-    engine.on_event = presenter.present_event
+    if viewer:
+        engine.on_event = lambda event: presenter.present_event(event, viewer_id=viewer)
+    else:
+        engine.on_event = presenter.present_event
 
     engine.setup_game(players=players, roles=roles)
+
+    if use_agentscope:
+        from llm_werewolf.adapter.setup import bind_agentscope_roles
+
+        bind_agentscope_roles(engine.game_state, default_plan=players_config.default_plan)
     logfire.info("game_created", config_path=str(config_path), num_players=num_players)
 
     console.print(
         f"[green]{locale.get('config_loaded', config_path=config_path.resolve())}[/green]"
     )
     console.print(f"[cyan]{locale.get('player_count_info', num_players=num_players)}[/cyan]")
+    backend_label = "AgentScope" if use_agentscope else "OpenAI LLMAgent"
+    console.print(f"[cyan]Agent 后端: {backend_label}[/cyan]")
     console.print(f"[cyan]{locale.get('interface_mode')}[/cyan]")
 
     try:
@@ -97,13 +115,14 @@ async def main(config: str) -> None:
         raise
 
 
-def _run_main(config: str) -> None:
+def _run_main(config: str, viewer: str | None = None) -> None:
     """Sync wrapper to run the async main function.
 
     Args:
         config: Path to the YAML configuration file
+        viewer: Optional player_id to filter visible events in the console
     """
-    asyncio.run(main(config))
+    asyncio.run(main(config, viewer=viewer))
 
 
 def entry() -> None:

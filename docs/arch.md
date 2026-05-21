@@ -2,24 +2,71 @@
 
 LLM 狼人杀项目的整体架构。
 
-> 注：本文档中以 `core/...` 开头的路径相对 `src/llm_werewolf/`。
+> 文档索引：[README.md](./README.md)  
+> 职责与可见性：[project-governance.md](./project-governance.md)
+
+路径均相对 `src/llm_werewolf/`。
 
 ## 整体分层
 
-项目分四层：
+```mermaid
+flowchart TB
+    subgraph app [应用层]
+        CLI[cli.py]
+        TUI[tui.py]
+        EVAL[eval_cli.py]
+    end
+    subgraph domain [领域层]
+        GE[core/engine GameEngine]
+        NS[core/night_scheduler]
+        GS[core/game_state]
+        ROLE[core/roles]
+        ACT[core/actions]
+        EV[core/events + event_visibility]
+        OBS[core/observation]
+    end
+    subgraph adapter [适配层]
+        PI[core/phase_interaction]
+        HUB[adapter/information_hub]
+        BR[adapter/bridge]
+        AG[adapter/agent]
+    end
+    CLI --> GE
+    TUI --> GE
+    EVAL --> GE
+    GE --> NS
+    NS --> PI
+    PI --> HUB
+    HUB --> BR
+    HUB --> AG
+    NS --> ROLE
+    NS --> ACT
+    ACT --> GS
+    GE --> EV
+    GE --> OBS
+```
 
-1. **入口层** — `cli.py`（自动 Console 模式）/ `tui.py`（Textual TUI）
-2. **引擎层** — `core/engine/` 下 `GameEngine` 通过 7 个 Mixin 拼装
-3. **领域层** — `core/actions/` / `core/roles/` / `core/agent.py` 三套接口实现
-4. **状态层** — `core/game_state.py`（`GameState`）+ `core/events.py`（`EventLogger`）
+1. **应用层** — `cli.py` / `tui.py` / `eval_cli.py`
+2. **领域层** — 规则、状态、阶段编排、Action 执行
+3. **适配层** — LLM、MsgHub、Prompt、座位解析（**禁止**在 `roles/` 直接调模型）
+4. **状态与事件** — `GameState` + `EventLogger`（复盘与观察的单一事实源）
 
-各层只依赖下层接口（通过 `core/types/protocols.py` 中的 Protocol 声明），不耦合具体实现。
+## 夜间技能顺序
+
+`NightPhaseMixin` 委托 `core/night_scheduler.NightSkillScheduler`：
+
+1. 丘比特等 **pre-wolf** 角色（守卫、梦魇…）
+2. `process_actions` → **狼人投票** → `_resolve_werewolf_votes`（写入 `werewolf_target`）
+3. **女巫** 与其余夜间角色（此时已知刀口）
+4. `process_actions` → `resolve_deaths`
+
+核心四角色（狼/女巫/守卫/预言家）的 LLM 调用集中在 `core/role_night_plans.py`。
 
 ## 引擎：Mixin 组合
 
 `GameEngine` 主类不写代码，只多继承 7 个 Mixin：
 
-- `NightPhaseMixin` — 夜晚阶段（含狼人讨论）
+- `NightPhaseMixin` — 夜晚阶段（狼谈 + NightSkillScheduler）
 - `SheriffElectionMixin` — 警长竞选（仅第一晚后）
 - `DayPhaseMixin` — 白天发言
 - `VotingPhaseMixin` — 白天投票
@@ -60,16 +107,15 @@ LLM 狼人杀项目的整体架构。
 
 被 Nightmare Wolf 封禁的演员行动直接跳过。
 
-## Agent 抽象
+## Agent 与信息中枢
 
-Agent 通过结构化协议 `AgentProtocol` 解耦：只要有 `name`、`model`、`async get_response()` 即可接入。
+- **门面**：`PhaseInteraction` → `InformationHub`（MsgHub 通道：`PUBLIC` / `WOLF_TEAM` / `PRIVATE`）
+- **解析**：`WerewolfAdapterBridge`（座位号、`[[发言]]` / `{内心}`、结构化输出）
+- **实现**：`core/agent.py`（Demo/Human/LLM）、`adapter/agent.py`（AgentScope）
 
-- `DemoAgent` — 用正则识别题型返回随机响应（无 API 调试）
-- `HumanAgent` — 接终端 `input()`
-- `LLMAgent` — 包装 `AsyncOpenAI` 客户端，含 3 次重试 + 30s 超时
-- `AgentScopeWerewolfAgent`（`adapter/agent.py`）— AgentScope 集成（进行中）
+引擎与角色**不得**绕过 Hub 直接 `agent.get_response()`（扩展狼角色仍在迁移至 `role_night_plans`）。
 
-用 Protocol 而非 ABC 的理由：见 [ADR-0002](adr/0002-protocols-over-abc.md)。
+见 [ADR-0002](adr/0002-protocols-over-abc.md)、[ADR-0005](adr/0005-night-skill-scheduler.md)。
 
 ## 信息隔离
 

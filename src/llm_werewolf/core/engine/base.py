@@ -9,6 +9,10 @@ from llm_werewolf.core.config import GameConfig
 from llm_werewolf.core.events import EventLogger
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.observation import ObservationBuilder
+from llm_werewolf.adapter.information_hub import InformationHub
+from llm_werewolf.core.event_visibility import resolve_visible_to
+from llm_werewolf.core.phase_interaction import PhaseInteraction
+from llm_werewolf.core.types import Camp
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.victory import VictoryChecker
 from llm_werewolf.core.game_state import GameState
@@ -39,9 +43,8 @@ class GameEngineBase:
         self.observation_builder = ObservationBuilder()
         self._last_phase: str = ""  # Track phase changes for separators
 
-        # Global discussion history for context management
-        self.public_discussion_history: list[str] = []  # All players can see
-        self.werewolf_discussion_history: list[str] = []  # Only werewolves can see
+        self.information_hub = InformationHub()
+        self.phase_interaction = PhaseInteraction(self.information_hub)
 
         self.on_event: Callable[[Event], None] = self._default_print_event
 
@@ -96,7 +99,15 @@ class GameEngineBase:
             player_objects.append(player)
 
         self.game_state = GameState(player_objects)
+        self.game_state.information_hub = self.information_hub
+        self.game_state.phase_interaction = self.phase_interaction
         self.victory_checker = VictoryChecker(self.game_state)
+        self.information_hub.set_context_provider(
+            build_observation=self.build_player_observation,
+            get_alive_players=lambda: self.game_state.get_alive_players()
+            if self.game_state
+            else [],
+        )
 
         self._log_event(
             EventType.GAME_STARTED,
@@ -164,6 +175,16 @@ class GameEngineBase:
         if not self.game_state:
             return
 
+        if visible_to is None:
+            wolf_ids = [
+                p.player_id
+                for p in self.game_state.get_players_by_camp(Camp.WEREWOLF)
+                if p.is_alive()
+            ]
+            visible_to = resolve_visible_to(
+                event_type, data, wolf_player_ids=wolf_ids
+            )
+
         event = self.event_logger.create_event(
             event_type=event_type,
             round_number=self.game_state.round_number,
@@ -174,28 +195,6 @@ class GameEngineBase:
         )
 
         self.on_event(event)
-
-    def _get_public_discussion_context(self) -> str:
-        """Get formatted public discussion history as context.
-
-        Returns:
-            str: Formatted discussion history for all players.
-        """
-        if not self.public_discussion_history:
-            return ""
-
-        return "\n\nPrevious discussion:\n" + "\n".join(self.public_discussion_history)
-
-    def _get_werewolf_discussion_context(self) -> str:
-        """Get formatted werewolf discussion history as context.
-
-        Returns:
-            str: Formatted discussion history for werewolves only.
-        """
-        if not self.werewolf_discussion_history:
-            return ""
-
-        return "\n\nWerewolf team discussion:\n" + "\n".join(self.werewolf_discussion_history)
 
     def build_player_observation(
         self,

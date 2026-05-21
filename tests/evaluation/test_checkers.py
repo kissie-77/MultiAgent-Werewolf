@@ -1,6 +1,7 @@
 from llm_werewolf.core.types import Event, EventType
 from llm_werewolf.evaluation.checkers import (
     AsyncFlowChecker,
+    DecisionConsistencyChecker,
     InformationIsolationChecker,
     RoleSkillChecker,
     VictoryCheckerEvaluator,
@@ -81,3 +82,37 @@ def test_role_skill_checker_detects_missing_structured_fields() -> None:
     assert not results[0].passed
     assert results[0].data["event_type"] == "witch_saved"
     assert results[0].data["missing_fields"] == ["target_id"]
+
+
+def test_decision_checker_detects_target_mismatch() -> None:
+    event = Event(
+        event_type=EventType.VOTE_CAST,
+        round_number=1,
+        phase="day_voting",
+        message="vote",
+        data={
+            "voter_id": "player_1",
+            "target_id": "player_2",
+            "decision": {"resolved_target_id": "player_3"},
+        },
+    )
+
+    results = DecisionConsistencyChecker().check([event])
+
+    assert len(results) == 1
+    assert results[0].checker == "DecisionConsistencyChecker"
+
+
+def test_decision_checker_detects_private_markers_in_public_speech() -> None:
+    event = Event(
+        event_type=EventType.PLAYER_SPEECH,
+        round_number=1,
+        phase="day_discussion",
+        message="speech",
+        data={"player_id": "player_1", "speech": "{我是狼人} 大家好"},
+    )
+
+    results = DecisionConsistencyChecker().check([event])
+
+    assert len(results) == 1
+    assert "private-thought" in results[0].message

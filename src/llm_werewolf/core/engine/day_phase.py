@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 
+from llm_werewolf.adapter.prompts import GamePrompts
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
@@ -40,13 +41,8 @@ class DayPhaseMixin:
                 context_parts.append(decision_context)
 
         context_parts.append("")
-        context_parts.append(
-            "Share your thoughts, suspicions, or information. "
-            "Your goal is to help your team win while staying in character."
-        )
-        context_parts.append(
-            "\nProvide a brief statement (1-3 sentences) for this discussion round."
-        )
+        context_parts.append(GamePrompts.SPEECH_PROMPT)
+        context_parts.append("请用 1–3 句话发言，遵守系统提示中的输出格式。")
 
         return "\n".join(context_parts)
 
@@ -115,9 +111,7 @@ class DayPhaseMixin:
                 channel=VisibilityChannel.PUBLIC,
                 audience=alive_players,
                 context_builder=self._build_discussion_context,
-                instruction=(
-                    "Share your thoughts, suspicions, or information (1-3 sentences)."
-                ),
+                instruction="发表 1–3 句完整中文发言，写在 [[...]] 中，不要只写座位号。",
                 phase="day",
                 round_number=self.game_state.round_number,
                 opening_announcement="--- Discussion Phase ---",

@@ -378,24 +378,18 @@ class InformationHub:
         phase: str | None = None,
     ) -> list[PlayerProtocol] | None:
         context = self._merge_private_context(actor, additional_context)
-        prompt = WerewolfAdapterBridge.build_multi_target_prompt(
-            role_name,
-            action_description,
-            possible_targets,
-            num_targets,
-            context,
-            round_number,
-            phase,
-        )
 
         async def _call() -> list[PlayerProtocol] | None:
-            try:
-                response = await agent.get_response(prompt)
-                return WerewolfAdapterBridge.parse_multi_target_selection(
-                    response, possible_targets, num_targets
-                )
-            except Exception:
-                return None
+            return await WerewolfAdapterBridge.request_multi_target(
+                agent,
+                role_name,
+                action_description,
+                possible_targets,
+                num_targets,
+                context,
+                round_number,
+                phase,
+            )
 
         return await self._run_private_session(
             actor,

@@ -14,7 +14,12 @@ from openai import RateLimitError
 from agentscope.message import Msg as AgentScopeMsg
 
 from llm_werewolf.core.agent import BaseAgent
-from llm_werewolf.core.decisions import extract_public_text
+from llm_werewolf.core.decisions import (
+    SpeechDecision,
+    extract_public_text,
+    is_valid_public_speech,
+)
+from llm_werewolf.adapter.structured_invoke import unwrap_structured_metadata
 from llm_werewolf.adapter.message import MessageAdapter, Msg
 from llm_werewolf.adapter.prompts import RolePrompts, PlanStrategies
 from llm_werewolf.adapter.serial_calls import run_serial_agent_call
@@ -36,6 +41,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     language: str = Field(default="zh-TW")
     agentscope_agent: Any = Field(default=None, exclude=True)
     player_config: Any = Field(default=None, exclude=True)
+    uses_structured_output: bool = Field(default=True, exclude=True)
     decision_history: list[str] = Field(default=[])
     chat_history: list[dict] = Field(default=[])
 
@@ -203,11 +209,16 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
         self.chat_history.append({"role": "assistant", "content": response_text})
 
-        # Prefer content inside [[...]] when the model follows RolePrompts format
-        extracted = self.extract_content(response_text)
-        if extracted:
-            return extracted
+        if self._message_expects_seat_only(message):
+            extracted = self.extract_target(response_text)
+            if extracted is not None:
+                return f"[[{extracted}]]"
+            match = re.search(r"\[\[\s*(\d+)\s*\]\]", response_text)
+            if match:
+                return f"[[{match.group(1)}]]"
 
+        if "发言" in message or "SPEECH" in message or "演说" in message:
+            return response_text.strip() or extract_public_text(response_text)
         return extract_public_text(response_text)
 
     async def get_structured_response(
@@ -233,13 +244,27 @@ class AgentScopeWerewolfAgent(BaseAgent):
                         structured_model=structured_model,
                     )
                 )
-                metadata = getattr(response_msg, "metadata", None)
+                metadata = unwrap_structured_metadata(
+                    getattr(response_msg, "metadata", None)
+                )
                 if metadata:
-                    decision = structured_model.model_validate(metadata)
+                    try:
+                        decision = structured_model.model_validate(metadata)
+                    except Exception:
+                        decision = structured_model.model_construct(**metadata)
                     self.chat_history.append(
                         {"role": "assistant", "content": decision.model_dump_json()}
                     )
                     return decision
+                text = self._extract_agentscope_text(response_msg)
+                if text.strip():
+                    self.chat_history.append(
+                        {"role": "assistant", "content": text}
+                    )
+                    if structured_model is SpeechDecision:
+                        from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
+
+                        return WerewolfAdapterBridge.parse_speech(text)
                 return None
             except RateLimitError as exc:
                 last_error = exc
@@ -293,29 +318,20 @@ class AgentScopeWerewolfAgent(BaseAgent):
         """
         import random
 
-        # Check if it's a yes/no question
-        if "YES" in message or "NO" in message or "0]]或[[1" in message:
+        if "YES" in message or "NO" in message or "0]]或[[1" in message or "表示否" in message:
             return random.choice(["[[0]]", "[[1]]"])
 
-        # Check if it's a target selection
-        if "[[]]" in message or "编号" in message or "select" in message.lower():
-            # Extract available numbers from message
-            numbers = re.findall(r'(\d+)\s*号', message)
-            if numbers:
-                return f"[[{random.choice(numbers)}]]"
-            return f"[[{random.randint(1, 12)}]]"
+        if self._message_expects_seat_only(message):
+            numbers = re.findall(r"(\d+)\s*号", message)
+            seat = random.choice(numbers) if numbers else str(random.randint(1, 12))
+            return f"[[{seat}]]"
 
-        # Check if it's a vote
-        if "投票" in message or "vote" in message.lower():
-            return f"[[{random.randint(0, 12)}]]"
-
-        # Default speech response
         speeches = [
-            f"我认为{random.randint(1, 12)}号玩家很可疑",
-            f"我觉得我是好人，我会好好分析局势",
-            f"我建议大家多关注一下发言不自然的玩家",
-            f"我是{self.role_name}，我会尽力帮助大家",
-            f"我觉得我们应该团结起来找出狼人",
+            "[[我觉得场上信息还不多，先听大家后面的发言再判断。]]",
+            "[[我暂时没明确狼坑，但会重点看发言前后矛盾的人。]]",
+            "[[我是好人，建议大家多盘逻辑，别被带节奏。]]",
+            f"[[我是{self.role_name}，这局我会尽量帮好人理清局势。]]",
+            "[[目前我没有铁狼，先观察投票和站队情况。]]",
         ]
         return random.choice(speeches)
 
@@ -353,18 +369,43 @@ class AgentScopeWerewolfAgent(BaseAgent):
             return int(match.group(1))
         return None
 
+    @staticmethod
+    def _message_expects_seat_only(message: str) -> bool:
+        """True when the prompt asks for a seat number / vote, not a speech line."""
+        markers = (
+            "只回复",
+            "只放座位号",
+            "座位号",
+            "全局座位号",
+            "投票",
+            "刀谁",
+            "守谁",
+            "验",
+            "毒谁",
+            "选择你要",
+            "Vote for",
+            "eliminate",
+            "protect tonight",
+            "check tonight",
+            "WOLF_OPEN",
+            "GUARD_ACTION",
+            "PROPHET_ACTION",
+            "WITCH_POISON_TARGET",
+        )
+        lowered = message.lower()
+        if any(m in message for m in markers):
+            return True
+        if "vote" in lowered and "speech" not in lowered:
+            return True
+        if "发言" in message or "SPEECH" in message or "discussion" in lowered:
+            return False
+        return False
+
     def extract_content(self, text: str) -> Optional[str]:
-        """Extract content from [[...]] pattern.
-
-        Args:
-            text: The response text.
-
-        Returns:
-            Optional[str]: The extracted content, or None.
-        """
-        match = re.search(r"\[\[\s*(.+?)\s*\]\]", text, flags=re.S)
-        if match:
-            return match.group(1).strip()
+        """Extract public speech from [[...]] (legacy helper)."""
+        extracted = extract_public_text(text)
+        if is_valid_public_speech(extracted):
+            return extracted
         return None
 
     def reset(self) -> None:

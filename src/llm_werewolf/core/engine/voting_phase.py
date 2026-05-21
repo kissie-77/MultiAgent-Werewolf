@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 
+from llm_werewolf.adapter.prompts import GamePrompts
 from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
@@ -42,8 +43,8 @@ class VotingPhaseMixin:
 
         context_parts.extend([
             "",
-            "Based on the discussion and your role knowledge, "
-            "vote for the player you believe should be eliminated.",
+            GamePrompts.VOTE_BEGIN,
+            "本任务只需投票：回复 [[座位号]]，[[]] 里只能是数字，不要写发言内容。",
         ])
         return "\n".join(context_parts)
 

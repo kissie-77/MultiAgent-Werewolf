@@ -1,0 +1,208 @@
+from abc import ABC, abstractmethod
+
+from llm_werewolf.core.roles.catalog import get_definition_by_role_class
+from llm_werewolf.core.types import (
+    Camp,
+    RoleConfig,
+    ActionPriority,
+    ActionProtocol,
+    PlayerProtocol,
+    GameStateProtocol,
+)
+class Role(ABC):
+    """Abstract base class for all roles in the Werewolf game."""
+
+    def __init__(self, player: PlayerProtocol) -> None:
+        """Initialize the role."""
+        self.player = player
+        self.ability_uses = 0
+        self.config = self.get_config()
+        self._apply_catalog_description()
+        self.disabled = False  # If True, role abilities are disabled
+
+    def _apply_catalog_description(self) -> None:
+        try:
+            from llm_werewolf.core.prompts.manager import PromptManager
+
+            definition = get_definition_by_role_class(type(self))
+            description = PromptManager.get_role_description(definition)
+            self.config = self.config.model_copy(update={"description": description})
+        except KeyError:
+            pass
+
+    @abstractmethod
+    def get_config(self) -> RoleConfig:
+        """Get the configuration for this role.
+
+        Returns:
+            RoleConfig: The role's configuration.
+        """
+        pass
+
+    @property
+    def name(self) -> str:
+        """Get the role name.
+
+        Returns:
+            str: The role name.
+        """
+        return self.config.name
+
+    @property
+    def camp(self) -> Camp:
+        """Get the role's camp.
+
+        Returns:
+            Camp: The camp this role belongs to.
+        """
+        return self.config.camp
+
+    @property
+    def description(self) -> str:
+        """Get the role description.
+
+        Returns:
+            str: Description of the role's abilities.
+        """
+        return self.config.description
+
+    @property
+    def priority(self) -> ActionPriority | None:
+        """Get the action priority.
+
+        Returns:
+            ActionPriority | None: The priority of night actions, or None if no night action.
+        """
+        return self.config.priority
+
+    def can_act_tonight(self, player: PlayerProtocol, round_number: int) -> bool:
+        """Check if this role can perform an action tonight.
+
+        Args:
+            player: The player with this role.
+            round_number: The current round number.
+
+        Returns:
+            bool: True if the role can act tonight.
+        """
+        if self.disabled:
+            return False
+
+        if not self.config.can_act_night:
+            return False
+
+        if not player.is_alive():
+            return False
+
+        return not (self.config.max_uses is not None and self.ability_uses >= self.config.max_uses)
+
+    def can_act_today(self, player: PlayerProtocol) -> bool:
+        """Check if this role can perform an action today.
+
+        Args:
+            player: The player with this role.
+
+        Returns:
+            bool: True if the role can act today.
+        """
+        if not self.config.can_act_day:
+            return False
+
+        return player.is_alive()
+
+    def get_action_prompt(self, player: PlayerProtocol, game_state: object) -> str:
+        """Get the prompt for the AI agent when this role needs to act.
+
+        Args:
+            player: The player with this role.
+            game_state: The current game state.
+
+        Returns:
+            str: The prompt string for the AI agent.
+        """
+        try:
+            from llm_werewolf.core.prompts.manager import PromptManager
+
+            definition = get_definition_by_role_class(type(self))
+            return (
+                f"{PromptManager.build_identity_prompt(definition)}\n"
+                f"玩家名：{player.name}\n技能说明：{self.description}"
+            )
+        except KeyError:
+            return f"你是{player.name}，身份：{self.name}。{self.description}"
+
+    def get_private_notes(self, game_state: GameStateProtocol | None = None) -> list[str]:
+        """Return role-specific facts visible only to this player."""
+        return [f"你的身份是 {self.name}。", self.description]
+
+    @abstractmethod
+    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
+        """Get the night actions for this role.
+
+        All roles must implement this method. If the role has no night actions,
+        return an empty list. This forces developers to explicitly consider
+        whether a role has night abilities.
+
+        Args:
+            game_state: The current game state.
+
+        Returns:
+            list[ActionProtocol]: A list of actions to perform. Return [] if no actions.
+        """
+
+    def has_night_action(self, game_state: GameStateProtocol) -> bool:
+        """Check if the role has a night action.
+
+        Args:
+            game_state: The current game state.
+
+        Returns:
+            bool: True if the role has a night action.
+        """
+        if self.disabled:
+            return False
+
+        if (
+            hasattr(game_state, "nightmare_blocked")
+            and game_state.nightmare_blocked
+            and self.player
+            and self.player.player_id == game_state.nightmare_blocked
+        ):
+            return False
+
+        return self.config.can_act_night
+
+    def validate_action(
+        self, actor: PlayerProtocol, target: PlayerProtocol | None, action_data: dict
+    ) -> bool:
+        """Validate if an action is legal.
+
+        Args:
+            actor: The player performing the action.
+            target: The target player (if any).
+            action_data: Additional action data.
+
+        Returns:
+            bool: True if the action is valid.
+        """
+        return True
+
+    def use_ability(self) -> None:
+        """Mark that the ability has been used."""
+        self.ability_uses += 1
+
+    def __str__(self) -> str:
+        """String representation of the role.
+
+        Returns:
+            str: The role name.
+        """
+        return self.name
+
+    def __repr__(self) -> str:
+        """Repr of the role.
+
+        Returns:
+            str: The role representation.
+        """
+        return f"{self.__class__.__name__}()"

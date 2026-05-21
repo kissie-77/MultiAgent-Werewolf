@@ -1,0 +1,100 @@
+"""Chinese action descriptions for engine and role action prompts."""
+
+
+class ActionDescriptions:
+    """Structured action text passed to ``ActionSelector`` / ``PromptManager``."""
+
+    VOTE_KILL = "今晚投票击杀一名玩家"
+    VOTE_KILL_ALPHA = "选择一名狼人队友击杀（或跳过）"
+    VOTE_KILL_TRANSFORMED = "你已变为狼人，请选择今晚击杀目标"
+    CHARM_PLAYER = "选择一名玩家魅惑"
+    PROTECT_WOLF = "选择一名狼人队友保护"
+    BLOCK_PLAYER = "选择一名玩家封锁其技能"
+    CHECK_PLAYER = "今晚查验一名玩家的身份"
+    USE_POISON = "选择一名玩家毒杀（或跳过）"
+    PROTECT_PLAYER = "今晚守护一名玩家"
+    LOVERS = "选择两名玩家结为情侣"
+    CURSE_PLAYER = "选择一名玩家施加诅咒"
+    CHECK_DEAD = "选择一名已死亡玩家查验身份"
+    VOTE_ELIMINATE = "投票放逐一名玩家"
+    VOTE_SHERIFF = "投票选举警长"
+    TRANSFER_BADGE = "选择继承警徽的玩家（或撕毁警徽）"
+    SHOOT_ON_DEATH = "临死前选择带走的玩家"
+
+
+class EngineContexts:
+    """Chinese free-form context fragments for phase discussions."""
+
+    @staticmethod
+    def werewolf_coordination_note(werewolf_names: list[str], target_names: list[str]) -> list[str]:
+        return [
+            f"与你协同的狼人：{', '.join(werewolf_names)}。",
+            f"可选目标：{', '.join(target_names)}。",
+        ]
+
+    @staticmethod
+    def werewolf_discussion(
+        player_name: str,
+        round_number: int,
+        werewolf_names: list[str],
+        target_names: list[str],
+        history: str = "",
+    ) -> str:
+        parts = [
+            f"你是 {player_name}，身份为狼人。",
+            f"当前：第 {round_number} 轮 · 夜晚",
+            f"与你协同的狼人：{', '.join(werewolf_names)}。",
+            f"可选目标：{', '.join(target_names)}。",
+        ]
+        if history:
+            parts.append(history)
+        parts.extend([
+            "",
+            "与狼队友讨论今晚要淘汰谁，简要说明理由（1-2 句）。",
+            "发言内容请放在 [[]] 中。",
+        ])
+        return "\n".join(parts)
+
+    @staticmethod
+    def day_discussion_prompt() -> str:
+        return "分享你的看法、怀疑或掌握的信息（1-3 句）。发言请放在 [[]] 中。"
+
+    @staticmethod
+    def sheriff_run(player_name: str, role_name: str, round_number: int) -> str:
+        return (
+            f"你是 {player_name}，身份为 {role_name}。\n"
+            f"当前：第 {round_number} 轮 · 警长竞选\n"
+            "是否参加警长竞选？回复 [[1]] 参加，[[0]] 不参加。"
+        )
+
+    @staticmethod
+    def sheriff_speech(
+        player_name: str,
+        role_name: str,
+        round_number: int,
+        num_candidates: int,
+    ) -> str:
+        return (
+            f"你是 {player_name}，身份为 {role_name}。\n"
+            f"当前：第 {round_number} 轮 · 警长竞选发言\n"
+            f"你是 {num_candidates} 名候选人之一。\n"
+            "请发表竞选发言（1-3 句），内容放在 [[]] 中。"
+        )
+
+    @staticmethod
+    def sheriff_vote_intro(
+        player_name: str,
+        role_name: str,
+        round_number: int,
+        candidate_names: list[str],
+    ) -> str:
+        return (
+            f"你是 {player_name}，身份为 {role_name}。\n"
+            f"当前：第 {round_number} 轮 · 警长投票\n"
+            f"候选人：{', '.join(candidate_names)}。\n"
+            "请投票选出你认为合适的警长。"
+        )
+
+    @staticmethod
+    def sheriff_died(sheriff_name: str) -> str:
+        return f"你是警长 {sheriff_name}，你已死亡，请处理警徽。"

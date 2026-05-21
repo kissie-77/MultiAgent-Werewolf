@@ -8,7 +8,7 @@
 
 | 项 | 结果 |
 |----|------|
-| `ActionSelector` | 已删除；由 `PhaseInteraction` + `InformationHub` + `WerewolfAdapterBridge` 替代 |
+| 旧版英文 `ActionSelector` | 引擎主路径改为 Hub/Bridge/Plans；保留 `core/prompts/selector.py` 中文选目标与兼容导出 |
 | 讨论双写 history | 已删除；观察仅从 `Event` 重建 |
 | `InformationHub._active` | 已移除；`GameEngine` 显式注入 |
 | 座位号解析 | `WerewolfAdapterBridge` 按全局座位 `player_N` |

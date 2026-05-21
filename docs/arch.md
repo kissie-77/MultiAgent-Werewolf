@@ -160,3 +160,9 @@ flowchart TB
 ## 序列化
 
 `core/serialization.py` 将 `GameState` 通过 `GameStateSnapshot`（Pydantic）扁平化为 JSON。逐角色提取私有状态（Witch 药剂、Guard `last_protected`、Cupid `has_linked` 等）。Agent 不序列化，恢复时通过 `agent_factory: dict[player_id, agent]` 重注入。
+
+## 包结构补充（2026-05）
+
+- `agents/`、`integration/`：玩家工厂与 AgentScope
+- `core/prompts/`：统一中文 Prompt 与 `ActionSelector`
+- `core/roles/catalog.py`：角色四元组，`implementation` 为 `module:Class` 路径

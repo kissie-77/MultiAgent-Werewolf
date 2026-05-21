@@ -140,6 +140,14 @@ MultiAgent-Werewolf/
     ├── tui.py                       [已有] Textual UI
     └── eval_cli.py                  [已有] 离线评测 CLI
     │
+    │── ── agents/ + integration/ ─────────────────────
+    ├── agents/
+    │   ├── base.py                  [已有] create_agent、Demo/LLM/Human
+    │   └── mixin.py                 [已有] PromptAgentMixin
+    ├── integration/
+    │   ├── agentscope.py            [已有] AgentScope 主实现
+    │   └── message.py               [已有]
+    │
     │── ── core/ 领域层 ───────────────────────────────
     ├── core/
     │   ├── __init__.py
@@ -163,8 +171,9 @@ MultiAgent-Werewolf/
 │   ├── locale.py                [已有] 文案 i18n
     │   ├── utils.py                 [已有] 加载 YAML 等
     │   ├── serialization.py         [已有] 存档
-    │   ├── role_registry.py         [已有] 角色注册表
-    │   ├── agent.py                 [已有] create_agent、LLMAgent
+    │   ├── role_registry.py         [已有] 兼容 → roles/registry.py
+    │   ├── agent.py                 [已有] 兼容 → agents/base.py
+    │   ├── prompts/                 [已有] PromptManager、selector、identity
     │   ├── phase_interaction.py     [已有] 引擎/角色 Agent 交互门面
     │   ├── event_visibility.py      [已有] Event.visible_to 默认规则
     │   ├── night_scheduler.py       [已有] 夜间技能顺序调度
@@ -185,6 +194,7 @@ MultiAgent-Werewolf/
     │   │
     │   ├── roles/                   # 角色规则：产 Action，不调 LLM（目标）
     │   │   ├── base.py
+    │   │   ├── catalog.py / definition.py / registry.py
     │   │   ├── werewolf.py
     │   │   ├── villager.py
     │   │   └── neutral.py
@@ -201,7 +211,7 @@ MultiAgent-Werewolf/
     │   ├── information_hub.py       [已有] MsgHub、通道、唯一 Agent I/O
     │   ├── bridge.py                [已有] Prompt + 解析 + 调 Agent
     │   ├── visibility.py            [已有] VisibilityChannel、RoutedMessage
-    │   ├── agent.py                 [已有] AgentScopeWerewolfAgent
+    │   ├── agent.py                 [已有] 兼容 → integration/agentscope.py
     │   ├── factory.py               [已有] create_react_agent
     │   ├── setup.py                 [已有] bind_agentscope_roles
     │   ├── prompts.py               [已有] RolePrompts、GamePrompts
@@ -241,7 +251,8 @@ MultiAgent-Werewolf/
 | 新事件类型 | `types/enums.EventType` + 在 `event_visibility` 登记可见性 | 见治理表 |
 | LLM 输出新格式 | `core/decisions.py` + `adapter/bridge.py` | `XxxDecision` |
 | MsgHub 新通道/路由 | `adapter/visibility.py` + `information_hub.py` | 扩展 `VisibilityChannel` |
-| 中文 Prompt 模板 | `adapter/prompts.py`（`GamePrompts` / `RolePrompts`） | 禁止在 `roles/` 写长 prompt |
+| Catalog 提示词 | `core/prompts/` | `implementation` 字段 |
+| AgentScope 提示词 | `adapter/prompts.py` | 与 factory 配合 |
 | AgentScope 绑定 | `adapter/factory.py`、`setup.py` | — |
 | 控制台/TUI 展示 | `ui/` | 只读 Event，不改状态 |
 | 评测规则 | `evaluation/checkers.py` | 一个 Checker 一类 |
@@ -264,7 +275,8 @@ MultiAgent-Werewolf/
 | 信息隔离 / MsgHub | `adapter/information_hub.py`, `adapter/visibility.py` |
 | LLM 解析（Bridge） | `adapter/bridge.py` |
 | 决策契约类型 | `core/decisions.py` |
-| Agent 实现 | `adapter/agent.py`, `core/agent.py` |
+| Agent 实现 | `agents/base.py`, `integration/agentscope.py` |
+| 角色目录 | `core/roles/catalog.py`, `registry.py` |
 | 展示 | `ui/` |
 | 评测 | `evaluation/` |
 

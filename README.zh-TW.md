@@ -7,11 +7,11 @@
 [![uv](https://img.shields.io/badge/-uv_dependency_management-2C5F2D?logo=python&logoColor=white)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://docs.pydantic.dev/latest/contributing/#badges)
-[![tests](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/test.yml/badge.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/test.yml)
-[![code-quality](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml/badge.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml)
-[![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/kissie-77/MultiAgent-Werewolf/tree/main?tab=License-1-ov-file)
-[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/pulls)
-[![contributors](https://img.shields.io/github/contributors/kissie-77/MultiAgent-Werewolf.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/graphs/contributors)
+[![tests](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/test.yml/badge.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/test.yml)
+[![code-quality](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml/badge.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml)
+[![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/LBP97541135/MultiAgent-Werewolf/tree/main?tab=License-1-ov-file)
+[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/pulls)
+[![contributors](https://img.shields.io/github/contributors/LBP97541135/MultiAgent-Werewolf.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/graphs/contributors)
 
 </div>
 
@@ -19,11 +19,19 @@
 
 其他語言: [English](README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
+## 分支说明
+
+| 分支 | 用途 |
+|------|------|
+| **`lvyihan_test`** | **當前集成开发分支**（推薦 clone 此分支） |
+| `main` | 穩定基线 |
+
 ## 特色功能
 
 - 🎮 **完整遊戲邏輯**：包含 20+ 種角色的完整狼人殺規則實作
 - 🤖 **LLM 整合**：統一的代理介面，輕鬆整合任何 LLM（OpenAI、Anthropic、DeepSeek、本地模型等）
-- ⚡ **串流響應**：LLM 代理預設使用串流 API，透過更快的首字元回應時間降低等待感
+- 🤝 **AgentScope**：預設經 AgentScope ReAct + `generate_response` 結構化決策
+- 📋 **角色目錄**：`ROLE_CATALOG` 與 `implementation`（`module:Class`）統一註冊
 - 🖥️ **精美 TUI**：使用 Textual 框架的即時遊戲視覺化，支援互動式終端介面
 - 👤 **真人玩家**：支援真人玩家與 AI 混合遊戲
 - ⚙️ **可配置**：透過 YAML 配置檔案靈活設定玩家和遊戲參數
@@ -35,12 +43,10 @@
 ### 安裝
 
 ```bash
-# 複製儲存庫
-git clone https://github.com/kissie-77/MultiAgent-Werewolf.git
-cd LLMWereWolf
-
-# 安裝依賴
+git clone -b lvyihan_test https://github.com/LBP97541135/MultiAgent-Werewolf.git
+cd MultiAgent-Werewolf
 uv sync
+cp .env.example .env
 ```
 
 ### 執行遊戲
@@ -248,15 +254,7 @@ players:
 
 ## 代理系統
 
-### 代理類型
-
-本專案提供三種內建代理類型：
-
-1. **LLMAgent**：支援任何 OpenAI 相容 API 的 LLM 模型（GPT-4、Claude、DeepSeek、Grok、本地模型等）
-2. **HumanAgent**：真人玩家透過終端輸入
-3. **DemoAgent**：測試用的簡單代理（隨機回應）
-
-所有代理都透過 YAML 配置檔案設定（參見[配置](#%E9%85%8D%E7%BD%AE)章節）。遊戲支援在同一局中混合使用不同類型的代理。
+`create_agent()` **預設**建立 **AgentScope** 玩家。另支援 **LLMAgent**、**HumanAgent**、**DemoAgent**。結構化輸出見 `core/decisions.py`；提示詞見 `core/prompts` 與 `adapter/prompts.py`。詳見 [docs/README.md](docs/README.md)。
 
 ## TUI 介面
 
@@ -547,7 +545,7 @@ src/llm_werewolf/
 
 歡迎貢獻！您可以透過以下方式參與：
 
-1. **回報問題**：在 [Issues](https://github.com/kissie-77/MultiAgent-Werewolf/issues) 頁面回報 bug 或提出功能建議
+1. **回報問題**：在 [Issues](https://github.com/LBP97541135/MultiAgent-Werewolf/issues) 頁面回報 bug 或提出功能建議
 2. **提交 Pull Request**：修復 bug 或新增功能
 3. **改進文件**：幫助改善 README 和程式碼註解
 4. **分享反饋**：告訴我們您的使用體驗
@@ -579,12 +577,12 @@ src/llm_werewolf/
 
 ## 相關連結
 
-- [專案首頁](https://github.com/kissie-77/MultiAgent-Werewolf)
-- [問題追蹤](https://github.com/kissie-77/MultiAgent-Werewolf/issues)
+- [專案首頁](https://github.com/LBP97541135/MultiAgent-Werewolf)
+- [問題追蹤](https://github.com/LBP97541135/MultiAgent-Werewolf/issues)
 
 ## 更新日誌
 
-請參閱 [Releases](https://github.com/kissie-77/MultiAgent-Werewolf/releases) 頁面查看版本更新記錄。
+請參閱 [Releases](https://github.com/LBP97541135/MultiAgent-Werewolf/releases) 頁面查看版本更新記錄。
 
 ## 約定
 

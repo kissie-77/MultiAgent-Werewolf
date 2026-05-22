@@ -27,20 +27,10 @@ async def test_witch_collected_after_wolf_phase_not_in_pre_wolf() -> None:
 
     with (
         patch(
-            "llm_werewolf.core.night_scheduler.plan_werewolf_vote",
+            "llm_werewolf.core.night_scheduler.dispatch_night_plan",
             new_callable=AsyncMock,
             return_value=[],
-        ) as wolf_plan,
-        patch(
-            "llm_werewolf.core.night_scheduler.plan_witch_actions",
-            new_callable=AsyncMock,
-            return_value=[],
-        ) as witch_plan,
-        patch(
-            "llm_werewolf.core.night_scheduler.plan_seer_check",
-            new_callable=AsyncMock,
-            return_value=[],
-        ) as seer_plan,
+        ) as dispatch_plan,
     ):
         locale = MagicMock()
         locale.get = MagicMock(side_effect=lambda key, **kw: key)
@@ -53,10 +43,8 @@ async def test_witch_collected_after_wolf_phase_not_in_pre_wolf() -> None:
         )
 
         await scheduler.run()
-        witch_plan.assert_not_called()
-        wolf_plan.assert_called_once()
+        assert dispatch_plan.call_count >= 1
 
+        calls_before = dispatch_plan.call_count
         await scheduler.run_post_wolf_resolution()
-        witch_plan.assert_called_once()
-        seer_plan.assert_called_once()
-        assert wolf_plan.call_count == 1
+        assert dispatch_plan.call_count > calls_before

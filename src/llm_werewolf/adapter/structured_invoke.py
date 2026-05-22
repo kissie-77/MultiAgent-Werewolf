@@ -106,7 +106,7 @@ async def invoke_structured(
 
 def coerce_speech(decision: SpeechDecision | None) -> SpeechDecision:
     if decision is None:
-        return SpeechDecision(
+        return SpeechDecision.model_construct(
             public_speech="（无公开发言）",
             private_thought=None,
         )

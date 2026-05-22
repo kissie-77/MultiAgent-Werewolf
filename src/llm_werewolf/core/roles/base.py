@@ -135,20 +135,14 @@ class Role(ABC):
         """Return role-specific facts visible only to this player."""
         return [f"你的身份是 {self.name}。", self.description]
 
-    @abstractmethod
     async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for this role.
+        """Collect night actions via PhaseInteraction / InformationHub."""
+        interaction = getattr(game_state, "phase_interaction", None)
+        if interaction is None:
+            return []
+        from llm_werewolf.core.role_night_plans import dispatch_night_plan
 
-        All roles must implement this method. If the role has no night actions,
-        return an empty list. This forces developers to explicitly consider
-        whether a role has night abilities.
-
-        Args:
-            game_state: The current game state.
-
-        Returns:
-            list[ActionProtocol]: A list of actions to perform. Return [] if no actions.
-        """
+        return await dispatch_night_plan(self, game_state, interaction)
 
     def has_night_action(self, game_state: GameStateProtocol) -> bool:
         """Check if the role has a night action.

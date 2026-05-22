@@ -17,7 +17,7 @@ from llm_werewolf.core.config import PlayerConfig
 if TYPE_CHECKING:
     from llm_werewolf.core.player import Player
 
-# Map game engine role names to RolePrompts keys in adapter/prompts.py
+# Map Role.config.name (runtime) to RolePrompts keys in adapter/prompts.py
 GAME_ROLE_TO_PROMPT_KEY: dict[str, str] = {
     "Villager": "villager",
     "Seer": "prophet",
@@ -25,20 +25,20 @@ GAME_ROLE_TO_PROMPT_KEY: dict[str, str] = {
     "Hunter": "hunter",
     "Guard": "guard",
     "Werewolf": "wolf",
-    "AlphaWolf": "wolf_king",
-    "WhiteWolf": "wolf",
-    "WolfBeauty": "wolf",
-    "GuardianWolf": "wolf",
-    "HiddenWolf": "wolf",
-    "NightmareWolf": "wolf",
-    "BloodMoonApostle": "wolf",
+    "Alpha Wolf": "wolf_king",
+    "White Wolf": "wolf",
+    "Wolf Beauty": "wolf",
+    "Guardian Wolf": "wolf",
+    "Hidden Wolf": "wolf",
+    "Nightmare Wolf": "wolf",
+    "Blood Moon Apostle": "wolf",
     "Idiot": "villager",
     "Elder": "villager",
     "Knight": "villager",
     "Cupid": "villager",
     "Raven": "villager",
     "Magician": "villager",
-    "GraveyardKeeper": "villager",
+    "Graveyard Keeper": "villager",
     "Thief": "villager",
     "Lover": "villager",
 }

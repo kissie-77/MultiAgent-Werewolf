@@ -6,20 +6,37 @@ the ``generate_response`` tool; validated kwargs land in Msg.metadata.
 
 import re
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-# Minimum length for day discussion / sheriff speech (not seat-only tokens).
-_SPEECH_MIN_CHARS = 6
+# Minimum length for roundtable / sheriff / last-words public speech.
+SPEECH_PUBLIC_MIN_CHARS = 15
+_SPEECH_MIN_CHARS = SPEECH_PUBLIC_MIN_CHARS
 
 # Pure seat / yes-no tokens inside [[...]] are not public speech.
 _SEAT_ONLY_PATTERN = re.compile(r"^\d{1,2}$")
 
+# Placeholder strings produced when parsing fails — must not count as real speech.
+_EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
+
 GENERATE_RESPONSE_INSTRUCTION = (
-    "【输出方式】你必须调用 generate_response 工具提交 JSON，字段严格遵守上方 Schema。"
-    "禁止用 [[数字]] 或自由文本代替结构化字段；reason / private_thought 可写在对应字段里。"
+    "【输出方式】你必须调用 generate_response 工具提交 JSON，字段严格遵守 SpeechDecision Schema。"
+    "禁止用 [[数字]]、[[...]] 或裸文本代替 structured 字段。"
     "【信息隔离】由系统决定谁能听到你的发言，你只需填写 public_speech / private_thought，"
     "不要指定听众或可见范围。"
 )
+
+
+def speech_schema_instruction() -> str:
+    """Prompt block: output requirements tied to SpeechDecision (generate_response)."""
+    return "\n".join([
+        "【本任务输出 — 仅 SpeechDecision Schema】",
+        "必须调用 generate_response，字段：",
+        f"- public_speech (string, 必填): 完整中文公开发言，≥{SPEECH_PUBLIC_MIN_CHARS} 字；",
+        "  不得仅为座位号、不得为「无公开发言」类占位。",
+        "- private_thought (string, 可选): 仅自己可见的推理，不会广播。",
+        "禁止用 [[...]] / {...} 代替上述字段。",
+        GENERATE_RESPONSE_INSTRUCTION,
+    ])
 
 
 class SeatChoiceDecision(BaseModel):
@@ -48,20 +65,32 @@ class MultiSeatChoiceDecision(BaseModel):
 
 
 class SpeechDecision(BaseModel):
-    """Day discussion / sheriff speech / last words."""
+    """Day discussion / sheriff speech / last words / wolf night chat."""
 
     public_speech: str = Field(
         ...,
-        min_length=1,
+        min_length=SPEECH_PUBLIC_MIN_CHARS,
         description=(
-            "Full public speech in Chinese (complete sentence, not a seat number). "
-            "Must be at least 6 characters; prefer 10+ when using generate_response."
+            "Full public speech in Chinese (complete sentences, not a seat number). "
+            f"At least {SPEECH_PUBLIC_MIN_CHARS} characters."
         ),
     )
     private_thought: str | None = Field(
         default=None,
         description="Private reasoning; not broadcast to other players.",
     )
+
+    @field_validator("public_speech")
+    @classmethod
+    def validate_public_speech(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not is_valid_public_speech(cleaned, min_chars=SPEECH_PUBLIC_MIN_CHARS):
+            msg = (
+                f"public_speech must be a real Chinese speech (≥{SPEECH_PUBLIC_MIN_CHARS} chars), "
+                "not a seat number or placeholder."
+            )
+            raise ValueError(msg)
+        return cleaned
 
 
 class YesNoDecision(BaseModel):
@@ -85,6 +114,33 @@ class BeliefMatrixDecision(BaseModel):
     beliefs: list[BeliefEntry] = Field(default_factory=list)
 
 
+def metadata_looks_like_wrong_schema_for_speech(metadata: dict) -> bool:
+    """Reject SeatChoice / YesNo payloads mistaken for SpeechDecision."""
+    if not metadata:
+        return True
+    if metadata.get("public_speech"):
+        return False
+    if "seat" in metadata or "seats" in metadata or "choice" in metadata:
+        return True
+    return False
+
+
+def looks_like_kill_or_vote_format(text: str) -> bool:
+    """True when text is a night-kill / vote token, not discussion speech."""
+    stripped = text.strip()
+    if not stripped:
+        return True
+    if looks_like_seat_only(stripped):
+        return True
+    if re.fullmatch(r"\[\[\s*\d+\s*\]\]", stripped):
+        return True
+    if re.fullmatch(r"刀\s*\d+\s*号?", stripped):
+        return True
+    if re.fullmatch(r"刀\s*\d+", stripped) and len(stripped) <= 8:
+        return True
+    return False
+
+
 def looks_like_seat_only(text: str) -> bool:
     """True when text is only a seat number / yes-no token, not a speech line."""
     stripped = text.strip()
@@ -100,9 +156,13 @@ def looks_like_seat_only(text: str) -> bool:
 def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> bool:
     """Whether extracted text is usable as day discussion / public speech."""
     stripped = text.strip()
+    if any(marker in stripped for marker in _EMPTY_SPEECH_MARKERS):
+        return False
     if len(stripped) < min_chars:
         return False
     if looks_like_seat_only(stripped):
+        return False
+    if looks_like_kill_or_vote_format(stripped):
         return False
     return True
 
@@ -121,7 +181,11 @@ def extract_public_text(response: str) -> str:
         for block in re.findall(r"\[\[\s*(.+?)\s*\]\]", response, flags=re.S)
         if block.strip()
     ]
-    speech_blocks = [b for b in bracket_blocks if not looks_like_seat_only(b)]
+    speech_blocks = [
+        b
+        for b in bracket_blocks
+        if not looks_like_seat_only(b) and not looks_like_kill_or_vote_format(b)
+    ]
     if speech_blocks:
         return max(speech_blocks, key=len)
 
@@ -151,7 +215,7 @@ def normalize_speech_decision(
             private_thought=decision.private_thought,
         )
 
-    return SpeechDecision(
+    return SpeechDecision.model_construct(
         public_speech="（无公开发言）",
         private_thought=decision.private_thought,
     )

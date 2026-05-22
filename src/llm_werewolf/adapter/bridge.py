@@ -23,6 +23,7 @@ from llm_werewolf.adapter.structured_invoke import (
 from llm_werewolf.core.decisions import (
     GENERATE_RESPONSE_INSTRUCTION,
     MultiSeatChoiceDecision,
+    speech_schema_instruction,
     SeatChoiceDecision,
     SpeechDecision,
     YesNoDecision,
@@ -30,6 +31,7 @@ from llm_werewolf.core.decisions import (
     is_valid_public_speech,
     normalize_speech_decision,
 )
+from llm_werewolf.core.phase_outputs import RoundtablePhase
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
@@ -130,7 +132,7 @@ class WerewolfAdapterBridge:
         """Split raw model text into public speech and private thought."""
         private_blocks = re.findall(r"\{([^}]*)\}", response, flags=re.S)
         private_thought = "\n".join(b.strip() for b in private_blocks if b.strip()) or None
-        decision = SpeechDecision(
+        decision = SpeechDecision.model_construct(
             public_speech=extract_public_text(response),
             private_thought=private_thought,
         )
@@ -283,26 +285,25 @@ class WerewolfAdapterBridge:
         context: str,
         instruction: str = "",
         *,
-        structured: bool = False,
+        structured: bool = True,
+        roundtable_phase: RoundtablePhase | None = None,
     ) -> str:
+        from llm_werewolf.core.phase_outputs import roundtable_phase_instruction
+
         parts = [context]
         if instruction:
             parts.extend(["", instruction])
         parts.extend(["", GamePrompts.SPEECH_PROMPT])
-        if structured:
-            parts.extend([
-                "",
-                "请调用 generate_response：public_speech 为完整中文发言（≥6 字，建议≥10 字），",
-                "private_thought 为仅自己可见的推理。禁止把座位号写在 public_speech。",
-                GENERATE_RESPONSE_INSTRUCTION,
-            ])
+        if roundtable_phase is not None:
+            parts.extend(["", roundtable_phase_instruction(roundtable_phase)])
+        elif structured:
+            parts.extend(["", speech_schema_instruction()])
         else:
             parts.extend([
                 "",
-                "格式提醒：本任务是「发言」，不是投票/选目标。",
-                "[[...]] 内必须是完整中文句子（≥15 字），禁止只写 [[数字]]。",
-                "私人推理写在 {...} 中，不要写在 [[]] 里。",
-                "不要替尚未发言的玩家编造发言。",
+                speech_schema_instruction(),
+                "（兼容模式）若无法调用工具，可用 [[完整中文发言]] 与 {...} 私人推理，",
+                "引擎将尽量解析为 SpeechDecision。",
             ])
         return "\n".join(parts)
 
@@ -500,27 +501,44 @@ class WerewolfAdapterBridge:
         agent: AgentProtocol,
         context: str,
         instruction: str = "",
+        *,
+        schema_retries: int = 3,
+        roundtable_phase: RoundtablePhase | None = None,
     ) -> SpeechDecision:
         structured = agent_uses_structured_output(agent)
         prompt = WerewolfAdapterBridge.build_speech_prompt(
-            context, instruction, structured=structured
-        )
-        legacy_prompt = WerewolfAdapterBridge.build_speech_prompt(
-            context, instruction, structured=False
+            context,
+            instruction,
+            structured=structured,
+            roundtable_phase=roundtable_phase,
         )
         try:
             if structured:
-                result = await invoke_structured(agent, prompt, SpeechDecision)
-                if result is not None:
-                    speech = coerce_speech(result)
-                    if is_valid_public_speech(speech.public_speech):
-                        return speech
-                response = await agent.get_response(legacy_prompt)
-                return WerewolfAdapterBridge.parse_speech(response)
-            response = await agent.get_response(legacy_prompt)
-            return WerewolfAdapterBridge.parse_speech(response)
+                for _ in range(schema_retries):
+                    result = await invoke_structured(
+                        agent, prompt, SpeechDecision, retries=1
+                    )
+                    if result is not None:
+                        speech = coerce_speech(result)
+                        if is_valid_public_speech(speech.public_speech):
+                            return speech
+                response = await agent.get_response(prompt)
+                parsed = WerewolfAdapterBridge.parse_speech(response)
+                if is_valid_public_speech(parsed.public_speech):
+                    return parsed
+            else:
+                response = await agent.get_response(prompt)
+                parsed = WerewolfAdapterBridge.parse_speech(response)
+                if is_valid_public_speech(parsed.public_speech):
+                    return parsed
         except Exception:
             pass
+        fallback_getter = getattr(agent, "_generate_fallback_response", None)
+        if callable(fallback_getter):
+            raw = fallback_getter(prompt, "speech_fallback")
+            parsed = WerewolfAdapterBridge.parse_speech(raw)
+            if is_valid_public_speech(parsed.public_speech):
+                return parsed
         return SpeechDecision(
             public_speech="（无公开发言）",
             private_thought=None,

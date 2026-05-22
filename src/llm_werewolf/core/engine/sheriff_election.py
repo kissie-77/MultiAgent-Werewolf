@@ -146,8 +146,13 @@ class SheriffElectionMixin:
             player.name, player.get_role_name(), self.game_state.round_number, len(candidates)
         )
         others = ", ".join(other_candidates) if other_candidates else "无"
+        from llm_werewolf.core.event_visibility import ROUNDTABLE_HUB_EVENT_TYPES
+
         obs = self.build_player_observation(
-            player, include_visible_events=True, include_private_notes=True
+            player,
+            include_visible_events=True,
+            include_private_notes=True,
+            exclude_event_types=ROUNDTABLE_HUB_EVENT_TYPES,
         )
         return f"{obs}\n\n{base}\n其他候选人：{others}"
 

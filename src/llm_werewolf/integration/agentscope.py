@@ -191,6 +191,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 response_text = self._extract_agentscope_text(response_msg)
                 if not response_text:
                     response_text = self._generate_fallback_response(message, "空内容")
+                elif not self._message_expects_seat_only(message):
+                    if not is_valid_public_speech(extract_public_text(response_text)):
+                        response_text = self._generate_fallback_response(
+                            message, "invalid_speech"
+                        )
                 last_error = None
                 break
             except RateLimitError as exc:
@@ -244,19 +249,43 @@ class AgentScopeWerewolfAgent(BaseAgent):
                         structured_model=structured_model,
                     )
                 )
+                text = self._extract_agentscope_text(response_msg)
                 metadata = unwrap_structured_metadata(
                     getattr(response_msg, "metadata", None)
                 )
                 if metadata:
-                    try:
-                        decision = structured_model.model_validate(metadata)
-                    except Exception:
-                        decision = structured_model.model_construct(**metadata)
-                    self.chat_history.append(
-                        {"role": "assistant", "content": decision.model_dump_json()}
-                    )
-                    return decision
-                text = self._extract_agentscope_text(response_msg)
+                    if structured_model is SpeechDecision:
+                        from llm_werewolf.core.decisions import (
+                            metadata_looks_like_wrong_schema_for_speech,
+                        )
+
+                        if metadata_looks_like_wrong_schema_for_speech(metadata):
+                            metadata = None
+                    if metadata:
+                        try:
+                            decision = structured_model.model_validate(metadata)
+                        except Exception:
+                            decision = structured_model.model_construct(**metadata)
+                        if structured_model is SpeechDecision:
+                            from llm_werewolf.core.decisions import normalize_speech_decision
+
+                            decision = normalize_speech_decision(
+                                decision,
+                                raw_fallback=text or decision.model_dump_json(),
+                            )
+                            if (
+                                not is_valid_public_speech(decision.public_speech)
+                                and text.strip()
+                            ):
+                                from llm_werewolf.adapter.bridge import (
+                                    WerewolfAdapterBridge,
+                                )
+
+                                decision = WerewolfAdapterBridge.parse_speech(text)
+                        self.chat_history.append(
+                            {"role": "assistant", "content": decision.model_dump_json()}
+                        )
+                        return decision
                 if text.strip():
                     self.chat_history.append(
                         {"role": "assistant", "content": text}
@@ -372,6 +401,18 @@ class AgentScopeWerewolfAgent(BaseAgent):
     @staticmethod
     def _message_expects_seat_only(message: str) -> bool:
         """True when the prompt asks for a seat number / vote, not a speech line."""
+        from llm_werewolf.core.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
+
+        if ROUNDTABLE_SPEECH_ONLY_MARKER in message:
+            return False
+        if "【本阶段禁止】" in message and "SpeechDecision" in message:
+            return False
+        lowered = message.lower()
+        if "发言" in message or "SPEECH" in message or "discussion" in lowered:
+            return False
+        if "演说" in message or "公开发言" in message or "public_speech" in lowered:
+            return False
+
         markers = (
             "只回复",
             "只放座位号",
@@ -392,13 +433,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
             "PROPHET_ACTION",
             "WITCH_POISON_TARGET",
         )
-        lowered = message.lower()
         if any(m in message for m in markers):
             return True
         if "vote" in lowered and "speech" not in lowered:
             return True
-        if "发言" in message or "SPEECH" in message or "discussion" in lowered:
-            return False
         return False
 
     def extract_content(self, text: str) -> Optional[str]:

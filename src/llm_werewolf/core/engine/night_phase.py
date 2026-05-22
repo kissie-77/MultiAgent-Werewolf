@@ -7,6 +7,7 @@ from collections.abc import Callable
 from llm_werewolf.adapter.message_router import MessageRouter
 from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision
+from llm_werewolf.core.event_visibility import ROUNDTABLE_HUB_EVENT_TYPES
 from llm_werewolf.core.types import Camp, EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
@@ -28,7 +29,7 @@ class NightPhaseMixin:
     build_shared_observation: Callable
 
     def _build_werewolf_discussion_context(self, werewolf: PlayerProtocol) -> str:
-        """Context for wolf chat; history comes from events visible to the pack."""
+        """Static wolf context; in-round pack chat uses MsgHub memory."""
         if not self.game_state:
             return ""
 
@@ -43,10 +44,11 @@ class NightPhaseMixin:
 
         shared = self.build_shared_observation(
             werewolves,
-            additional_notes=[
-                EngineContexts.werewolf_coordination_note(werewolf_names, target_names)
-            ],
+            additional_notes=EngineContexts.werewolf_coordination_note(
+                werewolf_names, target_names
+            ),
             include_visible_events=True,
+            exclude_event_types=ROUNDTABLE_HUB_EVENT_TYPES,
         )
         return shared + "\n" + EngineContexts.werewolf_discussion(
             werewolf.name,
@@ -103,6 +105,7 @@ class NightPhaseMixin:
         if not possible_targets:
             return messages
 
+        target_names = [p.name for p in possible_targets]
         interaction = self.game_state.require_phase_interaction()
 
         def on_speech(
@@ -122,6 +125,10 @@ class NightPhaseMixin:
                 phase=GamePhase.NIGHT.value,
                 round_number=self.game_state.round_number,
                 audience=werewolves,
+                opening_announcement=(
+                    f"狼人请睁眼。可选刀口目标：{', '.join(target_names)}。"
+                    "请与队友讨论今晚击杀目标。"
+                ),
                 on_speech=on_speech,
             )
         except Exception as exc:

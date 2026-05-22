@@ -66,10 +66,10 @@ class TestGetWerewolfRoles:
     def test_get_werewolf_roles_contains_special_werewolves(self) -> None:
         """Test that werewolf roles contains special werewolves."""
         werewolf_roles = get_werewolf_roles()
-        assert "AlphaWolf" in werewolf_roles
-        assert "WhiteWolf" in werewolf_roles
-        assert "WolfBeauty" in werewolf_roles
-        assert "HiddenWolf" in werewolf_roles
+        assert "Alpha Wolf" in werewolf_roles
+        assert "White Wolf" in werewolf_roles
+        assert "Wolf Beauty" in werewolf_roles
+        assert "Hidden Wolf" in werewolf_roles
 
     def test_get_werewolf_roles_not_contains_villager(self) -> None:
         """Test that werewolf roles doesn't contain villager roles."""

@@ -5,12 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from llm_werewolf.core.role_night_plans import (
-    plan_guard_protect,
-    plan_seer_check,
-    plan_werewolf_vote,
-    plan_witch_actions,
-)
+from llm_werewolf.core.role_night_plans import dispatch_night_plan
 from llm_werewolf.core.role_registry import get_werewolf_roles
 from llm_werewolf.core.types import EventType
 
@@ -22,9 +17,9 @@ if TYPE_CHECKING:
 # Roles that act before wolf kill target is finalized.
 PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
     "Cupid",
-    "NightmareWolf",
+    "Nightmare Wolf",
     "Guard",
-    "GuardianWolf",
+    "Guardian Wolf",
     "Thief",
 )
 
@@ -137,14 +132,4 @@ class NightSkillScheduler:
         return actions
 
     async def _plan_for_player(self, player: PlayerProtocol, interaction: object) -> list[Action]:
-        role_name = player.get_role_name()
-        role = player.role
-        if role_name == "Werewolf":
-            return await plan_werewolf_vote(role, self.game_state, interaction)
-        if role_name == "Witch":
-            return await plan_witch_actions(role, self.game_state, interaction)
-        if role_name == "Guard":
-            return await plan_guard_protect(role, self.game_state, interaction)
-        if role_name == "Seer":
-            return await plan_seer_check(role, self.game_state, interaction)
-        return await player.role.get_night_actions(self.game_state)
+        return await dispatch_night_plan(player.role, self.game_state, interaction)

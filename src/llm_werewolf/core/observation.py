@@ -24,6 +24,17 @@ class PlayerObservation(BaseModel):
     )
 
 
+def flatten_private_notes(notes: list | None) -> list[str]:
+    """Coerce private_notes to plain strings (EngineContexts may pass nested lists)."""
+    flat: list[str] = []
+    for item in notes or []:
+        if isinstance(item, (list, tuple)):
+            flat.extend(str(part) for part in item if str(part).strip())
+        elif item is not None and str(item).strip():
+            flat.append(str(item))
+    return flat
+
+
 class ObservationBuilder:
     """Builds player-specific views under strict information isolation."""
 
@@ -40,7 +51,7 @@ class ObservationBuilder:
             game_state=game_state,
             visible_players=[other.get_public_info() for other in all_players],
             visible_events=visible_events,
-            private_notes=private_notes or [],
+            private_notes=flatten_private_notes(private_notes),
         )
 
     def format_for_prompt(

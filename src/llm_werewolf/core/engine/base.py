@@ -203,6 +203,7 @@ class GameEngineBase:
         player: Player,
         include_visible_events: bool = True,
         include_private_notes: bool = True,
+        exclude_event_types: frozenset | None = None,
     ) -> str:
         """Build a filtered prompt context for a single player."""
         if not self.game_state:
@@ -210,6 +211,12 @@ class GameEngineBase:
 
         public_state = self.game_state.get_public_info()
         visible_events = self.event_logger.get_events_for_player(player.player_id)
+        if exclude_event_types:
+            visible_events = [
+                event
+                for event in visible_events
+                if event.event_type not in exclude_event_types
+            ]
         private_notes = player.get_private_notes(self.game_state)
         observation = self.observation_builder.build(
             player=player,
@@ -229,13 +236,22 @@ class GameEngineBase:
         players: list[Player],
         additional_notes: list[str] | None = None,
         include_visible_events: bool = True,
+        exclude_event_types: frozenset | None = None,
     ) -> str:
         """Build filtered context that is safe to share across a player group."""
         if not self.game_state or not players:
             return ""
 
         shared_events = self.event_logger.get_events_for_players([player.player_id for player in players])
-        private_notes = list(additional_notes or [])
+        if exclude_event_types:
+            shared_events = [
+                event
+                for event in shared_events
+                if event.event_type not in exclude_event_types
+            ]
+        from llm_werewolf.core.observation import flatten_private_notes
+
+        private_notes = flatten_private_notes(list(additional_notes or []))
         observation = self.observation_builder.build(
             player=players[0],
             game_state=self.game_state.get_public_info(),

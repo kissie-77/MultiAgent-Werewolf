@@ -19,6 +19,12 @@ WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_DISCUSSION,
 })
 
+# MsgHub holds in-round speeches; static prompt context omits these event types.
+ROUNDTABLE_HUB_EVENT_TYPES: frozenset[EventType] = frozenset({
+    EventType.PLAYER_SPEECH,
+    EventType.PLAYER_DISCUSSION,
+})
+
 # Event types where visibility is resolved from data["player_id"] or data["voter_id"].
 ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.ROLE_ACTING: "player_id",

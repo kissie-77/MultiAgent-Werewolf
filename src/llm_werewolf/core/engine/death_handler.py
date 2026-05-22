@@ -3,6 +3,7 @@
 import random
 from collections.abc import Callable
 
+from llm_werewolf.core.death_abilities import DEATH_ABILITY_ROLE_NAMES
 from llm_werewolf.core.types import Camp, EventType, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
@@ -321,7 +322,7 @@ class DeathHandlerMixin:
             if not player:
                 continue
 
-            if player.role.name in ("Hunter", "AlphaWolf"):
+            if player.role.name in DEATH_ABILITY_ROLE_NAMES:
                 # Check if poisoned
                 death_cause = self.game_state.death_causes.get(player_id)
                 if death_cause == "witch_poison":

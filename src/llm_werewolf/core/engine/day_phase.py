@@ -5,6 +5,7 @@ from collections.abc import Callable
 from llm_werewolf.adapter.message_router import MessageRouter
 from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision
+from llm_werewolf.core.event_visibility import ROUNDTABLE_HUB_EVENT_TYPES
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
@@ -19,13 +20,16 @@ class DayPhaseMixin:
     build_player_observation: Callable[[PlayerProtocol], str]
 
     def _build_discussion_context(self, player: PlayerProtocol) -> str:
-        """Build context for day discussion (observation from events only)."""
+        """Build static context for day discussion; in-round speech uses MsgHub memory."""
         if not self.game_state:
             return ""
 
         context_parts = [
             self.build_player_observation(
-                player, include_visible_events=True, include_private_notes=True
+                player,
+                include_visible_events=True,
+                include_private_notes=True,
+                exclude_event_types=ROUNDTABLE_HUB_EVENT_TYPES,
             ),
         ]
 
@@ -92,6 +96,16 @@ class DayPhaseMixin:
         alive_players = self.game_state.get_alive_players()
         interaction = self.game_state.require_phase_interaction()
 
+        if self.game_state.night_deaths:
+            death_lines = [
+                f"{self.game_state.get_player(pid).name} 昨夜死亡"
+                for pid in self.game_state.night_deaths
+                if self.game_state.get_player(pid)
+            ]
+            opening_announcement = "天亮了。" + "；".join(death_lines) + "。请依次发表白天讨论发言。"
+        else:
+            opening_announcement = "天亮了，昨夜平安夜。请依次发表白天讨论发言。"
+
         def on_speech(
             speaker: PlayerProtocol,
             decision: SpeechDecision,
@@ -110,6 +124,7 @@ class DayPhaseMixin:
                 instruction="",
                 phase=GamePhase.DAY_DISCUSSION.value,
                 round_number=self.game_state.round_number,
+                opening_announcement=opening_announcement,
                 on_speech=on_speech,
             )
         except Exception as exc:

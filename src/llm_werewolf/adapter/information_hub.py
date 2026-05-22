@@ -23,6 +23,7 @@ from llm_werewolf.adapter.visibility import (
     VisibilityChannel,
 )
 from llm_werewolf.core.decisions import SpeechDecision
+from llm_werewolf.core.prompts.actions import EngineContexts
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
@@ -235,10 +236,20 @@ class InformationHub:
                     continue
 
                 context = context_builder(speaker)
+                context = "\n\n".join([
+                    context,
+                    EngineContexts.hub_roundtable_memory_notice(channel.value),
+                ])
+                from llm_werewolf.core.phase_outputs import resolve_roundtable_phase
+
+                rt_phase = resolve_roundtable_phase(
+                    channel=channel.value, phase=phase
+                )
                 decision = await WerewolfAdapterBridge.request_speech(
                     speaker.agent,
                     context,
                     instruction,
+                    roundtable_phase=rt_phase,
                 )
 
                 react_self = self._react_agent(speaker)
@@ -422,8 +433,14 @@ class InformationHub:
         if speaker.agent is None:
             return SpeechDecision(public_speech="（无公开发言）", private_thought=None)
 
+        from llm_werewolf.core.phase_outputs import resolve_roundtable_phase
+
+        rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
         decision = await WerewolfAdapterBridge.request_speech(
-            speaker.agent, context, instruction
+            speaker.agent,
+            context,
+            instruction,
+            roundtable_phase=rt_phase,
         )
         react_self = self._react_agent(speaker)
         if not react_self or not react_agents:

@@ -1,7 +1,8 @@
 """Tests for adapter/prompts (legacy re-exports)."""
 
-from llm_werewolf.adapter.prompts import GamePrompts, PlanStrategies, SYSTEM_PROMPT
-from llm_werewolf.adapter.prompts.identity import IDENTITY_PROMPTS
+from llm_werewolf.adapter.prompts import GamePrompts, PlanStrategies
+from llm_werewolf.core.prompts.system import SYSTEM_PROMPT
+from llm_werewolf.core.prompts.identity import IDENTITY_PROMPTS
 
 
 def test_system_prompt_chinese() -> None:
@@ -16,7 +17,8 @@ def test_identity_seer() -> None:
 
 def test_plan_strategies() -> None:
     plan = PlanStrategies.get_plan_by_name("bold")
-    assert "plan" in plan
+    assert plan["name"] == "bold"
+    assert "wolf" in plan
 
 
 def test_game_prompts_constants() -> None:

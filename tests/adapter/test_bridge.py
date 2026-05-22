@@ -4,7 +4,7 @@ from llm_werewolf.core.roles import Villager, Werewolf
 
 
 def test_parse_speech_splits_public_and_private() -> None:
-    raw = "[[我认为2号可疑]] {我在装村民，不能暴露}"
+    raw = "[[我认为2号玩家发言前后矛盾，需要再听一轮解释]] {我在装村民，不能暴露}"
     decision = WerewolfAdapterBridge.parse_speech(raw)
 
     assert "2号" in decision.public_speech

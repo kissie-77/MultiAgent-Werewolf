@@ -1,0 +1,33 @@
+# Push fork branch lvyihan_test to upstream kissie-77/MultiAgent-Werewolf.
+#
+# Setup (once): Repo Settings → Secrets and variables → Actions → New repository secret
+#   Name: KISSIE_GITHUB_TOKEN
+#   Value: kissie-77 account PAT with `repo` scope (classic token)
+#
+# Run: Actions → "Sync lvyihan_test to kissie-77" → Run workflow
+
+name: Sync lvyihan_test to kissie-77
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout lvyihan_test
+        uses: actions/checkout@v4
+        with:
+          ref: lvyihan_test
+          fetch-depth: 0
+
+      - name: Push branch to kissie-77
+        env:
+          KISSIE_TOKEN: ${{ secrets.KISSIE_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$KISSIE_TOKEN" ]; then
+            echo "::error::Missing secret KISSIE_GITHUB_TOKEN (kissie-77 PAT with repo scope)."
+            exit 1
+          fi
+          git remote add upstream "https://x-access-token:${KISSIE_TOKEN}@github.com/kissie-77/MultiAgent-Werewolf.git"
+          git push upstream HEAD:refs/heads/lvyihan_test --force-with-lease

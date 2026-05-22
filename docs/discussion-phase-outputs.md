@@ -35,6 +35,21 @@
 
 `build_player_observation(..., for_agent_decision=True)` 自动排除 `HUB_DIALOGUE_EVENT_TYPES`；`InformationHub.set_context_provider` 始终使用该模式。
 
+## 投票意向追踪（复盘）
+
+圆桌讨论（白天 / 狼队夜聊 / 警上）中，**每位发言者**发言前后各采集一轮全场投票意向（`VoteIntentionDecision`，`seat=0` 表示无意向）：
+
+| 时机 | 采集对象 | 输出 |
+|------|----------|------|
+| 发言前 | 频道内全体存活 Agent | `VoteIntentionSnapshot` (before) |
+| 发言后 | 同上 | `VoteIntentionSnapshot` (after) + `swings` |
+
+- 事件类型：`VOTE_INTENTION_SNAPSHOT`（`data` 含 before/after/swings）
+- 配置：`GameConfig.track_vote_intentions`（默认 `true`）
+- 评测产物：`vote_intentions.jsonl`（由 `EvaluationRecorder` 写入）
+- 说服力分析：`vote_swing_report.md` / `vote_swing_summary.json`（评测结束或 CLI 对局后自动生成）
+- 离线分析：`werewolf-vote-swing <游戏目录或 jsonl 路径>`
+
 ## 引擎校验
 
 - `is_valid_public_speech` 拒绝 `looks_like_kill_or_vote_format`（`[[7]]`、纯「刀7」等）。

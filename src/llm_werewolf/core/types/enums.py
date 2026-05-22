@@ -113,6 +113,7 @@ class EventType(str, Enum):
     GUARD_PROTECTED = "guard_protected"
 
     VOTE_CAST = "vote_cast"
+    VOTE_INTENTION_SNAPSHOT = "vote_intention_snapshot"
     VOTE_RESULT = "vote_result"
     PLAYER_ELIMINATED = "player_eliminated"
 

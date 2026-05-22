@@ -27,6 +27,14 @@ from llm_werewolf.core.decisions import SpeechDecision
 from llm_werewolf.core.phase_outputs import ActionPhase
 from llm_werewolf.core.prompts.actions import EngineContexts
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
+from llm_werewolf.core.vote_intention import (
+    SpeechVoteIntentionRecord,
+    VoteIntentionAnchor,
+    VoteIntentionEntry,
+    VoteIntentionSnapshot,
+    VoteIntentionTracker,
+    format_intentions_line,
+)
 
 if TYPE_CHECKING:
     from llm_werewolf.core.player import Player
@@ -195,6 +203,62 @@ class InformationHub:
                 hub, content, channel=channel, phase=phase, round_number=round_number
             )
 
+    async def _collect_vote_intentions(
+        self,
+        observers: list[PlayerProtocol],
+        *,
+        anchor: VoteIntentionAnchor,
+        speaker: PlayerProtocol,
+        channel: VisibilityChannel,
+        context_builder: Callable[[PlayerProtocol], str],
+        phase: str,
+        round_number: int,
+        speech_excerpt: str = "",
+    ) -> dict[str, VoteIntentionEntry]:
+        """Ask every observer for day-vote intention (private, not broadcast)."""
+        intentions: dict[str, VoteIntentionEntry] = {}
+        anchor_note = "发言前" if anchor == VoteIntentionAnchor.BEFORE else "发言后"
+        for observer in observers:
+            if not observer.is_alive() or observer.agent is None:
+                continue
+            alive = self._get_alive_players() if self._get_alive_players else []
+            possible_targets = [
+                p for p in alive if p.player_id != observer.player_id
+            ]
+            extra_parts = [
+                context_builder(observer),
+                EngineContexts.hub_decision_memory_notice(),
+                "",
+                f"【投票意向】{speaker.name} {anchor_note}发言。",
+            ]
+            if speech_excerpt and anchor == VoteIntentionAnchor.AFTER:
+                extra_parts.append(f"其公开发言摘要：{speech_excerpt[:300]}")
+            extra = "\n\n".join(part for part in extra_parts if part)
+
+            async def _call() -> VoteIntentionEntry:
+                return await WerewolfAdapterBridge.request_vote_intention(
+                    observer.agent,
+                    observer.get_role_name(),
+                    observer,
+                    possible_targets,
+                    extra,
+                    anchor=anchor,
+                    speaker_name=speaker.name,
+                    round_number=round_number,
+                    phase=phase,
+                )
+
+            entry = await self._run_private_session(
+                observer,
+                VisibilityChannel.PRIVATE,
+                phase,
+                round_number,
+                extra,
+                _call,
+            )
+            intentions[observer.player_id] = entry
+        return intentions
+
     async def run_roundtable(
         self,
         speakers: list[PlayerProtocol],
@@ -209,6 +273,9 @@ class InformationHub:
         on_speech: Callable[
             [PlayerProtocol, SpeechDecision, RoutedMessage | None], None
         ]
+        | None = None,
+        vote_intention_tracker: VoteIntentionTracker | None = None,
+        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
         | None = None,
     ) -> list[RoutedMessage]:
         """Sequential discussion; MsgHub audience hears only public lines."""
@@ -236,6 +303,29 @@ class InformationHub:
             for speaker in speakers:
                 if not speaker.is_alive() or speaker.agent is None:
                     continue
+
+                before_intentions: dict[str, VoteIntentionEntry] = {}
+                if vote_intention_tracker is not None:
+                    before_intentions = await self._collect_vote_intentions(
+                        audience_players,
+                        anchor=VoteIntentionAnchor.BEFORE,
+                        speaker=speaker,
+                        channel=channel,
+                        context_builder=context_builder,
+                        phase=phase,
+                        round_number=round_number,
+                    )
+                    vote_intention_tracker.add_snapshot(
+                        VoteIntentionSnapshot(
+                            round_number=round_number,
+                            phase=phase,
+                            channel=channel.value,
+                            anchor=VoteIntentionAnchor.BEFORE,
+                            speaker_id=speaker.player_id,
+                            speaker_name=speaker.name,
+                            intentions=before_intentions,
+                        )
+                    )
 
                 context = context_builder(speaker)
                 context = "\n\n".join([
@@ -283,6 +373,41 @@ class InformationHub:
 
                 if on_speech:
                     on_speech(speaker, decision, routed)
+
+                if vote_intention_tracker is not None:
+                    speech_text = decision.public_speech.strip()
+                    after_intentions = await self._collect_vote_intentions(
+                        audience_players,
+                        anchor=VoteIntentionAnchor.AFTER,
+                        speaker=speaker,
+                        channel=channel,
+                        context_builder=context_builder,
+                        phase=phase,
+                        round_number=round_number,
+                        speech_excerpt=speech_text,
+                    )
+                    vote_intention_tracker.add_snapshot(
+                        VoteIntentionSnapshot(
+                            round_number=round_number,
+                            phase=phase,
+                            channel=channel.value,
+                            anchor=VoteIntentionAnchor.AFTER,
+                            speaker_id=speaker.player_id,
+                            speaker_name=speaker.name,
+                            intentions=after_intentions,
+                        )
+                    )
+                    record = vote_intention_tracker.record_speech_block(
+                        round_number=round_number,
+                        phase=phase,
+                        channel=channel.value,
+                        speaker=speaker,
+                        public_speech=speech_text,
+                        before=before_intentions,
+                        after=after_intentions,
+                    )
+                    if on_vote_intention_record:
+                        on_vote_intention_record(record)
 
         return routed_messages
 

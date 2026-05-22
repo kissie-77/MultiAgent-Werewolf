@@ -131,6 +131,13 @@ class EvaluationRunner:
 
         # final 快照无论成功、崩溃还是超时都尽量保存，便于比较终局状态。
         recorder.record_snapshot(engine.game_state, label="final")
+        if engine.game_state and engine.game_state.vote_intention_tracker is not None:
+            records = engine.game_state.vote_intention_tracker.export_records()
+            recorder.record_vote_intentions(records)
+            if records:
+                from llm_werewolf.evaluation.vote_swing_analysis import write_persuasion_artifacts
+
+                write_persuasion_artifacts(game_dir)
         checks = self._run_checkers(events, observations_by_player, engine)
         recorder.finalize_checks(checks)
 

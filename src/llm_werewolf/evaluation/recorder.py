@@ -25,6 +25,7 @@ class EvaluationRecorder:
         self.snapshots_path = self.game_dir / "snapshots.jsonl"
         self.errors_path = self.game_dir / "errors.jsonl"
         self.checks_path = self.game_dir / "checks.json"
+        self.vote_intentions_path = self.game_dir / "vote_intentions.jsonl"
 
     def record_event(self, event: Event) -> None:
         """追加一条游戏事件。
@@ -70,6 +71,11 @@ class EvaluationRecorder:
             "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
         }
         self._append_jsonl(self.errors_path, payload)
+
+    def record_vote_intentions(self, records: list[dict[str, Any]]) -> None:
+        """Append speech-linked vote intention records for persuasion analysis."""
+        for record in records:
+            self._append_jsonl(self.vote_intentions_path, record)
 
     def finalize_checks(self, results: list[CheckResult]) -> None:
         """写入本局所有 checker 结果。

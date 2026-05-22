@@ -25,6 +25,7 @@ from llm_werewolf.core.decisions import (
     MultiSeatChoiceDecision,
     SeatChoiceDecision,
     SpeechDecision,
+    VoteIntentionDecision,
     WitchNightDecision,
     YesNoDecision,
     extract_public_text,
@@ -32,8 +33,10 @@ from llm_werewolf.core.decisions import (
     normalize_speech_decision,
     seat_choice_schema_instruction,
     speech_schema_instruction,
+    vote_intention_schema_instruction,
     witch_night_schema_instruction,
 )
+from llm_werewolf.core.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
 from llm_werewolf.core.phase_outputs import ActionPhase, RoundtablePhase, action_phase_instruction
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
@@ -431,6 +434,130 @@ class WerewolfAdapterBridge:
         except Exception:
             pass
         return default
+
+    @staticmethod
+    def build_vote_intention_entry(
+        player: PlayerProtocol,
+        seat: int,
+        possible_targets: list[PlayerProtocol],
+        reason: str | None,
+    ) -> VoteIntentionEntry:
+        target = (
+            WerewolfAdapterBridge.resolve_player_by_seat(seat, possible_targets)
+            if seat > 0
+            else None
+        )
+        return VoteIntentionEntry(
+            player_id=player.player_id,
+            player_name=player.name,
+            seat=seat,
+            target_id=target.player_id if target else None,
+            target_name=target.name if target else None,
+            reason=reason,
+        )
+
+    @staticmethod
+    def build_vote_intention_prompt(
+        role_name: str,
+        possible_targets: list[PlayerProtocol],
+        additional_context: str,
+        *,
+        anchor: VoteIntentionAnchor,
+        speaker_name: str,
+        round_number: int | None = None,
+        phase: str | None = None,
+        structured: bool = False,
+    ) -> str:
+        anchor_label = "发言前" if anchor == VoteIntentionAnchor.BEFORE else "发言后"
+        prompt_parts = [
+            f"你是{role_name}。",
+            "",
+            "【投票意向采集 · 非正式投票】",
+            f"当前讨论发言人：{speaker_name}（{anchor_label}其本轮发言）。",
+            "请声明：若此刻进行白天放逐投票，你会投给谁？",
+            "尚无明确意向、观望或弃投倾向则 seat=0（无投票意向）。",
+        ]
+        if round_number is not None and phase:
+            prompt_parts.append(f"当前：第 {round_number} 轮 — {phase}")
+
+        if additional_context:
+            prompt_parts.extend(["", additional_context, ""])
+
+        if possible_targets:
+            prompt_parts.append("可选放逐目标（全局座位号）：")
+            for target in possible_targets:
+                seat = WerewolfAdapterBridge.get_player_seat(target)
+                seat_label = seat if seat is not None else "?"
+                prompt_parts.append(
+                    f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）"
+                )
+
+        prompt_parts.extend([
+            "",
+            action_phase_instruction(ActionPhase.VOTE_INTENTION),
+        ])
+        if structured:
+            prompt_parts.extend(["", vote_intention_schema_instruction()])
+        return "\n".join(prompt_parts)
+
+    @staticmethod
+    async def request_vote_intention(
+        agent: AgentProtocol,
+        role_name: str,
+        actor: PlayerProtocol,
+        possible_targets: list[PlayerProtocol],
+        additional_context: str,
+        *,
+        anchor: VoteIntentionAnchor,
+        speaker_name: str,
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> VoteIntentionEntry:
+        """Collect a single player's day-vote intention (seat=0 means none)."""
+        structured = agent_uses_structured_output(agent)
+        prompt = WerewolfAdapterBridge.build_vote_intention_prompt(
+            role_name,
+            possible_targets,
+            additional_context,
+            anchor=anchor,
+            speaker_name=speaker_name,
+            round_number=round_number,
+            phase=phase,
+            structured=structured,
+        )
+        default = WerewolfAdapterBridge.build_vote_intention_entry(
+            actor, 0, possible_targets, None
+        )
+        try:
+            if structured:
+                result = await invoke_structured(agent, prompt, VoteIntentionDecision)
+                if isinstance(result, VoteIntentionDecision):
+                    seat = result.seat if result.seat >= 0 else 0
+                    if seat > 0 and WerewolfAdapterBridge.resolve_player_by_seat(
+                        seat, possible_targets
+                    ) is None:
+                        seat = 0
+                    return WerewolfAdapterBridge.build_vote_intention_entry(
+                        actor, seat, possible_targets, result.reason
+                    )
+            response = await agent.get_response(prompt)
+            target = WerewolfAdapterBridge.parse_target_selection(
+                response, possible_targets, allow_skip=True
+            )
+            if target is None:
+                numbers = re.findall(r"\d+", response.strip())
+                seat = int(numbers[0]) if numbers else 0
+                if seat > 0 and WerewolfAdapterBridge.resolve_player_by_seat(
+                    seat, possible_targets
+                ) is None:
+                    seat = 0
+            else:
+                seat = WerewolfAdapterBridge.get_player_seat(target) or 0
+            return WerewolfAdapterBridge.build_vote_intention_entry(
+                actor, seat, possible_targets, response[:200] if response else None
+            )
+        except Exception:
+            return default
 
     @staticmethod
     async def request_seat_choice(

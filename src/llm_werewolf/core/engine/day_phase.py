@@ -115,6 +115,13 @@ class DayPhaseMixin:
                 self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech)
             )
 
+        tracker = (
+            self.game_state.vote_intention_tracker
+            if self.game_state.track_vote_intentions
+            else None
+        )
+        on_intention = self._log_vote_intention_record if tracker else None
+
         try:
             await interaction.run_roundtable(
                 alive_players,
@@ -125,6 +132,8 @@ class DayPhaseMixin:
                 round_number=self.game_state.round_number,
                 opening_announcement=opening_announcement,
                 on_speech=on_speech,
+                vote_intention_tracker=tracker,
+                on_vote_intention_record=on_intention,
             )
         except Exception as exc:
             self._log_event(

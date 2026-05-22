@@ -40,6 +40,23 @@ def speech_schema_instruction() -> str:
     ])
 
 
+class VoteIntentionDecision(BaseModel):
+    """Declared day-vote intention for replay (not an official vote)."""
+
+    seat: int = Field(
+        ...,
+        ge=0,
+        description=(
+            "Global seat of the player you would vote to exile if voting now; "
+            "0 = no clear intention / undecided."
+        ),
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Private rationale; not broadcast to other players.",
+    )
+
+
 class SeatChoiceDecision(BaseModel):
     """Night skill / vote: pick one seat (0 = skip when allowed)."""
 
@@ -114,6 +131,19 @@ class WitchNightDecision(BaseModel):
         description="Global seat number when action=poison; use 0 for save or none",
     )
     reason: str | None = Field(default=None, description="Private rationale.")
+
+
+def vote_intention_schema_instruction() -> str:
+    """Prompt block for VoteIntentionDecision (analysis-only, not official vote)."""
+    return "\n".join([
+        "【本任务输出 — 仅 VoteIntentionDecision Schema】",
+        "必须调用 generate_response，字段：",
+        "- seat (integer, 必填): 若此刻正式投票会放逐的全局座位号；",
+        "  尚无明确意向或观望则 seat=0（无投票意向）。",
+        "- reason (string, 可选): 私人推理，不广播。",
+        "这是投票意向采集，不是正式投票；禁止 SpeechDecision、禁止长段公开发言。",
+        GENERATE_RESPONSE_INSTRUCTION,
+    ])
 
 
 def seat_choice_schema_instruction(*, allow_skip: bool = False) -> str:

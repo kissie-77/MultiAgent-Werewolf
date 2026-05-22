@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Callable
 from llm_werewolf.adapter.information_hub import InformationHub
 from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision, WitchNightDecision
+from llm_werewolf.core.vote_intention import SpeechVoteIntentionRecord, VoteIntentionTracker
 from llm_werewolf.core.phase_outputs import ActionPhase
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
@@ -169,6 +170,9 @@ class PhaseInteraction:
             [PlayerProtocol, SpeechDecision, RoutedMessage | None], None
         ]
         | None = None,
+        vote_intention_tracker: VoteIntentionTracker | None = None,
+        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
+        | None = None,
     ) -> list:
         return await self._hub.run_roundtable(
             speakers,
@@ -180,4 +184,6 @@ class PhaseInteraction:
             audience=audience,
             opening_announcement=opening_announcement,
             on_speech=on_speech,
+            vote_intention_tracker=vote_intention_tracker,
+            on_vote_intention_record=on_vote_intention_record,
         )

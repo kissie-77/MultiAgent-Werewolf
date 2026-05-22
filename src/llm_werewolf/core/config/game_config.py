@@ -42,6 +42,13 @@ class GameConfig(BaseModel):
         description="Enable sheriff election (future feature)",
         examples=[True, False],
     )
+    track_vote_intentions: bool = Field(
+        default=True,
+        description=(
+            "Collect each agent's day-vote intention before/after every roundtable speech "
+            "for replay and persuasion analysis."
+        ),
+    )
 
     @field_validator("role_names")
     @classmethod

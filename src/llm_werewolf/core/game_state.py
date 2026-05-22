@@ -52,6 +52,8 @@ class GameState:
 
         self.information_hub: InformationHub | None = None
         self.phase_interaction: PhaseInteraction | None = None
+        self.track_vote_intentions = False
+        self.vote_intention_tracker = None
 
     def require_phase_interaction(self) -> PhaseInteraction:
         """Return the injected phase interaction API for this game."""

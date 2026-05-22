@@ -418,6 +418,8 @@ class AgentScopeWerewolfAgent(BaseAgent):
             "只放座位号",
             "座位号",
             "全局座位号",
+            "投票意向",
+            "VoteIntentionDecision",
             "投票",
             "刀谁",
             "守谁",

@@ -51,6 +51,20 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
         if "[[1]]" in message and "[[0]]" in message:
             return random.choice(["[[1]]", "[[0]]"])  # noqa: S311
 
+        if "投票意向" in message or "VoteIntentionDecision" in message:
+            if "可选放逐目标" in message or "可选目标" in message:
+                lines = message.split("\n")
+                max_number = 0
+                for line in lines:
+                    match = re.match(r"^\s*-\s*座位\s*(\d+)", line)
+                    if match:
+                        max_number = max(max_number, int(match.group(1)))
+                if max_number > 0 and random.random() < 0.3:  # noqa: S311
+                    return "[[0]]"
+                if max_number > 0:
+                    return f"[[{random.randint(1, max_number)}]]"  # noqa: S311
+            return "[[0]]"
+
         if "可选目标" in message or "请仅回复" in message or "编号" in message:
             lines = message.split("\n")
             max_number = 0

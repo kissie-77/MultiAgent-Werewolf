@@ -121,6 +121,13 @@ class SheriffElectionMixin:
                 visible_to=None,
             )
 
+        tracker = (
+            self.game_state.vote_intention_tracker
+            if self.game_state.track_vote_intentions
+            else None
+        )
+        on_intention = self._log_vote_intention_record if tracker else None
+
         await interaction.run_roundtable(
             candidates,
             channel=VisibilityChannel.PUBLIC,
@@ -130,6 +137,8 @@ class SheriffElectionMixin:
             round_number=self.game_state.round_number,
             audience=alive,
             on_speech=on_speech,
+            vote_intention_tracker=tracker,
+            on_vote_intention_record=on_intention,
         )
 
     def _build_speech_context(

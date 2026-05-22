@@ -103,6 +103,12 @@ class GameEngineBase:
         self.game_state = GameState(player_objects)
         self.game_state.information_hub = self.information_hub
         self.game_state.phase_interaction = self.phase_interaction
+        track_intentions = True if self.config is None else self.config.track_vote_intentions
+        self.game_state.track_vote_intentions = track_intentions
+        if track_intentions:
+            from llm_werewolf.core.vote_intention import VoteIntentionTracker
+
+            self.game_state.vote_intention_tracker = VoteIntentionTracker()
         self.victory_checker = VictoryChecker(self.game_state)
         self.information_hub.set_context_provider(
             build_observation=lambda player: self.build_player_observation(
@@ -160,6 +166,27 @@ class GameEngineBase:
             return True
 
         return False
+
+    def _log_vote_intention_record(self, record: object) -> None:
+        """Log speech-linked vote intention deltas for replay analysis."""
+        from llm_werewolf.core.vote_intention import (
+            SpeechVoteIntentionRecord,
+            format_intentions_line,
+        )
+
+        if not isinstance(record, SpeechVoteIntentionRecord):
+            return
+        before_line = format_intentions_line(record.before)
+        after_line = format_intentions_line(record.after)
+        message = (
+            f"{record.speaker_name} 发言意向：前 [{before_line}] → 后 [{after_line}]；"
+            f"{len(record.swings)} 人改意向"
+        )
+        self._log_event(
+            EventType.VOTE_INTENTION_SNAPSHOT,
+            message,
+            data=record.to_dict(),
+        )
 
     def _log_event(
         self,

@@ -463,19 +463,28 @@ class WerewolfAdapterBridge:
         additional_context: str,
         *,
         anchor: VoteIntentionAnchor,
-        speaker_name: str,
+        last_speaker_name: str | None = None,
         round_number: int | None = None,
         phase: str | None = None,
         structured: bool = False,
     ) -> str:
-        anchor_label = "发言前" if anchor == VoteIntentionAnchor.BEFORE else "发言后"
+        if anchor == VoteIntentionAnchor.INITIAL:
+            situation = (
+                "本轮讨论刚刚开始，尚无人发言。"
+                "请上报你此刻若进行放逐投票会投给谁。"
+            )
+        else:
+            situation = (
+                f"你刚听完 {last_speaker_name or '上一位玩家'} 的发言（已写入对话记忆）。"
+                "请根据最新讨论更新：若此刻投票会放逐谁？"
+            )
         prompt_parts = [
             f"你是{role_name}。",
             "",
             "【投票意向采集 · 非正式投票】",
-            f"当前讨论发言人：{speaker_name}（{anchor_label}其本轮发言）。",
-            "请声明：若此刻进行白天放逐投票，你会投给谁？",
-            "尚无明确意向、观望或弃投倾向则 seat=0（无投票意向）。",
+            situation,
+            "你必须明确给出意向：有目标填 seat=全局座位号；观望/无明确目标填 seat=0。",
+            "seat=0 也必须由你主动选择，不可省略回复。",
         ]
         if round_number is not None and phase:
             prompt_parts.append(f"当前：第 {round_number} 轮 — {phase}")
@@ -509,55 +518,62 @@ class WerewolfAdapterBridge:
         additional_context: str,
         *,
         anchor: VoteIntentionAnchor,
-        speaker_name: str,
+        last_speaker_name: str | None = None,
         round_number: int | None = None,
         phase: str | None = None,
     ) -> VoteIntentionEntry:
-        """Collect a single player's day-vote intention (seat=0 means none)."""
+        """Collect one player's vote intention; always invokes the model (seat=0 = explicit none)."""
         structured = agent_uses_structured_output(agent)
         prompt = WerewolfAdapterBridge.build_vote_intention_prompt(
             role_name,
             possible_targets,
             additional_context,
             anchor=anchor,
-            speaker_name=speaker_name,
+            last_speaker_name=last_speaker_name,
             round_number=round_number,
             phase=phase,
             structured=structured,
         )
-        default = WerewolfAdapterBridge.build_vote_intention_entry(
-            actor, 0, possible_targets, None
-        )
-        try:
-            if structured:
+
+        def _entry_from_seat(seat: int, reason: str | None) -> VoteIntentionEntry:
+            safe_seat = max(0, int(seat))
+            if safe_seat > 0 and WerewolfAdapterBridge.resolve_player_by_seat(
+                safe_seat, possible_targets
+            ) is None:
+                safe_seat = 0
+            return WerewolfAdapterBridge.build_vote_intention_entry(
+                actor, safe_seat, possible_targets, reason
+            )
+
+        last_error: str | None = None
+        if structured:
+            try:
                 result = await invoke_structured(agent, prompt, VoteIntentionDecision)
                 if isinstance(result, VoteIntentionDecision):
-                    seat = result.seat if result.seat >= 0 else 0
-                    if seat > 0 and WerewolfAdapterBridge.resolve_player_by_seat(
-                        seat, possible_targets
-                    ) is None:
-                        seat = 0
-                    return WerewolfAdapterBridge.build_vote_intention_entry(
-                        actor, seat, possible_targets, result.reason
-                    )
+                    return _entry_from_seat(result.seat, result.reason)
+            except Exception as exc:
+                last_error = str(exc)
+
+        try:
             response = await agent.get_response(prompt)
-            target = WerewolfAdapterBridge.parse_target_selection(
-                response, possible_targets, allow_skip=True
-            )
-            if target is None:
-                numbers = re.findall(r"\d+", response.strip())
-                seat = int(numbers[0]) if numbers else 0
-                if seat > 0 and WerewolfAdapterBridge.resolve_player_by_seat(
-                    seat, possible_targets
-                ) is None:
-                    seat = 0
-            else:
-                seat = WerewolfAdapterBridge.get_player_seat(target) or 0
-            return WerewolfAdapterBridge.build_vote_intention_entry(
-                actor, seat, possible_targets, response[:200] if response else None
-            )
-        except Exception:
-            return default
+        except Exception as exc:
+            msg = f"vote_intention LLM failed: {last_error or exc}"
+            raise RuntimeError(msg) from exc
+
+        target = WerewolfAdapterBridge.parse_target_selection(
+            response, possible_targets, allow_skip=True
+        )
+        if target is not None:
+            seat = WerewolfAdapterBridge.get_player_seat(target) or 0
+            return _entry_from_seat(seat, response[:500])
+
+        numbers = re.findall(r"\[\[\s*(\d+)\s*\]\]", response)
+        if numbers:
+            return _entry_from_seat(int(numbers[0]), response[:500])
+        loose = re.findall(r"\d+", response.strip())
+        if loose:
+            return _entry_from_seat(int(loose[0]), response[:500])
+        return _entry_from_seat(0, response[:500] or "seat=0（模型明示无意向）")
 
     @staticmethod
     async def request_seat_choice(

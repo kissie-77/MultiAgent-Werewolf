@@ -10,10 +10,11 @@ from llm_werewolf.core.types import PlayerProtocol
 
 
 class VoteIntentionAnchor(str, Enum):
-    """Whether the snapshot was taken before or after a speech."""
+    """When a full-table intention snapshot was taken."""
 
-    BEFORE = "before"
-    AFTER = "after"
+    INITIAL = "initial"
+    AFTER_SPEECH = "after_speech"
+    BEFORE = "before"  # deprecated: old logs only
 
 
 @dataclass

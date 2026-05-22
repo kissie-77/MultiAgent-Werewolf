@@ -37,12 +37,16 @@
 
 ## 投票意向追踪（复盘）
 
-圆桌讨论（白天 / 狼队夜聊 / 警上）中，**每位发言者**发言前后各采集一轮全场投票意向（`VoteIntentionDecision`，`seat=0` 表示无意向）：
+圆桌讨论（白天 / 狼队夜聊 / 警上）按顺序采集投票意向（`VoteIntentionDecision`，`seat=0` 须由模型明示）：
 
-| 时机 | 采集对象 | 输出 |
-|------|----------|------|
-| 发言前 | 频道内全体存活 Agent | `VoteIntentionSnapshot` (before) |
-| 发言后 | 同上 | `VoteIntentionSnapshot` (after) + `swings` |
+| 顺序 | 步骤 |
+|------|------|
+| 1 | **初始意向**：讨论开始前，频道内全体 Agent 各输出一次 |
+| 2 | **发言人 1** 公开发言（写入 MsgHub） |
+| 3 | **意向 1**：全体 Agent 根据发言 1 更新意向 |
+| 4 | **发言人 2** 发言 → **意向 2** → … |
+
+复盘对比：发言人 K 的 `before` = 意向 K-1（K=1 时为初始意向），`after` = 意向 K。
 
 - 事件类型：`VOTE_INTENTION_SNAPSHOT`（`data` 含 before/after/swings）
 - 配置：`GameConfig.track_vote_intentions`（默认 `true`）

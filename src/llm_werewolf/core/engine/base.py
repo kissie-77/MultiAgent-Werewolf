@@ -176,12 +176,15 @@ class GameEngineBase:
 
         if not isinstance(record, SpeechVoteIntentionRecord):
             return
-        before_line = format_intentions_line(record.before)
+        before_line = format_intentions_line(record.before) if record.before else "—"
         after_line = format_intentions_line(record.after)
-        message = (
-            f"{record.speaker_name} 发言意向：前 [{before_line}] → 后 [{after_line}]；"
-            f"{len(record.swings)} 人改意向"
-        )
+        if not record.public_speech and not record.before:
+            message = f"【初始意向】[{after_line}]"
+        else:
+            message = (
+                f"听完 {record.speaker_name} 发言后意向："
+                f"[{before_line}] → [{after_line}]；{len(record.swings)} 人改意向"
+            )
         self._log_event(
             EventType.VOTE_INTENTION_SNAPSHOT,
             message,

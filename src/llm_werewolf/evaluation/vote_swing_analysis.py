@@ -114,6 +114,8 @@ def analyze_speech_records(records: list[dict[str, Any]]) -> VoteSwingReport:
     """Build persuasion report from speech-linked intention records."""
     report = VoteSwingReport()
     for raw in records:
+        if not str(raw.get("public_speech", "")).strip():
+            continue
         speaker_id = str(raw.get("speaker_id", ""))
         speaker_name = str(raw.get("speaker_name", speaker_id))
         swings = list(raw.get("swings") or [])

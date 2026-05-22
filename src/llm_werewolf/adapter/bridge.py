@@ -23,15 +23,18 @@ from llm_werewolf.adapter.structured_invoke import (
 from llm_werewolf.core.decisions import (
     GENERATE_RESPONSE_INSTRUCTION,
     MultiSeatChoiceDecision,
-    speech_schema_instruction,
     SeatChoiceDecision,
     SpeechDecision,
+    WitchNightDecision,
     YesNoDecision,
     extract_public_text,
     is_valid_public_speech,
     normalize_speech_decision,
+    seat_choice_schema_instruction,
+    speech_schema_instruction,
+    witch_night_schema_instruction,
 )
-from llm_werewolf.core.phase_outputs import RoundtablePhase
+from llm_werewolf.core.phase_outputs import ActionPhase, RoundtablePhase, action_phase_instruction
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
@@ -153,6 +156,7 @@ class WerewolfAdapterBridge:
         phase: str | None = None,
         *,
         structured: bool = False,
+        action_phase: ActionPhase | None = None,
     ) -> str:
         prompt_parts = [f"你是{role_name}。"]
 
@@ -179,14 +183,10 @@ class WerewolfAdapterBridge:
 
         action_line = ROLE_SEAT_ACTION.get(role_name, GamePrompts.PROPHET_ACTION)
         prompt_parts.extend(["", action_line])
+        if action_phase is not None:
+            prompt_parts.extend(["", action_phase_instruction(action_phase)])
         if structured:
-            skip_hint = "；若不行动则 seat=0" if allow_skip else ""
-            prompt_parts.extend([
-                "",
-                "请调用 generate_response，在 seat 字段填写目标的全局座位号"
-                f"{skip_hint}。reason 可写私人理由。",
-                GENERATE_RESPONSE_INSTRUCTION,
-            ])
+            prompt_parts.extend(["", seat_choice_schema_instruction(allow_skip=allow_skip)])
         else:
             prompt_parts.extend([
                 "",
@@ -337,6 +337,102 @@ class WerewolfAdapterBridge:
         object.__setattr__(agent, "_last_decision_metadata", metadata)
 
     @staticmethod
+    @staticmethod
+    def build_witch_night_prompt(
+        role_name: str,
+        *,
+        can_see_victim: bool,
+        victim_line: str,
+        poison_targets: list[PlayerProtocol],
+        additional_context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+        structured: bool = False,
+    ) -> str:
+        prompt_parts = [f"你是{role_name}。", GamePrompts.WITCH_OPEN, ""]
+
+        if round_number is not None and phase:
+            prompt_parts.append(f"当前：第 {round_number} 轮 — {phase}")
+
+        if can_see_victim and victim_line:
+            prompt_parts.extend(["", victim_line])
+        elif not can_see_victim:
+            prompt_parts.extend([
+                "",
+                "你的解药已用完，系统不会告知今晚狼人刀口是谁。",
+            ])
+
+        if additional_context:
+            prompt_parts.extend(["", additional_context, ""])
+
+        if poison_targets:
+            prompt_parts.append("若选择 poison，可选毒杀目标：")
+            for target in poison_targets:
+                seat = WerewolfAdapterBridge.get_player_seat(target)
+                seat_label = seat if seat is not None else target.player_id
+                prompt_parts.append(
+                    f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）"
+                )
+
+        prompt_parts.extend([
+            "",
+            "请在本回合三选一：救人(save) / 毒人(poison) / 不行动(none)。",
+            "救人仅当仍有解药且本提示给出了刀口目标；毒人需指定 seat。",
+        ])
+        prompt_parts.extend(["", action_phase_instruction(ActionPhase.WITCH_NIGHT)])
+        if structured:
+            prompt_parts.extend([
+                "",
+                witch_night_schema_instruction(can_see_victim=can_see_victim),
+            ])
+        return "\n".join(prompt_parts)
+
+    @staticmethod
+    async def request_witch_night_choice(
+        agent: AgentProtocol,
+        role_name: str,
+        *,
+        can_see_victim: bool,
+        victim_line: str,
+        poison_targets: list[PlayerProtocol],
+        additional_context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> WitchNightDecision:
+        """Return witch night decision; defaults to none on failure."""
+        structured = agent_uses_structured_output(agent)
+        prompt = WerewolfAdapterBridge.build_witch_night_prompt(
+            role_name,
+            can_see_victim=can_see_victim,
+            victim_line=victim_line,
+            poison_targets=poison_targets,
+            additional_context=additional_context,
+            round_number=round_number,
+            phase=phase,
+            structured=structured,
+        )
+        default = WitchNightDecision(action="none", seat=0, reason=None)
+        try:
+            if structured:
+                result = await invoke_structured(agent, prompt, WitchNightDecision)
+                if isinstance(result, WitchNightDecision):
+                    WerewolfAdapterBridge._store_decision_metadata(
+                        agent, None, decision=result
+                    )
+                    return result
+            response = await agent.get_response(prompt)
+            lowered = response.lower()
+            if "save" in lowered or "救" in response:
+                return WitchNightDecision(action="save", seat=0, reason=response[:200])
+            if "poison" in lowered or "毒" in response:
+                seat_match = re.search(r"\[\[\s*(\d+)\s*\]\]", response)
+                seat = int(seat_match.group(1)) if seat_match else 0
+                return WitchNightDecision(action="poison", seat=seat, reason=response[:200])
+        except Exception:
+            pass
+        return default
+
+    @staticmethod
     async def request_seat_choice(
         agent: AgentProtocol,
         role_name: str,
@@ -347,6 +443,7 @@ class WerewolfAdapterBridge:
         fallback_random: bool = True,
         round_number: int | None = None,
         phase: str | None = None,
+        action_phase: ActionPhase | None = None,
     ) -> PlayerProtocol | None:
         if not possible_targets:
             return None
@@ -361,6 +458,7 @@ class WerewolfAdapterBridge:
             round_number,
             phase,
             structured=structured,
+            action_phase=action_phase,
         )
 
         try:

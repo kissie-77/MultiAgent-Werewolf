@@ -19,11 +19,21 @@
 | 狼队选刀 | `night_kill_vote` | `SeatChoiceDecision` | `seat` 全局座位号，弃票 0 |
 | 夜晚技能目标 | `night_skill_target` | `SeatChoiceDecision` | 女巫/守卫/预言家等 |
 | 白天放逐投票 | `day_vote` | `SeatChoiceDecision` | 弃票 `[[0]]` |
-| 女巫是否用药 | `witch_yes_no` | `YesNoDecision` | `choice` true/false |
+| 女巫夜间（狼刀后） | `witch_night` | `WitchNightDecision` | `action`=save/poison/none；有解药时可见刀口，解药用完后不可见 |
 | 是否上警 | `sheriff_run` | `SeatChoiceDecision` | 1=参加，0=不参加 |
 | 警长投票 | `sheriff_vote` | `SeatChoiceDecision` | 候选人座位号 |
 | 猎人开枪 | `death_shoot` | `SeatChoiceDecision` | 目标座位号 |
 | 警徽流转 | `badge_transfer` | `SeatChoiceDecision` | 继承座位号，0=撕毁 |
+
+## Event 与 MsgHub 分工
+
+| 用途 | Event 日志 | MsgHub / ReAct 记忆 |
+|------|------------|---------------------|
+| 回放、UI、评测 | 写入 `PLAYER_SPEECH` / `PLAYER_DISCUSSION` / `SHERIFF_CANDIDATE_SPEECH` | — |
+| 白天讨论 / 狼聊 / 警上发言 | 仅记录，**不**注入决策 prompt | 圆桌 `run_roundtable` 广播 |
+| 投票 / 夜间技能 | 局面变化（死亡、阶段等） | 上文对话记忆 + `hub_decision_memory_notice` |
+
+`build_player_observation(..., for_agent_decision=True)` 自动排除 `HUB_DIALOGUE_EVENT_TYPES`；`InformationHub.set_context_provider` 始终使用该模式。
 
 ## 引擎校验
 

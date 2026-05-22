@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from llm_werewolf.adapter.prompts import GamePrompts
 from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
+from llm_werewolf.core.phase_outputs import ActionPhase
 from llm_werewolf.core.actions.villager import (
     CupidLinkAction,
     GraveyardKeeperCheckAction,
@@ -84,6 +85,7 @@ async def _plan_werewolf_pack_vote(
         additional_context=_werewolf_context(role, game_state),
         round_number=game_state.round_number,
         phase="Night",
+        action_phase=ActionPhase.NIGHT_KILL_VOTE,
     )
     if target:
         return [WerewolfVoteAction(role.player, target, game_state)]
@@ -257,67 +259,76 @@ async def plan_witch_actions(
     game_state: GameStateProtocol,
     interaction: PhaseInteraction,
 ) -> list[ActionProtocol]:
-    if not role.player.is_alive():
+    if not role.player.is_alive() or not role.player.agent:
         return []
+
+    has_save = role.has_save_potion
+    has_poison = role.has_poison_potion
+    if not has_save and not has_poison:
+        return []
+
+    victim: PlayerProtocol | None = None
+    can_see_victim = False
+    victim_line = ""
+    if has_save and game_state.werewolf_target:
+        victim = game_state.get_player(game_state.werewolf_target)
+        if victim:
+            can_see_victim = True
+            seat = _seat_label(victim)
+            victim_line = (
+                f"今晚狼人刀口：{victim.name}（{seat}号）。"
+                "你仍持有解药，可以选择救他/她。"
+            )
+
+    poison_targets = [
+        p
+        for p in game_state.get_alive_players()
+        if p.player_id != role.player.player_id
+    ]
+
+    notes = [
+        f"解药：{'可用' if has_save else '已用完'}。",
+        f"毒药：{'可用' if has_poison else '已用完'}。",
+    ]
+    if not can_see_victim and has_poison:
+        notes.append("解药已耗尽，本夜不会告知刀口身份。")
+
+    decision = await interaction.request_witch_night_choice(
+        role.player,
+        role.player.agent,
+        role_name="Witch",
+        can_see_victim=can_see_victim,
+        victim_line=victim_line,
+        poison_targets=poison_targets if has_poison else [],
+        additional_context="\n".join(notes),
+        round_number=game_state.round_number,
+        phase="Night",
+    )
+
     actions: list[ActionProtocol] = []
     saved_this_night: PlayerProtocol | None = None
 
-    if role.has_save_potion and game_state.werewolf_target and role.player.agent:
-        target = game_state.get_player(game_state.werewolf_target)
-        if target:
-            seat = _seat_label(target)
-            use_save = await interaction.request_yes_no(
-                role.player,
-                role.player.agent,
-                "Witch",
-                GamePrompts.WITCH_ANTIDOTE.format(target=seat),
-                (
-                    f"{target.name}（{seat}号）将被狼人击杀。"
-                    "解药整局只能用一次。首夜外置位刀口通常可救；"
-                    "若你救了某人，本局不要用毒药毒同一人。"
-                ),
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-            if use_save:
-                actions.append(WitchSaveAction(role.player, target, game_state))
-                saved_this_night = target
+    if (
+        decision.action == "save"
+        and has_save
+        and can_see_victim
+        and victim is not None
+    ):
+        actions.append(WitchSaveAction(role.player, victim, game_state))
+        saved_this_night = victim
 
-    if role.has_poison_potion and role.player.agent:
-        use_poison = await interaction.request_yes_no(
-            role.player,
-            role.player.agent,
-            "Witch",
-            GamePrompts.WITCH_POISON,
-            "毒药整局只能用一次。只在高度怀疑时使用；不要毒明好人或你刚救过的人。",
-            round_number=game_state.round_number,
-            phase="Night",
+    if decision.action == "poison" and has_poison and decision.seat > 0:
+        poison_candidates = [
+            p
+            for p in poison_targets
+            if saved_this_night is None or p.player_id != saved_this_night.player_id
+        ]
+        poison_target = WerewolfAdapterBridge.resolve_player_by_seat(
+            decision.seat, poison_candidates
         )
-        if use_poison:
-            possible_targets = [
-                p
-                for p in game_state.get_alive_players()
-                if p.player_id != role.player.player_id
-                and (
-                    saved_this_night is None
-                    or p.player_id != saved_this_night.player_id
-                )
-            ]
-            if possible_targets:
-                target = await interaction.request_seat_choice(
-                    role.player,
-                    role.player.agent,
-                    role_name="Witch",
-                    action_description=GamePrompts.WITCH_POISON_TARGET,
-                    possible_targets=possible_targets,
-                    allow_skip=True,
-                    additional_context="若不确定，请跳过（seat=0）。",
-                    fallback_random=False,
-                    round_number=game_state.round_number,
-                    phase="Night",
-                )
-                if target:
-                    actions.append(WitchPoisonAction(role.player, target, game_state))
+        if poison_target:
+            actions.append(WitchPoisonAction(role.player, poison_target, game_state))
+
     return actions
 
 
@@ -348,6 +359,7 @@ async def plan_guard_protect(
         additional_context=context,
         round_number=game_state.round_number,
         phase="Night",
+        action_phase=ActionPhase.NIGHT_SKILL_TARGET,
     )
     if target:
         return [GuardProtectAction(role.player, target, game_state)]
@@ -384,6 +396,7 @@ async def plan_seer_check(
         additional_context=context,
         round_number=game_state.round_number,
         phase="Night",
+        action_phase=ActionPhase.NIGHT_SKILL_TARGET,
     )
     if target:
         return [SeerCheckAction(role.player, target, game_state)]

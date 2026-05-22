@@ -71,7 +71,17 @@ class EngineContexts:
         return "\n".join([
             "【对话记忆 · MsgHub】",
             f"本轮已在对话中出现的公开发言由系统注入你的历史（{audience}可见），请据此接话。",
-            "下方「可见事件」仅为本轮发言开始前的局面摘要，不含本轮重复发言。",
+            "下方「可见事件」仅为局面变化记录（死亡、阶段等），不含玩家发言文本。",
+        ])
+
+    @staticmethod
+    def hub_decision_memory_notice() -> str:
+        """Remind the model that speeches/discussion live in ReAct/MsgHub history, not Event log."""
+        return "\n".join([
+            "【决策上下文 · MsgHub】",
+            "玩家发言、狼队夜聊、警上发言等对话内容在你上方的对话记忆中。",
+            "下方「可见事件」仅记录局面变化（死亡、平安夜、阶段切换等），不含发言全文。",
+            "做投票或夜间决策时请优先依据对话记忆，不要等待事件里重复的发言。",
         ])
 
     @staticmethod

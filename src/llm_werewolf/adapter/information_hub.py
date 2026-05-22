@@ -5,8 +5,9 @@ Every LLM call runs inside a MsgHub scoped to the correct audience:
 - WOLF_TEAM: werewolves only
 - PRIVATE: single actor only (votes, night skills, yes/no decisions)
 
-Engine Event.visible_to remains the authoritative log filter; MsgHub controls
-ReActAgent memory isolation.
+Event log is replay/audit only for dialogue (``HUB_DIALOGUE_EVENT_TYPES``);
+LLM decision prompts omit those events and read speeches from MsgHub / ReAct memory.
+``Event.visible_to`` remains the authoritative log filter; MsgHub controls memory isolation.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from llm_werewolf.adapter.visibility import (
     VisibilityChannel,
 )
 from llm_werewolf.core.decisions import SpeechDecision
+from llm_werewolf.core.phase_outputs import ActionPhase
 from llm_werewolf.core.prompts.actions import EngineContexts
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
@@ -324,6 +326,7 @@ class InformationHub:
         fallback_random: bool = True,
         round_number: int | None = None,
         phase: str | None = None,
+        action_phase: ActionPhase | None = None,
     ) -> PlayerProtocol | None:
         context = self._merge_private_context(actor, additional_context)
 
@@ -338,6 +341,45 @@ class InformationHub:
                 fallback_random,
                 round_number,
                 phase,
+                action_phase=action_phase,
+            )
+
+        return await self._run_private_session(
+            actor,
+            VisibilityChannel.PRIVATE,
+            phase or "",
+            round_number or 0,
+            context,
+            _call,
+        )
+
+    async def request_private_witch_night(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        *,
+        can_see_victim: bool,
+        victim_line: str,
+        poison_targets: list[PlayerProtocol],
+        additional_context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ):
+        from llm_werewolf.core.decisions import WitchNightDecision
+
+        context = self._merge_private_context(actor, additional_context)
+
+        async def _call() -> WitchNightDecision:
+            return await WerewolfAdapterBridge.request_witch_night_choice(
+                agent,
+                role_name,
+                can_see_victim=can_see_victim,
+                victim_line=victim_line,
+                poison_targets=poison_targets,
+                additional_context=context,
+                round_number=round_number,
+                phase=phase,
             )
 
         return await self._run_private_session(

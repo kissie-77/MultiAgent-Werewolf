@@ -5,6 +5,7 @@ the ``generate_response`` tool; validated kwargs land in Msg.metadata.
 """
 
 import re
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -98,6 +99,54 @@ class YesNoDecision(BaseModel):
 
     choice: bool = Field(..., description="true = yes / use; false = no / skip")
     reason: str | None = Field(default=None, description="Private rationale.")
+
+
+class WitchNightDecision(BaseModel):
+    """Witch night turn after wolf kill is resolved (save / poison / none)."""
+
+    action: Literal["save", "poison", "none"] = Field(
+        ...,
+        description="save=use antidote on tonight's wolf victim; poison=use poison; none=skip",
+    )
+    seat: int = Field(
+        default=0,
+        ge=0,
+        description="Global seat number when action=poison; use 0 for save or none",
+    )
+    reason: str | None = Field(default=None, description="Private rationale.")
+
+
+def seat_choice_schema_instruction(*, allow_skip: bool = False) -> str:
+    """Prompt block for SeatChoiceDecision (votes / night targets)."""
+    skip_line = "不行动或弃票时 seat=0。" if allow_skip else "必须选择有效目标，seat 为全局座位号。"
+    return "\n".join([
+        "【本任务输出 — 仅 SeatChoiceDecision Schema】",
+        "必须调用 generate_response，字段：",
+        "- seat (integer, 必填): 目标玩家的全局座位号（数字，不是列表序号）；",
+        f"  {skip_line}",
+        "- reason (string, 可选): 私人推理，不广播。",
+        "禁止 SpeechDecision、禁止 [[...]] 长段发言、禁止 public_speech 字段。",
+        GENERATE_RESPONSE_INSTRUCTION,
+    ])
+
+
+def witch_night_schema_instruction(*, can_see_victim: bool) -> str:
+    """Prompt block for WitchNightDecision."""
+    victim_line = (
+        "你已得知今晚狼人刀口目标，可选择：save（救该刀口）、poison（毒杀某人）、none（不行动）。"
+        if can_see_victim
+        else "解药已用完，你无法得知今晚刀口。可选择：poison（毒杀某人）、none（不行动）。"
+    )
+    return "\n".join([
+        "【本任务输出 — 仅 WitchNightDecision Schema】",
+        "必须调用 generate_response，字段：",
+        "- action (string): save | poison | none；",
+        "- seat (integer): action=poison 时填毒药目标全局座位号；save/none 时填 0；",
+        f"- {victim_line}",
+        "- reason (string, 可选): 私人推理。",
+        "禁止 SpeechDecision。",
+        GENERATE_RESPONSE_INSTRUCTION,
+    ])
 
 
 class BeliefEntry(BaseModel):

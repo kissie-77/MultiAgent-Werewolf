@@ -1,4 +1,4 @@
-"""Ordered night-skill orchestration (guard → wolf votes → witch → others)."""
+"""Ordered night-skill orchestration (pre-wolf → wolf votes → witch → other roles)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from llm_werewolf.core.game_state import GameState
     from llm_werewolf.core.types import PlayerProtocol
 
-# Roles that act before wolf kill target is finalized.
+# Roles that act before wolf kill target is finalized (fixed order).
 PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
     "Cupid",
     "Nightmare Wolf",
@@ -24,6 +24,13 @@ PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
 )
 
 WITCH_ROLE_NAMES: frozenset[str] = frozenset({"Witch"})
+
+# After wolf target is known: witch first, then remaining night roles in this order.
+POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = (
+    "Seer",
+    "Graveyard Keeper",
+    "Raven",
+)
 
 
 class NightSkillScheduler:
@@ -46,36 +53,39 @@ class NightSkillScheduler:
         self._wolf_role_names = get_werewolf_roles()
 
     async def run(self) -> tuple[list[Action], list[str]]:
-        """Collect and partially process night actions in skill order.
-
-        Returns:
-            Tuple of (actions still to process, status messages).
-        """
+        """Pre-wolf batch then wolf vote collection (legacy combined entry)."""
         messages: list[str] = []
         pending: list[Action] = []
-
-        batch_pre_wolf = await self._collect_for_players(self._players_pre_wolf())
-        pending.extend(batch_pre_wolf)
-
-        batch_wolf = await self._collect_for_players(self._players_werewolf_voters())
-        pending.extend(batch_wolf)
-
+        pending.extend(await self.run_pre_wolf_phase())
+        pending.extend(await self.run_wolf_vote_phase())
         return pending, messages
 
+    async def run_pre_wolf_phase(self) -> list[Action]:
+        """Cupid, Nightmare Wolf, Guard, etc. — before wolf votes."""
+        return await self._collect_for_players(self._players_pre_wolf())
+
+    async def run_wolf_vote_phase(self) -> list[Action]:
+        """Collect werewolf pack kill votes only."""
+        return await self._collect_for_players(self._players_werewolf_voters())
+
     async def run_post_wolf_resolution(self) -> list[Action]:
-        """Collect witch and remaining night actions after ``werewolf_target`` is set."""
+        """Witch (after ``werewolf_target`` is set), then Seer / Graveyard / Raven."""
         actions: list[Action] = []
         actions.extend(await self._collect_for_players(self._players_witch()))
-        actions.extend(await self._collect_for_players(self._remaining_night_actors()))
+        actions.extend(await self._collect_for_players(self._players_post_witch_ordered()))
         return actions
 
     def _players_pre_wolf(self) -> list[PlayerProtocol]:
-        players = []
+        players: list[PlayerProtocol] = []
         for name in PRE_WOLF_ROLE_NAMES:
             if name == "Cupid" and self.game_state.round_number != 1:
                 continue
             for player in self.game_state.get_alive_players():
-                if player.get_role_name() == name and player.role.has_night_action(self.game_state):
+                if (
+                    player.get_role_name() == name
+                    and player.role.has_night_action(self.game_state)
+                    and player not in players
+                ):
                     players.append(player)
         return players
 
@@ -95,14 +105,25 @@ class NightSkillScheduler:
             and p.role.has_night_action(self.game_state)
         ]
 
-    def _remaining_night_actors(self) -> list[PlayerProtocol]:
+    def _players_post_witch_ordered(self) -> list[PlayerProtocol]:
+        players: list[PlayerProtocol] = []
         handled = set(PRE_WOLF_ROLE_NAMES) | self._wolf_role_names | WITCH_ROLE_NAMES
-        return [
-            p
-            for p in self.game_state.get_alive_players()
-            if p.get_role_name() not in handled
-            and p.role.has_night_action(self.game_state)
-        ]
+        for name in POST_WITCH_NIGHT_ROLE_ORDER:
+            for player in self.game_state.get_alive_players():
+                if (
+                    player.get_role_name() == name
+                    and player.role.has_night_action(self.game_state)
+                    and player not in players
+                ):
+                    players.append(player)
+        for player in self.game_state.get_alive_players():
+            if (
+                player.get_role_name() not in handled
+                and player.role.has_night_action(self.game_state)
+                and player not in players
+            ):
+                players.append(player)
+        return players
 
     async def _collect_for_players(self, players: list[PlayerProtocol]) -> list[Action]:
         actions: list[Action] = []

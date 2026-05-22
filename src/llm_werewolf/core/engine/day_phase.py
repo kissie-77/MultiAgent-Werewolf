@@ -5,7 +5,6 @@ from collections.abc import Callable
 from llm_werewolf.adapter.message_router import MessageRouter
 from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision
-from llm_werewolf.core.event_visibility import ROUNDTABLE_HUB_EVENT_TYPES
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
@@ -29,7 +28,7 @@ class DayPhaseMixin:
                 player,
                 include_visible_events=True,
                 include_private_notes=True,
-                exclude_event_types=ROUNDTABLE_HUB_EVENT_TYPES,
+                for_agent_decision=True,
             ),
         ]
 

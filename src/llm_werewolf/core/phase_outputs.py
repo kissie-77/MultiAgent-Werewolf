@@ -25,6 +25,7 @@ class ActionPhase(str, Enum):
     NIGHT_SKILL_TARGET = "night_skill_target"
     DAY_VOTE = "day_vote"
     WITCH_YES_NO = "witch_yes_no"
+    WITCH_NIGHT = "witch_night"
     SHERIFF_RUN = "sheriff_run"
     SHERIFF_VOTE = "sheriff_vote"
     DEATH_SHOOT = "death_shoot"
@@ -72,11 +73,15 @@ _ACTION_SCHEMA_HINT: dict[ActionPhase, str] = {
         "禁止 SpeechDecision。"
     ),
     ActionPhase.DAY_VOTE: (
-        "【本阶段输出】仅 SeatChoiceDecision：seat=投票放逐座位号，弃票 [[0]]。"
-        "禁止 SpeechDecision。"
+        "【本阶段输出】仅 SeatChoiceDecision：seat=整数全局座位号（要放逐的玩家）；"
+        "弃票 seat=0。结合上文讨论记录投票，禁止 SpeechDecision。"
     ),
     ActionPhase.WITCH_YES_NO: (
         "【本阶段输出】仅 YesNoDecision：choice=true/false。"
+    ),
+    ActionPhase.WITCH_NIGHT: (
+        "【本阶段输出】仅 WitchNightDecision：action=save|poison|none；"
+        "poison 时 seat=毒药目标座位号。"
     ),
     ActionPhase.SHERIFF_RUN: (
         "【本阶段输出】仅 SeatChoiceDecision：seat=[[1]] 参加竞选，[[0]] 不参加。"

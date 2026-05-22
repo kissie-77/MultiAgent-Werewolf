@@ -19,11 +19,15 @@ WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_DISCUSSION,
 })
 
-# MsgHub holds in-round speeches; static prompt context omits these event types.
-ROUNDTABLE_HUB_EVENT_TYPES: frozenset[EventType] = frozenset({
+# Dialogue logged to Event for replay/UI only — LLM decision prompts read these from MsgHub.
+HUB_DIALOGUE_EVENT_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_SPEECH,
     EventType.PLAYER_DISCUSSION,
+    EventType.SHERIFF_CANDIDATE_SPEECH,
 })
+
+# Alias kept for roundtable call sites.
+ROUNDTABLE_HUB_EVENT_TYPES: frozenset[EventType] = HUB_DIALOGUE_EVENT_TYPES
 
 # Event types where visibility is resolved from data["player_id"] or data["voter_id"].
 ACTOR_ID_KEYS: dict[EventType, str] = {

@@ -7,10 +7,10 @@ from collections.abc import Callable
 from llm_werewolf.adapter.message_router import MessageRouter
 from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision
-from llm_werewolf.core.event_visibility import ROUNDTABLE_HUB_EVENT_TYPES
 from llm_werewolf.core.types import Camp, EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
+from llm_werewolf.core.night_scheduler import NightSkillScheduler
 from llm_werewolf.core.prompts.actions import EngineContexts
 
 if TYPE_CHECKING:
@@ -48,7 +48,7 @@ class NightPhaseMixin:
                 werewolf_names, target_names
             ),
             include_visible_events=True,
-            exclude_event_types=ROUNDTABLE_HUB_EVENT_TYPES,
+            for_agent_decision=True,
         )
         return shared + "\n" + EngineContexts.werewolf_discussion(
             werewolf.name,
@@ -203,9 +203,7 @@ class NightPhaseMixin:
         discussion_messages = await self._run_werewolf_discussion()
         messages.extend(discussion_messages)
 
-        players_with_night_actions = self.game_state.get_players_with_night_actions()
-
-        for player in players_with_night_actions:
+        def _log_role_acting(player: PlayerProtocol) -> None:
             role_name = player.get_role_name()
             self._log_event(
                 EventType.ROLE_ACTING,
@@ -213,40 +211,25 @@ class NightPhaseMixin:
                 data={"player_id": player.player_id, "role": role_name},
             )
 
-        action_results = []
-        for player in players_with_night_actions:
-            try:
-                result = await player.role.get_night_actions(self.game_state)
-                action_results.append(result)
-            except Exception as e:
-                action_results.append(e)
+        scheduler = NightSkillScheduler(
+            self.game_state,
+            log_event=self._log_event,
+            locale=self.locale,
+            resolve_werewolf_votes=self._resolve_werewolf_votes,
+            log_role_acting=_log_role_acting,
+        )
 
-        night_actions: list[Action] = []
-        for player, result in zip(players_with_night_actions, action_results, strict=False):
-            if isinstance(result, Exception):
-                self._log_event(
-                    EventType.ERROR,
-                    self.locale.get(
-                        "night_action_failed",
-                        player=player.name,
-                        role=player.get_role_name(),
-                        error=str(result),
-                    ),
-                    data={
-                        "player_id": player.player_id,
-                        "error": str(result),
-                        "error_type": type(result).__name__,
-                    },
-                )
-                continue
-            if result:
-                night_actions.extend(result)
+        pre_wolf_actions = await scheduler.run_pre_wolf_phase()
+        messages.extend(self.process_actions(pre_wolf_actions))
 
-        action_messages = self.process_actions(night_actions)
-        messages.extend(action_messages)
+        wolf_vote_actions = await scheduler.run_wolf_vote_phase()
+        messages.extend(self.process_actions(wolf_vote_actions))
 
         werewolf_vote_messages = self._resolve_werewolf_votes()
         messages.extend(werewolf_vote_messages)
+
+        post_wolf_actions = await scheduler.run_post_wolf_resolution()
+        messages.extend(self.process_actions(post_wolf_actions))
 
         death_messages = await self.resolve_deaths()
         messages.extend(death_messages)

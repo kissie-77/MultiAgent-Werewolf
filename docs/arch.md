@@ -55,10 +55,11 @@ flowchart TB
 
 `NightPhaseMixin` 委托 `core/night_scheduler.NightSkillScheduler`：
 
-1. 丘比特等 **pre-wolf** 角色（守卫、梦魇…）
-2. `process_actions` → **狼人投票** → `_resolve_werewolf_votes`（写入 `werewolf_target`）
-3. **女巫** 与其余夜间角色（此时已知刀口）
-4. `process_actions` → `resolve_deaths`
+1. 狼队 **讨论**（`SpeechDecision`，非选刀）
+2. **pre-wolf** 批次（丘比特 / 梦魇 / 守卫…）→ `process_actions`
+3. **狼人投票** 批次 → `process_actions` → `_resolve_werewolf_votes`（写入 `werewolf_target`）
+4. **post-wolf** 批次：女巫（有解药时可见刀口，`WitchNightDecision`：救人/毒人/不行动）→ 预言家 / 守墓人 / 乌鸦等 → `process_actions`
+5. `resolve_deaths`
 
 核心四角色（狼/女巫/守卫/预言家）的 LLM 调用集中在 `core/role_night_plans.py`。
 

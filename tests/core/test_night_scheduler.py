@@ -42,9 +42,14 @@ async def test_witch_collected_after_wolf_phase_not_in_pre_wolf() -> None:
             resolve_werewolf_votes=MagicMock(return_value=[]),
         )
 
-        await scheduler.run()
-        assert dispatch_plan.call_count >= 1
+        await scheduler.run_pre_wolf_phase()
+        calls_after_pre = dispatch_plan.call_count
+        assert calls_after_pre >= 0
 
-        calls_before = dispatch_plan.call_count
+        await scheduler.run_wolf_vote_phase()
+        assert dispatch_plan.call_count > calls_after_pre
+
+        calls_before_post = dispatch_plan.call_count
+        game_state.werewolf_target = villager.player_id
         await scheduler.run_post_wolf_resolution()
-        assert dispatch_plan.call_count > calls_before
+        assert dispatch_plan.call_count > calls_before_post

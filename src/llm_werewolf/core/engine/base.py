@@ -10,7 +10,7 @@ from llm_werewolf.core.events import EventLogger
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.observation import ObservationBuilder
 from llm_werewolf.adapter.information_hub import InformationHub
-from llm_werewolf.core.event_visibility import resolve_visible_to
+from llm_werewolf.core.event_visibility import HUB_DIALOGUE_EVENT_TYPES, resolve_visible_to
 from llm_werewolf.core.phase_interaction import PhaseInteraction
 from llm_werewolf.core.types import Camp
 from llm_werewolf.core.player import Player
@@ -105,7 +105,9 @@ class GameEngineBase:
         self.game_state.phase_interaction = self.phase_interaction
         self.victory_checker = VictoryChecker(self.game_state)
         self.information_hub.set_context_provider(
-            build_observation=self.build_player_observation,
+            build_observation=lambda player: self.build_player_observation(
+                player, for_agent_decision=True
+            ),
             get_alive_players=lambda: self.game_state.get_alive_players()
             if self.game_state
             else [],
@@ -204,18 +206,28 @@ class GameEngineBase:
         include_visible_events: bool = True,
         include_private_notes: bool = True,
         exclude_event_types: frozenset | None = None,
+        *,
+        for_agent_decision: bool = False,
     ) -> str:
-        """Build a filtered prompt context for a single player."""
+        """Build a filtered prompt context for a single player.
+
+        When ``for_agent_decision`` is True, dialogue events are omitted from the
+        event block; speeches are expected in MsgHub / ReAct memory instead.
+        """
         if not self.game_state:
             return ""
 
+        merged_exclude = exclude_event_types
+        if for_agent_decision:
+            merged_exclude = (merged_exclude or frozenset()) | HUB_DIALOGUE_EVENT_TYPES
+
         public_state = self.game_state.get_public_info()
         visible_events = self.event_logger.get_events_for_player(player.player_id)
-        if exclude_event_types:
+        if merged_exclude:
             visible_events = [
                 event
                 for event in visible_events
-                if event.event_type not in exclude_event_types
+                if event.event_type not in merged_exclude
             ]
         private_notes = player.get_private_notes(self.game_state)
         observation = self.observation_builder.build(
@@ -237,17 +249,22 @@ class GameEngineBase:
         additional_notes: list[str] | None = None,
         include_visible_events: bool = True,
         exclude_event_types: frozenset | None = None,
+        *,
+        for_agent_decision: bool = False,
     ) -> str:
         """Build filtered context that is safe to share across a player group."""
         if not self.game_state or not players:
             return ""
 
         shared_events = self.event_logger.get_events_for_players([player.player_id for player in players])
-        if exclude_event_types:
+        merged_exclude = exclude_event_types
+        if for_agent_decision:
+            merged_exclude = (merged_exclude or frozenset()) | HUB_DIALOGUE_EVENT_TYPES
+        if merged_exclude:
             shared_events = [
                 event
                 for event in shared_events
-                if event.event_type not in exclude_event_types
+                if event.event_type not in merged_exclude
             ]
         from llm_werewolf.core.observation import flatten_private_notes
 

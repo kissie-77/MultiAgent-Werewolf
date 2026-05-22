@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Callable
 
 from llm_werewolf.adapter.information_hub import InformationHub
 from llm_werewolf.adapter.visibility import VisibilityChannel
-from llm_werewolf.core.decisions import SpeechDecision
+from llm_werewolf.core.decisions import SpeechDecision, WitchNightDecision
+from llm_werewolf.core.phase_outputs import ActionPhase
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ class PhaseInteraction:
         fallback_random: bool = True,
         round_number: int | None = None,
         phase: str | None = None,
+        action_phase: ActionPhase | None = None,
     ) -> PlayerProtocol | None:
         return await self._hub.request_private_seat_choice(
             actor,
@@ -47,6 +49,32 @@ class PhaseInteraction:
             fallback_random,
             round_number,
             phase,
+            action_phase,
+        )
+
+    async def request_witch_night_choice(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        *,
+        can_see_victim: bool,
+        victim_line: str,
+        poison_targets: list[PlayerProtocol],
+        additional_context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> WitchNightDecision:
+        return await self._hub.request_private_witch_night(
+            actor,
+            agent,
+            role_name,
+            can_see_victim=can_see_victim,
+            victim_line=victim_line,
+            poison_targets=poison_targets,
+            additional_context=additional_context,
+            round_number=round_number,
+            phase=phase,
         )
 
     async def request_yes_no(

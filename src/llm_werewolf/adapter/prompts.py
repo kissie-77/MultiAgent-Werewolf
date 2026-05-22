@@ -193,8 +193,8 @@ class GamePrompts:
     BAD_WIN = "狼人阵营胜利"
 
 
-# 引擎 role_name → 选座/行动提示（用于 bridge / night_plans）
-ROLE_SEAT_ACTION: dict[str, str] = {
+# Catalog / runtime role_name → 选座/行动提示（bridge / night_plans 使用运行时名）
+_CATALOG_ROLE_SEAT_ACTION: dict[str, str] = {
     "Seer": GamePrompts.PROPHET_ACTION,
     "Witch": GamePrompts.WITCH_POISON_TARGET,
     "Guard": GamePrompts.GUARD_ACTION,
@@ -207,7 +207,24 @@ ROLE_SEAT_ACTION: dict[str, str] = {
     "NightmareWolf": GamePrompts.WOLF_OPEN,
     "BloodMoonApostle": GamePrompts.WOLF_OPEN,
     "Hunter": GamePrompts.HUNTER_DEATH,
+    "GraveyardKeeper": "守墓人请睁眼，选择一名已死亡玩家查验身份，回答编号，放在[[]]里",
+    "Raven": "乌鸦请睁眼，选择一名玩家施加诅咒，回答编号，放在[[]]里",
+    "Cupid": "丘比特请睁眼，选择两名玩家结为情侣，回答编号，放在[[]]里",
 }
+
+
+def build_role_seat_action_map() -> dict[str, str]:
+    """Map runtime Role.config.name and catalog keys to seat-action prompts."""
+    from llm_werewolf.core.roles.registry import CATALOG_TO_RUNTIME_NAME
+
+    merged = dict(_CATALOG_ROLE_SEAT_ACTION)
+    for catalog, runtime in CATALOG_TO_RUNTIME_NAME.items():
+        if catalog in _CATALOG_ROLE_SEAT_ACTION:
+            merged[runtime] = _CATALOG_ROLE_SEAT_ACTION[catalog]
+    return merged
+
+
+ROLE_SEAT_ACTION: dict[str, str] = build_role_seat_action_map()
 
 
 class PlanStrategies:

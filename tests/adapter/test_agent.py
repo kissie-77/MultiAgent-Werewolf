@@ -1,30 +1,30 @@
-"""Tests for adapter/agent.py."""
+"""Tests for adapter/agent.py (AgentScopeWerewolfAgent)."""
 
 import pytest
 
 from llm_werewolf.adapter.agent import AgentScopeWerewolfAgent
-from llm_werewolf.core.roles import Seer
 
 
-def test_agentscope_agent_bind_role() -> None:
+def test_agentscope_agent_configure_role() -> None:
     agent = AgentScopeWerewolfAgent(name="P1", plan="稳健")
-    agent.bind_role(Seer, seat_number=5)
-    assert agent.role_definition is not None
-    assert agent.role_definition.name == "Seer"  # type: ignore[union-attr]
-    assert len(agent.chat_history) == 2
-    assert "【系统提示】" in agent.chat_history[0]["content"]
-    assert "预言家" in agent.chat_history[1]["content"]
+    agent.configure_role(seat_number=5, game_role_name="Seer", plan_text="稳健")
+    assert agent.game_role_name == "Seer"
+    assert agent.number == 5
+    assert len(agent.chat_history) == 1
+    assert "预言家" in agent.chat_history[0]["content"]
 
 
 @pytest.mark.asyncio
-async def test_direct_model_fallback() -> None:
+async def test_get_response_requires_agentscope_backend() -> None:
     agent = AgentScopeWerewolfAgent(name="P1")
-    agent.bind_role(Seer, seat_number=2)
-    response = await agent.get_response("【行动】预言家：请选择目标\n可选目标：\n1. A")
-    assert "[[" in response
+    agent.configure_role(seat_number=2, game_role_name="Seer", plan_text="稳健")
+    with pytest.raises(RuntimeError, match="AgentScope backend not initialized"):
+        await agent.get_response("【行动】预言家：请选择目标\n可选目标：\n1. A")
 
 
 def test_extract_helpers() -> None:
     agent = AgentScopeWerewolfAgent(name="P1")
     assert agent.extract_target("回复 [[7]]") == 7
-    assert agent.extract_content("[[你好]]") == "你好"
+    long_speech = "我觉得三号玩家昨晚的票型非常可疑需要重点留意"
+    assert len(long_speech) >= 15
+    assert agent.extract_content(f"[[{long_speech}]]") == long_speech

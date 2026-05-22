@@ -51,13 +51,16 @@ class EngineContexts:
         parts.extend([
             "",
             "与狼队友讨论今晚要淘汰谁，简要说明理由（1-2 句）。",
-            "发言内容请放在 [[]] 中。",
+            "仅输出发言内容；谁能听到由系统根据狼队频道分发，无需你指定听众。",
         ])
         return "\n".join(parts)
 
     @staticmethod
     def day_discussion_prompt() -> str:
-        return "分享你的看法、怀疑或掌握的信息（1-3 句）。发言请放在 [[]] 中。"
+        return (
+            "分享你的看法、怀疑或掌握的信息（1-3 句）。"
+            "仅输出发言内容；谁能听到由系统根据白天公开频道分发，无需你指定听众。"
+        )
 
     @staticmethod
     def sheriff_run(player_name: str, role_name: str, round_number: int) -> str:

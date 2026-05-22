@@ -17,6 +17,8 @@ _SEAT_ONLY_PATTERN = re.compile(r"^\d{1,2}$")
 GENERATE_RESPONSE_INSTRUCTION = (
     "【输出方式】你必须调用 generate_response 工具提交 JSON，字段严格遵守上方 Schema。"
     "禁止用 [[数字]] 或自由文本代替结构化字段；reason / private_thought 可写在对应字段里。"
+    "【信息隔离】由系统决定谁能听到你的发言，你只需填写 public_speech / private_thought，"
+    "不要指定听众或可见范围。"
 )
 
 

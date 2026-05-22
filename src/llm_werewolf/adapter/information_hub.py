@@ -17,10 +17,10 @@ from agentscope.message import Msg as AgentScopeMsg
 from agentscope.pipeline import MsgHub
 
 from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
+from llm_werewolf.adapter.message_router import MessageRouter
 from llm_werewolf.adapter.visibility import (
     RoutedMessage,
     VisibilityChannel,
-    audience_for_channel,
 )
 from llm_werewolf.core.decisions import SpeechDecision
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
@@ -60,16 +60,17 @@ class InformationHub:
         audience: list[PlayerProtocol] | None = None,
         actor: PlayerProtocol | None = None,
     ) -> list[PlayerProtocol]:
-        if audience is not None:
-            return [p for p in audience if p.is_alive() and self._react_agent(p)]
-        if channel == VisibilityChannel.PRIVATE and actor is not None:
-            return [actor] if actor.is_alive() and self._react_agent(actor) else []
+        """Resolve MsgHub participants; audience is chosen by engine rules only."""
         if self._get_alive_players is None:
             return []
         alive = self._get_alive_players()
-        ids = audience_for_channel(channel, list(alive))
-        id_set = set(ids)
-        return [p for p in alive if p.player_id in id_set and self._react_agent(p)]
+        routed = MessageRouter.resolve_audience_players(
+            channel,
+            alive,
+            custom_audience=audience,
+            actor=actor,
+        )
+        return [p for p in routed if self._react_agent(p) is not None]
 
     def _merge_private_context(
         self,
@@ -139,7 +140,10 @@ class InformationHub:
         audience_players: list[PlayerProtocol],
     ) -> RoutedMessage:
         seat = WerewolfAdapterBridge.get_player_seat(speaker) or 0
-        audience = [p.player_id for p in audience_players]
+        audience = MessageRouter.resolve_audience_player_ids(
+            channel,
+            audience_players,
+        )
         routed = RoutedMessage(
             speaker_seat=seat,
             speaker_player_id=speaker.player_id,

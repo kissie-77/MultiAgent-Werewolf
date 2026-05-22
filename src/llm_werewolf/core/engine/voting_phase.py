@@ -8,7 +8,6 @@ from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.actions import VoteAction
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.actions.base import Action
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 class VotingPhaseMixin:
@@ -70,13 +69,16 @@ class VotingPhaseMixin:
 
             try:
                 context = self._build_voting_context(player)
-                target_player = await ActionSelector.get_target_from_agent(
-                    agent=player.agent,
-                    role_name=player.get_role_name(),
-                    action_description="投票放逐一名玩家",
-                    possible_targets=possible_targets,
+                interaction = self.game_state.require_phase_interaction()
+                target_player = await interaction.request_seat_choice(
+                    player,
+                    player.agent,
+                    player.get_role_name(),
+                    "投票放逐一名玩家",
+                    possible_targets,
                     allow_skip=False,
                     additional_context=context,
+                    fallback_random=True,
                     round_number=self.game_state.round_number,
                     phase="Voting",
                 )

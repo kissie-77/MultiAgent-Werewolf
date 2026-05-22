@@ -2,6 +2,9 @@
 
 from collections.abc import Callable
 
+from llm_werewolf.adapter.message_router import MessageRouter
+from llm_werewolf.adapter.visibility import VisibilityChannel
+from llm_werewolf.core.decisions import SpeechDecision
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
@@ -13,27 +16,19 @@ class DayPhaseMixin:
     game_state: GameState | None
     locale: Locale
     _log_event: Callable
-    public_discussion_history: list[str]
-    _get_public_discussion_context: Callable[[], str]
     build_player_observation: Callable[[PlayerProtocol], str]
 
     def _build_discussion_context(self, player: PlayerProtocol) -> str:
-        """Build context for day discussion.
-
-        Args:
-            player: The player who will speak.
-
-        Returns:
-            str: Context message for the player's agent.
-        """
+        """Build context for day discussion (observation from events only)."""
         if not self.game_state:
             return ""
 
         context_parts = [
-            self.build_player_observation(player, include_visible_events=True, include_private_notes=True),
+            self.build_player_observation(
+                player, include_visible_events=True, include_private_notes=True
+            ),
         ]
 
-        # Include player's decision history (safe, no sensitive info)
         if player.agent:
             decision_context = player.agent.get_decision_context()
             if decision_context:
@@ -43,23 +38,36 @@ class DayPhaseMixin:
         from llm_werewolf.core.prompts.actions import EngineContexts
 
         context_parts.append(EngineContexts.day_discussion_prompt())
-
         return "\n".join(context_parts)
 
-    async def run_day_phase(self) -> list[str]:
-        """Execute the day discussion phase.
+    def _log_public_speech(
+        self,
+        speaker: PlayerProtocol,
+        decision: SpeechDecision,
+    ) -> None:
+        """Log day speech; visibility is PUBLIC (engine decides, not the agent)."""
+        if not self.game_state:
+            return
+        self._log_event(
+            MessageRouter.event_type_for_channel(VisibilityChannel.PUBLIC),
+            self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech),
+            data={
+                "player_id": speaker.player_id,
+                "player_name": speaker.name,
+                "speech": decision.public_speech,
+            },
+            visible_to=None,
+        )
 
-        Returns:
-            list[str]: Messages from the day phase.
-        """
+    async def run_day_phase(self) -> list[str]:
+        """Execute the day discussion phase via InformationHub."""
         if not self.game_state:
             msg = "Game not initialized"
             raise RuntimeError(msg)
 
-        messages = []
+        messages: list[str] = []
         self.game_state.set_phase(GamePhase.DAY_DISCUSSION)
 
-        # Narrator: Daybreak
         self._log_event(
             EventType.MESSAGE, self.locale.get("narrator_daybreak"), data={"action": "daybreak"}
         )
@@ -82,43 +90,33 @@ class DayPhaseMixin:
 
         messages.append("\n--- 讨论阶段 ---")
         alive_players = self.game_state.get_alive_players()
+        interaction = self.game_state.require_phase_interaction()
 
-        for player in alive_players:
-            if player.agent:
-                game_context = self._build_discussion_context(player)
+        def on_speech(
+            speaker: PlayerProtocol,
+            decision: SpeechDecision,
+            _routed: object,
+        ) -> None:
+            self._log_public_speech(speaker, decision)
+            messages.append(
+                self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech)
+            )
 
-                try:
-                    speech = await player.agent.get_response(game_context)
-
-                    self._log_event(
-                        EventType.PLAYER_SPEECH,
-                        self.locale.get("player_speech", player=player.name, speech=speech),
-                        data={
-                            "player_id": player.player_id,
-                            "player_name": player.name,
-                            "speech": speech,
-                        },
-                    )
-
-                    messages.append(
-                        self.locale.get("player_speech", player=player.name, speech=speech)
-                    )
-
-                    # Add to global public discussion history
-                    self.public_discussion_history.append(f"{player.name}: {speech}")
-
-                    # Record player's own speech in decision history
-                    player.agent.add_decision(
-                        f"Round {self.game_state.round_number} (Day discussion): You said: {speech}"
-                    )
-                except Exception as e:
-                    self._log_event(
-                        EventType.ERROR,
-                        self.locale.get("speech_failed", player=player.name, error=str(e)),
-                        data={"player_id": player.player_id, "error": str(e)},
-                    )
-                    messages.append(
-                        self.locale.get("speech_failed", player=player.name, error=str(e))
-                    )
+        try:
+            await interaction.run_roundtable(
+                alive_players,
+                channel=VisibilityChannel.PUBLIC,
+                context_builder=self._build_discussion_context,
+                instruction="",
+                phase=GamePhase.DAY_DISCUSSION.value,
+                round_number=self.game_state.round_number,
+                on_speech=on_speech,
+            )
+        except Exception as exc:
+            self._log_event(
+                EventType.ERROR,
+                self.locale.get("speech_failed", player="*", error=str(exc)),
+                data={"error": str(exc)},
+            )
 
         return messages

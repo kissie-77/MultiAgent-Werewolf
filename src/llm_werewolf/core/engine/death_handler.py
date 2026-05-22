@@ -6,7 +6,6 @@ from collections.abc import Callable
 from llm_werewolf.core.types import Camp, EventType, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 class DeathHandlerMixin:
@@ -174,13 +173,16 @@ class DeathHandlerMixin:
                 f"存活玩家：{', '.join(p.name for p in possible_targets)}\n"
             )
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=sheriff.agent,
-                role_name="警长",
-                action_description=ActionDescriptions.TRANSFER_BADGE,
-                possible_targets=possible_targets,
+            interaction = self.game_state.require_phase_interaction()
+            target = await interaction.request_seat_choice(
+                sheriff,
+                sheriff.agent,
+                "警长",
+                ActionDescriptions.TRANSFER_BADGE,
+                possible_targets,
                 allow_skip=True,
                 additional_context=context,
+                fallback_random=False,
             )
 
             if target:
@@ -230,13 +232,16 @@ class DeathHandlerMixin:
 
         # Get target from agent or random
         if player.agent:
-            target = await ActionSelector.get_target_from_agent(
-                agent=player.agent,
-                role_name=role_name,
-                action_description="临死前选择带走的玩家",
-                possible_targets=possible_targets,
+            interaction = self.game_state.require_phase_interaction()
+            target = await interaction.request_seat_choice(
+                player,
+                player.agent,
+                role_name,
+                "临死前选择带走的玩家",
+                possible_targets,
                 allow_skip=False,
                 additional_context=f"你（{player.name}）已死亡，可以带走一名玩家。",
+                fallback_random=True,
             )
         else:
             target = random.choice(possible_targets)  # noqa: S311

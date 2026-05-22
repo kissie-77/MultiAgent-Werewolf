@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal
+from pathlib import Path
+from typing import Any
 
 from llm_werewolf.core.types import PlayerProtocol
 
@@ -199,8 +201,6 @@ class VoteIntentionTracker:
 
     def save_jsonl(self, path: str | Path) -> None:
         """Persist speech-linked intention records for offline analysis."""
-        import json
-
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         with target.open("w", encoding="utf-8") as handle:

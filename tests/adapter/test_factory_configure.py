@@ -51,11 +51,11 @@ def test_configure_agents_skips_agents_without_configure_role() -> None:
     assert not hasattr(agent, "agentscope_agent") or agent.agentscope_agent is None  # noqa: SLF001
 
 
-def test_agent_uses_structured_output_disabled_for_kissie_prompt_track() -> None:
+def test_agent_uses_structured_output_requires_react_backend() -> None:
     from llm_werewolf.adapter.structured_invoke import agent_uses_structured_output
 
     agent = AgentScopeWerewolfAgent(name="P1")
     assert agent_uses_structured_output(agent) is False
 
     agent.agentscope_agent = MagicMock()
-    assert agent_uses_structured_output(agent) is False
+    assert agent_uses_structured_output(agent) is True

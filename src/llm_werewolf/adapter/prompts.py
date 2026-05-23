@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""狼人杀游戏提示词。
+"""狼人杀游戏提示词（adapter/prompts.py）。
 
-RolePrompts / GamePrompts / PlanStrategies 与 kissie-77/MultiAgent-Werewolf `main` 对齐。
-另保留 ROLE_SEAT_ACTION 供本仓库 bridge / 扩展角色夜间行动使用。
+Prompt v2：角色策略卡 + 多 Agent 行为准则（kissie-77）。
+发言/遗言等圆桌任务：JSON Schema（SpeechDecision / generate_response）。
+选座、投票、女巫用药：[[ ]] 文本格式。
+另保留 ROLE_SEAT_ACTION 供 bridge / 扩展角色使用。
 """
 
 class RolePrompts:
@@ -32,13 +34,17 @@ class RolePrompts:
 - 不要机械重复身份说明；你的发言要像真实玩家，有立场、有试探、有防守或进攻。
 - 可以撒谎、隐藏信息或诱导别人，但必须符合你的身份和阵营利益。
 
-输出格式：
-- 每次先用一段简短内部分析，放在两个大括号中，例如：{{我需要判断 3 号是否在带节奏。}}
-- 最终答案必须放在 [[ ]] 中。
-- 如果要求选择玩家，只输出座位号，例如：[[5]]
-- 如果要求是否使用技能，只输出 [[1]] 表示是，[[0]] 表示否。
-- 如果要求发言或遗言，在 [[ ]] 中输出自然语言发言。
-- 不要在 [[ ]] 外输出最终答案。"""
+【输出格式 — 按当前任务只选一种】
+1. 圆桌发言（白天讨论 / 狼队夜聊 / 警上 / 遗言）：调用 generate_response，提交 SpeechDecision。
+   - public_speech：完整中文公开发言，至少 15 字。
+   - private_thought：可选，仅自己可见。
+   - 不要用 [[...]] 代替公开发言。
+2. 夜间选刀 / 守卫守人 / 验人 / 白天投票：[[座位号]]，[[]] 里只能是单个数字，例如 [[3]]；弃票 [[0]]。
+3. 女巫是否用药：[[1]] 表示是，[[0]] 表示否。
+
+选目标阶段不要写长段发言；发言阶段不要输出单独的 [[数字]]。
+不要替尚未发言的玩家编造发言。
+你的语言像普通玩家，不必太专业，但要积极推理和发言。"""
 
     VILLAGER = {
         "role_name": "村民",
@@ -118,7 +124,10 @@ class GamePrompts:
     FIRST_NIGHT_NO_WORDS = "第一晚没有遗言"
     
     SPEECH_BEGIN = "发言阶段，请玩家轮流发言，每天顺序交替，第一次1-12，第二次12-1，以此类推"
-    SPEECH_PROMPT = "请玩家发言，内容放在[[]]中"
+    SPEECH_PROMPT = (
+        "请完成本轮公开发言任务：仅通过 generate_response 提交 SpeechDecision，"
+        "勿用 [[...]] 或 {...} 自由格式代替 Schema 字段。"
+    )
     SPEECH_ANNOUNCE = "{player}号玩家的发言：{speech}"
     PLAYER_DEAD_SKIP = "{player}号玩家已死亡，跳过发言。"
     

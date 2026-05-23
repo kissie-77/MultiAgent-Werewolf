@@ -119,7 +119,7 @@ def test_decision_checker_detects_private_markers_in_public_speech() -> None:
     assert "private-thought" in results[0].message
 
 
-def test_prompt_bad_case_checker_detects_missing_final_answer_format() -> None:
+def test_prompt_bad_case_checker_detects_short_or_generic_speech() -> None:
     event = Event(
         event_type=EventType.PLAYER_SPEECH,
         round_number=1,
@@ -130,7 +130,7 @@ def test_prompt_bad_case_checker_detects_missing_final_answer_format() -> None:
 
     results = PromptBadCaseChecker().check(events=[event])
 
-    assert any("final-answer format" in result.message for result in results)
+    assert any("too generic" in r.message or "too short" in r.message or "seat token" in r.message for r in results)
 
 
 def test_prompt_bad_case_checker_detects_repeated_seer_target() -> None:

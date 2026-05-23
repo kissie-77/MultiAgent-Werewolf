@@ -17,11 +17,11 @@ def test_unwrap_nested_structured_output() -> None:
     assert unwrap_structured_metadata(meta) == {"seat": 5}
 
 
-def test_agent_uses_structured_disabled_for_kissie_prompt_track() -> None:
+def test_agent_uses_structured_when_agentscope_present() -> None:
     class FakeAgent:
         agentscope_agent = object()
 
-    assert agent_uses_structured_output(FakeAgent()) is False
+    assert agent_uses_structured_output(FakeAgent()) is True
 
 
 def test_agent_uses_structured_flag_without_backend() -> None:

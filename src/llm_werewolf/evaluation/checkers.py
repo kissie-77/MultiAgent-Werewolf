@@ -1,4 +1,7 @@
+from llm_werewolf.core.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
 from llm_werewolf.core.types import Event, EventType
+
+_EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 from llm_werewolf.evaluation.models import CheckResult, CheckSeverity
 
 
@@ -69,19 +72,31 @@ class PromptBadCaseChecker:
         return text[start:end].strip()
 
     def _check_response_format(self, events: list[Event]) -> list[CheckResult]:
+        """Speech uses SpeechDecision JSON at runtime; log stores public_speech text."""
         results: list[CheckResult] = []
         for event in events:
-            if event.event_type == EventType.PLAYER_SPEECH:
-                speech = str(event.data.get("speech", ""))
-                if speech and not self._has_bracket_answer(speech):
-                    results.append(
-                        self._bad_case(
-                            "day speech did not use [[...]] final-answer format",
-                            event,
-                            data={"player_id": event.data.get("player_id")},
-                            severity=CheckSeverity.INFO,
-                        )
+            if event.event_type != EventType.PLAYER_SPEECH:
+                continue
+            speech = self._extract_speech_text(str(event.data.get("speech", "")))
+            if not speech or any(m in speech for m in _EMPTY_SPEECH_MARKERS):
+                results.append(
+                    self._bad_case(
+                        "day speech was empty or a placeholder",
+                        event,
+                        data={"player_id": event.data.get("player_id")},
+                        severity=CheckSeverity.INFO,
                     )
+                )
+                continue
+            if looks_like_seat_only(speech) or len(speech) < SPEECH_PUBLIC_MIN_CHARS:
+                results.append(
+                    self._bad_case(
+                        "day speech was too short or looked like a seat token, not SpeechDecision public_speech",
+                        event,
+                        data={"player_id": event.data.get("player_id"), "speech": speech[:120]},
+                        severity=CheckSeverity.INFO,
+                    )
+                )
         return results
 
     def _check_low_information_speech(self, events: list[Event]) -> list[CheckResult]:
@@ -94,7 +109,7 @@ class PromptBadCaseChecker:
             if not speech:
                 continue
             has_player_reference = any(char.isdigit() for char in speech)
-            is_too_short = len(speech) < 12
+            is_too_short = len(speech) < SPEECH_PUBLIC_MIN_CHARS
             is_generic = any(marker in speech for marker in self._generic_speech_markers)
             if is_too_short or (is_generic and not has_player_reference):
                 results.append(

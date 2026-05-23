@@ -21,8 +21,8 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def agent_uses_structured_output(agent: Any) -> bool:
-    """True only when a live AgentScope ReAct backend is attached."""
-    return getattr(agent, "agentscope_agent", None) is not None
+    """Whether bridge uses ReAct schemas vs kissie-77 ``[[ ]]`` / ``{{}}`` text prompts."""
+    return False
 
 
 def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:

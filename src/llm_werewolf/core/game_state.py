@@ -10,13 +10,13 @@ if TYPE_CHECKING:
 
 
 class GameState:
-    """Manages the current state of the Werewolf game."""
+    """管理狼人杀游戏的当前状态。"""
 
     def __init__(self, players: list[PlayerProtocol]) -> None:
-        """Initialize the game state.
+        """初始化游戏状态。
 
         Args:
-            players: List of all players in the game.
+            players: 游戏中所有玩家的列表。
         """
         self.players = players
         self.player_dict = {p.player_id: p for p in players}
@@ -47,6 +47,8 @@ class GameState:
         self.sheriff_id: str | None = None
         self.sheriff_election_done = False
         self.sheriff_votes: dict[str, str] = {}
+        self.sheriff_tie_count = 0  # 记录平票重投次数（0=首次选举，1=首次平票重投）
+        self.vote_tie_count = 0  # 记录投票平票重投次数（0=首次投票，1=首次平票重投）
 
         self.winner: str | None = None
 
@@ -56,46 +58,46 @@ class GameState:
         self.vote_intention_tracker = None
 
     def require_phase_interaction(self) -> PhaseInteraction:
-        """Return the injected phase interaction API for this game."""
+        """返回为本局游戏注入的阶段交互 API。"""
         if self.phase_interaction is None:
             msg = "PhaseInteraction is not initialized on GameState"
             raise RuntimeError(msg)
         return self.phase_interaction
 
     def reset_deaths(self) -> None:
-        """Reset the death sets for a new round."""
+        """重置新一轮游戏的死亡记录。"""
         self.night_deaths.clear()
         self.day_deaths.clear()
         self.death_abilities_used.clear()
         self.death_causes.clear()
 
     def get_phase(self) -> GamePhase:
-        """Get the current game phase.
+        """获取当前游戏阶段。
 
         Returns:
-            GamePhase: The current phase.
+            GamePhase: 当前阶段。
         """
         return self.phase
 
     def set_phase(self, phase: GamePhase) -> None:
-        """Set the game phase.
+        """设置游戏阶段。
 
         Args:
-            phase: The new phase to set.
+            phase: 要设置的新阶段。
         """
         self.phase = phase
 
     def next_phase(self) -> GamePhase:
-        """Advance to the next game phase.
+        """推进到下一个游戏阶段。
 
         Returns:
-            GamePhase: The new phase.
+            GamePhase: 新阶段。
         """
         if self.phase == GamePhase.SETUP:
             self.phase = GamePhase.NIGHT
             self.round_number = 1
         elif self.phase == GamePhase.NIGHT:
-            # First night ends, go to sheriff election if not done
+            # 首夜结束后，若尚未完成警长选举则进入警长竞选
             if self.round_number == 1 and not self.sheriff_election_done:
                 self.phase = GamePhase.SHERIFF_ELECTION
             else:
@@ -122,13 +124,13 @@ class GameState:
         return self.phase
 
     def get_alive_players(self, except_ids: list[str] | None = None) -> list[PlayerProtocol]:
-        """Get all alive players.
+        """获取所有存活玩家。
 
         Args:
-            except_ids: Optional list of player IDs to exclude.
+            except_ids: 可选，要排除的玩家 ID 列表。
 
         Returns:
-            list[Player]: List of alive players.
+            list[Player]: 存活玩家列表。
         """
         alive = [p for p in self.players if p.is_alive()]
         if except_ids:
@@ -136,83 +138,83 @@ class GameState:
         return alive
 
     def get_dead_players(self) -> list[PlayerProtocol]:
-        """Get all dead players.
+        """获取所有已死亡玩家。
 
         Returns:
-            list[Player]: List of dead players.
+            list[Player]: 已死亡玩家列表。
         """
         return [p for p in self.players if not p.is_alive()]
 
     def get_players_with_night_actions(self) -> list[PlayerProtocol]:
-        """Get all alive players that have night actions."""
+        """获取所有拥有夜间技能的存活玩家。"""
         return [p for p in self.get_alive_players() if p.role.has_night_action(self)]
 
     def get_player(self, player_id: str) -> PlayerProtocol | None:
-        """Get a player by ID.
+        """按 ID 获取玩家。
 
         Args:
-            player_id: The player's ID.
+            player_id: 玩家 ID。
 
         Returns:
-            Player | None: The player, or None if not found.
+            Player | None: 玩家对象，未找到则返回 None。
         """
         return self.player_dict.get(player_id)
 
     def get_players_by_camp(self, camp: str) -> list[PlayerProtocol]:
-        """Get all players in a specific camp.
+        """获取指定阵营的所有玩家。
 
         Args:
-            camp: The camp name.
+            camp: 阵营名称。
 
         Returns:
-            list[Player]: List of players in the camp.
+            list[Player]: 该阵营的玩家列表。
         """
         return [p for p in self.players if p.get_camp() == camp]
 
     def count_alive_by_camp(self, camp: str) -> int:
-        """Count alive players in a specific camp.
+        """统计指定阵营的存活玩家数量。
 
         Args:
-            camp: The camp name.
+            camp: 阵营名称。
 
         Returns:
-            int: Number of alive players in the camp.
+            int: 该阵营存活玩家数。
         """
         return sum(1 for p in self.get_alive_players() if p.get_camp() == camp)
 
     def record_event(self, event: Event) -> None:
-        """Record a game event in history.
+        """将游戏事件记录到历史中。
 
         Args:
-            event: The event to record.
+            event: 要记录的事件。
         """
         self.event_history.append(event)
 
     def get_recent_events(self, count: int = 10) -> list[Event]:
-        """Get the most recent events.
+        """获取最近的事件。
 
         Args:
-            count: Number of events to retrieve.
+            count: 要获取的事件数量。
 
         Returns:
-            list[Event]: Recent events.
+            list[Event]: 最近的事件列表。
         """
         return self.event_history[-count:]
 
     def add_vote(self, voter_id: str, target_id: str) -> None:
-        """Record a vote.
+        """记录一次投票。
 
         Args:
-            voter_id: ID of the player voting.
-            target_id: ID of the player being voted for.
+            voter_id: 投票玩家的 ID。
+            target_id: 被投票玩家的 ID。
         """
         self.votes[voter_id] = target_id
 
     def get_vote_counts(self) -> dict[str, float]:
-        """Get the vote count for each player.
+        """获取每位玩家的得票数。
 
         Returns:
-            dict[str, float]: Mapping of player_id to vote count (float to support sheriff's 1.5 vote).
+            dict[str, float]: 玩家 ID 到得票数的映射（浮点数以支持警长 1.5 票）。
         """
         vote_counts: dict[str, float] = {}
         for voter_id, target_id in self.votes.items():
@@ -221,7 +223,7 @@ class GameState:
                 vote_weight = voter.get_vote_weight()
                 vote_counts[target_id] = vote_counts.get(target_id, 0.0) + vote_weight
 
-        # Add raven mark (1 extra vote)
+        # 加上渡鸦标记（额外 1 票）
         if self.raven_marked and self.raven_marked in vote_counts:
             vote_counts[self.raven_marked] += 1
         elif self.raven_marked:
@@ -230,43 +232,43 @@ class GameState:
         return vote_counts
 
     def has_sheriff(self) -> bool:
-        """Check if there is a sheriff.
+        """检查是否存在警长。
 
         Returns:
-            bool: True if there is a sheriff.
+            bool: 若存在警长则为 True。
         """
         return self.sheriff_id is not None
 
     def get_sheriff(self) -> PlayerProtocol | None:
-        """Get the current sheriff.
+        """获取当前警长。
 
         Returns:
-            PlayerProtocol | None: The sheriff player, or None if no sheriff.
+            PlayerProtocol | None: 警长玩家，若无警长则返回 None。
         """
         if self.sheriff_id:
             return self.get_player(self.sheriff_id)
         return None
 
     def set_sheriff(self, player_id: str) -> None:
-        """Set a player as the sheriff.
+        """将某玩家设为警长。
 
         Args:
-            player_id: ID of the player to make sheriff.
+            player_id: 要设为警长的玩家 ID。
         """
-        # Remove sheriff status from previous sheriff if exists
+        # 若已有警长，先移除其警长身份
         if self.sheriff_id:
             prev_sheriff = self.get_player(self.sheriff_id)
             if prev_sheriff:
                 prev_sheriff.remove_sheriff()
 
-        # Set new sheriff
+        # 设置新警长
         self.sheriff_id = player_id
         player = self.get_player(player_id)
         if player:
             player.make_sheriff()
 
     def remove_sheriff(self) -> None:
-        """Remove the current sheriff (e.g., when badge is torn)."""
+        """移除当前警长（例如撕毁警徽时）。"""
         if self.sheriff_id:
             sheriff = self.get_player(self.sheriff_id)
             if sheriff:
@@ -274,10 +276,10 @@ class GameState:
             self.sheriff_id = None
 
     def get_public_info(self) -> GameStateInfo:
-        """Get public information about the game state.
+        """获取游戏状态的公开信息。
 
         Returns:
-            GameStateInfo: Public game state information.
+            GameStateInfo: 公开的游戏状态信息。
         """
         alive = self.get_alive_players()
         return GameStateInfo(
@@ -290,10 +292,10 @@ class GameState:
         )
 
     def __repr__(self) -> str:
-        """Repr of the game state.
+        """游戏状态的字符串表示。
 
         Returns:
-            str: Game state representation.
+            str: 游戏状态表示。
         """
         return (
             f"GameState(phase={self.phase.value}, round={self.round_number}, "

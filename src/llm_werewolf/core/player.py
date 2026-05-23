@@ -2,7 +2,7 @@ from llm_werewolf.core.types import PlayerInfo, PlayerStatus, RoleProtocol, Agen
 
 
 class Player:
-    """Represents a player in the Werewolf game."""
+    """表示狼人杀游戏中的一名玩家。"""
 
     def __init__(
         self,
@@ -12,14 +12,14 @@ class Player:
         agent: AgentProtocol | None = None,
         ai_model: str = "unknown",
     ) -> None:
-        """Initialize a player.
+        """初始化玩家。
 
         Args:
-            player_id: Unique identifier for the player.
-            name: Display name for the player.
-            role: The role assigned to this player.
-            agent: AI agent controlling this player (optional).
-            ai_model: Name of the AI model being used.
+            player_id: 玩家唯一标识。
+            name: 显示名称。
+            role: 分配给该玩家的角色。
+            agent: 控制该玩家的 AI 智能体（可选）。
+            ai_model: 所使用的 AI 模型名称。
         """
         self.player_id = player_id
         self.name = name
@@ -34,111 +34,111 @@ class Player:
         self.can_vote_flag = True
 
     def is_alive(self) -> bool:
-        """Check if the player is alive.
+        """检查玩家是否存活。
 
         Returns:
-            bool: True if the player is alive.
+            bool: 存活则为 True。
         """
         return self._alive
 
     def kill(self) -> None:
-        """Mark the player as dead."""
+        """将玩家标记为死亡。"""
         self._alive = False
         self.statuses.discard(PlayerStatus.ALIVE)
         self.statuses.add(PlayerStatus.DEAD)
 
     def revive(self) -> None:
-        """Revive the player (e.g., by Witch's save potion)."""
+        """复活玩家（例如女巫解药）。"""
         self._alive = True
         self.statuses.discard(PlayerStatus.DEAD)
         self.statuses.add(PlayerStatus.ALIVE)
 
     def add_status(self, status: PlayerStatus) -> None:
-        """Add a status to the player.
+        """为玩家添加状态。
 
         Args:
-            status: The status to add.
+            status: 要添加的状态。
         """
         self.statuses.add(status)
 
     def remove_status(self, status: PlayerStatus) -> None:
-        """Remove a status from the player.
+        """移除玩家状态。
 
         Args:
-            status: The status to remove.
+            status: 要移除的状态。
         """
         self.statuses.discard(status)
 
     def has_status(self, status: PlayerStatus) -> bool:
-        """Check if the player has a specific status.
+        """检查玩家是否具有指定状态。
 
         Args:
-            status: The status to check for.
+            status: 要检查的状态。
 
         Returns:
-            bool: True if the player has the status.
+            bool: 具有该状态则为 True。
         """
         return status in self.statuses
 
     def can_vote(self) -> bool:
-        """Check if the player can vote.
+        """检查玩家是否可以投票。
 
         Returns:
-            bool: True if the player can vote.
+            bool: 可以投票则为 True。
         """
         return self._alive and self.can_vote_flag
 
     def disable_voting(self) -> None:
-        """Disable the player's voting rights."""
+        """剥夺玩家的投票权。"""
         self.can_vote_flag = False
         self.add_status(PlayerStatus.NO_VOTE)
 
     def set_lover(self, partner_id: str) -> None:
-        """Set this player as a lover with another player.
+        """将玩家与另一玩家设为恋人。
 
         Args:
-            partner_id: The ID of the lover partner.
+            partner_id: 恋人伙伴的玩家 ID。
         """
         self.lover_partner_id = partner_id
         self.add_status(PlayerStatus.LOVER)
 
     def is_lover(self) -> bool:
-        """Check if the player is a lover.
+        """检查玩家是否为恋人。
 
         Returns:
-            bool: True if the player is a lover.
+            bool: 是恋人则为 True。
         """
         return self.has_status(PlayerStatus.LOVER)
 
     def is_sheriff(self) -> bool:
-        """Check if the player is the sheriff.
+        """检查玩家是否为警长。
 
         Returns:
-            bool: True if the player is the sheriff.
+            bool: 是警长则为 True。
         """
         return self.has_status(PlayerStatus.SHERIFF)
 
     def make_sheriff(self) -> None:
-        """Make this player the sheriff."""
+        """使该玩家成为警长。"""
         self.add_status(PlayerStatus.SHERIFF)
 
     def remove_sheriff(self) -> None:
-        """Remove sheriff status from this player."""
+        """移除该玩家的警长身份。"""
         self.remove_status(PlayerStatus.SHERIFF)
 
     def get_vote_weight(self) -> float:
-        """Get the player's vote weight.
+        """获取玩家投票权重。
 
         Returns:
-            float: Vote weight (1.5 for sheriff, 1.0 for others).
+            float: 警长为 1.5，其他为 1.0。
         """
         return 1.5 if self.is_sheriff() else 1.0
 
     def get_public_info(self) -> PlayerInfo:
-        """Get public information about the player.
+        """获取玩家的公开信息。
 
         Returns:
-            PlayerInfo: Public player information.
+            PlayerInfo: 公开的玩家信息。
         """
         return PlayerInfo(
             player_id=self.player_id,
@@ -149,40 +149,40 @@ class Player:
         )
 
     def get_private_notes(self, game_state: object | None = None) -> list[str]:
-        """Get private facts this player is allowed to know."""
+        """获取该玩家有权知晓的私密事实。"""
         if hasattr(self.role, "get_private_notes"):
             return self.role.get_private_notes(game_state)
         return []
 
     def get_role_name(self) -> str:
-        """Get the player's role name.
+        """获取玩家角色名称。
 
         Returns:
-            str: The role name.
+            str: 角色名称。
         """
         return self.role.name
 
     def get_camp(self) -> str:
-        """Get the player's camp.
+        """获取玩家阵营。
 
         Returns:
-            str: The camp name.
+            str: 阵营名称。
         """
         return self.role.camp.value
 
     def __str__(self) -> str:
-        """String representation of the player.
+        """玩家的字符串表示。
 
         Returns:
-            str: Player name and status.
+            str: 玩家名称与存活状态。
         """
         status = "alive" if self._alive else "dead"
         return f"{self.name} ({status})"
 
     def __repr__(self) -> str:
-        """Repr of the player.
+        """玩家的 repr 表示。
 
         Returns:
-            str: Player representation.
+            str: 玩家表示。
         """
         return f"Player(id={self.player_id}, name={self.name}, role={self.role.name})"

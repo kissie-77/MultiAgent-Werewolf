@@ -3,7 +3,7 @@ from llm_werewolf.core.player import Player, PlayerStatus
 
 
 def test_player_creation() -> None:
-    """Test creating a player."""
+    """测试创建玩家。"""
     player = Player("p1", "Alice", Villager)
 
     assert player.player_id == "p1"
@@ -13,7 +13,7 @@ def test_player_creation() -> None:
 
 
 def test_player_death() -> None:
-    """Test player death."""
+    """测试玩家死亡。"""
     player = Player("p1", "Alice", Villager)
 
     player.kill()
@@ -22,7 +22,7 @@ def test_player_death() -> None:
 
 
 def test_player_revive() -> None:
-    """Test player revival."""
+    """测试玩家复活。"""
     player = Player("p1", "Alice", Villager)
 
     player.kill()
@@ -34,7 +34,7 @@ def test_player_revive() -> None:
 
 
 def test_player_status() -> None:
-    """Test player status management."""
+    """测试玩家状态管理。"""
     player = Player("p1", "Alice", Villager)
 
     player.add_status(PlayerStatus.PROTECTED)
@@ -45,7 +45,7 @@ def test_player_status() -> None:
 
 
 def test_player_voting_rights() -> None:
-    """Test player voting rights."""
+    """测试玩家投票权。"""
     player = Player("p1", "Alice", Villager)
 
     assert player.can_vote()
@@ -56,7 +56,7 @@ def test_player_voting_rights() -> None:
 
 
 def test_player_lover_status() -> None:
-    """Test player lover status."""
+    """测试玩家情侣状态。"""
     player = Player("p1", "Alice", Villager)
 
     assert not player.is_lover()
@@ -67,7 +67,7 @@ def test_player_lover_status() -> None:
 
 
 def test_player_private_notes() -> None:
-    """Test getting player private notes."""
+    """测试获取玩家私有笔记。"""
     player = Player("p1", "Alice", Villager)
 
     notes = player.get_private_notes()
@@ -75,7 +75,7 @@ def test_player_private_notes() -> None:
 
 
 def test_player_public_info() -> None:
-    """Test getting public player info."""
+    """测试获取玩家公开信息。"""
     player = Player("p1", "Bob", Werewolf, ai_model="gpt-4")
 
     info = player.get_public_info()

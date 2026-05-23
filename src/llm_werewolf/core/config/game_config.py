@@ -4,7 +4,7 @@ from llm_werewolf.core.roles.registry import validate_role_names
 
 
 class GameConfig(BaseModel):
-    """Game configuration including player count, roles, and timing settings."""
+    """游戏配置，包括玩家数量、角色与计时设置。"""
 
     num_players: int = Field(
         ..., ge=6, le=20, description="Number of players in the game", examples=[6, 9, 12]
@@ -53,17 +53,17 @@ class GameConfig(BaseModel):
     @field_validator("role_names")
     @classmethod
     def validate_role_count(cls, v: list[str], info: object) -> list[str]:
-        """Validate that the number of roles matches the number of players.
+        """校验角色数量与玩家数量一致。
 
         Args:
-            v: The role names list.
-            info: Validation info containing other fields.
+            v: 角色名称列表。
+            info: 包含其他字段的校验信息。
 
         Returns:
-            list[str]: The validated role names.
+            list[str]: 校验后的角色名称。
 
         Raises:
-            ValueError: If role count doesn't match player count.
+            ValueError: 角色数量与玩家数量不匹配时抛出。
         """
         num_players = info.data.get("num_players")
         if num_players and len(v) != num_players:
@@ -74,16 +74,16 @@ class GameConfig(BaseModel):
     @field_validator("role_names")
     @classmethod
     def validate_roles(cls, v: list[str]) -> list[str]:
-        """Validate role names using the role registry.
+        """使用角色注册表校验角色名称。
 
         Args:
-            v: The role names list.
+            v: 角色名称列表。
 
         Returns:
-            list[str]: The validated role names.
+            list[str]: 校验后的角色名称。
 
         Raises:
-            ValueError: If roles are invalid or no werewolves present.
+            ValueError: 角色无效或未包含狼人时抛出。
         """
         validate_role_names(v)
         return v

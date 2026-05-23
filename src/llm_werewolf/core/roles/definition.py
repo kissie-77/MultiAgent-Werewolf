@@ -1,4 +1,4 @@
-"""Role definition schema (name, implementation, camp, victory goal)."""
+"""角色定义模式（名称、实现、阵营、胜利目标）。"""
 
 from pydantic import Field, BaseModel
 
@@ -6,14 +6,14 @@ from llm_werewolf.core.types.enums import Camp, VictoryGoal
 
 
 class RoleDefinition(BaseModel):
-    """Declarative role metadata used for registration and prompts.
+    """用于注册与提示词的声明式角色元数据。
 
-    Fields:
-        name: Registry key (e.g. ``Seer``), matches role class registry name.
-        display_name: Human-readable Chinese name shown to players.
-        implementation: Import path ``module:Class`` for the role implementation.
-        camp: Faction / identity camp.
-        victory_goal: Win-condition category for documentation and prompts.
+    字段:
+        name: 注册表键（如 ``Seer``），与角色类注册名一致。
+        display_name: 向玩家展示的中文可读名称。
+        implementation: 角色实现的导入路径 ``module:Class``。
+        camp: 阵营 / 身份阵营。
+        victory_goal: 用于文档与提示词的胜利条件类别。
     """
 
     name: str = Field(..., description="Registry key, e.g. Seer")

@@ -1,4 +1,4 @@
-"""Tests for adapter/agent.py (AgentScopeWerewolfAgent)."""
+"""adapter/agent.py（AgentScopeWerewolfAgent）的测试。"""
 
 import pytest
 

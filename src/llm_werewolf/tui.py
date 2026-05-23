@@ -17,10 +17,10 @@ from llm_werewolf.core.utils import load_config
 
 
 def main(config: str) -> None:
-    """Run Werewolf game with TUI interface.
+    """使用 TUI 界面运行狼人杀游戏。
 
     Args:
-        config: Path to the YAML configuration file
+        config: YAML 配置文件路径
     """
     config_path = Path(config)
     players_config = load_config(config_path=config_path)
@@ -49,7 +49,7 @@ def main(config: str) -> None:
 
 
 def entry() -> None:
-    """Entry point for the werewolf TUI command."""
+    """werewolf TUI 命令的入口点。"""
     fire.Fire(main)
 
 

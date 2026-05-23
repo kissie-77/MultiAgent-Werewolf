@@ -1,4 +1,4 @@
-"""Unified AgentScope structured output via generate_response → Msg.metadata."""
+"""通过 generate_response → Msg.metadata 的统一 AgentScope 结构化输出。"""
 
 from __future__ import annotations
 
@@ -21,12 +21,12 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def agent_uses_structured_output(agent: Any) -> bool:
-    """True only when a live AgentScope ReAct backend is attached."""
+    """仅当已挂载可用的 AgentScope ReAct 后端时返回 True。"""
     return getattr(agent, "agentscope_agent", None) is not None
 
 
 def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:
-    """Normalize Msg.metadata from ReActAgent into a flat dict for Pydantic."""
+    """将 ReActAgent 的 Msg.metadata 规范为供 Pydantic 使用的扁平 dict。"""
     if metadata is None:
         return None
     if not isinstance(metadata, dict):
@@ -36,7 +36,7 @@ def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:
         return nested
     if metadata.get("success") is False:
         return None
-    # Final reply stores fields directly (seat, choice, public_speech, ...)
+    # 最终回复直接存字段（seat、choice、public_speech 等）
     if any(
         key in metadata
         for key in ("seat", "choice", "public_speech", "seats", "beliefs")
@@ -52,7 +52,7 @@ async def invoke_structured(
     *,
     retries: int = 2,
 ) -> T | None:
-    """Call agent.get_structured_response; prompt must ask for generate_response JSON."""
+    """调用 agent.get_structured_response；prompt 须要求 generate_response JSON。"""
     getter = getattr(agent, "get_structured_response", None)
     if not callable(getter):
         return None

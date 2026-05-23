@@ -125,7 +125,7 @@ Private notes:
 ```
 {agent.get_decision_context() 可选：Your previous actions: ...}
 
-Your living werewolf teammates: {队友名}.   # Werewolf.get_private_notes
+Your living werewolf teammates: {队友名}.   # 见 Werewolf.get_private_notes
 
 You are working with these werewolves: {队友名列表}.
 All werewolves will vote on who to eliminate tonight.

@@ -1,4 +1,4 @@
-"""Vote swing persuasion analysis."""
+"""投票摇摆说服分析。"""
 
 import json
 

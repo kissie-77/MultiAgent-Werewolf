@@ -1,8 +1,8 @@
-"""Chinese action descriptions for engine and role action prompts."""
+"""供引擎与角色行动提示使用的中文行动描述。"""
 
 
 class ActionDescriptions:
-    """Structured action text passed to ``ActionSelector`` / ``PromptManager``."""
+    """传递给 ``ActionSelector`` / ``PromptManager`` 的结构化行动文案。"""
 
     VOTE_KILL = "今晚投票击杀一名玩家"
     VOTE_KILL_ALPHA = "选择一名狼人队友击杀（或跳过）"
@@ -23,7 +23,7 @@ class ActionDescriptions:
 
 
 class EngineContexts:
-    """Chinese free-form context fragments for phase discussions."""
+    """阶段讨论用的中文自由文本上下文片段。"""
 
     @staticmethod
     def werewolf_coordination_note(werewolf_names: list[str], target_names: list[str]) -> list[str]:
@@ -66,7 +66,7 @@ class EngineContexts:
 
     @staticmethod
     def hub_roundtable_memory_notice(channel: str) -> str:
-        """Tell the model that in-round dialogue lives in MsgHub memory, not the event block."""
+        """告知模型：局内对话在 MsgHub 记忆中，不在事件块里。"""
         audience = "所有存活玩家" if channel == "public" else "狼队队友"
         return "\n".join([
             "【对话记忆 · MsgHub】",
@@ -76,7 +76,7 @@ class EngineContexts:
 
     @staticmethod
     def hub_decision_memory_notice() -> str:
-        """Remind the model that speeches/discussion live in ReAct/MsgHub history, not Event log."""
+        """提醒模型：发言/讨论在 ReAct/MsgHub 历史中，不在 Event 日志里。"""
         return "\n".join([
             "【决策上下文 · MsgHub】",
             "玩家发言、狼队夜聊、警上发言等对话内容在你上方的对话记忆中。",

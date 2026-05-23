@@ -1,4 +1,4 @@
-"""Tests for ordered night skill collection."""
+"""有序夜间技能收集的测试。"""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,7 +12,7 @@ from llm_werewolf.core.roles import Seer, Villager, Werewolf, Witch
 
 @pytest.mark.asyncio
 async def test_witch_collected_after_wolf_phase_not_in_pre_wolf() -> None:
-    """Witch should only be gathered in post-wolf batch."""
+    """女巫应仅在狼人阶段后的批次中收集。"""
     witch = Player("p1", "Witch", Witch)
     wolf = Player("p2", "Wolf", Werewolf)
     seer = Player("p3", "Seer", Seer)

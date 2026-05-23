@@ -1,7 +1,7 @@
-"""Engine-controlled routing: who hears what is decided here, not by agents.
+"""由引擎控制的路由：谁能听到什么在此决定，不由 Agent 自行决定。
 
-Agents only produce speech (public_speech / private_thought) or receive messages
-that the Hub delivers after ``MessageRouter`` resolves the audience from game rules.
+Agent 仅产出发言（public_speech / private_thought）或接收消息；
+Hub 在 ``MessageRouter`` 按游戏规则解析受众后再投递。
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from llm_werewolf.core.types import Camp, EventType, PlayerProtocol
 
 
 class MessageRouter:
-    """Resolve MsgHub participants and Event.visible_to from channel + game state."""
+    """根据通道与游戏状态解析 MsgHub 参与者及 Event.visible_to。"""
 
     @staticmethod
     def resolve_audience_players(
@@ -21,7 +21,7 @@ class MessageRouter:
         custom_audience: list[PlayerProtocol] | None = None,
         actor: PlayerProtocol | None = None,
     ) -> list[PlayerProtocol]:
-        """Return alive players who should hear the next public line on this channel."""
+        """返回在本通道上应听到下一条公开发言的存活玩家。"""
         if custom_audience is not None:
             return [p for p in custom_audience if p.is_alive()]
         if channel == VisibilityChannel.PRIVATE and actor is not None:
@@ -58,7 +58,7 @@ class MessageRouter:
         *,
         wolf_player_ids: list[str],
     ) -> list[str] | None:
-        """Map a routed public line to Event.visible_to (None = everyone)."""
+        """将已路由的公开发言行映射为 Event.visible_to（None 表示全员可见）。"""
         if routed.channel == VisibilityChannel.PUBLIC:
             return None
         if routed.channel == VisibilityChannel.WOLF_TEAM:

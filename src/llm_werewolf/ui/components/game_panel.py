@@ -11,29 +11,29 @@ from llm_werewolf.core.game_state import GameState
 
 
 class GamePanel(Static):
-    """Widget displaying the current game status."""
+    """展示当前游戏状态的组件。"""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        """Initialize the game panel."""
+        """初始化游戏面板。"""
         super().__init__(*args, **kwargs)
         self.game_state: GameState | None = None
 
     def set_game_state(self, game_state: GameState) -> None:
-        """Set the game state to display.
+        """设置要展示的游戏状态。
 
         Args:
-            game_state: The current game state.
+            game_state: 当前游戏状态。
         """
         self.game_state = game_state
         self.refresh_display()
 
     def refresh_display(self) -> None:
-        """Refresh the display with current game state."""
+        """用当前游戏状态刷新展示。"""
         if not self.game_state:
             self.update("No game in progress")
             return
 
-        # Phase icon
+        # 阶段图标
         phase_icons = {
             "setup": "⚙️",
             "night": "🌙",
@@ -43,14 +43,14 @@ class GamePanel(Static):
         }
         phase_icon = phase_icons.get(self.game_state.phase.value, "❓")
 
-        # Create main info text
+        # 创建主信息文本
         title = Text()
         title.append(f"{phase_icon} ", style="bold")
         title.append(f"Round {self.game_state.round_number}", style="bold yellow")
         title.append(" - ")
         title.append(self.game_state.phase.value.replace("_", " ").title(), style="bold cyan")
 
-        # Create statistics table
+        # 创建统计表格
         stats_table = Table(show_header=False, box=None, padding=(0, 1))
         stats_table.add_column("Label", style="dim")
         stats_table.add_column("Value", style="bold")
@@ -68,12 +68,12 @@ class GamePanel(Static):
             "Villagers:", f"[green]{villagers}[/green]" if villagers > 0 else "[dim]0[/dim]"
         )
 
-        # Render stats table to string
+        # 将统计表格渲染为字符串
         console = Console(file=StringIO(), width=40)
         console.print(stats_table)
         stats_content = console.file.getvalue()
 
-        # Vote counts (if in voting phase)
+        # 投票统计（若在投票阶段）
         vote_content = ""
         if self.game_state.phase.value == "day_voting":
             vote_counts = self.game_state.get_vote_counts()
@@ -95,7 +95,7 @@ class GamePanel(Static):
                 console.print(vote_table)
                 vote_content = console.file.getvalue()
 
-        # Combine all content
+        # 合并所有内容
         content = Text.assemble(title, "\n\n")
         content.append(stats_content)
 
@@ -107,5 +107,5 @@ class GamePanel(Static):
         self.update(panel)
 
     def on_mount(self) -> None:
-        """Called when widget is mounted."""
+        """组件挂载时调用。"""
         self.refresh_display()

@@ -1,4 +1,4 @@
-"""Tests for collaborator-facing bind_role_prompt on AgentScope agent."""
+"""面向协作者的 AgentScope agent 上 bind_role_prompt 的测试。"""
 
 from unittest.mock import MagicMock, patch
 

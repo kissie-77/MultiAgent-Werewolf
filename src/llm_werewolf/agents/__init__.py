@@ -1,4 +1,4 @@
-"""Player agents (demo, human, LLM, factory)."""
+"""玩家 Agent（Demo、人类、LLM、工厂）。"""
 
 from llm_werewolf.agents.base import (
     BaseAgent,

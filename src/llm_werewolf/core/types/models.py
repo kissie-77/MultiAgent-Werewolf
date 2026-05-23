@@ -6,7 +6,7 @@ from llm_werewolf.core.types.enums import Camp, EventType, GamePhase, PlayerStat
 
 
 class RoleConfig(BaseModel):
-    """Configuration for a role."""
+    """角色配置。"""
 
     name: str = Field(..., description="Name of the role")
     camp: Camp = Field(..., description="Camp this role belongs to")
@@ -18,7 +18,7 @@ class RoleConfig(BaseModel):
 
 
 class GameStateInfo(BaseModel):
-    """Public information about the game state."""
+    """游戏状态的公开信息。"""
 
     phase: GamePhase = Field(..., description="Current game phase")
     round_number: int = Field(..., description="Current round number")
@@ -29,7 +29,7 @@ class GameStateInfo(BaseModel):
 
 
 class PlayerInfo(BaseModel):
-    """Public information about a player."""
+    """玩家的公开信息。"""
 
     player_id: str = Field(..., description="Unique player identifier")
     name: str = Field(..., description="Player name")
@@ -39,7 +39,7 @@ class PlayerInfo(BaseModel):
 
 
 class Event(BaseModel):
-    """Represents a game event."""
+    """表示一条游戏事件。"""
 
     model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
@@ -56,29 +56,29 @@ class Event(BaseModel):
     )
 
     def is_visible_to(self, player_id: str) -> bool:
-        """Check if this event is visible to a specific player.
+        """检查该事件对指定玩家是否可见。
 
         Args:
-            player_id: The player ID to check.
+            player_id: 待检查的玩家 ID。
 
         Returns:
-            bool: True if the event is visible to the player.
+            bool: 对该玩家可见时为 True。
         """
         if self.visible_to is None:
             return True
         return player_id in self.visible_to
 
     def get_public_message(self) -> str:
-        """Get the public version of the event message.
+        """获取事件的公开版本消息。
 
         Returns:
-            str: The public message.
+            str: 公开消息。
         """
         return self.message
 
 
 class VictoryResult(BaseModel):
-    """Result of a victory check."""
+    """胜负判定结果。"""
 
     has_winner: bool = Field(..., description="Whether there is a winner")
     winner_camp: str | None = Field(None, description="The winning camp")

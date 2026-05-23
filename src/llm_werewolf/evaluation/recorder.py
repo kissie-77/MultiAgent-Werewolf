@@ -73,7 +73,7 @@ class EvaluationRecorder:
         self._append_jsonl(self.errors_path, payload)
 
     def record_vote_intentions(self, records: list[dict[str, Any]]) -> None:
-        """Append speech-linked vote intention records for persuasion analysis."""
+        """追加与发言关联的投票意向记录，供说服分析。"""
         for record in records:
             self._append_jsonl(self.vote_intentions_path, record)
 

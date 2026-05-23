@@ -1,4 +1,4 @@
-"""Single entry for all agent interactions during a game (facade over InformationHub)."""
+"""对局内所有智能体交互的统一入口（InformationHub 门面）。"""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class PhaseInteraction:
-    """Engine- and role-facing API for LLM decisions. Requires explicit hub injection."""
+    """面向引擎与角色的 LLM 决策 API。须显式注入 hub。"""
 
     def __init__(self, hub: InformationHub) -> None:
         self._hub = hub

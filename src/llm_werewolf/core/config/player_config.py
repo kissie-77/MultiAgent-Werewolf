@@ -7,12 +7,12 @@ dotenv.load_dotenv()
 
 
 class PlayerConfig(BaseModel):
-    """Configuration for a single player in the game.
+    """单个玩家的游戏配置。
 
-    Agent type is determined by the model field:
-    - model="human": Human player via console input
-    - model="demo": Random response bot for testing
-    - model=<model_name> + base_url: LLM agent with ChatCompletion API
+    智能体类型由 model 字段决定：
+    - model="human"：通过控制台输入的人类玩家
+    - model="demo"：用于测试的随机响应机器人
+    - model=<model_name> + base_url：使用 ChatCompletion API 的 LLM 智能体
     """
 
     name: str = Field(..., description="Display name for the player")
@@ -45,7 +45,7 @@ class PlayerConfig(BaseModel):
     @field_validator("base_url")
     @classmethod
     def validate_base_url(cls, v: str | None, info: ValidationInfo) -> str | None:
-        """Validate that base_url is provided for LLM models."""
+        """校验 LLM 模型是否提供了 base_url。"""
         model = info.data.get("model", "")
         if model not in {"human", "demo"} and not v:
             msg = f"base_url is required for LLM model '{model}'"
@@ -54,7 +54,7 @@ class PlayerConfig(BaseModel):
 
 
 class PlayersConfig(BaseModel):
-    """Root configuration containing all players and optional game settings."""
+    """包含所有玩家及可选游戏设置的根配置。"""
 
     language: str = Field(
         default="en-US",
@@ -81,13 +81,13 @@ class PlayersConfig(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def use_agentscope_backend(self) -> bool:
-        """True when YAML ``agent_backend`` selects AgentScope ReAct (not legacy OpenAI)."""
+        """YAML ``agent_backend`` 选择 AgentScope ReAct（非旧版 OpenAI）时为 True。"""
         return self.agent_backend.strip().lower() not in {"openai", "legacy", "llm"}
 
     @field_validator("players")
     @classmethod
     def validate_player_names_unique(cls, v: list[PlayerConfig]) -> list[PlayerConfig]:
-        """Validate that all player names are unique."""
+        """校验所有玩家名称唯一。"""
         names = [p.name for p in v]
         if len(names) != len(set(names)):
             duplicates = {name for name in names if names.count(name) > 1}

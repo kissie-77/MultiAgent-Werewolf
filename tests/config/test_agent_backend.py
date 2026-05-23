@@ -1,4 +1,4 @@
-"""Tests for PlayersConfig agent backend selection."""
+"""PlayersConfig 智能体后端选择的测试。"""
 
 from llm_werewolf.core.config import PlayerConfig, PlayersConfig
 

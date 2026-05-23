@@ -1,4 +1,4 @@
-"""Adapter layer: AgentScope integration and backward-compatible prompt exports."""
+"""Adapter 层：AgentScope 集成与向后兼容的 prompt 导出。"""
 
 from llm_werewolf.adapter.agent import AgentScopeWerewolfAgent
 from llm_werewolf.adapter.bridge import WerewolfAdapterBridge

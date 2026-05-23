@@ -1,4 +1,4 @@
-"""Tests for unified prompt manager."""
+"""统一提示管理器的测试。"""
 
 from llm_werewolf.core.roles.catalog import get_definition
 from llm_werewolf.core.prompts import PromptManager

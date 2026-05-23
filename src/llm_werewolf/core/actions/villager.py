@@ -3,28 +3,28 @@ from llm_werewolf.core.actions.base import Action
 
 
 class WitchSaveAction(Action):
-    """Action for witch to save a player."""
+    """女巫救药行动。"""
 
     def __init__(
         self, actor: PlayerProtocol, target: PlayerProtocol, game_state: GameStateProtocol
     ) -> None:
-        """Initialize the witch save action.
+        """初始化女巫救人行动。
 
         Args:
-            actor: The witch performing the action.
-            target: The target player to save.
-            game_state: The current game state.
+            actor: 执行行动的女巫。
+            target: 要救的目标玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target = target
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.WITCH_SAVE
 
     def validate(self) -> bool:
-        """Validate the save action."""
-        # Check if actor has Witch abilities (has_save_potion attribute)
+        """校验救人行动。"""
+        # 检查执行者是否具有女巫能力（has_save_potion 属性）
         if not hasattr(self.actor.role, "has_save_potion"):
             return False
 
@@ -34,8 +34,8 @@ class WitchSaveAction(Action):
         return self.actor.is_alive() and self.actor.role.has_save_potion
 
     def execute(self) -> list[str]:
-        """Execute the witch save."""
-        # Update Witch's save potion status
+        """执行女巫救人。"""
+        # 更新女巫解药状态
         if hasattr(self.actor.role, "has_save_potion"):
             self.actor.role.has_save_potion = False
         self.game_state.witch_saved_target = self.target.player_id
@@ -43,28 +43,28 @@ class WitchSaveAction(Action):
 
 
 class WitchPoisonAction(Action):
-    """Action for witch to poison a player."""
+    """女巫毒药行动。"""
 
     def __init__(
         self, actor: PlayerProtocol, target: PlayerProtocol, game_state: GameStateProtocol
     ) -> None:
-        """Initialize the witch poison action.
+        """初始化女巫毒杀行动。
 
         Args:
-            actor: The witch performing the action.
-            target: The target player to poison.
-            game_state: The current game state.
+            actor: 执行行动的女巫。
+            target: 要毒杀的目标玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target = target
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.WITCH_POISON
 
     def validate(self) -> bool:
-        """Validate the poison action."""
-        # Check if actor has Witch abilities (has_poison_potion attribute)
+        """校验毒杀行动。"""
+        # 检查执行者是否具有女巫能力（has_poison_potion 属性）
         if not hasattr(self.actor.role, "has_poison_potion"):
             return False
         return (
@@ -72,8 +72,8 @@ class WitchPoisonAction(Action):
         )
 
     def execute(self) -> list[str]:
-        """Execute the witch poison."""
-        # Update Witch's poison potion status
+        """执行女巫毒杀。"""
+        # 更新女巫毒药状态
         if hasattr(self.actor.role, "has_poison_potion"):
             self.actor.role.has_poison_potion = False
         self.game_state.witch_poison_target = self.target.player_id
@@ -81,38 +81,38 @@ class WitchPoisonAction(Action):
 
 
 class SeerCheckAction(Action):
-    """Action for seer to check a player."""
+    """预言家查验行动。"""
 
     def __init__(
         self, actor: PlayerProtocol, target: PlayerProtocol, game_state: GameStateProtocol
     ) -> None:
-        """Initialize the seer check action.
+        """初始化预言家查验行动。
 
         Args:
-            actor: The seer performing the action.
-            target: The target player to check.
-            game_state: The current game state.
+            actor: 执行行动的预言家。
+            target: 要查验的目标玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target = target
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.SEER_CHECK
 
     def validate(self) -> bool:
-        """Validate the seer check."""
+        """校验预言家查验。"""
         return self.actor.is_alive() and self.target.is_alive()
 
     def execute(self) -> list[str]:
-        """Execute the seer check."""
+        """执行预言家查验。"""
         result = self.target.get_camp()
 
-        # HiddenWolf appears as villager to Seer (check by role name)
+        # 隐狼对预言家显示为村民（按角色名判断）
         if self.target.role.name == "HiddenWolf":
             result = "villager"
 
-        # BloodMoonApostle (untransformed) appears as villager to Seer
+        # 未变身血月使徒对预言家显示为村民
         if (
             self.target.role.name == "Blood Moon Apostle"
             and hasattr(self.target.role, "transformed")
@@ -125,28 +125,28 @@ class SeerCheckAction(Action):
 
 
 class GuardProtectAction(Action):
-    """Action for guard to protect a player."""
+    """守卫保护行动。"""
 
     def __init__(
         self, actor: PlayerProtocol, target: PlayerProtocol, game_state: GameStateProtocol
     ) -> None:
-        """Initialize the guard protect action.
+        """初始化守卫保护行动。
 
         Args:
-            actor: The guard performing the action.
-            target: The target player to protect.
-            game_state: The current game state.
+            actor: 执行行动的守卫。
+            target: 要保护的目标玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target = target
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.GUARD_PROTECT
 
     def validate(self) -> bool:
-        """Validate the guard protect."""
-        # Check if actor has Guard abilities (last_protected attribute)
+        """校验守卫保护。"""
+        # 检查执行者是否具有守卫能力（last_protected 属性）
         if not hasattr(self.actor.role, "last_protected"):
             return False
 
@@ -156,8 +156,8 @@ class GuardProtectAction(Action):
         return self.actor.is_alive() and self.target.is_alive()
 
     def execute(self) -> list[str]:
-        """Execute the guard protect."""
-        # Update Guard's last protected target
+        """执行守卫保护。"""
+        # 更新守卫上一夜保护目标
         if hasattr(self.actor.role, "last_protected"):
             self.actor.role.last_protected = self.target.player_id
 
@@ -166,7 +166,7 @@ class GuardProtectAction(Action):
 
 
 class CupidLinkAction(Action):
-    """Action for Cupid to link two players as lovers."""
+    """丘比特连结两名恋人的行动。"""
 
     def __init__(
         self,
@@ -175,25 +175,25 @@ class CupidLinkAction(Action):
         target2: PlayerProtocol,
         game_state: GameStateProtocol,
     ) -> None:
-        """Initialize the cupid link action.
+        """初始化丘比特连结行动。
 
         Args:
-            actor: The cupid performing the action.
-            target1: First player to link.
-            target2: Second player to link.
-            game_state: The current game state.
+            actor: 执行行动的丘比特。
+            target1: 连结的第一名玩家。
+            target2: 连结的第二名玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target1 = target1
         self.target2 = target2
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.CUPID_LINK
 
     def validate(self) -> bool:
-        """Validate the cupid link."""
-        # Check if actor has Cupid abilities (has_linked attribute)
+        """校验丘比特连结。"""
+        # 检查执行者是否具有丘比特能力（has_linked 属性）
         if not hasattr(self.actor.role, "has_linked"):
             return False
 
@@ -208,11 +208,11 @@ class CupidLinkAction(Action):
         )
 
     def execute(self) -> list[str]:
-        """Execute the cupid link."""
+        """执行丘比特连结。"""
         self.target1.set_lover(self.target2.player_id)
         self.target2.set_lover(self.target1.player_id)
 
-        # Update Cupid's has_linked status
+        # 更新丘比特 has_linked 状态
         if hasattr(self.actor.role, "has_linked"):
             self.actor.role.has_linked = True
 
@@ -220,61 +220,61 @@ class CupidLinkAction(Action):
 
 
 class RavenMarkAction(Action):
-    """Action for Raven to mark a player for extra votes."""
+    """乌鸦标记玩家以获得额外票权的行动。"""
 
     def __init__(
         self, actor: PlayerProtocol, target: PlayerProtocol, game_state: GameStateProtocol
     ) -> None:
-        """Initialize the raven mark action.
+        """初始化乌鸦标记行动。
 
         Args:
-            actor: The raven performing the action.
-            target: The target player to mark.
-            game_state: The current game state.
+            actor: 执行行动的乌鸦。
+            target: 要标记的目标玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target = target
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.RAVEN_MARK
 
     def validate(self) -> bool:
-        """Validate the raven mark."""
+        """校验乌鸦标记。"""
         return self.actor.is_alive() and self.target.is_alive()
 
     def execute(self) -> list[str]:
-        """Execute the raven mark."""
+        """执行乌鸦标记。"""
         self.game_state.raven_marked = self.target.player_id
         return [f"Raven marks {self.target.name}"]
 
 
 class GraveyardKeeperCheckAction(Action):
-    """Action for Graveyard Keeper to check a dead player."""
+    """守墓人查验死亡玩家的行动。"""
 
     def __init__(
         self, actor: PlayerProtocol, target: PlayerProtocol, game_state: GameStateProtocol
     ) -> None:
-        """Initialize the graveyard keeper check action.
+        """初始化守墓人查验行动。
 
         Args:
-            actor: The graveyard keeper performing the action.
-            target: The dead player to check.
-            game_state: The current game state.
+            actor: 执行行动的守墓人。
+            target: 要查验的死亡玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target = target
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.GRAVEYARD_KEEPER_CHECK
 
     def validate(self) -> bool:
-        """Validate the graveyard keeper check."""
+        """校验守墓人查验。"""
         return self.actor.is_alive() and not self.target.is_alive()
 
     def execute(self) -> list[str]:
-        """Execute the graveyard keeper check."""
+        """执行守墓人查验。"""
         camp = self.target.get_camp()
         role_name = self.target.get_role_name()
         return [
@@ -283,28 +283,28 @@ class GraveyardKeeperCheckAction(Action):
 
 
 class KnightDuelAction(Action):
-    """Action for Knight to duel a player during the day."""
+    """骑士白天决斗的行动。"""
 
     def __init__(
         self, actor: PlayerProtocol, target: PlayerProtocol, game_state: GameStateProtocol
     ) -> None:
-        """Initialize the knight duel action.
+        """初始化骑士决斗行动。
 
         Args:
-            actor: The knight performing the action.
-            target: The target player to duel.
-            game_state: The current game state.
+            actor: 执行行动的骑士。
+            target: 决斗目标玩家。
+            game_state: 当前游戏状态。
         """
         super().__init__(actor, game_state)
         self.target = target
 
     def get_action_type(self) -> ActionType:
-        """Get the action type."""
+        """获取行动类型。"""
         return ActionType.KNIGHT_DUEL
 
     def validate(self) -> bool:
-        """Validate the knight duel."""
-        # Check if actor has Knight abilities (has_dueled attribute)
+        """校验骑士决斗。"""
+        # 检查执行者是否具有骑士能力（has_dueled 属性）
         if not hasattr(self.actor.role, "has_dueled"):
             return False
 
@@ -314,7 +314,7 @@ class KnightDuelAction(Action):
         return self.actor.is_alive() and self.target.is_alive()
 
     def execute(self) -> list[str]:
-        """Execute the knight duel."""
+        """执行骑士决斗。"""
         messages = []
 
         if self.target.get_camp() == "werewolf":
@@ -326,7 +326,7 @@ class KnightDuelAction(Action):
             self.game_state.day_deaths.add(self.actor.player_id)
             messages.append(f"Knight {self.actor.name} loses the duel and dies!")
 
-        # Update Knight's has_dueled status
+        # 更新骑士 has_dueled 状态
         if hasattr(self.actor.role, "has_dueled"):
             self.actor.role.has_dueled = True
 

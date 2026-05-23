@@ -1,4 +1,4 @@
-"""Visibility channels for information isolation across game phases."""
+"""各游戏阶段信息隔离用的可见性通道。"""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class VisibilityChannel(str, Enum):
-    """Who may receive a routed agent message."""
+    """可接收已路由 Agent 消息的受众类型。"""
 
     PUBLIC = "public"
     WOLF_TEAM = "wolf_team"
@@ -21,7 +21,7 @@ class VisibilityChannel(str, Enum):
 
 
 class RoutedMessage(BaseModel):
-    """A message split into public speech and optional private thought."""
+    """拆分为公开发言与可选私人推理的消息。"""
 
     speaker_seat: int = Field(..., ge=0, description="Global seat number (1-based when known)")
     speaker_player_id: str = Field(..., description="Engine player_id")
@@ -44,7 +44,7 @@ def audience_for_channel(
     channel: VisibilityChannel,
     players: list[Player],
 ) -> list[str]:
-    """Resolve player_ids who may hear a channel (alive-only, no Agent filter)."""
+    """解析可收听某通道的 player_id（仅存活玩家，不按 Agent 过滤）。"""
     from llm_werewolf.core.types import Camp
 
     alive = [p for p in players if p.is_alive()]

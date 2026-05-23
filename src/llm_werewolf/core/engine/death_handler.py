@@ -1,4 +1,4 @@
-"""Death handling logic for the game engine."""
+"""游戏引擎的死亡处理逻辑。"""
 
 import random
 from collections.abc import Callable
@@ -10,17 +10,17 @@ from llm_werewolf.core.game_state import GameState
 
 
 class DeathHandlerMixin:
-    """Mixin for handling death-related game logic."""
+    """处理死亡相关游戏逻辑的 Mixin。"""
 
     game_state: GameState | None
     locale: Locale
     _log_event: Callable
 
     def _handle_lover_death(self, dead_player: PlayerProtocol) -> None:
-        """Handle lover partner death when a player dies.
+        """处理玩家死亡时情侣伴侣的连带死亡。
 
         Args:
-            dead_player: The player who died.
+            dead_player: 已死亡的玩家。
         """
         if not self.game_state or not dead_player.is_lover() or not dead_player.lover_partner_id:
             return
@@ -28,7 +28,10 @@ class DeathHandlerMixin:
         partner = self.game_state.get_player(dead_player.lover_partner_id)
         if partner and partner.is_alive():
             partner.kill()
-            self.game_state.day_deaths.add(partner.player_id)
+            if self.game_state.phase.value == "night":
+                self.game_state.night_deaths.add(partner.player_id)
+            else:
+                self.game_state.day_deaths.add(partner.player_id)
             self._log_event(
                 EventType.LOVER_DIED,
                 self.locale.get("died_of_heartbreak", player=partner.name),
@@ -36,10 +39,10 @@ class DeathHandlerMixin:
             )
 
     def _handle_wolf_beauty_charm_death(self, wolf_beauty: PlayerProtocol) -> None:
-        """Handle charmed player death when Wolf Beauty dies.
+        """处理狼美人死亡时被魅惑玩家的连带死亡。
 
         Args:
-            wolf_beauty: The Wolf Beauty player who died.
+            wolf_beauty: 已死亡的狼美人玩家。
         """
         if not self.game_state or not hasattr(wolf_beauty.role, "charmed_player"):
             return
@@ -48,7 +51,10 @@ class DeathHandlerMixin:
             charmed = self.game_state.get_player(wolf_beauty.role.charmed_player)
             if charmed and charmed.is_alive():
                 charmed.kill()
-                self.game_state.day_deaths.add(charmed.player_id)
+                if self.game_state.phase.value == "night":
+                    self.game_state.night_deaths.add(charmed.player_id)
+                else:
+                    self.game_state.day_deaths.add(charmed.player_id)
                 self._log_event(
                     EventType.PLAYER_DIED,
                     self.locale.get(
@@ -58,12 +64,12 @@ class DeathHandlerMixin:
                 )
 
     def _handle_elder_penalty(self) -> None:
-        """Disable all villager abilities when Elder is voted out."""
+        """长老被投票出局时禁用所有村民技能。"""
         if not self.game_state:
             return
 
         for player in self.game_state.players:
-            if player.get_camp() == Camp.VILLAGER.value and player.is_alive():
+            if player.get_camp() == Camp.VILLAGER and player.is_alive():
                 player.role.disabled = True
 
         self._log_event(
@@ -73,13 +79,13 @@ class DeathHandlerMixin:
         )
 
     def _handle_werewolf_kill(self, target: PlayerProtocol) -> list[str]:
-        """Handle werewolf kill and its consequences.
+        """处理狼人击杀及其后果。
 
         Args:
-            target: The target player.
+            target: 被击杀的目标玩家。
 
         Returns:
-            list[str]: Messages describing the kill.
+            list[str]: 描述击杀过程的消息。
         """
         if not self.game_state:
             return []
@@ -129,10 +135,10 @@ class DeathHandlerMixin:
         return messages
 
     async def _handle_sheriff_badge_transfer(self) -> list[str]:
-        """Handle sheriff badge transfer when sheriff dies.
+        """处理警长死亡时的警徽移交。
 
         Returns:
-            list[str]: Messages from badge transfer.
+            list[str]: 警徽移交产生的消息。
         """
         if not self.game_state:
             return []
@@ -140,7 +146,7 @@ class DeathHandlerMixin:
         messages: list[str] = []
         all_deaths = self.game_state.night_deaths | self.game_state.day_deaths
 
-        # Check if sheriff died
+        # 检查警长是否死亡
         if self.game_state.sheriff_id and self.game_state.sheriff_id in all_deaths:
             sheriff = self.game_state.get_player(self.game_state.sheriff_id)
             if not sheriff or sheriff.player_id in self.game_state.death_abilities_used:
@@ -154,10 +160,10 @@ class DeathHandlerMixin:
                 data={"player_id": sheriff.player_id},
             )
 
-            # Ask sheriff whether to transfer badge
+            # 询问警长是否移交警徽
             possible_targets = self.game_state.get_alive_players()
             if not possible_targets or not sheriff.agent:
-                # No one to transfer to, or no agent - tear the badge
+                # 无人可移交，或无 agent —— 撕毁警徽
                 self.game_state.remove_sheriff()
                 self._log_event(
                     EventType.SHERIFF_BADGE_TORN,
@@ -170,8 +176,10 @@ class DeathHandlerMixin:
 
             context = (
                 EngineContexts.sheriff_died(sheriff.name)
-                + "\n可将警徽交给存活玩家，或选择跳过以撕毁警徽。\n"
-                f"存活玩家：{', '.join(p.name for p in possible_targets)}\n"
+                + self.locale.get("sheriff_transfer_note")
+                + "\n"
+                + self.locale.get("sheriff_transfer_targets", targets=", ".join(p.name for p in possible_targets))
+                + "\n"
             )
 
             interaction = self.game_state.require_phase_interaction()
@@ -187,7 +195,7 @@ class DeathHandlerMixin:
             )
 
             if target:
-                # Transfer badge to target
+                # 将警徽移交给目标
                 self.game_state.set_sheriff(target.player_id)
                 self._log_event(
                     EventType.SHERIFF_BADGE_TRANSFERRED,
@@ -197,7 +205,7 @@ class DeathHandlerMixin:
                     data={"from_player_id": sheriff.player_id, "to_player_id": target.player_id},
                 )
             else:
-                # Tear the badge
+                # 撕毁警徽
                 self.game_state.remove_sheriff()
                 self._log_event(
                     EventType.SHERIFF_BADGE_TORN,
@@ -208,13 +216,13 @@ class DeathHandlerMixin:
         return messages
 
     async def _process_hunter_or_alpha_death(self, player: PlayerProtocol) -> list[str]:
-        """Process Hunter or AlphaWolf death ability.
+        """处理猎人或白狼王死亡技能。
 
         Args:
-            player: The player with death ability.
+            player: 拥有死亡技能的玩家。
 
         Returns:
-            list[str]: Messages from ability execution.
+            list[str]: 技能执行产生的消息。
         """
         if not self.game_state:
             return []
@@ -231,7 +239,7 @@ class DeathHandlerMixin:
             data={"player_id": player.player_id, "role": role_name},
         )
 
-        # Get target from agent or random
+        # 从 agent 获取目标，或随机选择
         if player.agent:
             interaction = self.game_state.require_phase_interaction()
             target = await interaction.request_seat_choice(
@@ -255,13 +263,13 @@ class DeathHandlerMixin:
     def _execute_death_shot(
         self, shooter: PlayerProtocol, target: PlayerProtocol, role_name: str, messages: list[str]
     ) -> None:
-        """Execute the death shot and handle consequences.
+        """执行死亡开枪并处理后果。
 
         Args:
-            shooter: The player shooting.
-            target: The target player.
-            role_name: Name of the shooter's role.
-            messages: List to append messages to.
+            shooter: 开枪的玩家。
+            target: 目标玩家。
+            role_name: 开枪者角色名称。
+            messages: 用于追加消息的列表。
         """
         if not self.game_state:
             return
@@ -272,7 +280,7 @@ class DeathHandlerMixin:
         else:
             self.game_state.day_deaths.add(target.player_id)
 
-        # Log appropriate event based on role
+        # 根据角色记录相应事件
         event_msg = (
             self.locale.get("hunter_shoots", hunter=shooter.name, target=target.name)
             if shooter.role.name == "Hunter"
@@ -289,7 +297,7 @@ class DeathHandlerMixin:
             },
         )
 
-        # Handle lover death
+        # 处理情侣死亡
         if target.is_lover() and target.lover_partner_id:
             partner = self.game_state.get_player(target.lover_partner_id)
             if partner and partner.is_alive():
@@ -298,18 +306,18 @@ class DeathHandlerMixin:
                     self.game_state.night_deaths.add(partner.player_id)
                 else:
                     self.game_state.day_deaths.add(partner.player_id)
-                messages.append(f"{partner.name} died of heartbreak (lover)!")
+                messages.append(self.locale.get("died_of_heartbreak", player=partner.name))
 
     async def _handle_death_abilities(self) -> list[str]:
-        """Handle abilities that trigger on death (Hunter, AlphaWolf).
+        """处理死亡时触发的技能（猎人、白狼王）。
 
         Returns:
-            list[str]: Messages from death abilities.
+            list[str]: 死亡技能产生的消息。
         """
         if not self.game_state:
             return []
 
-        # Handle sheriff badge transfer first
+        # 优先处理警徽移交
         sheriff_messages = await self._handle_sheriff_badge_transfer()
 
         messages = []
@@ -323,7 +331,7 @@ class DeathHandlerMixin:
                 continue
 
             if player.role.name in DEATH_ABILITY_ROLE_NAMES:
-                # Check if poisoned
+                # 检查是否被毒杀
                 death_cause = self.game_state.death_causes.get(player_id)
                 if death_cause == "witch_poison":
                     self._log_event(
@@ -342,7 +350,7 @@ class DeathHandlerMixin:
         return messages
 
     def _resolve_witch_poison_death(self) -> None:
-        """Resolve witch poison death and lover consequence."""
+        """结算女巫毒杀死亡及情侣连带后果。"""
         if not self.game_state or not self.game_state.witch_poison_target:
             return
 
@@ -360,7 +368,7 @@ class DeathHandlerMixin:
             data={"player_id": target.player_id},
         )
 
-        # Handle lover death
+        # 处理情侣死亡
         if target.is_lover() and target.lover_partner_id:
             partner = self.game_state.get_player(target.lover_partner_id)
             if partner and partner.is_alive():
@@ -373,7 +381,7 @@ class DeathHandlerMixin:
                 )
 
     def _resolve_wolf_beauty_charm_deaths(self) -> None:
-        """Resolve charmed player deaths when Wolf Beauty dies."""
+        """结算狼美人死亡时被魅惑玩家的连带死亡。"""
         if not self.game_state:
             return
 
@@ -396,17 +404,17 @@ class DeathHandlerMixin:
                     )
 
     async def resolve_deaths(self) -> list[str]:
-        """Resolve all deaths based on night actions.
+        """根据夜间行动结算所有死亡。
 
         Returns:
-            list[str]: Messages describing deaths.
+            list[str]: 描述死亡情况的消息。
         """
         if not self.game_state:
             return []
 
         messages = []
 
-        # Handle werewolf kill
+        # 处理狼人击杀
         if self.game_state.werewolf_target:
             target = self.game_state.get_player(self.game_state.werewolf_target)
             if target:
@@ -414,13 +422,13 @@ class DeathHandlerMixin:
                 if not target.is_alive() and target.player_id not in self.game_state.death_causes:
                     self.game_state.death_causes[target.player_id] = "werewolf"
 
-        # Handle witch poison
+        # 处理女巫毒杀
         self._resolve_witch_poison_death()
 
-        # Handle wolf beauty charm deaths
+        # 处理狼美人魅惑连带死亡
         self._resolve_wolf_beauty_charm_deaths()
 
-        # Handle death abilities
+        # 处理死亡技能
         death_ability_messages = await self._handle_death_abilities()
         messages.extend(death_ability_messages)
 

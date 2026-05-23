@@ -1,4 +1,4 @@
-"""Load project ``.env`` from repository root (works regardless of cwd)."""
+"""从仓库根目录加载项目 ``.env``（与当前工作目录无关）。"""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ _LOADED = False
 
 
 def find_project_root(start: Path | None = None) -> Path:
-    """Return directory containing ``pyproject.toml``, else ``cwd``."""
+    """返回包含 ``pyproject.toml`` 的目录，否则返回 ``cwd``。"""
     here = (start or Path.cwd()).resolve()
     for candidate in (here, *here.parents):
         if (candidate / "pyproject.toml").is_file():
@@ -19,7 +19,7 @@ def find_project_root(start: Path | None = None) -> Path:
 
 
 def load_project_dotenv() -> Path | None:
-    """Load ``.env`` from repo root once per process. Returns path if file exists."""
+    """每个进程仅从仓库根目录加载一次 ``.env``。若文件存在则返回其路径。"""
     global _LOADED
     if _LOADED:
         return find_project_root() / ".env"

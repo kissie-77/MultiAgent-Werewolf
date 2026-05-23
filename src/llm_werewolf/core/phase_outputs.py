@@ -1,4 +1,4 @@
-"""Per sub-phase output contracts (Schema + prompt text)."""
+"""各子阶段的输出契约（Schema + 提示词文本）。"""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from enum import Enum
 
 from llm_werewolf.core.decisions import speech_schema_instruction
 
-# Embedded in prompts so AgentScope legacy path never treats discussion as seat-only.
+# 嵌入提示词，避免 AgentScope 旧路径将讨论误判为仅选座。
 ROUNDTABLE_SPEECH_ONLY_MARKER = "【子阶段·仅发言】"
 
 
 class RoundtablePhase(str, Enum):
-    """Discussion roundtable sub-phases — all use SpeechDecision only."""
+    """圆桌讨论子阶段——均仅使用 SpeechDecision。"""
 
     DAY_DISCUSSION = "day_discussion"
     WOLF_TEAM_DISCUSSION = "wolf_team_discussion"
@@ -19,7 +19,7 @@ class RoundtablePhase(str, Enum):
 
 
 class ActionPhase(str, Enum):
-    """Non-speech phases that use other Schemas (not SpeechDecision)."""
+    """非发言阶段，使用其他 Schema（非 SpeechDecision）。"""
 
     NIGHT_KILL_VOTE = "night_kill_vote"
     NIGHT_SKILL_TARGET = "night_skill_target"
@@ -112,7 +112,7 @@ def resolve_roundtable_phase(*, channel: str, phase: str) -> RoundtablePhase:
 
 
 def roundtable_phase_instruction(rt_phase: RoundtablePhase) -> str:
-    """Full output contract for a discussion roundtable turn."""
+    """讨论圆桌回合的完整输出契约。"""
     return "\n".join([
         ROUNDTABLE_SPEECH_ONLY_MARKER,
         _PHASE_TASK[rt_phase],

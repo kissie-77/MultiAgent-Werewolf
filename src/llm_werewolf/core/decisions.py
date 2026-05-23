@@ -1,7 +1,7 @@
-"""Typed decision models for agent-to-engine communication.
+"""智能体与引擎通信的类型化决策模型。
 
-Each model maps to AgentScope ReActAgent.reply(structured_model=...) which registers
-the ``generate_response`` tool; validated kwargs land in Msg.metadata.
+每个模型对应 AgentScope ReActAgent.reply(structured_model=...)，
+该调用会注册 ``generate_response`` 工具；校验后的 kwargs 写入 Msg.metadata。
 """
 
 import re
@@ -9,14 +9,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-# Minimum length for roundtable / sheriff / last-words public speech.
+# 圆桌 / 警长 / 遗言等公开发言的最小长度。
 SPEECH_PUBLIC_MIN_CHARS = 15
 _SPEECH_MIN_CHARS = SPEECH_PUBLIC_MIN_CHARS
 
-# Pure seat / yes-no tokens inside [[...]] are not public speech.
+# [[...]] 内纯座位号 / 是或否标记不算公开发言。
 _SEAT_ONLY_PATTERN = re.compile(r"^\d{1,2}$")
 
-# Placeholder strings produced when parsing fails — must not count as real speech.
+# 解析失败时产生的占位字符串 — 不得视为真实发言。
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 
 GENERATE_RESPONSE_INSTRUCTION = (
@@ -28,7 +28,7 @@ GENERATE_RESPONSE_INSTRUCTION = (
 
 
 def speech_schema_instruction() -> str:
-    """Prompt block: output requirements tied to SpeechDecision (generate_response)."""
+    """提示块：与 SpeechDecision（generate_response）绑定的输出要求。"""
     return "\n".join([
         "【本任务输出 — 仅 SpeechDecision Schema】",
         "必须调用 generate_response，字段：",
@@ -41,7 +41,7 @@ def speech_schema_instruction() -> str:
 
 
 class VoteIntentionDecision(BaseModel):
-    """Declared day-vote intention for replay (not an official vote)."""
+    """声明的白天投票意向，用于回放（非正式投票）。"""
 
     seat: int = Field(
         ...,
@@ -58,7 +58,7 @@ class VoteIntentionDecision(BaseModel):
 
 
 class SeatChoiceDecision(BaseModel):
-    """Night skill / vote: pick one seat (0 = skip when allowed)."""
+    """夜间技能 / 投票：选择一个座位（允许时可填 0 表示跳过）。"""
 
     seat: int = Field(
         ...,
@@ -72,7 +72,7 @@ class SeatChoiceDecision(BaseModel):
 
 
 class MultiSeatChoiceDecision(BaseModel):
-    """Select multiple distinct seats (e.g. thief / cupid)."""
+    """选择多个不重复的座位（如盗贼 / 丘比特）。"""
 
     seats: list[int] = Field(
         ...,
@@ -83,7 +83,7 @@ class MultiSeatChoiceDecision(BaseModel):
 
 
 class SpeechDecision(BaseModel):
-    """Day discussion / sheriff speech / last words / wolf night chat."""
+    """白天讨论 / 警长发言 / 遗言 / 狼人夜间私聊。"""
 
     public_speech: str = Field(
         ...,
@@ -112,14 +112,14 @@ class SpeechDecision(BaseModel):
 
 
 class YesNoDecision(BaseModel):
-    """Witch potion yes/no and similar binary choices."""
+    """女巫药水是/否及类似二元选择。"""
 
     choice: bool = Field(..., description="true = yes / use; false = no / skip")
     reason: str | None = Field(default=None, description="Private rationale.")
 
 
 class WitchNightDecision(BaseModel):
-    """Witch night turn after wolf kill is resolved (save / poison / none)."""
+    """狼刀结算后女巫的夜间回合（救 / 毒 / 不行动）。"""
 
     action: Literal["save", "poison", "none"] = Field(
         ...,
@@ -134,7 +134,7 @@ class WitchNightDecision(BaseModel):
 
 
 def vote_intention_schema_instruction() -> str:
-    """Prompt block for VoteIntentionDecision (analysis-only, not official vote)."""
+    """VoteIntentionDecision 的提示块（仅分析，非正式投票）。"""
     return "\n".join([
         "【本任务输出 — 仅 VoteIntentionDecision Schema】",
         "必须调用 generate_response，字段：",
@@ -147,7 +147,7 @@ def vote_intention_schema_instruction() -> str:
 
 
 def seat_choice_schema_instruction(*, allow_skip: bool = False) -> str:
-    """Prompt block for SeatChoiceDecision (votes / night targets)."""
+    """SeatChoiceDecision 的提示块（投票 / 夜间目标）。"""
     skip_line = "不行动或弃票时 seat=0。" if allow_skip else "必须选择有效目标，seat 为全局座位号。"
     return "\n".join([
         "【本任务输出 — 仅 SeatChoiceDecision Schema】",
@@ -161,7 +161,7 @@ def seat_choice_schema_instruction(*, allow_skip: bool = False) -> str:
 
 
 def witch_night_schema_instruction(*, can_see_victim: bool) -> str:
-    """Prompt block for WitchNightDecision."""
+    """WitchNightDecision 的提示块。"""
     victim_line = (
         "你已得知今晚狼人刀口目标，可选择：save（救该刀口）、poison（毒杀某人）、none（不行动）。"
         if can_see_victim
@@ -180,7 +180,7 @@ def witch_night_schema_instruction(*, can_see_victim: bool) -> str:
 
 
 class BeliefEntry(BaseModel):
-    """Single cell in a player belief matrix (future MetaMind integration)."""
+    """玩家信念矩阵中的单个单元格（未来 MetaMind 集成）。"""
 
     target_seat: int = Field(..., ge=1, description="Observed player seat")
     wolf_probability: float = Field(..., ge=0.0, le=1.0)
@@ -188,13 +188,13 @@ class BeliefEntry(BaseModel):
 
 
 class BeliefMatrixDecision(BaseModel):
-    """Structured belief update; parsed via WerewolfAdapterBridge when wired."""
+    """结构化信念更新；接入后由 WerewolfAdapterBridge 解析。"""
 
     beliefs: list[BeliefEntry] = Field(default_factory=list)
 
 
 def metadata_looks_like_wrong_schema_for_speech(metadata: dict) -> bool:
-    """Reject SeatChoice / YesNo payloads mistaken for SpeechDecision."""
+    """拒绝被误当作 SpeechDecision 的 SeatChoice / YesNo 载荷。"""
     if not metadata:
         return True
     if metadata.get("public_speech"):
@@ -205,7 +205,7 @@ def metadata_looks_like_wrong_schema_for_speech(metadata: dict) -> bool:
 
 
 def looks_like_kill_or_vote_format(text: str) -> bool:
-    """True when text is a night-kill / vote token, not discussion speech."""
+    """文本为夜间刀口 / 投票标记而非讨论发言时返回 True。"""
     stripped = text.strip()
     if not stripped:
         return True
@@ -221,7 +221,7 @@ def looks_like_kill_or_vote_format(text: str) -> bool:
 
 
 def looks_like_seat_only(text: str) -> bool:
-    """True when text is only a seat number / yes-no token, not a speech line."""
+    """文本仅为座位号 / 是或否标记而非发言行时返回 True。"""
     stripped = text.strip()
     if not stripped:
         return True
@@ -233,7 +233,7 @@ def looks_like_seat_only(text: str) -> bool:
 
 
 def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> bool:
-    """Whether extracted text is usable as day discussion / public speech."""
+    """提取的文本是否可用作白天讨论 / 公开发言。"""
     stripped = text.strip()
     if any(marker in stripped for marker in _EMPTY_SPEECH_MARKERS):
         return False
@@ -247,10 +247,10 @@ def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> 
 
 
 def extract_public_text(response: str) -> str:
-    """Extract publishable speech from a model response.
+    """从模型响应中提取可公开发表的发言。
 
-    Picks the longest [[...]] block that is not seat-only; falls back to prose
-    outside {{}} / [[...]] when models put the real speech there.
+    选取最长的非纯座位号 [[...]] 块；若模型将真实发言放在 {{}} / [[...]] 外，
+    则回退到其中的散文文本。
     """
     if not response or not response.strip():
         return "（无公开发言）"
@@ -282,7 +282,7 @@ def normalize_speech_decision(
     *,
     raw_fallback: str | None = None,
 ) -> SpeechDecision:
-    """Fix seat-only or empty public_speech using raw model output when needed."""
+    """必要时用原始模型输出修复纯座位号或空的 public_speech。"""
     raw = raw_fallback or ""
     if is_valid_public_speech(decision.public_speech):
         return decision

@@ -10,24 +10,24 @@ from llm_werewolf.core.roles.base import Role
 
 
 class Thief(Role):
-    """Thief role.
+    """盗贼角色。
 
-    On the first night, can choose between two randomly dealt role cards.
-    The role they choose becomes their actual role for the game.
+    首夜可在两张随机发放的身份牌中选择其一。
+    所选身份将成为其本局实际角色。
     """
 
     def __init__(self, player: PlayerProtocol) -> None:
-        """Initialize the Thief role."""
+        """初始化盗贼角色。"""
         super().__init__(player)
         self.available_roles: list[Role] = []
         self.has_chosen = False
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Thief role."""
+        """获取盗贼角色的配置。"""
         return RoleConfig(
             name="Thief",
-            camp=Camp.NEUTRAL,  # Starts neutral, becomes whatever role they choose
+            camp=Camp.NEUTRAL,  # 初始为中立，选择身份后变为对应阵营
             description=(
                 "You are the Thief. On the first night, you are shown two extra role cards "
                 "that were not dealt to other players. You must choose one of these roles "
@@ -41,28 +41,28 @@ class Thief(Role):
 
 
 class Lover(Role):
-    """Lover role (created by Cupid).
+    """情侣角色（由丘比特创建）。
 
-    This is not a starting role but a status given by Cupid.
-    Lovers win together and die together.
+    这不是开局角色，而是丘比特赋予的状态。
+    情侣同生共死、共同获胜。
     """
 
     def __init__(self, player: PlayerProtocol) -> None:
-        """Initialize the Lover role."""
+        """初始化情侣角色。"""
         super().__init__(player)
         self.partner_id: str | None = None
         self.original_role: Role | None = None
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Lover role.
+        """获取情侣角色的配置。
 
-        Note: Lover is a status/modifier, not a primary role.
-        Players keep their original role but gain the lover status.
+        注意：情侣是状态/修饰符，而非主身份。
+        玩家保留原身份，同时获得情侣状态。
         """
         return RoleConfig(
             name="Lover",
-            camp=Camp.NEUTRAL,  # Lovers form their own win condition
+            camp=Camp.NEUTRAL,  # 情侣拥有独立的胜利条件
             description=(
                 "You have been chosen as a Lover by Cupid. You share a special bond with another "
                 "player. You both know each other's identities. If your partner dies, you will "
@@ -76,19 +76,19 @@ class Lover(Role):
 
 
 class WhiteLoverWolf(Role):
-    """White Lover Wolf - Special case.
+    """白狼情侣 — 特殊情况。
 
-    When a werewolf and a villager become lovers, they form a unique alliance.
-    This is a dynamic role that represents the conflicted state.
+    当狼人与好人结为情侣时，形成独特的同盟关系。
+    此动态角色表示这种矛盾状态。
     """
 
     def __init__(self, player: PlayerProtocol) -> None:
-        """Initialize the White Lover Wolf role."""
+        """初始化白狼情侣角色。"""
         super().__init__(player)
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the White Lover Wolf role."""
+        """获取白狼情侣角色的配置。"""
         return RoleConfig(
             name="White Lover Wolf",
             camp=Camp.NEUTRAL,

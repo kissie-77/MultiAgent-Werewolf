@@ -1,8 +1,8 @@
-"""Message adapter for converting between LLMWerewolf str and AgentScope Msg formats.
+"""LLMWerewolf 字符串与 AgentScope Msg 格式之间的消息适配器。
 
 .. deprecated::
-    Prefer InformationHub for game-time messaging. ``visible_to`` on Msg metadata
-    is not wired into the engine event log; kept for AgentScope agent helpers only.
+    对局内消息请优先使用 InformationHub。Msg metadata 上的 ``visible_to``
+    未接入引擎事件日志；仅保留供 AgentScope Agent 辅助使用。
 """
 
 from typing import Literal, Sequence
@@ -14,29 +14,28 @@ from llm_werewolf.core.types.enums import GamePhase
 
 
 class ContentBlock:
-    """Content block for multi-modal messages."""
+    """多模态消息的内容块。"""
 
     @staticmethod
     def text(text: str) -> dict:
-        """Create a text block."""
+        """创建文本块。"""
         return {"type": "text", "text": text}
 
     @staticmethod
     def tool_use(name: str, input_data: dict) -> dict:
-        """Create a tool use block."""
+        """创建 tool_use 块。"""
         return {"type": "tool_use", "name": name, "input": input_data}
 
     @staticmethod
     def tool_result(output: str) -> dict:
-        """Create a tool result block."""
+        """创建 tool_result 块。"""
         return {"type": "tool_result", "output": output}
 
 
 class Msg:
-    """Message object compatible with AgentScope format.
+    """与 AgentScope 格式兼容的消息对象。
 
-    This is a lightweight implementation that mirrors AgentScope's Msg class
-    without requiring the full AgentScope dependency.
+    轻量实现，镜像 AgentScope 的 Msg 类，无需完整 AgentScope 依赖。
     """
 
     def __init__(
@@ -49,15 +48,15 @@ class Msg:
         invocation_id: str | None = None,
         id: str | None = None,
     ) -> None:
-        """Initialize the Msg object.
+        """初始化 Msg 对象。
 
         Args:
-            name: The name of the message sender.
-            content: The content of the message (string or content blocks).
-            role: The role of the message sender (user/assistant/system).
-            metadata: Additional metadata for the message.
-            timestamp: The timestamp of the message. Auto-generated if None.
-            invocation_id: The related API invocation ID.
+            name: 消息发送者名称。
+            content: 消息内容（字符串或 content 块）。
+            role: 发送者角色（user/assistant/system）。
+            metadata: 附加元数据。
+            timestamp: 消息时间戳；为 None 时自动生成。
+            invocation_id: 关联的 API 调用 ID。
         """
         self.name = name
         self.content = content
@@ -68,7 +67,7 @@ class Msg:
         self.invocation_id = invocation_id
 
     def to_dict(self) -> dict:
-        """Convert the message to a dictionary."""
+        """将消息转换为字典。"""
         return {
             "id": self.id,
             "name": self.name,
@@ -80,7 +79,7 @@ class Msg:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Msg":
-        """Create a Msg from a dictionary."""
+        """从字典创建 Msg。"""
         return cls(
             name=data["name"],
             content=data["content"],
@@ -92,13 +91,13 @@ class Msg:
         )
 
     def get_text_content(self, separator: str = "\n") -> str | None:
-        """Extract text content from the message.
+        """从消息中提取文本内容。
 
         Args:
-            separator: Separator for joining multiple text blocks.
+            separator: 拼接多个文本块的分隔符。
 
         Returns:
-            The text content, or None if no text content exists.
+            文本内容；若无文本则 None。
         """
         if isinstance(self.content, str):
             return self.content
@@ -113,7 +112,7 @@ class Msg:
         return None
 
     def __repr__(self) -> str:
-        """Return string representation."""
+        """返回字符串表示。"""
         return (
             f"Msg(id='{self.id}', "
             f"name='{self.name}', "
@@ -123,11 +122,11 @@ class Msg:
 
 
 class MessageAdapter:
-    """Adapter for converting between LLMWerewolf str and AgentScope Msg formats.
+    """LLMWerewolf 字符串与 AgentScope Msg 格式之间的适配器。
 
-    This adapter provides bidirectional conversion:
-    - str → Msg: Convert game engine prompts to AgentScope messages
-    - Msg → str: Convert AgentScope responses to game engine format
+    提供双向转换：
+    - str → Msg：将游戏引擎 prompt 转为 AgentScope 消息
+    - Msg → str：将 AgentScope 回复转为游戏引擎格式
     """
 
     @staticmethod
@@ -137,16 +136,16 @@ class MessageAdapter:
         role: Literal["user", "assistant", "system"] = "system",
         metadata: dict | None = None,
     ) -> Msg:
-        """Convert a string prompt to an AgentScope-compatible Msg.
+        """将字符串 prompt 转为 AgentScope 兼容的 Msg。
 
         Args:
-            text: The prompt text from the game engine.
-            name: The name of the message sender.
-            role: The role of the message sender.
-            metadata: Additional metadata for the message.
+            text: 游戏引擎下发的 prompt 文本。
+            name: 消息发送者名称。
+            role: 发送者角色。
+            metadata: 附加元数据。
 
         Returns:
-            A Msg object compatible with AgentScope.
+            与 AgentScope 兼容的 Msg 对象。
         """
         return Msg(
             name=name,
@@ -157,13 +156,13 @@ class MessageAdapter:
 
     @staticmethod
     def msg_to_str(msg: Msg) -> str:
-        """Convert an AgentScope Msg to a string for the game engine.
+        """将 AgentScope Msg 转为游戏引擎使用的字符串。
 
         Args:
-            msg: The Msg object from AgentScope.
+            msg: AgentScope 的 Msg 对象。
 
         Returns:
-            The text content of the message.
+            消息的文本内容。
         """
         text = msg.get_text_content()
         return text if text is not None else ""
@@ -180,21 +179,21 @@ class MessageAdapter:
         action_type: str | None = None,
         visible_to: list[str] | None = None,
     ) -> Msg:
-        """Create a game-specific message with metadata.
+        """创建带元数据的游戏专用消息。
 
         Args:
-            text: The message content.
-            name: The name of the message sender.
-            role_type: The role of the message sender.
-            round_number: The current game round number.
-            phase: The current game phase.
-            player_id: The target player ID (for private messages).
-            role_name: The role name of the sender.
-            action_type: The type of action (vote/kill/save/etc.).
-            visible_to: List of player IDs who can see this message.
+            text: 消息内容。
+            name: 发送者名称。
+            role_type: 发送者角色。
+            round_number: 当前回合数。
+            phase: 当前游戏阶段。
+            player_id: 目标玩家 ID（私密消息）。
+            role_name: 发送者角色名。
+            action_type: 行动类型（vote/kill/save 等）。
+            visible_to: 可见此消息的玩家 ID 列表。
 
         Returns:
-            A Msg object with game-specific metadata.
+            带游戏元数据的 Msg 对象。
         """
         metadata: dict = {}
 
@@ -220,13 +219,13 @@ class MessageAdapter:
 
     @staticmethod
     def chat_history_to_msgs(history: list[dict]) -> list[Msg]:
-        """Convert OpenAI-format chat history to Msg list.
+        """将 OpenAI 格式聊天历史转为 Msg 列表。
 
         Args:
-            history: List of dicts with 'role' and 'content' keys.
+            history: 含 'role' 与 'content' 键的字典列表。
 
         Returns:
-            List of Msg objects.
+            Msg 对象列表。
         """
         msgs = []
         for item in history:
@@ -243,13 +242,13 @@ class MessageAdapter:
 
     @staticmethod
     def msgs_to_chat_history(msgs: list[Msg]) -> list[dict]:
-        """Convert Msg list to OpenAI-format chat history.
+        """将 Msg 列表转为 OpenAI 格式聊天历史。
 
         Args:
-            msgs: List of Msg objects.
+            msgs: Msg 对象列表。
 
         Returns:
-            List of dicts with 'role' and 'content' keys.
+            含 'role' 与 'content' 键的字典列表。
         """
         history = []
         for msg in msgs:
@@ -262,39 +261,39 @@ class MessageAdapter:
 
     @staticmethod
     def create_system_msg(text: str, name: str = "System") -> Msg:
-        """Create a system message.
+        """创建 system 消息。
 
         Args:
-            text: The system message content.
-            name: The name of the message sender.
+            text: system 消息内容。
+            name: 发送者名称。
 
         Returns:
-            A Msg object with role='system'.
+            role='system' 的 Msg 对象。
         """
         return Msg(name=name, content=text, role="system")
 
     @staticmethod
     def create_user_msg(text: str, name: str = "Moderator") -> Msg:
-        """Create a user message.
+        """创建 user 消息。
 
         Args:
-            text: The user message content.
-            name: The name of the message sender.
+            text: user 消息内容。
+            name: 发送者名称。
 
         Returns:
-            A Msg object with role='user'.
+            role='user' 的 Msg 对象。
         """
         return Msg(name=name, content=text, role="user")
 
     @staticmethod
     def create_assistant_msg(text: str, name: str = "Player") -> Msg:
-        """Create an assistant message.
+        """创建 assistant 消息。
 
         Args:
-            text: The assistant message content.
-            name: The name of the message sender.
+            text: assistant 消息内容。
+            name: 发送者名称。
 
         Returns:
-            A Msg object with role='assistant'.
+            role='assistant' 的 Msg 对象。
         """
         return Msg(name=name, content=text, role="assistant")

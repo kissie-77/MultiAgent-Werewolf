@@ -2,21 +2,21 @@ from llm_werewolf.core.types import VictoryResult, PlayerProtocol, GameStateProt
 
 
 class VictoryChecker:
-    """Checks for victory conditions in the Werewolf game."""
+    """检查狼人杀游戏的胜利条件。"""
 
     def __init__(self, game_state: GameStateProtocol) -> None:
-        """Initialize the victory checker.
+        """初始化胜利判定器。
 
         Args:
-            game_state: The current game state.
+            game_state: 当前游戏状态。
         """
         self.game_state = game_state
 
     def check_victory(self) -> VictoryResult:
-        """Check if any victory condition has been met.
+        """检查是否已满足任一胜利条件。
 
         Returns:
-            VictoryResult: The victory check result.
+            VictoryResult: 胜利判定结果。
         """
         lover_result = self.check_lover_victory()
         if lover_result.has_winner:
@@ -33,37 +33,37 @@ class VictoryChecker:
         return VictoryResult(has_winner=False, reason="Game continues")
 
     def check_werewolf_victory(self) -> VictoryResult:
-        """Check if werewolves have won.
+        """检查狼人阵营是否获胜。
 
-        Werewolves win when they equal or outnumber the villagers.
-        Note: Untransformed Blood Moon Apostle doesn't count as werewolf for victory.
+        狼人数量大于等于村民数量时狼人胜。
+        注：未变身的血月使徒在胜利判定时不计入狼人。
 
         Returns:
-            VictoryResult: The victory check result.
+            VictoryResult: 胜利判定结果。
         """
         alive_players = self.game_state.get_alive_players()
 
-        # Count werewolves, excluding untransformed Blood Moon Apostle
+        # 统计狼人数量，排除未变身的血月使徒
         werewolf_count = 0
         for p in alive_players:
             if p.get_camp() == "werewolf":
-                # Check if it's an untransformed Blood Moon Apostle
+                # 未变身的血月使徒不计入
                 if (
                     p.role.name == "Blood Moon Apostle"
                     and hasattr(p.role, "transformed")
                     and not p.role.transformed
                 ):
-                    continue  # Don't count untransformed apostle
+                    continue  # 未变身使徒不计数
                 werewolf_count += 1
 
         villager_count = sum(1 for p in alive_players if p.get_camp() == "villager")
 
         if werewolf_count >= villager_count and werewolf_count > 0:
-            # Include all werewolves (including transformed Blood Moon Apostle) in winner list
+            # 胜者列表包含所有狼人（含已变身血月使徒）
             werewolf_ids = []
             for p in alive_players:
                 if p.get_camp() == "werewolf":
-                    # Untransformed Blood Moon Apostle still wins with werewolves
+                    # 未变身血月使徒仍随狼人阵营获胜
                     werewolf_ids.append(p.player_id)
 
             return VictoryResult(
@@ -76,17 +76,17 @@ class VictoryChecker:
         return VictoryResult(has_winner=False, reason="Werewolves have not won")
 
     def check_villager_victory(self) -> VictoryResult:
-        """Check if villagers have won.
+        """检查村民阵营是否获胜。
 
-        Villagers win when all werewolves are eliminated.
-        Note: Blood Moon Apostle (transformed or not) counts as werewolf for elimination.
+        所有狼人被消灭时村民胜。
+        注：血月使徒（无论是否变身）在消灭判定时均视为狼人。
 
         Returns:
-            VictoryResult: The victory check result.
+            VictoryResult: 胜利判定结果。
         """
         alive_players = self.game_state.get_alive_players()
 
-        # Count all werewolves (including Blood Moon Apostle, even if untransformed)
+        # 统计所有狼人（含血月使徒，即使未变身）
         werewolf_count = sum(1 for p in alive_players if p.get_camp() == "werewolf")
 
         if werewolf_count == 0:
@@ -101,12 +101,12 @@ class VictoryChecker:
         return VictoryResult(has_winner=False, reason="Villagers have not won")
 
     def check_lover_victory(self) -> VictoryResult:
-        """Check if lovers have won.
+        """检查恋人是否获胜。
 
-        Lovers win when only the two lovers remain alive.
+        场上仅剩两名恋人存活时恋人胜。
 
         Returns:
-            VictoryResult: The victory check result.
+            VictoryResult: 胜利判定结果。
         """
         alive_players = self.game_state.get_alive_players()
 
@@ -124,36 +124,36 @@ class VictoryChecker:
         return VictoryResult(has_winner=False, reason="Lovers have not won")
 
     def check_special_victory(self) -> VictoryResult:
-        """Check for special victory conditions.
+        """检查特殊胜利条件。
 
-        This can be extended for custom game modes or special roles.
+        可扩展以支持自定义模式或特殊角色。
 
         Returns:
-            VictoryResult: The victory check result.
+            VictoryResult: 胜利判定结果。
         """
         return VictoryResult(has_winner=False, reason="No special victory")
 
     def get_winner(self) -> VictoryResult:
-        """Get the current winner if any.
+        """获取当前胜者（若有）。
 
         Returns:
-            VictoryResult: The victory result.
+            VictoryResult: 胜利结果。
         """
         return self.check_victory()
 
     def is_game_over(self) -> bool:
-        """Check if the game is over.
+        """检查游戏是否已结束。
 
         Returns:
-            bool: True if the game has ended.
+            bool: 若已结束则为 True。
         """
         return self.check_victory().has_winner
 
     def get_winning_players(self) -> list[PlayerProtocol]:
-        """Get the list of winning players.
+        """获取获胜玩家列表。
 
         Returns:
-            list[PlayerProtocol]: List of winning players, or empty list if no winner.
+            list[PlayerProtocol]: 获胜玩家列表；无胜者时为空。
         """
         result = self.check_victory()
         if not result.has_winner:
@@ -166,10 +166,10 @@ class VictoryChecker:
         ]
 
     def get_losing_players(self) -> list[PlayerProtocol]:
-        """Get the list of losing players.
+        """获取失败玩家列表。
 
         Returns:
-            list[PlayerProtocol]: List of losing players, or empty list if no winner.
+            list[PlayerProtocol]: 失败玩家列表；无胜者时为空。
         """
         result = self.check_victory()
         if not result.has_winner:

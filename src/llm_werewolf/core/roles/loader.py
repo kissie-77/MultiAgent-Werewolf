@@ -1,4 +1,4 @@
-"""Load role classes from definition implementation paths."""
+"""从定义中的实现路径加载角色类。"""
 
 import importlib
 from typing import TypeVar
@@ -10,7 +10,7 @@ T = TypeVar("T", bound=type[Role])
 
 
 def import_role_class(implementation: str) -> type[Role]:
-    """Import a role class from ``module.path:ClassName``."""
+    """从 ``module.path:ClassName`` 导入角色类。"""
     if ":" not in implementation:
         msg = f"Invalid implementation path '{implementation}', expected format 'module:Class'"
         raise ValueError(msg)
@@ -24,5 +24,5 @@ def import_role_class(implementation: str) -> type[Role]:
 
 
 def role_class_from_definition(definition: RoleDefinition) -> type[Role]:
-    """Resolve the Role class for a role definition."""
+    """解析角色定义对应的 Role 类。"""
     return import_role_class(definition.implementation)

@@ -1,9 +1,8 @@
-"""Unified adapter between LLM output, AgentScope agents, and the game engine.
+"""LLM 输出、AgentScope Agent 与游戏引擎之间的统一适配层。
 
-All seat-based decisions, structured output parsing, and agent invocation should
-go through this module (via InformationHub / PhaseInteraction).
-Future extensions (e.g. belief matrices) add decision models here and wire
-request_* methods below.
+所有基于座位的决策、结构化输出解析与 Agent 调用应经本模块
+（通过 InformationHub / PhaseInteraction）完成。
+后续扩展（如信念矩阵）可在此添加决策模型并接入下方 request_* 方法。
 """
 
 from __future__ import annotations
@@ -45,15 +44,15 @@ if TYPE_CHECKING:
 
 
 class WerewolfAdapterBridge:
-    """Parses LLM responses and drives AgentProtocol / AgentScope agents."""
+    """解析 LLM 回复并驱动 AgentProtocol / AgentScope Agent。"""
 
     # ------------------------------------------------------------------
-    # Seat helpers (global numbering: player_N → seat N)
+    # 座位辅助（全局编号：player_N → 座位 N）
     # ------------------------------------------------------------------
 
     @staticmethod
     def get_player_seat(player: PlayerProtocol) -> int | None:
-        """Return stable 1-based seat number for a player."""
+        """返回玩家稳定的 1 基座位号。"""
         for value in (player.player_id, player.name):
             match = re.search(r"(\d+)$", str(value))
             if match:
@@ -65,14 +64,14 @@ class WerewolfAdapterBridge:
         seat: int,
         candidates: list[PlayerProtocol],
     ) -> PlayerProtocol | None:
-        """Match a seat number to a player in the candidate list."""
+        """在候选列表中按座位号匹配玩家。"""
         for player in candidates:
             if WerewolfAdapterBridge.get_player_seat(player) == seat:
                 return player
         return None
 
     # ------------------------------------------------------------------
-    # Parsing (text / structured → engine semantics)
+    # 解析（文本 / 结构化 → 引擎语义）
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -135,7 +134,7 @@ class WerewolfAdapterBridge:
 
     @staticmethod
     def parse_speech(response: str) -> SpeechDecision:
-        """Split raw model text into public speech and private thought."""
+        """将模型原始文本拆分为公开发言与私人推理。"""
         private_blocks = re.findall(r"\{([^}]*)\}", response, flags=re.S)
         private_thought = "\n".join(b.strip() for b in private_blocks if b.strip()) or None
         decision = SpeechDecision.model_construct(
@@ -145,7 +144,7 @@ class WerewolfAdapterBridge:
         return normalize_speech_decision(decision, raw_fallback=response)
 
     # ------------------------------------------------------------------
-    # Prompt builders (engine → LLM)
+    # Prompt 构建（引擎 → LLM）
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -311,7 +310,7 @@ class WerewolfAdapterBridge:
         return "\n".join(parts)
 
     # ------------------------------------------------------------------
-    # Agent invocation (generate_response → Msg.metadata; legacy text fallback)
+    # Agent 调用（generate_response → Msg.metadata；旧版文本兜底）
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -402,7 +401,7 @@ class WerewolfAdapterBridge:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> WitchNightDecision:
-        """Return witch night decision; defaults to none on failure."""
+        """返回女巫夜间决策；失败时默认为 none。"""
         structured = agent_uses_structured_output(agent)
         prompt = WerewolfAdapterBridge.build_witch_night_prompt(
             role_name,
@@ -522,7 +521,7 @@ class WerewolfAdapterBridge:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> VoteIntentionEntry:
-        """Collect one player's vote intention; always invokes the model (seat=0 = explicit none)."""
+        """采集一名玩家的投票意向；始终调用模型（seat=0 表示明确无意向）。"""
         structured = agent_uses_structured_output(agent)
         prompt = WerewolfAdapterBridge.build_vote_intention_prompt(
             role_name,

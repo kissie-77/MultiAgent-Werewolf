@@ -14,7 +14,7 @@ from llm_werewolf.core.game_state import GameState
 
 
 def test_villager_role() -> None:
-    """Test villager role creation."""
+    """测试村民角色创建。"""
     player = Player("p1", "Alice", Villager)
     villager = player.role
     assert villager.name == "Villager"
@@ -24,7 +24,7 @@ def test_villager_role() -> None:
 
 
 def test_werewolf_role() -> None:
-    """Test werewolf role creation."""
+    """测试狼人角色创建。"""
     player = Player("p1", "Alice", Werewolf)
     werewolf = player.role
     assert werewolf.name == "Werewolf"
@@ -34,7 +34,7 @@ def test_werewolf_role() -> None:
 
 
 def test_seer_role() -> None:
-    """Test seer role creation."""
+    """测试预言家角色创建。"""
     player = Player("p1", "Alice", Seer)
     seer = player.role
     assert seer.name == "Seer"
@@ -43,7 +43,7 @@ def test_seer_role() -> None:
 
 
 def test_witch_role() -> None:
-    """Test witch role with potions."""
+    """测试带药水的女巫角色。"""
     player = Player("p1", "Alice", Witch)
     witch: Witch = player.role
     assert witch.name == "Witch"
@@ -53,7 +53,7 @@ def test_witch_role() -> None:
 
 
 def test_role_string_representation() -> None:
-    """Test role string representation."""
+    """测试角色字符串表示。"""
     player = Player("p1", "Alice", Villager)
     villager = player.role
     assert str(villager) == "Villager"
@@ -61,7 +61,7 @@ def test_role_string_representation() -> None:
 
 
 async def test_werewolf_get_night_actions() -> None:
-    """Test Werewolf get_night_actions method."""
+    """测试 Werewolf get_night_actions 方法。"""
     werewolf_player = Player(
         "p1", "Werewolf", Werewolf, agent=DemoAgent(name="Werewolf", model="demo")
     )
@@ -84,7 +84,7 @@ async def test_werewolf_get_night_actions() -> None:
 
 
 async def test_seer_get_night_actions() -> None:
-    """Test Seer get_night_actions method."""
+    """测试 Seer get_night_actions 方法。"""
     seer_player = Player("p1", "Seer", Seer, agent=DemoAgent(name="Seer", model="demo"))
     villager_player = Player(
         "p2", "Villager", Villager, agent=DemoAgent(name="Villager", model="demo")
@@ -104,7 +104,7 @@ async def test_seer_get_night_actions() -> None:
 
 
 async def test_witch_get_night_actions_save() -> None:
-    """Test Witch get_night_actions method for saving."""
+    """测试女巫 get_night_actions 方法的救人分支。"""
     witch_player = Player("p1", "Witch", Witch, agent=DemoAgent(name="Witch", model="demo"))
     villager_player = Player(
         "p2", "Villager", Villager, agent=DemoAgent(name="Villager", model="demo")
@@ -126,7 +126,7 @@ async def test_witch_get_night_actions_save() -> None:
 
 
 async def test_witch_get_night_actions_poison() -> None:
-    """Test Witch get_night_actions method for poisoning."""
+    """测试女巫 get_night_actions 方法的毒杀分支。"""
     witch_player = Player("p1", "Witch", Witch)
     villager_player = Player("p2", "Villager", Villager)
     players = [witch_player, villager_player]
@@ -150,7 +150,7 @@ async def test_witch_get_night_actions_poison() -> None:
 
 
 async def test_guard_get_night_actions() -> None:
-    """Test Guard get_night_actions method."""
+    """测试 Guard get_night_actions 方法。"""
     guard_player = Player("p1", "Guard", Guard, agent=DemoAgent(name="Guard", model="demo"))
     villager_player = Player(
         "p2", "Villager", Villager, agent=DemoAgent(name="Villager", model="demo")

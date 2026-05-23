@@ -1,4 +1,4 @@
-"""Sheriff election phase logic for the game engine."""
+"""游戏引擎的警长选举阶段逻辑。"""
 
 from collections.abc import Callable
 
@@ -10,7 +10,7 @@ from llm_werewolf.core.game_state import GameState
 
 
 class SheriffElectionMixin:
-    """Mixin for handling sheriff election phase logic."""
+    """处理警长选举阶段逻辑的 Mixin。"""
 
     game_state: GameState | None
     locale: Locale
@@ -18,7 +18,7 @@ class SheriffElectionMixin:
     build_player_observation: Callable[[PlayerProtocol], str]
 
     async def execute_sheriff_election(self) -> None:
-        """Execute the sheriff election phase."""
+        """执行警长选举阶段。"""
         if not self.game_state:
             return
 
@@ -40,7 +40,7 @@ class SheriffElectionMixin:
 
         await self._conduct_campaign_speeches(candidates)
         vote_counts = await self._conduct_sheriff_voting(candidates)
-        self._determine_sheriff_winner(vote_counts, candidates)
+        await self._resolve_sheriff_result(vote_counts, candidates)
 
         self.game_state.sheriff_election_done = True
 
@@ -61,15 +61,27 @@ class SheriffElectionMixin:
                     player,
                     player.agent,
                     player.get_role_name(),
-                    "是否参加警长竞选？",
+                    self.locale.get("sheriff_ask_run"),
                     context,
                     round_number=self.game_state.round_number,
                     phase="sheriff_election",
                 )
                 if yes:
                     candidates.append(player)
-            except Exception:
-                continue
+            except Exception as exc:
+                self._log_event(
+                    EventType.ERROR,
+                    self.locale.get(
+                        "sheriff_candidate_error",
+                        player=player.name,
+                        error=str(exc),
+                    ),
+                    data={
+                        "player_id": player.player_id,
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                    },
+                )
 
         for candidate in candidates:
             self._log_event(
@@ -86,10 +98,7 @@ class SheriffElectionMixin:
 
         return EngineContexts.sheriff_run(
             player.name, player.get_role_name(), self.game_state.round_number
-        ) + (
-            "\n\n警长拥有 1.5 票投票权，死亡时可转移或撕毁警徽。"
-            "请结合你的身份与策略决定是否参选。"
-        )
+        ) + self.locale.get("sheriff_campaign_note")
 
     async def _conduct_campaign_speeches(self, candidates: list[PlayerProtocol]) -> None:
         if not self.game_state:
@@ -132,7 +141,7 @@ class SheriffElectionMixin:
             candidates,
             channel=VisibilityChannel.PUBLIC,
             context_builder=context_builder,
-            instruction="请发表竞选发言，说明为何适合担任警长：",
+            instruction=self.locale.get("sheriff_speech_instruction"),
             phase="sheriff_election",
             round_number=self.game_state.round_number,
             audience=alive,
@@ -161,7 +170,7 @@ class SheriffElectionMixin:
             include_private_notes=True,
             for_agent_decision=True,
         )
-        return f"{obs}\n\n{base}\n其他候选人：{others}"
+        return f"{obs}\n\n{base}\n{self.locale.get('sheriff_other_candidates', others=others)}"
 
     async def _conduct_sheriff_voting(self, candidates: list[PlayerProtocol]) -> dict[str, int]:
         if not self.game_state:
@@ -192,7 +201,7 @@ class SheriffElectionMixin:
                     voter,
                     voter.agent,
                     voter.get_role_name(),
-                    "投票选举警长",
+                    self.locale.get("sheriff_vote_action"),
                     available,
                     allow_skip=True,
                     additional_context=context,
@@ -200,7 +209,20 @@ class SheriffElectionMixin:
                     round_number=self.game_state.round_number,
                     phase="sheriff_election",
                 )
-            except Exception:
+            except Exception as exc:
+                self._log_event(
+                    EventType.ERROR,
+                    self.locale.get(
+                        "sheriff_vote_error",
+                        voter=voter.name,
+                        error=str(exc),
+                    ),
+                    data={
+                        "voter_id": voter.player_id,
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                    },
+                )
                 vote_target = None
 
             if vote_target:
@@ -235,7 +257,141 @@ class SheriffElectionMixin:
             player.get_role_name(),
             self.game_state.round_number,
             candidate_names,
-        ) + "\n可结合竞选发言、信任度与自身胜利条件投票，也可选择弃权。"
+        ) + self.locale.get("sheriff_vote_note")
+
+    async def _resolve_sheriff_result(
+        self, vote_counts: dict[str, int], candidates: list[PlayerProtocol]
+    ) -> None:
+        """结算警长选举结果，含平票处理。"""
+        if not self.game_state or not vote_counts:
+            return
+
+        max_votes = max(vote_counts.values())
+        winners = [pid for pid, count in vote_counts.items() if count == max_votes]
+
+        for candidate in candidates:
+            votes = vote_counts.get(candidate.player_id, 0)
+            self._log_event(
+                EventType.MESSAGE,
+                self.locale.get("sheriff_vote_result", candidate=candidate.name, votes=votes),
+            )
+
+        if len(winners) == 1:
+            winner_id = winners[0]
+            winner = self.game_state.get_player(winner_id)
+            if winner:
+                self._elect_sheriff(winner)
+        else:
+            await self._handle_sheriff_tie(winners, candidates)
+
+    async def _handle_sheriff_tie(
+        self, winner_ids: list[str], all_candidates: list[PlayerProtocol]
+    ) -> None:
+        """处理平票：首次平票 → PK 发言 + 重投；再次平票 → 警徽流失。"""
+        if not self.game_state:
+            return
+
+        tie_count = self.game_state.sheriff_tie_count
+        winner_names = [
+            self.game_state.get_player(pid).name
+            for pid in winner_ids
+            if self.game_state.get_player(pid)
+        ]
+
+        if tie_count == 0:
+            # 首次平票：PK 发言 + 重投
+            self._log_event(
+                EventType.SHERIFF_TIE,
+                self.locale.get("sheriff_tie_pk", candidates=", ".join(winner_names)),
+            )
+
+            pk_candidates = [
+                c for c in all_candidates if c.player_id in winner_ids
+            ]
+
+            if len(pk_candidates) >= 2:
+                await self._conduct_pk_speeches(pk_candidates)
+                vote_counts = await self._conduct_sheriff_voting(pk_candidates)
+                self.game_state.sheriff_tie_count = 1
+                await self._resolve_sheriff_result(vote_counts, pk_candidates)
+            else:
+                # 仅 1 名 PK 候选人时的兜底（不应发生）
+                self._log_event(
+                    EventType.MESSAGE,
+                    self.locale.get("sheriff_tie_fallback"),
+                )
+        else:
+            # 再次平票：警徽流失
+            self._log_event(
+                EventType.SHERIFF_TIE,
+                self.locale.get("sheriff_badge_lost", candidates=", ".join(winner_names)),
+            )
+            # 未选出警长
+
+    async def _conduct_pk_speeches(self, candidates: list[PlayerProtocol]) -> None:
+        """平票候选人的 PK 发言。"""
+        if not self.game_state:
+            return
+
+        self._log_event(
+            EventType.MESSAGE,
+            self.locale.get("pk_speeches_start", count=len(candidates)),
+        )
+
+        interaction = self.game_state.require_phase_interaction()
+        alive = self.game_state.get_alive_players()
+
+        def context_builder(candidate: PlayerProtocol) -> str:
+            return self._build_pk_speech_context(candidate, candidates)
+
+        def on_speech(
+            speaker: PlayerProtocol,
+            decision: SpeechDecision,
+            _routed: object,
+        ) -> None:
+            self._log_event(
+                EventType.SHERIFF_CANDIDATE_SPEECH,
+                self.locale.get(
+                    "pk_candidate_speech",
+                    candidate=speaker.name,
+                    speech=decision.public_speech,
+                ),
+                data={"player_id": speaker.player_id, "speech": decision.public_speech},
+                visible_to=None,
+            )
+
+        await interaction.run_roundtable(
+            candidates,
+            channel=VisibilityChannel.PUBLIC,
+            context_builder=context_builder,
+            instruction=self.locale.get("pk_speech_instruction"),
+            phase="sheriff_election_pk",
+            round_number=self.game_state.round_number,
+            audience=alive,
+            on_speech=on_speech,
+        )
+
+    def _build_pk_speech_context(
+        self, player: PlayerProtocol, candidates: list[PlayerProtocol]
+    ) -> str:
+        if not self.game_state:
+            return ""
+
+        other_candidates = [c.name for c in candidates if c.player_id != player.player_id]
+
+        from llm_werewolf.core.prompts.actions import EngineContexts
+
+        base = EngineContexts.sheriff_speech(
+            player.name, player.get_role_name(), self.game_state.round_number, len(candidates)
+        )
+        others = ", ".join(other_candidates) if other_candidates else "无"
+        obs = self.build_player_observation(
+            player,
+            include_visible_events=True,
+            include_private_notes=True,
+            for_agent_decision=True,
+        )
+        return f"{obs}\n\n{base}\n{self.locale.get('pk_opponents', opponents=others)}"
 
     def _determine_sheriff_winner(
         self, vote_counts: dict[str, int], candidates: list[PlayerProtocol]

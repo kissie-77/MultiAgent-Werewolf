@@ -1,4 +1,4 @@
-"""Night action planning for all roles (LLM via PhaseInteraction / InformationHub)."""
+"""各角色夜间行动规划（通过 PhaseInteraction / InformationHub 调用 LLM）。"""
 
 from __future__ import annotations
 
@@ -501,7 +501,7 @@ NIGHT_PLANNERS: dict[str, NightPlanner] = {
 
 
 def _resolve_night_planner(role_name: str) -> NightPlanner | None:
-    """Resolve planner at call time so tests can patch planner functions."""
+    """在调用时解析 planner，以便测试可 patch planner 函数。"""
     return NIGHT_PLANNERS.get(role_name)
 
 
@@ -510,7 +510,7 @@ async def dispatch_night_plan(
     game_state: GameStateProtocol,
     interaction: PhaseInteraction,
 ) -> list[ActionProtocol]:
-    """Route night actions through Hub; unregistered roles return []."""
+    """经 Hub 路由夜间行动；未注册的角色返回 []。"""
     planner = _resolve_night_planner(role.name)
     if planner is None:
         return []

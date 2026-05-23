@@ -1,4 +1,4 @@
-"""Canonical role catalog: name, implementation, camp, victory goal."""
+"""权威角色目录：名称、实现、阵营、胜利目标。"""
 
 from llm_werewolf.core.types.enums import Camp, VictoryGoal
 from llm_werewolf.core.roles.definition import RoleDefinition
@@ -175,12 +175,12 @@ VICTORY_GOAL_DESCRIPTIONS: dict[VictoryGoal, str] = {
 
 
 def get_catalog() -> list[RoleDefinition]:
-    """Return all built-in role definitions."""
+    """返回所有内置角色定义。"""
     return list(ROLE_CATALOG)
 
 
 def get_definition(name: str) -> RoleDefinition:
-    """Look up a role definition by registry name."""
+    """按注册表名称查找角色定义。"""
     for definition in ROLE_CATALOG:
         if definition.name == name:
             return definition
@@ -189,7 +189,7 @@ def get_definition(name: str) -> RoleDefinition:
 
 
 def get_definition_by_role_class(role_class: type) -> RoleDefinition:
-    """Look up definition by role class."""
+    """按角色类查找定义。"""
     impl_path = f"{role_class.__module__}:{role_class.__name__}"
     for definition in ROLE_CATALOG:
         if definition.implementation == impl_path:

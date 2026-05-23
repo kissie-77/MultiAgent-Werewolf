@@ -5,19 +5,19 @@ from llm_werewolf.core.roles.registry import create_roles
 
 
 def test_game_initialization() -> None:
-    """Test initializing a game."""
+    """测试初始化游戏。"""
     config = create_game_config_from_player_count(6)
     engine = GameEngine(config)
 
-    # Create players
+    # 创建玩家
     players = []
     for i in range(config.num_players):
         players.append(DemoAgent(name=f"Player{i}", model="demo"))
 
-    # Get roles
+    # 获取角色
     roles = create_roles(role_names=config.role_names)
 
-    # Setup game
+    # 设置游戏
     engine.setup_game(players=players, roles=roles)
 
     assert engine.game_state is not None
@@ -25,7 +25,7 @@ def test_game_initialization() -> None:
 
 
 def test_game_state_initialization() -> None:
-    """Test game state after initialization."""
+    """测试初始化后的游戏状态。"""
     config = create_game_config_from_player_count(6)
     engine = GameEngine(config)
 
@@ -40,7 +40,7 @@ def test_game_state_initialization() -> None:
 
 
 def test_role_assignment() -> None:
-    """Test that roles are properly assigned."""
+    """测试角色是否正确分配。"""
     config = create_game_config_from_player_count(6)
     engine = GameEngine(config)
 
@@ -52,7 +52,7 @@ def test_role_assignment() -> None:
     role_assignments = engine.assign_roles()
     assert len(role_assignments) == 6
 
-    # Check that each player has a role
+    # 检查每个玩家都有角色
     for player_id, role_name in role_assignments.items():
         player = engine.game_state.get_player(player_id)
         assert player is not None
@@ -60,7 +60,7 @@ def test_role_assignment() -> None:
 
 
 def test_victory_checker() -> None:
-    """Test victory condition checking."""
+    """测试胜利条件检查。"""
     config = create_game_config_from_player_count(6)
     engine = GameEngine(config)
 
@@ -69,14 +69,14 @@ def test_victory_checker() -> None:
 
     engine.setup_game(players=players, roles=roles)
 
-    # Initially no winner
+    # 初始无胜者
     assert not engine.check_victory()
 
-    # Kill all werewolves (villagers should win)
+    # 杀死所有狼人（村民应获胜）
     for player in engine.game_state.players:
         if player.get_camp() == "werewolf":
             player.kill()
 
-    # Now villagers should win
+    # 此时村民应获胜
     assert engine.check_victory()
     assert engine.game_state.winner == "villager"

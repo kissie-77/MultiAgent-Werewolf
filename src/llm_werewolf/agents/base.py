@@ -20,7 +20,7 @@ console = Console()
 
 
 class BaseAgent(BaseModel):
-    """Base class for all agents."""
+    """所有 Agent 的基类。"""
 
     name: str = Field(...)
     model: str = Field(...)
@@ -39,7 +39,7 @@ class BaseAgent(BaseModel):
 
 
 class DemoAgent(PromptAgentMixin, BaseAgent):
-    """Demo agent with unified Chinese prompts and [[n]] responses."""
+    """使用统一中文 prompt 与 [[n]] 回复的 Demo Agent。"""
 
     model: str = Field(default="demo")
     chat_history: list[dict[str, str]] = Field(default_factory=list)
@@ -100,7 +100,7 @@ class HumanAgent(BaseAgent):
 
 
 class LLMAgent(PromptAgentMixin, BaseAgent):
-    """LLM agent using OpenAI-compatible API and unified Chinese prompts."""
+    """使用 OpenAI 兼容 API 与统一中文 prompt 的 LLM Agent。"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -167,7 +167,7 @@ def create_agent(
     use_agentscope: bool = True,
     default_plan: str = "default",
 ) -> DemoAgent | HumanAgent | LLMAgent:
-    """Create an agent from player configuration."""
+    """根据玩家配置创建 Agent。"""
     model = config.model.lower()
 
     if model == "human":

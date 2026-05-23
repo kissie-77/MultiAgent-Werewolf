@@ -1,4 +1,4 @@
-"""Vote intention tracking for replay / persuasion analysis (Foaster-style)."""
+"""投票意向追踪，用于复盘 / 说服分析（Foaster 风格）。"""
 
 from __future__ import annotations
 
@@ -12,16 +12,16 @@ from llm_werewolf.core.types import PlayerProtocol
 
 
 class VoteIntentionAnchor(str, Enum):
-    """When a full-table intention snapshot was taken."""
+    """全桌意向快照的采集时机。"""
 
     INITIAL = "initial"
     AFTER_SPEECH = "after_speech"
-    BEFORE = "before"  # deprecated: old logs only
+    BEFORE = "before"  # 已弃用：仅旧日志使用
 
 
 @dataclass
 class VoteIntentionEntry:
-    """One player's stated vote intention at a snapshot."""
+    """某次快照中一名玩家声明的投票意向。"""
 
     player_id: str
     player_name: str
@@ -43,7 +43,7 @@ class VoteIntentionEntry:
 
 @dataclass
 class VoteSwing:
-    """A single player's intention change between two snapshots."""
+    """两次快照之间某玩家意向的变化。"""
 
     player_id: str
     player_name: str
@@ -69,7 +69,7 @@ class VoteSwing:
 
 @dataclass
 class VoteIntentionSnapshot:
-    """Full-table vote intentions at one anchor point."""
+    """某一锚点时刻的全桌投票意向。"""
 
     round_number: int
     phase: str
@@ -95,7 +95,7 @@ class VoteIntentionSnapshot:
 
 @dataclass
 class SpeechVoteIntentionRecord:
-    """Before/after intentions around one roundtable speech."""
+    """圆桌发言前后意向对比记录。"""
 
     round_number: int
     phase: str
@@ -126,7 +126,7 @@ def compute_vote_swings(
     before: dict[str, VoteIntentionEntry],
     after: dict[str, VoteIntentionEntry],
 ) -> list[VoteSwing]:
-    """Return players whose intended vote target changed."""
+    """返回意向投票目标发生变化的玩家。"""
     swings: list[VoteSwing] = []
     for player_id, before_entry in before.items():
         after_entry = after.get(player_id)
@@ -150,7 +150,7 @@ def compute_vote_swings(
 
 
 def format_intentions_line(intentions: dict[str, VoteIntentionEntry]) -> str:
-    """Compact one-line summary for event log / console."""
+    """事件日志 / 控制台用的一行紧凑摘要。"""
     parts: list[str] = []
     for entry in sorted(intentions.values(), key=lambda e: e.player_id):
         if entry.seat == 0 or entry.target_name is None:
@@ -161,7 +161,7 @@ def format_intentions_line(intentions: dict[str, VoteIntentionEntry]) -> str:
 
 
 class VoteIntentionTracker:
-    """Accumulates speech-linked intention snapshots for export / events."""
+    """累积与发言关联的意向快照，供导出 / 事件使用。"""
 
     def __init__(self) -> None:
         self.snapshots: list[VoteIntentionSnapshot] = []
@@ -200,7 +200,7 @@ class VoteIntentionTracker:
         return [record.to_dict() for record in self.speech_records]
 
     def save_jsonl(self, path: str | Path) -> None:
-        """Persist speech-linked intention records for offline analysis."""
+        """将发言关联的意向记录持久化，供离线分析。"""
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         with target.open("w", encoding="utf-8") as handle:

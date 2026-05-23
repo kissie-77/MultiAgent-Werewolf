@@ -26,10 +26,10 @@ def build_werewolf_team_context(
 
 
 class Werewolf(Role):
-    """Standard Werewolf role.
+    """标准狼人角色。
 
-    Werewolves wake up at night and collectively choose a victim to kill.
-    They win when werewolves equal or outnumber villagers.
+    狼人夜晚醒来并集体选择一名受害者击杀。
+    当狼人数量等于或超过好人时获胜。
     """
 
     def get_private_notes(self, game_state: GameStateProtocol | None = None) -> list[str]:
@@ -47,7 +47,7 @@ class Werewolf(Role):
         return notes
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Werewolf role."""
+        """获取狼人角色的配置。"""
         return RoleConfig(
             name="Werewolf",
             camp=Camp.WEREWOLF,
@@ -64,15 +64,15 @@ class Werewolf(Role):
 
 
 class AlphaWolf(Werewolf):
-    """Alpha Wolf (Wolf King) role.
+    """狼王（Alpha Wolf）角色。
 
-    Similar to a standard werewolf, but when eliminated (by vote or hunter),
-    can take another player down with them.
+    与普通狼人类似，但被放逐或猎人带走时，
+    可以再带走一名玩家。
     """
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Alpha Wolf role."""
+        """获取狼王角色的配置。"""
         return RoleConfig(
             name="Alpha Wolf",
             camp=Camp.WEREWOLF,
@@ -83,20 +83,20 @@ class AlphaWolf(Werewolf):
             ),
             priority=ActionPriority.WEREWOLF,
             can_act_night=True,
-            can_act_day=True,  # Can shoot when dying
+            can_act_day=True,  # 死亡时可开枪
         )
 
 
 class WhiteWolf(Role):
-    """White Wolf role.
+    """白狼王角色。
 
-    A werewolf who can kill another werewolf once every two nights.
-    This makes the white wolf a lone wolf trying to be the last werewolf standing.
+    每两夜可击杀一名狼队友的狼人。
+    白狼王往往试图成为最后存活的狼人。
     """
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the White Wolf role."""
+        """获取白狼王角色的配置。"""
         return RoleConfig(
             name="White Wolf",
             camp=Camp.WEREWOLF,
@@ -112,20 +112,20 @@ class WhiteWolf(Role):
 
 
 class WolfBeauty(Role):
-    """Wolf Beauty role.
+    """狼美人角色。
 
-    A werewolf who charms a player each night. If the Wolf Beauty dies,
-    the charmed player dies too.
+    每晚可魅惑一名玩家的狼人。狼美人死亡时，
+    被魅惑的玩家也会殉情。
     """
 
     def __init__(self, player: PlayerProtocol) -> None:
-        """Initialize the Wolf Beauty role."""
+        """初始化狼美人角色。"""
         super().__init__(player)
         self.charmed_player: str | None = None
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Wolf Beauty role."""
+        """获取狼美人角色的配置。"""
         return RoleConfig(
             name="Wolf Beauty",
             camp=Camp.WEREWOLF,
@@ -141,14 +141,14 @@ class WolfBeauty(Role):
 
 
 class GuardianWolf(Role):
-    """Guardian Wolf role.
+    """守卫狼角色。
 
-    A werewolf who can protect one werewolf from elimination each night.
+    每晚可保护一名狼队友免受击杀的狼人。
     """
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Guardian Wolf role."""
+        """获取守卫狼角色的配置。"""
         return RoleConfig(
             name="Guardian Wolf",
             camp=Camp.WEREWOLF,
@@ -164,14 +164,14 @@ class GuardianWolf(Role):
 
 
 class HiddenWolf(Role):
-    """Hidden Wolf role.
+    """隐狼角色。
 
-    A werewolf who appears as a villager when checked by the Seer.
+    被预言家查验时显示为好人的狼人。
     """
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Hidden Wolf role."""
+        """获取隐狼角色的配置。"""
         return RoleConfig(
             name="Hidden Wolf",
             camp=Camp.WEREWOLF,
@@ -187,20 +187,20 @@ class HiddenWolf(Role):
 
 
 class BloodMoonApostle(Role):
-    """Blood Moon Apostle role.
+    """血月使徒角色。
 
-    A werewolf supporter who doesn't wake up with other wolves but wins with them.
-    Once per game, can turn into a real werewolf.
+    不与狼队同醒的狼人支持者，但与狼人共同获胜。
+    整局游戏中可一次变身为真正的狼人。
     """
 
     def __init__(self, player: PlayerProtocol) -> None:
-        """Initialize the Blood Moon Apostle role."""
+        """初始化血月使徒角色。"""
         super().__init__(player)
         self.transformed = False
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Blood Moon Apostle role."""
+        """获取血月使徒角色的配置。"""
         return RoleConfig(
             name="Blood Moon Apostle",
             camp=Camp.WEREWOLF,
@@ -210,22 +210,22 @@ class BloodMoonApostle(Role):
                 "into a werewolf and can start killing. You appear as a villager to the Seer "
                 "until transformed."
             ),
-            priority=ActionPriority.WEREWOLF,  # Acts with werewolves after transformation
-            can_act_night=True,  # Needs to check transformation condition every night
+            priority=ActionPriority.WEREWOLF,  # 变身后与狼人一同行动
+            can_act_night=True,  # 每夜需检查变身条件
             can_act_day=False,
-            max_uses=None,  # Can act every night after transformation
+            max_uses=None,  # 变身后每夜均可行动
         )
 
 
 class NightmareWolf(Role):
-    """Nightmare Wolf role.
+    """梦魇狼角色。
 
-    A werewolf who can block a player from using their ability for one night.
+    可封锁一名玩家使其当夜无法使用技能的狼人。
     """
 
 
     def get_config(self) -> RoleConfig:
-        """Get configuration for the Nightmare Wolf role."""
+        """获取梦魇狼角色的配置。"""
         return RoleConfig(
             name="Nightmare Wolf",
             camp=Camp.WEREWOLF,

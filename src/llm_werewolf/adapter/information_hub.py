@@ -1,13 +1,13 @@
-"""MsgHub-based information isolation for all agent interactions.
+"""基于 MsgHub 的 Agent 交互信息隔离。
 
-Every LLM call runs inside a MsgHub scoped to the correct audience:
-- PUBLIC: all alive players hear broadcasts (day discussion, sheriff speeches, narrator)
-- WOLF_TEAM: werewolves only
-- PRIVATE: single actor only (votes, night skills, yes/no decisions)
+每次 LLM 调用在面向正确受众的 MsgHub 作用域内执行：
+- PUBLIC：所有存活玩家可听广播（白天讨论、警上发言、旁白）
+- WOLF_TEAM：仅狼人
+- PRIVATE：仅单个行动者（投票、夜间技能、是/否决策）
 
-Event log is replay/audit only for dialogue (``HUB_DIALOGUE_EVENT_TYPES``);
-LLM decision prompts omit those events and read speeches from MsgHub / ReAct memory.
-``Event.visible_to`` remains the authoritative log filter; MsgHub controls memory isolation.
+事件日志仅用于对话回放/审计（``HUB_DIALOGUE_EVENT_TYPES``）；
+LLM 决策 prompt 不包含这些事件，发言从 MsgHub / ReAct 记忆读取。
+``Event.visible_to`` 仍为日志过滤的权威依据；MsgHub 控制记忆隔离。
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 
 class InformationHub:
-    """Routes all agent traffic through MsgHub with channel-based visibility."""
+    """经 MsgHub 按通道可见性路由全部 Agent 流量。"""
 
     def __init__(self) -> None:
         self._build_observation: Callable[[PlayerProtocol], str] | None = None
@@ -53,7 +53,7 @@ class InformationHub:
         build_observation: Callable[[PlayerProtocol], str],
         get_alive_players: Callable[[], list[PlayerProtocol]],
     ) -> None:
-        """Wire engine observation builders (called from GameEngine.setup_game)."""
+        """接入引擎观测构建器（由 GameEngine.setup_game 调用）。"""
         self._build_observation = build_observation
         self._get_alive_players = get_alive_players
 
@@ -71,7 +71,7 @@ class InformationHub:
         audience: list[PlayerProtocol] | None = None,
         actor: PlayerProtocol | None = None,
     ) -> list[PlayerProtocol]:
-        """Resolve MsgHub participants; audience is chosen by engine rules only."""
+        """解析 MsgHub 参与者；受众仅由引擎规则选定。"""
         if self._get_alive_players is None:
             return []
         alive = self._get_alive_players()
@@ -189,7 +189,7 @@ class InformationHub:
         phase: str = "",
         round_number: int = 0,
     ) -> None:
-        """Broadcast narrator/context to a channel via MsgHub."""
+        """经 MsgHub 向某通道广播旁白/上下文。"""
         members = self._resolve_audience(channel, audience=audience)
         react_agents = [a for a in (self._react_agent(p) for p in members) if a is not None]
         if not react_agents:
@@ -213,7 +213,7 @@ class InformationHub:
         round_number: int,
         last_speaker: PlayerProtocol | None = None,
     ) -> dict[str, VoteIntentionEntry]:
-        """Every alive audience member must output vote intention via LLM (private)."""
+        """每位存活听众须经 LLM 输出投票意向（私密）。"""
         intentions: dict[str, VoteIntentionEntry] = {}
         last_name = last_speaker.name if last_speaker else None
         for observer in observers:
@@ -282,7 +282,7 @@ class InformationHub:
         on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
         | None = None,
     ) -> list[RoutedMessage]:
-        """Sequential discussion; MsgHub audience hears only public lines."""
+        """顺序讨论；MsgHub 受众仅听到公开发言行。"""
         routed_messages: list[RoutedMessage] = []
         audience_players = self._resolve_audience(channel, audience=audience)
         react_agents = [a for a in (self._react_agent(p) for p in audience_players) if a]
@@ -437,7 +437,7 @@ class InformationHub:
         context: str,
         action: Callable[[], Any],
     ) -> Any:
-        """Run an agent call inside a single-participant MsgHub."""
+        """在仅含一名参与者的 MsgHub 内执行 Agent 调用。"""
         react = self._react_agent(actor)
         if react is None:
             return await action()
@@ -610,7 +610,7 @@ class InformationHub:
         round_number: int = 0,
         audience: list[PlayerProtocol] | None = None,
     ) -> SpeechDecision:
-        """Single speech with MsgHub routing (used when not in roundtable)."""
+        """单次发言并经 MsgHub 路由（非圆桌流程时使用）。"""
         audience_players = self._resolve_audience(channel, audience=audience, actor=speaker)
         react_agents = [a for a in (self._react_agent(p) for p in audience_players) if a]
 

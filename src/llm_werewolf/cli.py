@@ -22,10 +22,10 @@ console = Console()
 
 
 async def main(config: str) -> None:
-    """Run Werewolf game in console mode (auto-play).
+    """在控制台模式下运行狼人杀游戏（自动进行）。
 
     Args:
-        config: Path to the YAML configuration file
+        config: YAML 配置文件路径
     """
     config_path = Path(config)
     players_config = load_config(config_path=config_path)
@@ -110,12 +110,12 @@ async def main(config: str) -> None:
 
 
 def _run_main(config: str) -> None:
-    """Sync wrapper to run the async main function."""
+    """同步包装器，用于运行异步 main 函数。"""
     asyncio.run(main(config))
 
 
 def entry() -> None:
-    """Entry point for the werewolf console command."""
+    """werewolf 控制台命令的入口点。"""
     fire.Fire(_run_main)
 
 

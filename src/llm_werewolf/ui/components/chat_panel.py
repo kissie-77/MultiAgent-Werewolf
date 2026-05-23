@@ -10,38 +10,38 @@ from llm_werewolf.core.event_formatter import EventFormatter
 
 
 class ChatPanel(RichLog):
-    """Widget displaying the game chat/event history."""
+    """展示游戏聊天/事件历史的组件。"""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        """Initialize the chat panel."""
+        """初始化聊天面板。"""
         super().__init__(*args, **kwargs)
         self.events: list[Event] = []
         self._streaming_line_count: int = 0
 
-        # Buffers for grouped display
+        # 用于分组展示的缓冲区
         self._night_actions: list[tuple[EventType, str]] = []
         self._discussion_messages: list[str] = []
         self._werewolf_discussion: list[str] = []
-        self._vote_buffer: dict[str, list[str]] = {}  # target_name -> [voters]
+        self._vote_buffer: dict[str, list[str]] = {}  # 目标名 -> [投票者]
         self._last_phase = ""
 
     def add_event(self, event: Event) -> None:
-        """Add an event to the chat history.
+        """向聊天历史添加事件。
 
         Args:
-            event: The event to add.
+            event: 要添加的事件。
         """
         self.events.append(event)
         self.display_event(event)
 
     def _is_night_action_event(self, event_type: EventType) -> bool:
-        """Check if event type is a night action that should be buffered.
+        """判断事件类型是否为应缓冲的夜间行动。
 
         Args:
-            event_type: The event type to check.
+            event_type: 待检查的事件类型。
 
         Returns:
-            bool: True if event should be buffered.
+            bool: 若应缓冲则返回 True。
         """
         return event_type in {
             EventType.GUARD_PROTECTED,
@@ -53,13 +53,13 @@ class ChatPanel(RichLog):
         }
 
     def _is_sheriff_event(self, event_type: EventType) -> bool:
-        """Check if event type is sheriff-related.
+        """判断事件类型是否与警长相关。
 
         Args:
-            event_type: The event type to check.
+            event_type: 待检查的事件类型。
 
         Returns:
-            bool: True if sheriff-related event.
+            bool: 若为警长相关事件则返回 True。
         """
         return event_type in {
             EventType.SHERIFF_CAMPAIGN_STARTED,
@@ -70,13 +70,13 @@ class ChatPanel(RichLog):
         }
 
     def _handle_special_events(self, event: Event) -> bool:
-        """Handle special event types and return whether event was handled.
+        """处理特殊事件类型，并返回是否已处理。
 
         Args:
-            event: The event to handle.
+            event: 待处理的事件。
 
         Returns:
-            bool: True if event was handled, False otherwise.
+            bool: 若已处理则返回 True，否则返回 False。
         """
         if event.event_type == EventType.HUNTER_REVENGE:
             text = Text(f"🏹 {event.message}", style="bold yellow")
@@ -96,13 +96,13 @@ class ChatPanel(RichLog):
         return False
 
     def _handle_game_lifecycle_events(self, event: Event) -> bool:
-        """Handle game lifecycle events (start, end).
+        """处理游戏生命周期事件（开始、结束）。
 
         Args:
-            event: The event to handle.
+            event: 待处理的事件。
 
         Returns:
-            bool: True if event was handled, False otherwise.
+            bool: 若已处理则返回 True，否则返回 False。
         """
         if event.event_type == EventType.GAME_STARTED:
             self._present_game_start(event)
@@ -113,13 +113,13 @@ class ChatPanel(RichLog):
         return False
 
     def _handle_player_events(self, event: Event) -> bool:
-        """Handle player-related events (speech, death, elimination).
+        """处理玩家相关事件（发言、死亡、出局）。
 
         Args:
-            event: The event to handle.
+            event: 待处理的事件。
 
         Returns:
-            bool: True if event was handled, False otherwise.
+            bool: 若已处理则返回 True，否则返回 False。
         """
         if event.event_type == EventType.PLAYER_DIED:
             self._present_death(event)
@@ -136,13 +136,13 @@ class ChatPanel(RichLog):
         return False
 
     def _handle_voting_events(self, event: Event) -> bool:
-        """Handle voting-related events.
+        """处理投票相关事件。
 
         Args:
-            event: The event to handle.
+            event: 待处理的事件。
 
         Returns:
-            bool: True if event was handled, False otherwise.
+            bool: 若已处理则返回 True，否则返回 False。
         """
         if event.event_type == EventType.VOTE_CAST:
             self._buffer_vote(event)
@@ -154,27 +154,27 @@ class ChatPanel(RichLog):
         return False
 
     def display_event(self, event: Event, viewer_id: str | None = None) -> None:
-        """Display an event in the chat panel with grouped formatting.
+        """在聊天面板中以分组格式展示事件。
 
         Args:
-            event: The event to display.
-            viewer_id: If set, filter to events visible to this player.
+            event: 待展示的事件。
+            viewer_id: 若指定，则过滤为该玩家可见的事件。
         """
         if viewer_id is not None and not event.is_visible_to(viewer_id):
             return
         if viewer_id is not None and self._is_night_action_event(event.event_type):
             return
 
-        # Handle phase transitions
+        # 处理阶段切换
         if event.event_type == EventType.PHASE_CHANGED:
             self._handle_phase_change(event)
-        # Handle different event categories
+        # 处理不同类别的事件
         elif self._handle_game_lifecycle_events(event):
-            pass  # Already handled
+            pass  # 已处理
         elif event.event_type == EventType.MESSAGE:
             self._handle_narrator_message(event)
         elif event.event_type == EventType.ROLE_ACTING:
-            pass  # Buffer night actions
+            pass  # 缓冲夜间行动
         elif self._is_night_action_event(event.event_type):
             self._buffer_night_action(event)
         elif (
@@ -182,16 +182,16 @@ class ChatPanel(RichLog):
             or self._handle_voting_events(event)
             or self._handle_special_events(event)
         ):
-            pass  # Already handled
+            pass  # 已处理
         else:
-            # Default: use centralized formatter
+            # 默认：使用集中式格式化器
             text = EventFormatter.format_event(event, include_timestamp=True)
             self.write(text)
 
     def _handle_phase_change(self, event: Event) -> None:
-        """Handle phase transition with visual separators."""
+        """处理阶段切换并输出视觉分隔符。"""
         if event.data and event.data.get("phase") == "night":
-            # Flush any buffered content before night
+            # 入夜前刷新已缓冲内容
             self._flush_discussion()
             self._flush_votes()
 
@@ -204,7 +204,7 @@ class ChatPanel(RichLog):
             self.write(Text("═" * 70, style="blue"))
             self.write("")
         elif event.data and event.data.get("phase") == "day":
-            # Flush night actions before day
+            # 入昼前刷新夜间行动
             self._flush_night_actions()
 
             round_num = event.data.get("round", 0)
@@ -217,7 +217,7 @@ class ChatPanel(RichLog):
             self.write("")
 
     def _handle_narrator_message(self, event: Event) -> None:
-        """Handle narrator messages."""
+        """处理旁白消息。"""
         if not event.data:
             text = Text(event.message, style="dim italic")
             self.write(text)
@@ -232,12 +232,12 @@ class ChatPanel(RichLog):
             self.write(Text("🐺 狼人，請睜眼...", style="bold red"))
             self.write("")
         elif action == "werewolves_vote":
-            # Flush werewolf discussion before voting
+            # 投票前刷新狼人讨论
             self._flush_werewolf_discussion()
             self.write("")
             self.write(Text("🐺 狼人正在选择目标...", style="dim red"))
         elif action == "werewolves_sleep":
-            # Flush night actions when werewolves sleep
+            # 狼人闭眼时刷新夜间行动
             self._flush_night_actions()
             self.write("")
             self.write(Text("🐺 狼人，請閉眼...", style="bold blue"))
@@ -248,11 +248,11 @@ class ChatPanel(RichLog):
             self.write(text)
 
     def _buffer_night_action(self, event: Event) -> None:
-        """Buffer night actions for grouped display."""
+        """缓冲夜间行动以便分组展示。"""
         self._night_actions.append((event.event_type, event.message))
 
     def _flush_night_actions(self) -> None:
-        """Display all buffered night actions."""
+        """展示所有已缓冲的夜间行动。"""
         if not self._night_actions:
             return
 
@@ -260,12 +260,12 @@ class ChatPanel(RichLog):
         self.write(Text("─── 夜晚行動結果 ───", style="dim cyan"))
 
         for event_type, message in self._night_actions:
-            # Remove emoji if already present
+            # 若已有 emoji 则移除
             clean_msg = message
             for emoji in ["🛡️", "💊", "☠️", "🔮", "🐺", "💕", "🐺💋"]:
                 clean_msg = clean_msg.replace(emoji, "").strip()
 
-            # Add emoji based on event type
+            # 根据事件类型添加 emoji
             if event_type == EventType.GUARD_PROTECTED:
                 icon = "🛡️"
             elif event_type == EventType.WITCH_SAVED:
@@ -287,21 +287,21 @@ class ChatPanel(RichLog):
         self._night_actions = []
 
     def _buffer_discussion(self, event: Event) -> None:
-        """Buffer discussion messages for grouped display."""
+        """缓冲讨论消息以便分组展示。"""
         if event.data:
             player_name = event.data.get("player_name", "Unknown")
             speech = event.data.get("speech", "")
             self._discussion_messages.append(f"{player_name}: {speech}")
 
     def _buffer_werewolf_discussion(self, event: Event) -> None:
-        """Buffer werewolf discussion for grouped display."""
+        """缓冲狼人讨论以便分组展示。"""
         if event.data:
             player_name = event.data.get("player_name", "Unknown")
             speech = event.data.get("speech", "")
             self._werewolf_discussion.append(f"{player_name}: {speech}")
 
     def _flush_werewolf_discussion(self) -> None:
-        """Display werewolf discussion (only called during night phase)."""
+        """展示狼人讨论（仅在夜间阶段调用）。"""
         if self._werewolf_discussion:
             self.write("")
             self.write(
@@ -315,7 +315,7 @@ class ChatPanel(RichLog):
             self._werewolf_discussion = []
 
     def _flush_discussion(self) -> None:
-        """Display all buffered player discussion messages."""
+        """展示所有已缓冲的玩家讨论消息。"""
         if self._discussion_messages:
             self.write("")
             self.write(Text("💬 玩家發言", style="bold cyan"))
@@ -326,7 +326,7 @@ class ChatPanel(RichLog):
             self._discussion_messages = []
 
     def _buffer_vote(self, event: Event) -> None:
-        """Buffer vote for grouped display."""
+        """缓冲投票以便分组展示。"""
         if event.data:
             target_name = event.data.get("target_name", "Unknown")
             voter_name = event.data.get("voter_name", "Unknown")
@@ -335,21 +335,21 @@ class ChatPanel(RichLog):
             self._vote_buffer[target_name].append(voter_name)
 
     def _flush_votes(self) -> None:
-        """Display all buffered votes."""
+        """展示所有已缓冲的投票。"""
         if not self._vote_buffer:
             return
 
-        # First flush any discussion
+        # 先刷新讨论内容
         self._flush_discussion()
 
         self.write("")
         self.write(Text("🗳️  投票階段", style="bold yellow"))
         self.write("")
 
-        # Sort by vote count
+        # 按票数排序
         sorted_votes = sorted(self._vote_buffer.items(), key=lambda x: len(x[1]), reverse=True)
 
-        # Add rank emoji
+        # 添加排名 emoji
         rank_emoji = {0: "🥇", 1: "🥈", 2: "🥉"}
 
         for idx, (target, voters) in enumerate(sorted_votes):
@@ -368,7 +368,7 @@ class ChatPanel(RichLog):
         self._vote_buffer = {}
 
     def _present_game_start(self, event: Event) -> None:
-        """Present game start."""
+        """展示游戏开始。"""
         self.write("")
         self.write(Text("═" * 70, style="bold green"))
         self.write(Text("                      🎮 遊戲開始 🎮", style="bold green"))
@@ -379,7 +379,7 @@ class ChatPanel(RichLog):
         self.write("")
 
     def _present_game_end(self, event: Event) -> None:
-        """Present game end."""
+        """展示游戏结束。"""
         self.write("")
         self.write(Text("═" * 70, style="bold magenta"))
         self.write(Text("                      🏆 遊戲結束 🏆", style="bold magenta"))
@@ -389,20 +389,20 @@ class ChatPanel(RichLog):
         self.write("")
 
     def _present_death(self, event: Event) -> None:
-        """Present player death."""
+        """展示玩家死亡。"""
         self.write(Text(f"💀 {event.message}", style="bold red"))
 
     def _present_elimination(self, event: Event) -> None:
-        """Present player elimination."""
+        """展示玩家出局。"""
         self.write("")
         self.write(Text(f"⚰️  {event.message}", style="bold red"))
         self.write("")
 
     def add_system_message(self, message: str) -> None:
-        """Add a system message to the chat.
+        """向聊天区添加系统消息。
 
         Args:
-            message: The message to add.
+            message: 要添加的消息。
         """
         text = Text()
         text.append("i  ", style="bold cyan")
@@ -410,11 +410,11 @@ class ChatPanel(RichLog):
         self.write(text)
 
     def add_player_message(self, player_name: str, message: str) -> None:
-        """Add a player message to the chat.
+        """向聊天区添加玩家消息。
 
         Args:
-            player_name: Name of the player.
-            message: The message content.
+            player_name: 玩家名称。
+            message: 消息内容。
         """
         text = Text()
         text.append(f"{player_name}: ", style="bold")
@@ -422,16 +422,16 @@ class ChatPanel(RichLog):
         self.write(text)
 
     def clear_history(self) -> None:
-        """Clear the chat history."""
+        """清空聊天历史。"""
         self.events.clear()
         self.clear()
 
     def start_streaming_message(self, player_name: str, prefix: str = "") -> None:
-        """Start a streaming message display.
+        """开始流式消息展示。
 
         Args:
-            player_name: Name of the player speaking.
-            prefix: Optional prefix to display before the streaming content.
+            player_name: 发言玩家名称。
+            prefix: 流式内容前可选的前缀。
         """
         text = Text()
         time_str = datetime.datetime.now().strftime("%H:%M:%S")
@@ -446,18 +446,18 @@ class ChatPanel(RichLog):
         self._streaming_line_count = 1
 
     def update_streaming_message(self, chunk: str) -> None:
-        """Update the current streaming message with a new chunk.
+        """用新片段更新当前流式消息。
 
         Args:
-            chunk: New text chunk to append.
+            chunk: 要追加的新文本片段。
         """
-        # Remove the last line(s) added by streaming
+        # 移除流式输出添加的最后一行
         if self._streaming_line_count > 0:
-            # RichLog doesn't have a direct way to remove lines, so we append chunks
-            # We'll use a simpler approach: just append the chunk as plain text
+            # RichLog 无法直接删除行，因此追加片段
+            # 采用更简单的方式：将片段作为纯文本追加
             text = Text(chunk, style="cyan")
             self.write(text, scroll_end=True)
 
     def finish_streaming_message(self) -> None:
-        """Finish the streaming message."""
+        """结束流式消息。"""
         self._streaming_line_count = 0

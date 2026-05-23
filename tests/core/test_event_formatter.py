@@ -1,4 +1,4 @@
-"""Tests for event formatter."""
+"""事件格式化器的测试。"""
 
 from datetime import datetime
 
@@ -7,7 +7,7 @@ from llm_werewolf.core.event_formatter import EventFormatter
 
 
 def test_format_event_with_timestamp() -> None:
-    """Test formatting an event with timestamp."""
+    """测试格式化带时间戳的事件。"""
     event = Event(
         event_type=EventType.GAME_STARTED,
         round_number=1,
@@ -18,14 +18,14 @@ def test_format_event_with_timestamp() -> None:
 
     formatted = EventFormatter.format_event(event, include_timestamp=True)
 
-    # Check that timestamp is included
+    # 检查包含时间戳
     assert "[12:00:00]" in str(formatted)
-    # Check that message is included
+    # 检查包含消息
     assert "Game started with 6 players" in str(formatted)
 
 
 def test_format_event_without_timestamp() -> None:
-    """Test formatting an event without timestamp."""
+    """测试格式化不带时间戳的事件。"""
     event = Event(
         event_type=EventType.PLAYER_DIED,
         round_number=1,
@@ -35,13 +35,13 @@ def test_format_event_without_timestamp() -> None:
 
     formatted = EventFormatter.format_event(event, include_timestamp=False)
 
-    # Check that timestamp is not included
+    # 检查不包含时间戳
     assert "[" not in str(formatted) or "Player 1" in str(formatted)
 
 
 def test_get_event_style() -> None:
-    """Test getting style for different event types."""
-    # Test known event type
+    """测试获取不同事件类型的样式。"""
+    # 测试已知事件类型
     assert EventFormatter.get_event_style(EventType.GAME_STARTED) == "bold green"
     assert EventFormatter.get_event_style(EventType.GAME_ENDED) == "bold red"
     assert EventFormatter.get_event_style(EventType.PLAYER_DIED) == "red"
@@ -49,8 +49,8 @@ def test_get_event_style() -> None:
 
 
 def test_format_event_styles() -> None:
-    """Test that different event types get appropriate styles."""
-    # Test a few different event types
+    """测试不同事件类型获得合适样式。"""
+    # 测试几种不同事件类型
     test_cases = [
         (EventType.GAME_STARTED, "bold green"),
         (EventType.WEREWOLF_KILLED, "red"),
@@ -61,14 +61,14 @@ def test_format_event_styles() -> None:
     for event_type, expected_style in test_cases:
         event = Event(event_type=event_type, round_number=1, phase="test", message="Test message")
         formatted = EventFormatter.format_event(event)
-        # Just verify it doesn't raise an error
+        # 仅验证不抛出错误
         assert formatted is not None
         assert EventFormatter.get_event_style(event_type) == expected_style
 
 
 def test_format_all_event_types() -> None:
-    """Test formatting all event types to ensure complete coverage."""
-    # Test all event types from EVENT_STYLES
+    """测试格式化所有事件类型以确保完整覆盖。"""
+    # 测试 EVENT_STYLES 中所有事件类型
     for event_type in EventFormatter.EVENT_STYLES:
         event = Event(
             event_type=event_type,
@@ -82,10 +82,10 @@ def test_format_all_event_types() -> None:
 
 
 def test_unknown_event_type_style() -> None:
-    """Test that unknown event types get default white style."""
-    # Test all enum values to ensure coverage
+    """测试未知事件类型获得默认白色样式。"""
+    # 测试所有枚举值以确保覆盖
     for event_type in EventType:
         style = EventFormatter.get_event_style(event_type)
-        # Should return a valid style string
+        # 应返回有效样式字符串
         assert isinstance(style, str)
         assert len(style) > 0

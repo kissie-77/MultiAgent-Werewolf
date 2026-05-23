@@ -1,4 +1,4 @@
-"""Unified Chinese prompts and structured action selection."""
+"""统一中文提示词与结构化行动选择。"""
 
 from llm_werewolf.core.prompts.game import GamePrompts, PlanStrategies
 from llm_werewolf.core.prompts.identity import IDENTITY_PROMPTS, format_identity_prompt

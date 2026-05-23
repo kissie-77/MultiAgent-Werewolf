@@ -1,4 +1,4 @@
-"""CLI: analyze vote intention swings from a game directory or JSONL file."""
+"""CLI：从游戏目录或 JSONL 文件分析投票意向摇摆。"""
 
 from pathlib import Path
 
@@ -16,15 +16,15 @@ def main(
     output_dir: str = "",
     print_report: bool = True,
 ) -> str:
-    """Analyze vote_intentions.jsonl (or events.jsonl) and write persuasion reports.
+    """分析 vote_intentions.jsonl（或 events.jsonl）并写入说服效果报告。
 
     Args:
-        source: Game directory, vote_intentions.jsonl, or events.jsonl path.
-        output_dir: Where to write vote_swing_report.md (default: same as source dir).
-        print_report: Print markdown to stdout.
+        source: 游戏目录、vote_intentions.jsonl 或 events.jsonl 路径。
+        output_dir: vote_swing_report.md 的输出目录（默认与 source 同目录）。
+        print_report: 是否将 Markdown 报告打印到 stdout。
 
     Returns:
-        str: Output directory path.
+        str: 输出目录路径。
     """
     out = write_persuasion_artifacts(source, output_dir or None)
     if print_report:

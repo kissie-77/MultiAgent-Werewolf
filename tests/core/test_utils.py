@@ -1,4 +1,4 @@
-"""Tests for core/utils.py."""
+"""core/utils.py 的测试。"""
 
 from pathlib import Path
 

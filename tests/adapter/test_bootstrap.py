@@ -1,4 +1,4 @@
-"""Tests for AgentScope game bootstrap helpers."""
+"""AgentScope 游戏引导辅助函数的测试。"""
 
 from unittest.mock import MagicMock, patch
 

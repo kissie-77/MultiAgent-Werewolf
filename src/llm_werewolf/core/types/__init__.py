@@ -1,4 +1,4 @@
-# Export all enums
+# 导出所有枚举
 from llm_werewolf.core.types.enums import (
     Camp,
     EventType,
@@ -8,7 +8,7 @@ from llm_werewolf.core.types.enums import (
     ActionPriority,
 )
 
-# Export all models
+# 导出所有模型
 from llm_werewolf.core.types.models import (
     Event,
     PlayerInfo,
@@ -17,7 +17,7 @@ from llm_werewolf.core.types.models import (
     VictoryResult,
 )
 
-# Export all protocols
+# 导出所有协议
 from llm_werewolf.core.types.protocols import (
     RoleProtocol,
     AgentProtocol,
@@ -28,14 +28,14 @@ from llm_werewolf.core.types.protocols import (
 from llm_werewolf.core.observation import PlayerObservation
 
 __all__ = [
-    # Enums
+    # 枚举
     "ActionPriority",
-    # Protocols
+    # 协议
     "ActionProtocol",
     "ActionType",
     "AgentProtocol",
     "Camp",
-    # Models
+    # 模型
     "Event",
     "EventType",
     "GamePhase",

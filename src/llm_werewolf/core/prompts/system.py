@@ -1,4 +1,4 @@
-"""System prompt injected for every player (AgentScope / unified prompt track)."""
+"""注入每位玩家的系统提示（AgentScope / 统一提示词轨道）。"""
 
 SYSTEM_PROMPT = """【系统提示】
 你正在参与一局狼人杀。请严格遵守以下通用规则与输出格式。

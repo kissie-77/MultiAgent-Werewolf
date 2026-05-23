@@ -1,10 +1,10 @@
-"""Default Event.visible_to rules (standard werewolf information model)."""
+"""默认 Event.visible_to 规则（标准狼人杀信息模型）。"""
 
 from __future__ import annotations
 
 from llm_werewolf.core.types import EventType
 
-# None = public to all players.
+# None = 对所有玩家公开。
 PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
     EventType.ROLE_ACTING,
     EventType.SEER_CHECKED,
@@ -19,17 +19,17 @@ WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_DISCUSSION,
 })
 
-# Dialogue logged to Event for replay/UI only — LLM decision prompts read these from MsgHub.
+# 对话写入 Event 仅供复盘/UI——LLM 决策提示从 MsgHub 读取。
 HUB_DIALOGUE_EVENT_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_SPEECH,
     EventType.PLAYER_DISCUSSION,
     EventType.SHERIFF_CANDIDATE_SPEECH,
 })
 
-# Alias kept for roundtable call sites.
+# 圆桌调用点的别名。
 ROUNDTABLE_HUB_EVENT_TYPES: frozenset[EventType] = HUB_DIALOGUE_EVENT_TYPES
 
-# Event types where visibility is resolved from data["player_id"] or data["voter_id"].
+# 可见性由 data["player_id"] 或 data["voter_id"] 解析的事件类型。
 ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.ROLE_ACTING: "player_id",
     EventType.SEER_CHECKED: "player_id",
@@ -41,7 +41,7 @@ ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.ERROR: "player_id",
 }
 
-# Cupid link: only cupid knows targets on night 1.
+# 丘比特连结：首夜仅丘比特知晓目标。
 CUPID_ACTOR_KEY = "player_id"
 
 
@@ -51,7 +51,7 @@ def resolve_visible_to(
     *,
     wolf_player_ids: list[str] | None = None,
 ) -> list[str] | None:
-    """Return default visible_to for an event before it is logged."""
+    """在事件写入日志前返回默认的 visible_to。"""
     if event_type in WOLF_TEAM_TYPES:
         return list(wolf_player_ids) if wolf_player_ids else None
 

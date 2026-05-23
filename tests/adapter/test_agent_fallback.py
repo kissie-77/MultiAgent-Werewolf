@@ -1,4 +1,4 @@
-"""Tests for AgentScopeWerewolfAgent fallback responses."""
+"""AgentScopeWerewolfAgent 回退响应的测试。"""
 
 import pytest
 

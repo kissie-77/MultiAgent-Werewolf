@@ -1,4 +1,4 @@
-"""Tests for speech vs seat-only [[...]] parsing."""
+"""发言与仅座位 [[...]] 解析的测试。"""
 
 from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
 import pytest

@@ -1,4 +1,4 @@
-"""Vote intention tracking helpers."""
+"""投票意向追踪辅助函数。"""
 
 from llm_werewolf.core.vote_intention import (
     VoteIntentionEntry,

@@ -6,7 +6,7 @@ from llm_werewolf.core.types import Event, GameStateInfo, PlayerInfo, PlayerProt
 
 
 class PlayerObservation(BaseModel):
-    """Filtered game context visible to a single player."""
+    """单个玩家可见的过滤后游戏上下文。"""
 
     self_player: PlayerInfo = Field(..., description="Public identity and status of the acting player")
     game_state: GameStateInfo = Field(..., description="Public game-state summary")
@@ -25,7 +25,7 @@ class PlayerObservation(BaseModel):
 
 
 def flatten_private_notes(notes: list | None) -> list[str]:
-    """Coerce private_notes to plain strings (EngineContexts may pass nested lists)."""
+    """将 private_notes 规范为纯字符串（EngineContexts 可能传入嵌套列表）。"""
     flat: list[str] = []
     for item in notes or []:
         if isinstance(item, (list, tuple)):
@@ -36,7 +36,7 @@ def flatten_private_notes(notes: list | None) -> list[str]:
 
 
 class ObservationBuilder:
-    """Builds player-specific views under strict information isolation."""
+    """在严格信息隔离下构建玩家专属视图。"""
 
     def build(
         self,

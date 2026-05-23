@@ -14,7 +14,7 @@ from llm_werewolf.core.roles.werewolf import WolfBeauty, BloodMoonApostle
 
 
 class PlayerSnapshot(BaseModel):
-    """Serializable snapshot of a player's state."""
+    """玩家状态的可序列化快照。"""
 
     player_id: str
     name: str
@@ -28,7 +28,7 @@ class PlayerSnapshot(BaseModel):
 
 
 class GameStateSnapshot(BaseModel):
-    """Serializable snapshot of the game state."""
+    """游戏状态的可序列化快照。"""
 
     players: list[PlayerSnapshot]
 
@@ -51,32 +51,32 @@ class GameStateSnapshot(BaseModel):
     nightmare_blocked: str | None = None
     seer_checked: dict[str, str] = Field(default_factory=dict)
 
-    # Voting tracking
+    # 投票追踪
     votes: dict[str, str] = Field(default_factory=dict)
     raven_marked: str | None = None
 
-    # Winner
+    # 获胜方
     winner: str | None = None
 
 
 def _extract_witch_data(role: Witch) -> dict[str, Any]:
-    """Extract Witch role data."""
+    """提取女巫角色数据。"""
     return {"has_save_potion": role.has_save_potion, "has_poison_potion": role.has_poison_potion}
 
 
 def _extract_role_data(player: PlayerProtocol) -> dict[str, Any]:
-    """Extract role-specific data for serialization.
+    """提取角色专属数据以供序列化。
 
     Args:
-        player: The player whose role data to extract.
+        player: 要提取角色数据的玩家。
 
     Returns:
-        dict[str, Any]: Role-specific data.
+        dict[str, Any]: 角色专属数据。
     """
     role = player.role
     role_data: dict[str, Any] = {}
 
-    # Use dictionary mapping for simpler roles
+    # 使用字典映射处理较简单的角色
     simple_extractors = {
         Guard: lambda r: {"last_protected": r.last_protected},
         Elder: lambda r: {"lives": r.lives},
@@ -89,11 +89,11 @@ def _extract_role_data(player: PlayerProtocol) -> dict[str, Any]:
         Thief: lambda r: {"has_chosen": r.has_chosen},
     }
 
-    # Special handling for Witch
+    # 女巫需特殊处理
     if isinstance(role, Witch):
         return _extract_witch_data(role)
 
-    # Check simple extractors
+    # 检查简单提取器
     for role_class, extractor in simple_extractors.items():
         if isinstance(role, role_class):
             return extractor(role)
@@ -102,13 +102,13 @@ def _extract_role_data(player: PlayerProtocol) -> dict[str, Any]:
 
 
 def serialize_player(player: PlayerProtocol) -> PlayerSnapshot:
-    """Serialize a player to a snapshot.
+    """将玩家序列化为快照。
 
     Args:
-        player: The player to serialize.
+        player: 要序列化的玩家。
 
     Returns:
-        PlayerSnapshot: Serialized player data.
+        PlayerSnapshot: 序列化后的玩家数据。
     """
     return PlayerSnapshot(
         player_id=player.player_id,
@@ -124,13 +124,13 @@ def serialize_player(player: PlayerProtocol) -> PlayerSnapshot:
 
 
 def serialize_game_state(game_state: GameStateProtocol) -> GameStateSnapshot:
-    """Serialize a game state to a snapshot.
+    """将游戏状态序列化为快照。
 
     Args:
-        game_state: The game state to serialize.
+        game_state: 要序列化的游戏状态。
 
     Returns:
-        GameStateSnapshot: Serialized game state data.
+        GameStateSnapshot: 序列化后的游戏状态数据。
     """
     return GameStateSnapshot(
         players=[serialize_player(p) for p in game_state.players],
@@ -157,11 +157,11 @@ def serialize_game_state(game_state: GameStateProtocol) -> GameStateSnapshot:
 
 
 def save_game_state(game_state: GameStateProtocol, file_path: str | Path) -> None:
-    """Save game state to a JSON file.
+    """将游戏状态保存到 JSON 文件。
 
     Args:
-        game_state: The game state to save.
-        file_path: Path to the save file.
+        game_state: 要保存的游戏状态。
+        file_path: 存档文件路径。
     """
     snapshot = serialize_game_state(game_state)
     path = Path(file_path)
@@ -172,17 +172,17 @@ def save_game_state(game_state: GameStateProtocol, file_path: str | Path) -> Non
 
 
 def load_game_state_snapshot(file_path: str | Path) -> GameStateSnapshot:
-    """Load a game state snapshot from a JSON file.
+    """从 JSON 文件加载游戏状态快照。
 
     Args:
-        file_path: Path to the save file.
+        file_path: 存档文件路径。
 
     Returns:
-        GameStateSnapshot: The loaded game state snapshot.
+        GameStateSnapshot: 加载的游戏状态快照。
 
     Note:
-        This only loads the snapshot. To restore a full GameState with agents,
-        you need to use restore_game_state() which requires agent factory.
+        此函数仅加载快照。要恢复包含 agent 的完整 GameState，
+        需使用 restore_game_state() 并提供 agent 工厂。
     """
     path = Path(file_path)
 
@@ -193,21 +193,21 @@ def load_game_state_snapshot(file_path: str | Path) -> GameStateSnapshot:
 
 
 def _restore_witch_data(role: Witch, role_data: dict[str, Any]) -> None:
-    """Restore Witch role data."""
+    """恢复女巫角色数据。"""
     role.has_save_potion = role_data.get("has_save_potion", True)
     role.has_poison_potion = role_data.get("has_poison_potion", True)
 
 
 def _restore_role_data(player: Player, role_data: dict[str, Any]) -> None:
-    """Restore role-specific data to a player's role.
+    """将角色专属数据恢复到玩家角色上。
 
     Args:
-        player: The player whose role to restore.
-        role_data: The role-specific data to restore.
+        player: 要恢复角色的玩家。
+        role_data: 要恢复的角色专属数据。
     """
     role = player.role
 
-    # Use dictionary mapping for simpler roles
+    # 使用字典映射处理较简单的角色
     simple_restorers = {
         Guard: lambda r, d: setattr(r, "last_protected", d.get("last_protected")),
         Elder: lambda r, d: setattr(r, "lives", d.get("lives", 2)),
@@ -220,12 +220,12 @@ def _restore_role_data(player: Player, role_data: dict[str, Any]) -> None:
         Thief: lambda r, d: setattr(r, "has_chosen", d.get("has_chosen", False)),
     }
 
-    # Special handling for Witch
+    # 女巫需特殊处理
     if isinstance(role, Witch):
         _restore_witch_data(role, role_data)
         return
 
-    # Check simple restorers
+    # 检查简单恢复器
     for role_class, restorer in simple_restorers.items():
         if isinstance(role, role_class):
             restorer(role, role_data)
@@ -233,32 +233,32 @@ def _restore_role_data(player: Player, role_data: dict[str, Any]) -> None:
 
 
 def _restore_players(snapshot: GameStateSnapshot, agent_factory: dict[str, Any]) -> list[Player]:
-    """Restore players from snapshot.
+    """从快照恢复玩家。
 
     Args:
-        snapshot: The game state snapshot.
-        agent_factory: Dictionary mapping player_id to agent instances.
+        snapshot: 游戏状态快照。
+        agent_factory: 玩家 ID 到 agent 实例的映射字典。
 
     Returns:
-        list[Player]: List of restored players.
+        list[Player]: 恢复后的玩家列表。
 
     Raises:
-        ValueError: If an unknown role is encountered.
+        ValueError: 遇到未知角色时抛出。
     """
     players: list[Player] = []
     role_map = get_role_map()
 
     for p_snap in snapshot.players:
-        # Get role class from registry
+        # 从注册表获取角色类
         role_class = role_map.get(p_snap.role_name)
         if not role_class:
             msg = f"Unknown role: {p_snap.role_name}"
             raise ValueError(msg)
 
-        # Get agent for this player (if available)
+        # 获取该玩家的 agent（若有）
         agent = agent_factory.get(p_snap.player_id)
 
-        # Create player
+        # 创建玩家
         player = Player(
             player_id=p_snap.player_id,
             name=p_snap.name,
@@ -267,7 +267,7 @@ def _restore_players(snapshot: GameStateSnapshot, agent_factory: dict[str, Any])
             ai_model=p_snap.ai_model,
         )
 
-        # Restore player state
+        # 恢复玩家状态
         if not p_snap.is_alive:
             player.kill()
 
@@ -275,7 +275,7 @@ def _restore_players(snapshot: GameStateSnapshot, agent_factory: dict[str, Any])
         player.lover_partner_id = p_snap.lover_partner_id
         player.can_vote_flag = p_snap.can_vote_flag
 
-        # Restore role-specific data
+        # 恢复角色专属数据
         _restore_role_data(player, p_snap.role_data)
 
         players.append(player)
@@ -284,11 +284,11 @@ def _restore_players(snapshot: GameStateSnapshot, agent_factory: dict[str, Any])
 
 
 def _restore_game_state_fields(game_state: GameState, snapshot: GameStateSnapshot) -> None:
-    """Restore game state fields from snapshot.
+    """从快照恢复游戏状态字段。
 
     Args:
-        game_state: The game state to restore fields to.
-        snapshot: The snapshot containing the fields to restore.
+        game_state: 要恢复字段的游戏状态。
+        snapshot: 包含待恢复字段的快照。
     """
     game_state.phase = GamePhase(snapshot.phase)
     game_state.round_number = snapshot.round_number
@@ -318,28 +318,28 @@ def _restore_game_state_fields(game_state: GameState, snapshot: GameStateSnapsho
 def restore_game_state(
     snapshot: GameStateSnapshot, agent_factory: dict[str, Any] | None = None
 ) -> GameState:
-    """Restore a GameState from a snapshot.
+    """从快照恢复 GameState。
 
     Args:
-        snapshot: The game state snapshot.
-        agent_factory: Optional dictionary mapping player_id to agent instances. If not provided, players will have no agents.
+        snapshot: 游戏状态快照。
+        agent_factory: 可选，玩家 ID 到 agent 实例的映射字典。未提供时玩家将没有 agent。
 
     Returns:
-        GameState: The restored game state.
+        GameState: 恢复后的游戏状态。
 
     Note:
-        Agents cannot be serialized, so they must be recreated manually.
-        Pass a dictionary mapping player_id to agent instances to restore agents.
+        Agent 无法序列化，需手动重建。
+        传入 player_id 到 agent 实例的映射以恢复 agent。
     """
     agent_factory = agent_factory or {}
 
-    # Restore players
+    # 恢复玩家
     players = _restore_players(snapshot, agent_factory)
 
-    # Create game state
+    # 创建游戏状态
     game_state = GameState(players)
 
-    # Restore game state fields
+    # 恢复游戏状态字段
     _restore_game_state_fields(game_state, snapshot)
 
     return game_state
@@ -348,14 +348,14 @@ def restore_game_state(
 def load_game_state(
     file_path: str | Path, agent_factory: dict[str, Any] | None = None
 ) -> GameState:
-    """Load a game state from a JSON file.
+    """从 JSON 文件加载游戏状态。
 
     Args:
-        file_path: Path to the save file.
-        agent_factory: Optional dictionary mapping player_id to agent instances.
+        file_path: 存档文件路径。
+        agent_factory: 可选，玩家 ID 到 agent 实例的映射字典。
 
     Returns:
-        GameState: The restored game state.
+        GameState: 恢复后的游戏状态。
     """
     snapshot = load_game_state_snapshot(file_path)
     return restore_game_state(snapshot, agent_factory)

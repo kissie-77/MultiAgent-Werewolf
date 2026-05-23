@@ -1,4 +1,4 @@
-"""Tests for core/victory.py module."""
+"""core/victory.py 模块的测试。"""
 
 from llm_werewolf.core.roles import Seer, Witch, Villager, Werewolf
 from llm_werewolf.core.player import Player
@@ -7,19 +7,19 @@ from llm_werewolf.core.game_state import GameState
 
 
 class TestVictoryChecker:
-    """Tests for VictoryChecker class."""
+    """VictoryChecker 类的测试。"""
 
     def create_mock_player(
         self, player_id: str, name: str, role_class: type, is_alive: bool = True
     ) -> Player:
-        """Create a mock player for testing."""
+        """创建用于测试的模拟玩家。"""
         player = Player(player_id=player_id, name=name, role=role_class)
         if not is_alive:
             player.kill()
         return player
 
     def test_werewolf_victory_equal_numbers(self) -> None:
-        """Test werewolves win when equal to villagers."""
+        """测试狼人数量等于村民时获胜。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("w2", "Wolf2", Werewolf),
@@ -39,7 +39,7 @@ class TestVictoryChecker:
         assert "equal or outnumber villagers" in result.reason
 
     def test_werewolf_victory_outnumber(self) -> None:
-        """Test werewolves win when outnumber villagers."""
+        """测试狼人数量超过村民时获胜。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("w2", "Wolf2", Werewolf),
@@ -55,7 +55,7 @@ class TestVictoryChecker:
         assert len(result.winner_ids) == 2
 
     def test_werewolf_not_won_yet(self) -> None:
-        """Test werewolves have not won yet."""
+        """测试狼人尚未获胜。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -71,7 +71,7 @@ class TestVictoryChecker:
         assert "have not won" in result.reason
 
     def test_werewolf_all_dead(self) -> None:
-        """Test werewolves cannot win if all dead."""
+        """测试狼人全部死亡时无法获胜。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf, is_alive=False),
             self.create_mock_player("w2", "Wolf2", Werewolf, is_alive=False),
@@ -85,7 +85,7 @@ class TestVictoryChecker:
         assert result.has_winner is False
 
     def test_villager_victory_all_werewolves_dead(self) -> None:
-        """Test villagers win when all werewolves are dead."""
+        """测试所有狼人死亡时村民获胜。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf, is_alive=False),
             self.create_mock_player("w2", "Wolf2", Werewolf, is_alive=False),
@@ -107,7 +107,7 @@ class TestVictoryChecker:
         assert "eliminated" in result.reason
 
     def test_villager_not_won_yet(self) -> None:
-        """Test villagers have not won yet."""
+        """测试村民尚未获胜。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -122,14 +122,14 @@ class TestVictoryChecker:
         assert "have not won" in result.reason
 
     def test_lover_victory(self) -> None:
-        """Test lovers win when only they remain."""
+        """测试仅情侣存活时情侣获胜。"""
         players = [
             self.create_mock_player("p1", "Player1", Villager),
             self.create_mock_player("p2", "Player2", Werewolf),
             self.create_mock_player("p3", "Player3", Villager, is_alive=False),
             self.create_mock_player("p4", "Player4", Werewolf, is_alive=False),
         ]
-        # Set lovers
+        # 设置情侣
         players[0].set_lover("p2")
         players[1].set_lover("p1")
 
@@ -146,13 +146,13 @@ class TestVictoryChecker:
         assert "only the lovers remain" in result.reason.lower()
 
     def test_lover_not_won_more_alive(self) -> None:
-        """Test lovers have not won when more than 2 alive."""
+        """测试存活超过 2 人时情侣未获胜。"""
         players = [
             self.create_mock_player("p1", "Player1", Villager),
             self.create_mock_player("p2", "Player2", Werewolf),
             self.create_mock_player("p3", "Player3", Villager),
         ]
-        # Set lovers
+        # 设置情侣
         players[0].set_lover("p2")
         players[1].set_lover("p1")
 
@@ -164,13 +164,13 @@ class TestVictoryChecker:
         assert result.has_winner is False
 
     def test_lover_not_won_one_dead(self) -> None:
-        """Test lovers have not won when one lover is dead."""
+        """测试一方情侣死亡时情侣未获胜。"""
         players = [
             self.create_mock_player("p1", "Player1", Villager),
             self.create_mock_player("p2", "Player2", Werewolf, is_alive=False),
             self.create_mock_player("p3", "Player3", Villager),
         ]
-        # Set lovers
+        # 设置情侣
         players[0].set_lover("p2")
         players[1].set_lover("p1")
 
@@ -182,13 +182,13 @@ class TestVictoryChecker:
         assert result.has_winner is False
 
     def test_check_victory_priority_lover_first(self) -> None:
-        """Test that lover victory is checked first."""
+        """测试优先检查情侣胜利。"""
         players = [
             self.create_mock_player("p1", "Player1", Villager),
             self.create_mock_player("p2", "Player2", Werewolf),
             self.create_mock_player("p3", "Player3", Villager, is_alive=False),
         ]
-        # Set lovers
+        # 设置情侣
         players[0].set_lover("p2")
         players[1].set_lover("p1")
 
@@ -197,12 +197,12 @@ class TestVictoryChecker:
 
         result = checker.check_victory()
 
-        # Lovers should win even though werewolves could also win
+        # 即使狼人也可获胜，情侣仍应获胜
         assert result.has_winner is True
         assert result.winner_camp == "lover"
 
     def test_check_victory_werewolf_wins(self) -> None:
-        """Test check_victory returns werewolf victory."""
+        """测试 check_victory 返回狼人胜利。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("w2", "Wolf2", Werewolf),
@@ -217,7 +217,7 @@ class TestVictoryChecker:
         assert result.winner_camp == "werewolf"
 
     def test_check_victory_villager_wins(self) -> None:
-        """Test check_victory returns villager victory."""
+        """测试 check_victory 返回村民胜利。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf, is_alive=False),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -232,7 +232,7 @@ class TestVictoryChecker:
         assert result.winner_camp == "villager"
 
     def test_check_victory_no_winner(self) -> None:
-        """Test check_victory returns no winner when game continues."""
+        """测试游戏继续时 check_victory 无胜者。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -248,7 +248,7 @@ class TestVictoryChecker:
         assert "continues" in result.reason
 
     def test_check_special_victory(self) -> None:
-        """Test check_special_victory always returns no winner."""
+        """测试 check_special_victory 始终无胜者。"""
         players = [self.create_mock_player("p1", "Player1", Villager)]
         game_state = GameState(players=players)
         checker = VictoryChecker(game_state)
@@ -259,7 +259,7 @@ class TestVictoryChecker:
         assert "special" in result.reason.lower()
 
     def test_get_winner(self) -> None:
-        """Test get_winner delegates to check_victory."""
+        """测试 get_winner 委托给 check_victory。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf, is_alive=False),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -273,7 +273,7 @@ class TestVictoryChecker:
         assert result.winner_camp == "villager"
 
     def test_is_game_over_true(self) -> None:
-        """Test is_game_over returns True when there's a winner."""
+        """测试有胜者时 is_game_over 返回 True。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf, is_alive=False),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -284,7 +284,7 @@ class TestVictoryChecker:
         assert checker.is_game_over() is True
 
     def test_is_game_over_false(self) -> None:
-        """Test is_game_over returns False when game continues."""
+        """测试游戏继续时 is_game_over 返回 False。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -296,7 +296,7 @@ class TestVictoryChecker:
         assert checker.is_game_over() is False
 
     def test_get_winning_players(self) -> None:
-        """Test get_winning_players returns correct players."""
+        """测试 get_winning_players 返回正确玩家。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf, is_alive=False),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -312,7 +312,7 @@ class TestVictoryChecker:
         assert winning_players[1].player_id in ["v1", "v2"]
 
     def test_get_winning_players_no_winner(self) -> None:
-        """Test get_winning_players returns empty list when no winner."""
+        """测试无胜者时 get_winning_players 返回空列表。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -326,7 +326,7 @@ class TestVictoryChecker:
         assert len(winning_players) == 0
 
     def test_get_losing_players(self) -> None:
-        """Test get_losing_players returns correct players."""
+        """测试 get_losing_players 返回正确玩家。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf, is_alive=False),
             self.create_mock_player("v1", "Villager1", Villager),
@@ -341,7 +341,7 @@ class TestVictoryChecker:
         assert losing_players[0].player_id == "w1"
 
     def test_get_losing_players_no_winner(self) -> None:
-        """Test get_losing_players returns empty list when no winner."""
+        """测试无胜者时 get_losing_players 返回空列表。"""
         players = [
             self.create_mock_player("w1", "Wolf1", Werewolf),
             self.create_mock_player("v1", "Villager1", Villager),

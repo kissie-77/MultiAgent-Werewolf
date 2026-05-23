@@ -1,4 +1,4 @@
-"""Maps action types to night priority and event logging handlers."""
+"""将动作类型映射到夜间优先级与事件日志处理器。"""
 
 from __future__ import annotations
 
@@ -22,5 +22,5 @@ ACTION_PRIORITY_BY_CLASS: dict[str, int] = {
 
 
 def get_action_priority(action_class_name: str) -> int:
-    """Return night execution priority for an action class name."""
+    """返回动作类名对应的夜间执行优先级。"""
     return ACTION_PRIORITY_BY_CLASS.get(action_class_name, 0)

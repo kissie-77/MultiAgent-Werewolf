@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class Camp(str, Enum):
-    """Enum representing the different camps in the game."""
+    """表示游戏中各阵营的枚举。"""
 
     WEREWOLF = "werewolf"
     VILLAGER = "villager"
@@ -10,7 +10,7 @@ class Camp(str, Enum):
 
 
 class VictoryGoal(str, Enum):
-    """Win condition category for role definitions."""
+    """角色定义中的胜利条件类别。"""
 
     WEREWOLF_PARITY = "werewolf_parity"
     VILLAGER_ELIMINATE_WEREWOLVES = "villager_eliminate_werewolves"
@@ -21,13 +21,13 @@ class VictoryGoal(str, Enum):
 
 
 class ActionPriority(int, Enum):
-    """Enum representing the priority order of night actions.
+    """表示夜间行动优先级的枚举。
 
-    Higher number = higher priority (executes first).
+    数值越大优先级越高（越先执行）。
     """
 
     CUPID = 100
-    NIGHTMARE_WOLF = 98  # Must act before other roles to block them
+    NIGHTMARE_WOLF = 98  # 须在其他角色之前行动以封印其技能
     THIEF = 95
     GUARD = 90
     WEREWOLF = 80
@@ -39,7 +39,7 @@ class ActionPriority(int, Enum):
 
 
 class GamePhase(str, Enum):
-    """Enum representing the different phases of the game."""
+    """表示游戏各阶段的枚举。"""
 
     SETUP = "setup"
     NIGHT = "night"
@@ -50,7 +50,7 @@ class GamePhase(str, Enum):
 
 
 class PlayerStatus(str, Enum):
-    """Enum representing special statuses a player can have."""
+    """表示玩家可拥有的特殊状态的枚举。"""
 
     ALIVE = "alive"
     DEAD = "dead"
@@ -67,7 +67,7 @@ class PlayerStatus(str, Enum):
 
 
 class ActionType(str, Enum):
-    """Enum representing different types of actions."""
+    """表示各类行动类型的枚举。"""
 
     WEREWOLF_KILL = "werewolf_kill"
     WITCH_SAVE = "witch_save"
@@ -94,7 +94,7 @@ class ActionType(str, Enum):
 
 
 class EventType(str, Enum):
-    """Enum representing different types of game events."""
+    """表示各类游戏事件类型的枚举。"""
 
     GAME_STARTED = "game_started"
     GAME_ENDED = "game_ended"

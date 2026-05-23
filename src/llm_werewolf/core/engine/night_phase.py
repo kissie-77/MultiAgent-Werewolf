@@ -1,4 +1,4 @@
-"""Night phase logic for the game engine."""
+"""游戏引擎的夜晚阶段逻辑。"""
 
 import random
 from typing import TYPE_CHECKING
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class NightPhaseMixin:
-    """Mixin for handling night phase logic."""
+    """处理夜晚阶段逻辑的 Mixin。"""
 
     game_state: GameState | None
     locale: Locale
@@ -29,7 +29,7 @@ class NightPhaseMixin:
     build_shared_observation: Callable
 
     def _build_werewolf_discussion_context(self, werewolf: PlayerProtocol) -> str:
-        """Static wolf context; in-round pack chat uses MsgHub memory."""
+        """静态狼队上下文；局内狼队频道讨论使用 MsgHub 记忆。"""
         if not self.game_state:
             return ""
 
@@ -81,7 +81,7 @@ class NightPhaseMixin:
         )
 
     async def _run_werewolf_discussion(self) -> list[str]:
-        """Werewolf pack discussion via Hub; only wolves hear (engine-routed)."""
+        """经 Hub 进行狼队讨论；仅狼人可听（引擎路由）。"""
         if not self.game_state:
             return []
 
@@ -156,13 +156,18 @@ class NightPhaseMixin:
         return messages
 
     def _resolve_werewolf_votes(self) -> list[str]:
-        """Resolve werewolf voting to determine kill target."""
+        """结算狼队投票以确定刀口目标。"""
         if not self.game_state:
             return []
 
         messages: list[str] = []
 
         if not self.game_state.werewolf_votes:
+            self._log_event(
+                EventType.MESSAGE,
+                self.locale.get("werewolf_no_votes", round_number=self.game_state.round_number),
+                data={"action": "werewolf_no_votes", "round": self.game_state.round_number},
+            )
             return messages
 
         vote_counts: dict[str, int] = {}
@@ -187,7 +192,7 @@ class NightPhaseMixin:
         return messages
 
     async def run_night_phase(self) -> list[str]:
-        """Execute the night phase where roles perform actions."""
+        """执行夜晚阶段，各角色依次行动。"""
         if not self.game_state:
             msg = "Game not initialized"
             raise RuntimeError(msg)
@@ -209,9 +214,6 @@ class NightPhaseMixin:
 
         messages.append("")
 
-        discussion_messages = await self._run_werewolf_discussion()
-        messages.extend(discussion_messages)
-
         def _log_role_acting(player: PlayerProtocol) -> None:
             role_name = player.get_role_name()
             self._log_event(
@@ -228,8 +230,13 @@ class NightPhaseMixin:
             log_role_acting=_log_role_acting,
         )
 
+        # 先执行预狼阶段（梦魇狼在讨论前封锁技能）
         pre_wolf_actions = await scheduler.run_pre_wolf_phase()
         messages.extend(self.process_actions(pre_wolf_actions))
+
+        # 预狼行动结束后再进行狼队讨论
+        discussion_messages = await self._run_werewolf_discussion()
+        messages.extend(discussion_messages)
 
         wolf_vote_actions = await scheduler.run_wolf_vote_phase()
         messages.extend(self.process_actions(wolf_vote_actions))

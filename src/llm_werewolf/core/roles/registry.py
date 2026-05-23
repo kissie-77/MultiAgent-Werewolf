@@ -1,4 +1,4 @@
-"""Role registry backed by declarative role catalog."""
+"""基于声明式角色目录的角色注册表。"""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from llm_werewolf.core.types.enums import Camp
 
 
 class _ConfigProbe:
-    """Minimal player stand-in to read Role.config.name without a full game."""
+    """用于在无完整对局时读取 Role.config.name 的最小玩家占位。"""
 
     player_id = "_probe"
 
@@ -19,12 +19,12 @@ class _ConfigProbe:
 
 
 def get_role_map() -> dict[str, type[Role]]:
-    """Map registry name -> Role class (from definition implementation paths)."""
+    """映射注册表名称 -> 角色类（来自定义中的实现路径）。"""
     return {d.name: role_class_from_definition(d) for d in ROLE_CATALOG}
 
 
 def runtime_role_name(catalog_name: str) -> str:
-    """Map catalog registry name (e.g. AlphaWolf) to Role.config.name (e.g. Alpha Wolf)."""
+    """将目录注册名（如 AlphaWolf）映射为 Role.config.name（如 Alpha Wolf）。"""
     role_cls = get_role_map()[catalog_name]
     return role_cls(_ConfigProbe()).name  # type: ignore[arg-type]
 
@@ -37,17 +37,17 @@ CATALOG_TO_RUNTIME_NAME: dict[str, str] = build_catalog_to_runtime_map()
 
 
 def get_role_definitions() -> list[RoleDefinition]:
-    """Return all registered role definitions."""
+    """返回所有已注册的角色定义。"""
     return list(ROLE_CATALOG)
 
 
 def get_role_definition(name: str) -> RoleDefinition:
-    """Get definition by registry name."""
+    """按注册表名称获取定义。"""
     return get_definition(name)
 
 
 def get_werewolf_roles() -> set[str]:
-    """Runtime role names (Role.config.name) for werewolf-camp roles."""
+    """狼人阵营的运行时角色名（Role.config.name）集合。"""
     return {
         CATALOG_TO_RUNTIME_NAME[d.name]
         for d in ROLE_CATALOG
@@ -56,7 +56,7 @@ def get_werewolf_roles() -> set[str]:
 
 
 def validate_role_names(role_names: list[str]) -> None:
-    """Validate role names and ensure at least one werewolf."""
+    """校验角色名称并确保至少有一名狼人。"""
     role_map = get_role_map()
 
     for role_name in role_names:
@@ -73,7 +73,7 @@ def validate_role_names(role_names: list[str]) -> None:
 
 
 def create_roles(role_names: list[str]) -> list[type[Role]]:
-    """Create Role class list from registry names."""
+    """根据注册表名称列表创建角色类列表。"""
     role_map = get_role_map()
     roles: list[type[Role]] = []
 

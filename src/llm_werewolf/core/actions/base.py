@@ -4,41 +4,41 @@ from llm_werewolf.core.types import ActionType, PlayerProtocol, GameStateProtoco
 
 
 class Action(ABC):
-    """Abstract base class for all game actions."""
+    """所有游戏行动的抽象基类。"""
 
     def __init__(self, actor: PlayerProtocol, game_state: GameStateProtocol) -> None:
-        """Initialize the action.
+        """初始化行动。
 
         Args:
-            actor: The player performing the action.
-            game_state: The current game state.
+            actor: 执行行动的玩家。
+            game_state: 当前游戏状态。
         """
         self.actor = actor
         self.game_state = game_state
 
     @abstractmethod
     def get_action_type(self) -> ActionType:
-        """Get the type of this action.
+        """获取本行动的类型。
 
         Returns:
-            ActionType: The action type.
+            ActionType: 行动类型。
         """
         pass
 
     @abstractmethod
     def validate(self) -> bool:
-        """Validate if the action can be performed.
+        """校验行动是否可以执行。
 
         Returns:
-            bool: True if the action is valid.
+            bool: 合法则为 True。
         """
         pass
 
     @abstractmethod
     def execute(self) -> list[str]:
-        """Execute the action.
+        """执行行动。
 
         Returns:
-            list[str]: Messages describing the action results.
+            list[str]: 描述行动结果的消息列表。
         """
         pass

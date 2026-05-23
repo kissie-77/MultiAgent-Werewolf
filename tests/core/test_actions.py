@@ -1,4 +1,4 @@
-"""Tests for core/actions modules."""
+"""core/actions 模块的测试。"""
 
 from llm_werewolf.core.actions.villager import SeerCheckAction, WitchPoisonAction, WitchSaveAction
 from llm_werewolf.core.actions.werewolf import WerewolfVoteAction

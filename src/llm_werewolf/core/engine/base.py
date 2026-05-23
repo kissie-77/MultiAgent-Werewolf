@@ -26,14 +26,14 @@ console = Console()
 
 
 class GameEngineBase:
-    """Base game engine class with core functionality."""
+    """游戏引擎基类，提供核心功能。"""
 
     def __init__(self, config: GameConfig | None = None, language: str = "en-US") -> None:
-        """Initialize the game engine.
+        """初始化游戏引擎。
 
         Args:
-            config: Game configuration.
-            language: Language code for localization (en-US, zh-TW, zh-CN).
+            config: 游戏配置。
+            language: 本地化语言代码（en-US、zh-TW、zh-CN）。
         """
         self.config = config
         self.game_state: GameState | None = None
@@ -41,7 +41,7 @@ class GameEngineBase:
         self.victory_checker: VictoryChecker | None = None
         self.locale = Locale(language)
         self.observation_builder = ObservationBuilder()
-        self._last_phase: str = ""  # Track phase changes for separators
+        self._last_phase: str = ""  # 跟踪阶段变化以输出分隔符
 
         self.information_hub = InformationHub()
         self.phase_interaction = PhaseInteraction(self.information_hub)
@@ -49,14 +49,14 @@ class GameEngineBase:
         self.on_event: Callable[[Event], None] = self._default_print_event
 
     def _default_print_event(self, event: Event) -> None:
-        """Default event handler that prints to console.
+        """默认事件处理器，将事件打印到控制台。
 
-        This can be overridden by TUI or other interfaces.
+        可被 TUI 或其他界面覆盖。
 
         Args:
-            event: The game event to display.
+            event: 要显示的游戏事件。
         """
-        # Print phase separator when phase changes
+        # 阶段变化时打印阶段分隔符
         if event.phase != self._last_phase and event.event_type == EventType.PHASE_CHANGED:
             if "night" in event.phase.lower():
                 console.print(f"\n{self.locale.get('night_separator')}")
@@ -68,16 +68,16 @@ class GameEngineBase:
                 console.print(f"\n{self.locale.get('day_separator')}")
             self._last_phase = event.phase
 
-        # Use the centralized event formatter (without timestamp for CLI)
+        # 使用集中式事件格式化器（CLI 不包含时间戳）
         formatted_text = EventFormatter.format_event(event, include_timestamp=False)
         console.print(formatted_text)
 
     def setup_game(self, players: list[AgentProtocol], roles: list[RoleProtocol]) -> None:
-        """Initialize the game with players and roles.
+        """使用玩家和角色初始化游戏。
 
         Args:
-            players: List of agent instances with name and model attributes.
-            roles: List of role instances to assign.
+            players: 具有 name 和 model 属性的 agent 实例列表。
+            roles: 要分配的角色实例列表。
         """
         if len(players) != len(roles):
             msg = f"Number of players ({len(players)}) must match number of roles ({len(roles)})"
@@ -126,10 +126,10 @@ class GameEngineBase:
         )
 
     def assign_roles(self) -> dict[str, str]:
-        """Assign roles to players (already done in setup_game).
+        """为玩家分配角色（已在 setup_game 中完成）。
 
         Returns:
-            dict[str, str]: Mapping of player_id to role_name.
+            dict[str, str]: player_id 到 role_name 的映射。
         """
         if not self.game_state:
             msg = "Game not initialized"
@@ -138,10 +138,10 @@ class GameEngineBase:
         return {p.player_id: p.get_role_name() for p in self.game_state.players}
 
     def check_victory(self) -> bool:
-        """Check if any victory condition is met.
+        """检查是否满足任一胜利条件。
 
         Returns:
-            bool: True if the game has ended.
+            bool: 若游戏已结束则为 True。
         """
         if not self.victory_checker:
             return False
@@ -168,7 +168,7 @@ class GameEngineBase:
         return False
 
     def _log_vote_intention_record(self, record: object) -> None:
-        """Log speech-linked vote intention deltas for replay analysis."""
+        """记录与发言关联的投票意向变化，供回放分析。"""
         from llm_werewolf.core.vote_intention import (
             SpeechVoteIntentionRecord,
             format_intentions_line,
@@ -198,13 +198,13 @@ class GameEngineBase:
         data: dict | None = None,
         visible_to: list[str] | None = None,
     ) -> None:
-        """Log an event and notify listeners.
+        """记录事件并通知监听者。
 
         Args:
-            event_type: Type of the event.
-            message: Event message.
-            data: Additional event data.
-            visible_to: List of player IDs who can see this event.
+            event_type: 事件类型。
+            message: 事件消息。
+            data: 附加事件数据。
+            visible_to: 可查看此事件的玩家 ID 列表。
         """
         if not self.game_state:
             return
@@ -239,10 +239,10 @@ class GameEngineBase:
         *,
         for_agent_decision: bool = False,
     ) -> str:
-        """Build a filtered prompt context for a single player.
+        """为单个玩家构建过滤后的提示上下文。
 
-        When ``for_agent_decision`` is True, dialogue events are omitted from the
-        event block; speeches are expected in MsgHub / ReAct memory instead.
+        当 ``for_agent_decision`` 为 True 时，对话事件会从事件块中省略；
+        发言内容应通过 MsgHub / ReAct 记忆提供。
         """
         if not self.game_state:
             return ""
@@ -282,7 +282,7 @@ class GameEngineBase:
         *,
         for_agent_decision: bool = False,
     ) -> str:
-        """Build filtered context that is safe to share across a player group."""
+        """构建可在玩家组间安全共享的过滤上下文。"""
         if not self.game_state or not players:
             return ""
 
@@ -313,26 +313,26 @@ class GameEngineBase:
         )
 
     def get_game_state(self) -> GameState | None:
-        """Get the current game state.
+        """获取当前游戏状态。
 
         Returns:
-            GameState | None: The game state.
+            GameState | None: 游戏状态。
         """
         return self.game_state
 
     def get_events(self) -> list[Event]:
-        """Get all game events.
+        """获取所有游戏事件。
 
         Returns:
-            list[Event]: List of events.
+            list[Event]: 事件列表。
         """
         return self.event_logger.events
 
     async def play_game(self) -> str:
-        """Run the main game loop.
+        """运行主游戏循环。
 
         Returns:
-            str: The final game result.
+            str: 最终游戏结果。
         """
         if not self.game_state:
             return "Game not initialized"
@@ -345,24 +345,24 @@ class GameEngineBase:
             if self.check_victory():
                 break
 
-            # Sheriff election (only on first day)
+            # 警长选举（仅第一天）
             if self.game_state.round_number == 1 and not self.game_state.sheriff_election_done:
-                self.game_state.next_phase()  # Move to SHERIFF_ELECTION
+                self.game_state.next_phase()  # 进入 SHERIFF_ELECTION
                 await self.execute_sheriff_election()
 
             if self.check_victory():
                 break
 
-            self.game_state.next_phase()  # Move to DAY_DISCUSSION
+            self.game_state.next_phase()  # 进入 DAY_DISCUSSION
             await self.run_day_phase()
 
-            self.game_state.next_phase()  # Move to DAY_VOTING
+            self.game_state.next_phase()  # 进入 DAY_VOTING
             await self.run_voting_phase()
 
             if self.check_victory():
                 break
 
-            self.game_state.next_phase()  # Move to next NIGHT
+            self.game_state.next_phase()  # 进入下一 NIGHT
 
         if self.game_state.winner:
             return self.locale.get("game_over", winner=self.game_state.winner)
@@ -370,7 +370,7 @@ class GameEngineBase:
         return self.locale.get("game_ended", winner="unknown", reason="")
 
     async def step(self) -> list[str]:
-        """Execute one step of the game (one phase)."""
+        """执行游戏的一步（一个阶段）。"""
         if not self.game_state:
             return ["Game not initialized"]
 
@@ -405,13 +405,13 @@ class GameEngineBase:
         return phase_messages
 
     def save_game(self, file_path: str | Path) -> None:
-        """Save the current game state to a file.
+        """将当前游戏状态保存到文件。
 
         Args:
-            file_path: Path to save the game state.
+            file_path: 保存游戏状态的路径。
 
         Raises:
-            RuntimeError: If game is not initialized.
+            RuntimeError: 游戏未初始化时抛出。
         """
         if not self.game_state:
             msg = "Game not initialized"
@@ -422,16 +422,16 @@ class GameEngineBase:
     def load_game(
         self, file_path: str | Path, agent_factory: dict[str, Any] | None = None
     ) -> None:
-        """Load a game state from a file.
+        """从文件加载游戏状态。
 
         Args:
-            file_path: Path to load the game state from.
-            agent_factory: Optional dictionary mapping player_id to agent instances.
-                          If not provided, players will have no agents.
+            file_path: 加载游戏状态的路径。
+            agent_factory: 可选字典，将 player_id 映射到 agent 实例。
+                          若未提供，玩家将没有 agent。
 
         Note:
-            Agents cannot be serialized, so they must be recreated manually.
-            Pass a dictionary mapping player_id to agent instances to restore agents.
+            Agent 无法序列化，需手动重新创建。
+            传入 player_id 到 agent 实例的映射字典以恢复 agent。
         """
         self.game_state = load_game_state(file_path, agent_factory)
         self.victory_checker = VictoryChecker(self.game_state)

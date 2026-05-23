@@ -1,4 +1,4 @@
-"""Tests for engine-controlled message routing."""
+"""引擎控制消息路由的测试。"""
 
 from llm_werewolf.adapter.message_router import MessageRouter
 from llm_werewolf.adapter.visibility import VisibilityChannel

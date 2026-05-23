@@ -2,13 +2,13 @@ from llm_werewolf.core.config.game_config import GameConfig
 
 
 def _validate_player_count(num_players: int) -> None:
-    """Validate player count is within acceptable range.
+    """校验玩家数量在可接受范围内。
 
     Args:
-        num_players: Number of players to validate.
+        num_players: 待校验的玩家数量。
 
     Raises:
-        ValueError: If player count is outside valid range (6-20).
+        ValueError: 玩家数量超出有效范围（6-20）时抛出。
     """
     if num_players < 6:
         msg = "Minimum 6 players required"
@@ -19,13 +19,13 @@ def _validate_player_count(num_players: int) -> None:
 
 
 def _allocate_werewolf_roles(num_players: int) -> list[str]:
-    """Allocate werewolf roles based on player count.
+    """根据玩家数量分配狼人角色。
 
     Args:
-        num_players: Total number of players.
+        num_players: 玩家总数。
 
     Returns:
-        list[str]: List of werewolf role names.
+        list[str]: 狼人角色名称列表。
     """
     if num_players <= 8:
         return ["Werewolf", "Werewolf"]
@@ -37,18 +37,18 @@ def _allocate_werewolf_roles(num_players: int) -> list[str]:
 
 
 def _allocate_villager_roles(num_players: int) -> list[str]:
-    """Allocate villager roles based on player count.
+    """根据玩家数量分配好人阵营角色。
 
     Args:
-        num_players: Total number of players.
+        num_players: 玩家总数。
 
     Returns:
-        list[str]: List of villager role names.
+        list[str]: 好人阵营角色名称列表。
     """
-    # Core divine roles (always present)
+    # 核心神职（始终存在）
     roles = ["Seer", "Witch"]
 
-    # Additional divine roles based on player count
+    # 根据玩家数量追加神职
     if num_players >= 7:
         roles.append("Guard")
     if num_players >= 9:
@@ -68,10 +68,10 @@ def _allocate_villager_roles(num_players: int) -> list[str]:
 
 
 def _get_timeouts(num_players: int) -> tuple[int, int, int]:
-    """Get timeout values based on player count.
+    """根据玩家数量获取超时值。
 
     Args:
-        num_players: Total number of players.
+        num_players: 玩家总数。
 
     Returns:
         tuple[int, int, int]: (night_timeout, day_timeout, vote_timeout)
@@ -84,32 +84,31 @@ def _get_timeouts(num_players: int) -> tuple[int, int, int]:
 
 
 def create_game_config_from_player_count(num_players: int) -> GameConfig:
-    """Automatically generate game configuration based on number of players.
+    """根据玩家数量自动生成游戏配置。
 
-    This function creates a balanced role composition by scaling the number of
-    werewolves and special roles based on the total player count.
+    该函数按玩家总数缩放狼人与特殊角色数量，生成平衡的角色构成。
 
     Args:
-        num_players: Number of players in the game (6-20).
+        num_players: 游戏中的玩家数量（6-20）。
 
     Returns:
-        GameConfig: Generated game configuration with balanced roles.
+        GameConfig: 生成的、角色平衡的游戏配置。
 
     Raises:
-        ValueError: If player count is outside valid range (6-20).
+        ValueError: 玩家数量超出有效范围（6-20）时抛出。
     """
     _validate_player_count(num_players)
 
-    # Allocate werewolf and villager roles
+    # 分配狼人与好人阵营角色
     role_names = _allocate_werewolf_roles(num_players)
     role_names.extend(_allocate_villager_roles(num_players))
 
-    # Fill remaining slots with villagers
+    # 剩余名额填充平民
     num_special_roles = len(role_names)
     num_villagers = num_players - num_special_roles
     role_names.extend(["Villager"] * num_villagers)
 
-    # Get timeouts
+    # 获取超时设置
     night_timeout, day_timeout, vote_timeout = _get_timeouts(num_players)
 
     return GameConfig(

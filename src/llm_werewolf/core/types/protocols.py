@@ -1,12 +1,11 @@
-"""Protocol definitions for the LLM Werewolf game.
+"""LLM 狼人杀游戏的协议定义。
 
-This module defines structural type protocols to avoid circular imports.
-Protocols define the interface of objects without requiring actual imports.
+本模块定义结构化类型协议，以避免循环导入。
+协议描述对象接口，无需实际导入具体类型。
 
-Note: This file uses `from __future__ import annotations` because Protocol classes
-have mutual references (RoleProtocol references PlayerProtocol and vice versa).
-This is a valid use case for deferred evaluation of type annotations, as these are
-pure type definitions without implementation logic.
+注意：本文件使用 ``from __future__ import annotations``，因为 Protocol 类
+存在相互引用（RoleProtocol 引用 PlayerProtocol，反之亦然）。
+这是延迟求值类型注解的合理场景，此处仅为纯类型定义，不含实现逻辑。
 """
 
 from __future__ import annotations
@@ -26,34 +25,34 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class AgentProtocol(Protocol):
-    """Protocol for agent objects."""
+    """智能体对象的协议。"""
 
     name: str
     model: str
 
     async def get_response(self, message: str) -> str:
-        """Get a response from the agent.
+        """从智能体获取响应。
 
         Args:
-            message: The prompt message.
+            message: 提示消息。
 
         Returns:
-            str: The agent's response.
+            str: 智能体的响应。
         """
         ...
 
     def add_decision(self, decision: str) -> None:
-        """Record a safe summary of a decision."""
+        """记录决策的安全摘要。"""
         ...
 
     def get_decision_context(self) -> str:
-        """Return the safe decision history for prompting."""
+        """返回用于提示的安全决策历史。"""
         ...
 
 
 @runtime_checkable
 class RoleProtocol(Protocol):
-    """Protocol for role objects."""
+    """角色对象的协议。"""
 
     player: PlayerProtocol
     ability_uses: int
@@ -62,48 +61,48 @@ class RoleProtocol(Protocol):
 
     @property
     def name(self) -> str:
-        """Get the role name."""
+        """获取角色名称。"""
         ...
 
     @property
     def camp(self) -> Camp:
-        """Get the role's camp."""
+        """获取角色阵营。"""
         ...
 
     @property
     def description(self) -> str:
-        """Get the role description."""
+        """获取角色描述。"""
         ...
 
     @property
     def priority(self) -> ActionPriority | None:
-        """Get the action priority."""
+        """获取行动优先级。"""
         ...
 
     def get_config(self) -> RoleConfig:
-        """Get the configuration for this role."""
+        """获取该角色的配置。"""
         ...
 
     def can_act_tonight(self, player: PlayerProtocol, round_number: int) -> bool:
-        """Check if this role can perform an action tonight."""
+        """检查该角色今晚是否可以行动。"""
         ...
 
     def can_act_today(self, player: PlayerProtocol) -> bool:
-        """Check if this role can perform an action today."""
+        """检查该角色今天是否可以行动。"""
         ...
 
     def night_action(self, game_state: GameStateProtocol) -> ActionProtocol | None:
-        """Perform the role's night action (deprecated, use get_night_actions)."""
+        """执行角色的夜间行动（已弃用，请使用 get_night_actions）。"""
         ...
 
     async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for this role."""
+        """获取该角色的夜间行动列表。"""
         ...
 
 
 @runtime_checkable
 class PlayerProtocol(Protocol):
-    """Protocol for player objects."""
+    """玩家对象的协议。"""
 
     player_id: str
     name: str
@@ -115,61 +114,61 @@ class PlayerProtocol(Protocol):
     can_vote_flag: bool
 
     def is_alive(self) -> bool:
-        """Check if the player is alive."""
+        """检查玩家是否存活。"""
         ...
 
     def kill(self) -> None:
-        """Mark the player as dead."""
+        """将玩家标记为死亡。"""
         ...
 
     def revive(self) -> None:
-        """Revive the player."""
+        """复活玩家。"""
         ...
 
     def add_status(self, status: PlayerStatus) -> None:
-        """Add a status to the player."""
+        """为玩家添加状态。"""
         ...
 
     def remove_status(self, status: PlayerStatus) -> None:
-        """Remove a status from the player."""
+        """移除玩家的状态。"""
         ...
 
     def has_status(self, status: PlayerStatus) -> bool:
-        """Check if the player has a specific status."""
+        """检查玩家是否具有指定状态。"""
         ...
 
     def can_vote(self) -> bool:
-        """Check if the player can vote."""
+        """检查玩家是否可以投票。"""
         ...
 
     def disable_voting(self) -> None:
-        """Disable the player's voting rights."""
+        """禁用玩家的投票权。"""
         ...
 
     def set_lover(self, partner_id: str) -> None:
-        """Set this player as a lover with another player."""
+        """将该玩家与另一玩家设为情侣。"""
         ...
 
     def is_lover(self) -> bool:
-        """Check if the player is a lover."""
+        """检查玩家是否为情侣。"""
         ...
 
     def get_public_info(self) -> PlayerInfo:
-        """Get public information about the player."""
+        """获取玩家的公开信息。"""
         ...
 
     def get_role_name(self) -> str:
-        """Get the player's role name."""
+        """获取玩家的角色名称。"""
         ...
 
     def get_camp(self) -> str:
-        """Get the player's camp."""
+        """获取玩家的阵营。"""
         ...
 
 
 @runtime_checkable
 class GameStateProtocol(Protocol):
-    """Protocol for game state objects."""
+    """游戏状态对象的协议。"""
 
     players: list[PlayerProtocol]
     player_dict: dict[str, PlayerProtocol]
@@ -197,49 +196,49 @@ class GameStateProtocol(Protocol):
     sheriff_votes: dict[str, str]
 
     def reset_deaths(self) -> None:
-        """Reset the death sets for a new round."""
+        """重置新回合的死亡集合。"""
         ...
 
     def get_phase(self) -> GamePhase:
-        """Get the current game phase."""
+        """获取当前游戏阶段。"""
         ...
 
     def set_phase(self, phase: GamePhase) -> None:
-        """Set the game phase."""
+        """设置游戏阶段。"""
         ...
 
     def next_phase(self) -> GamePhase:
-        """Advance to the next game phase."""
+        """推进到下一阶段。"""
         ...
 
     def get_alive_players(self) -> list[PlayerProtocol]:
-        """Get all alive players."""
+        """获取所有存活玩家。"""
         ...
 
     def get_player(self, player_id: str) -> PlayerProtocol | None:
-        """Get a player by ID."""
+        """按 ID 获取玩家。"""
         ...
 
     def count_alive_by_camp(self, camp: Camp) -> int:
-        """Count alive players in a specific camp."""
+        """统计指定阵营的存活玩家数。"""
         ...
 
 
 @runtime_checkable
 class ActionProtocol(Protocol):
-    """Protocol for action objects."""
+    """行动对象的协议。"""
 
     actor: PlayerProtocol
     game_state: GameStateProtocol
 
     def get_action_type(self) -> ActionType:
-        """Get the type of this action."""
+        """获取该行动的类型。"""
         ...
 
     def validate(self) -> bool:
-        """Validate if the action can be performed."""
+        """校验该行动是否可以执行。"""
         ...
 
     def execute(self) -> list[str]:
-        """Execute the action."""
+        """执行该行动。"""
         ...

@@ -1,4 +1,4 @@
-"""Tests for AgentScope post-setup wiring (configure_agents_for_players)."""
+"""AgentScope 后置配置连线（configure_agents_for_players）的测试。"""
 
 from unittest.mock import MagicMock, patch
 

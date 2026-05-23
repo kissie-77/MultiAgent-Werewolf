@@ -1,4 +1,4 @@
-"""Main GameEngine class that combines all mixins."""
+"""组合所有 Mixin 的主 GameEngine 类。"""
 
 from llm_werewolf.core.engine.base import GameEngineBase
 from llm_werewolf.core.engine.day_phase import DayPhaseMixin
@@ -18,16 +18,16 @@ class GameEngine(
     VotingPhaseMixin,
     GameEngineBase,
 ):
-    """Core game engine that controls the flow of the Werewolf game.
+    """控制狼人杀流程的核心游戏引擎。
 
-    This class combines multiple mixins to organize game logic:
-    - GameEngineBase: Core initialization and game loop
-    - DeathHandlerMixin: Death-related logic (werewolf kills, lover deaths, etc.)
-    - ActionProcessorMixin: Processing game actions
-    - NightPhaseMixin: Night phase execution
-    - SheriffElectionMixin: Sheriff election phase execution
-    - DayPhaseMixin: Day discussion phase execution
-    - VotingPhaseMixin: Voting phase execution
+    本类通过多个 Mixin 组织游戏逻辑：
+    - GameEngineBase：核心初始化与主循环
+    - DeathHandlerMixin：死亡相关逻辑（狼刀、恋人殉情等）
+    - ActionProcessorMixin：处理游戏行动
+    - NightPhaseMixin：夜晚阶段执行
+    - SheriffElectionMixin：警长选举阶段执行
+    - DayPhaseMixin：白天讨论阶段执行
+    - VotingPhaseMixin：投票阶段执行
     """
 
     pass

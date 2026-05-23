@@ -103,17 +103,17 @@ class EvaluationSummary(BaseModel):
     @computed_field
     @property
     def completion_rate(self) -> float:
-        """Completed games divided by total games."""
+        """已完成局数除以总局数。"""
         return self.completed_games / self.total_games if self.total_games else 0.0
 
     @computed_field
     @property
     def crash_rate(self) -> float:
-        """Crashed games divided by total games."""
+        """崩溃局数除以总局数。"""
         return self.crashed_games / self.total_games if self.total_games else 0.0
 
     @computed_field
     @property
     def timeout_rate(self) -> float:
-        """Timed-out games divided by total games."""
+        """超时局数除以总局数。"""
         return self.timeout_games / self.total_games if self.total_games else 0.0

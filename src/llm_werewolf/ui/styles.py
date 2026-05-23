@@ -105,36 +105,36 @@ Screen {
 
 
 def get_camp_color(camp: str) -> str:
-    """Get color for a camp.
+    """获取阵营对应的颜色。
 
     Args:
-        camp: The camp name.
+        camp: 阵营名称。
 
     Returns:
-        str: The color name.
+        str: 颜色名称。
     """
     return CAMP_COLORS.get(camp, "white")
 
 
 def get_status_color(status: str) -> str:
-    """Get color for a status.
+    """获取状态对应的颜色。
 
     Args:
-        status: The status name.
+        status: 状态名称。
 
     Returns:
-        str: The color name.
+        str: 颜色名称。
     """
     return STATUS_COLORS.get(status, "white")
 
 
 def get_phase_color(phase: str) -> str:
-    """Get color for a game phase.
+    """获取游戏阶段对应的颜色。
 
     Args:
-        phase: The phase name.
+        phase: 阶段名称。
 
     Returns:
-        str: The color name.
+        str: 颜色名称。
     """
     return PHASE_COLORS.get(phase, "white")

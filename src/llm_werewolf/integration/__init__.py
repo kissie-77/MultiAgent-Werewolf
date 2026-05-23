@@ -1,4 +1,4 @@
-"""External runtime integrations (AgentScope, message adapters)."""
+"""外部运行时集成（AgentScope、消息适配器）。"""
 
 from llm_werewolf.integration.message import MessageAdapter, Msg
 

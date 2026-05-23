@@ -1,4 +1,4 @@
-"""Single entry to create players and wire AgentScope after role assignment."""
+"""创建玩家并在角色分配后接入 AgentScope 的统一入口。"""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def bind_agentscope_roles(
     *,
     default_plan: str = "default",
 ) -> None:
-    """Configure AgentScope system prompts once roles are assigned to players."""
+    """角色分配完成后，为各玩家配置 AgentScope 系统 prompt。"""
     if game_state is None:
         return
     configure_agents_for_players(game_state.players, default_plan=default_plan)
@@ -38,7 +38,7 @@ def bind_agentscope_roles(
 def create_players_from_config(
     players_config: PlayersConfig,
 ) -> list[DemoAgent | HumanAgent | LLMAgent]:
-    """Build seat agents from YAML (AgentScope when ``agent_backend`` requests it)."""
+    """从 YAML 构建座位 Agent（当 ``agent_backend`` 指定时使用 AgentScope）。"""
     use_agentscope = players_config.use_agentscope_backend
     return [
         create_agent(
@@ -55,7 +55,7 @@ def wire_agentscope_after_setup(
     engine: GameEngine,
     players_config: PlayersConfig,
 ) -> None:
-    """Bind RolePrompts and create ReAct agents after ``GameEngine.setup_game``."""
+    """在 ``GameEngine.setup_game`` 之后绑定 RolePrompts 并创建 ReAct Agent。"""
     if not players_config.use_agentscope_backend:
         return
     bind_agentscope_roles(engine.game_state, default_plan=players_config.default_plan)
@@ -64,7 +64,7 @@ def wire_agentscope_after_setup(
 def prepare_game_roster(
     players_config: PlayersConfig,
 ) -> tuple[list[AgentProtocol], list[RoleProtocol], GameConfig]:
-    """Players, shuffled role instances, and board config for one match."""
+    """单局对局的玩家列表、洗牌后的角色实例与板子配置。"""
     game_config = create_game_config_from_player_count(len(players_config.players))
     players = create_players_from_config(players_config)
     roles = create_roles(role_names=game_config.role_names)

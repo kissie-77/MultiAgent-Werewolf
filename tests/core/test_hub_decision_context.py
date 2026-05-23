@@ -1,4 +1,4 @@
-"""Decision prompts use Hub memory; Event log excludes dialogue types."""
+"""决策提示使用 Hub 记忆；事件日志排除对话类型。"""
 
 import pytest
 
@@ -38,7 +38,7 @@ def engine_with_speech_event():
 
 
 def test_for_agent_decision_excludes_dialogue_from_observation(engine_with_speech_event):
-    """Speech events stay in the log but not in LLM decision observation text."""
+    """发言事件保留在日志中，但不进入 LLM 决策观察文本。"""
     engine, player = engine_with_speech_event
     full = engine.build_player_observation(player, for_agent_decision=False)
     decision = engine.build_player_observation(player, for_agent_decision=True)

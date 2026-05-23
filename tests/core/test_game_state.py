@@ -1,4 +1,4 @@
-"""Tests for core/game_state.py."""
+"""core/game_state.py 的测试。"""
 
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.player import Player

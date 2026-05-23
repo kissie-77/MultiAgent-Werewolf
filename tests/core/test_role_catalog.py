@@ -1,4 +1,4 @@
-"""Tests for declarative role catalog."""
+"""声明式角色目录的测试。"""
 
 from llm_werewolf.core.roles.catalog import get_catalog, get_definition, get_definition_by_role_class
 from llm_werewolf.core.roles.loader import role_class_from_definition

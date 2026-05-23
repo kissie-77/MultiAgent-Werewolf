@@ -1,4 +1,4 @@
-"""ROLE_SEAT_ACTION uses runtime role names from catalog."""
+"""ROLE_SEAT_ACTION 使用 catalog 中的运行时角色名。"""
 
 from llm_werewolf.adapter.prompts import ROLE_SEAT_ACTION, GamePrompts
 from llm_werewolf.core.roles.registry import CATALOG_TO_RUNTIME_NAME

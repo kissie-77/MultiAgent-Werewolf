@@ -1,4 +1,4 @@
-"""Tests for core/action_selector.py."""
+"""core/action_selector.py 的测试。"""
 
 from unittest.mock import AsyncMock, patch
 

@@ -1,4 +1,4 @@
-"""Factory for building AgentScope ReAct agents from player configuration."""
+"""根据玩家配置构建 AgentScope ReAct Agent 的工厂。"""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from llm_werewolf.core.config import PlayerConfig
 if TYPE_CHECKING:
     from llm_werewolf.core.player import Player
 
-# Map Role.config.name (runtime) to RolePrompts keys in adapter/prompts.py
+# 将 Role.config.name（运行时）映射到 adapter/prompts.py 中的 RolePrompts 键
 GAME_ROLE_TO_PROMPT_KEY: dict[str, str] = {
     "Villager": "villager",
     "Seer": "prophet",
@@ -59,12 +59,12 @@ PROMPT_KEY_TO_ROLE_CONFIG: dict[str, dict[str, str]] = {
 
 
 def player_id_to_seat(player_id: str) -> int:
-    """Convert player_id like 'player_3' to seat number 3."""
+    """将 player_id（如 'player_3'）转换为座位号 3。"""
     return int(player_id.rsplit("_", 1)[-1])
 
 
 def resolve_plan_text(plan_name: str, prompt_role_key: str) -> str:
-    """Resolve plan strategy name to prompt text for a role."""
+    """将策略计划名称解析为对应角色的 prompt 文本。"""
     plan = PlanStrategies.get_plan_by_name(plan_name)
     return plan.get(prompt_role_key, plan.get("villager", "自由发挥"))
 
@@ -74,7 +74,7 @@ def build_system_prompt(
     game_role_name: str,
     plan_text: str,
 ) -> str:
-    """Build RolePrompts.BASE_PROMPT for a seated player with known role."""
+    """为已知角色的就座玩家构建 RolePrompts.BASE_PROMPT。"""
     prompt_role_key = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
     role_config = PROMPT_KEY_TO_ROLE_CONFIG.get(prompt_role_key, RolePrompts.VILLAGER)
 
@@ -93,7 +93,7 @@ def create_react_agent(
     agent_name: str,
     sys_prompt: str,
 ) -> ReActAgent:
-    """Create an AgentScope ReActAgent wired to an OpenAI-compatible endpoint."""
+    """创建接入 OpenAI 兼容端点的 AgentScope ReActAgent。"""
     api_key = None
     if config.api_key_env:
         api_key = os.getenv(config.api_key_env)
@@ -136,7 +136,7 @@ def configure_agents_for_players(
     *,
     default_plan: str = "default",
 ) -> None:
-    """After roles are assigned, configure each AgentScope agent's system prompt."""
+    """角色分配后，为每个 AgentScope Agent 配置系统 prompt。"""
     for player in players:
         agent = player.agent
         seat = player_id_to_seat(player.player_id)

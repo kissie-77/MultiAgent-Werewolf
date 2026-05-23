@@ -1,4 +1,4 @@
-"""Backward-compatible re-export; prefer ``llm_werewolf.core.roles.registry``."""
+"""向后兼容的重导出；请优先使用 ``llm_werewolf.core.roles.registry``。"""
 
 from llm_werewolf.core.roles.registry import (
     create_roles,
@@ -10,12 +10,12 @@ from llm_werewolf.core.roles.registry import (
 
 
 def get_role_class(name: str) -> type:
-    """Return role class by registry name."""
+    """按注册表名称返回角色类。"""
     return get_role_map()[name]
 
 
 def list_roles() -> list[str]:
-    """Return all registered role names."""
+    """返回所有已注册的角色名称。"""
     return list(get_role_map().keys())
 
 

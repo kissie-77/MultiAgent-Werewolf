@@ -1,4 +1,4 @@
-"""Legacy path: parsing lives on WerewolfAdapterBridge (ActionSelector removed)."""
+"""遗留路径：解析位于 WerewolfAdapterBridge（ActionSelector 已移除）。"""
 
 from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
 from llm_werewolf.core.player import Player

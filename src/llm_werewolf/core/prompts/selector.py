@@ -12,7 +12,7 @@ def _role_display_name(agent: AgentProtocol, role_name: str) -> str:
 
 
 class ActionSelector:
-    """Helper for structured Chinese prompts and [[n]] / [[0]]/[[1]] parsing."""
+    """结构化中文提示与 [[n]] / [[0]]/[[1]] 解析的辅助类。"""
 
     @staticmethod
     def build_target_selection_prompt(
@@ -72,7 +72,7 @@ class ActionSelector:
     def parse_target_selection(
         response: str, possible_targets: list[PlayerProtocol], allow_skip: bool = False
     ) -> PlayerProtocol | None:
-        """Parse [[n]] or plain number target selection."""
+        """解析 [[n]] 或纯数字形式的目标选择。"""
         selection = PromptManager.parse_bracket_number(response)
         if selection is None:
             return None
@@ -86,7 +86,7 @@ class ActionSelector:
     def parse_multi_target_selection(
         response: str, possible_targets: list[PlayerProtocol], num_targets: int
     ) -> list[PlayerProtocol] | None:
-        """Parse multiple targets from response."""
+        """从响应中解析多个目标。"""
         numbers = re.findall(r"\d+", response.strip())
         if len(numbers) < num_targets:
             return None
@@ -119,7 +119,7 @@ class ActionSelector:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> PlayerProtocol | None:
-        """Get a target selection from an AI agent."""
+        """从 AI agent 获取目标选择。"""
         if not possible_targets:
             return None
 
@@ -159,7 +159,7 @@ class ActionSelector:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> bool:
-        """Ask an agent a yes/no question."""
+        """向 agent 提出是/否问题。"""
         display = _role_display_name(agent, role_name or "玩家")
 
         prompt = PromptManager.build_yes_no_prompt(
@@ -188,7 +188,7 @@ class ActionSelector:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> PlayerProtocol | None:
-        """Select a target from a list of possible targets."""
+        """从候选目标列表中选择一名目标。"""
         if not role_name:
             role_name = "玩家"
 
@@ -206,7 +206,7 @@ class ActionSelector:
 
     @staticmethod
     async def get_free_response(agent: AgentProtocol, context: str, prompt: str) -> str:
-        """Get a free-form text response from an agent."""
+        """从 agent 获取自由文本回复。"""
         full_prompt = f"{context}\n\n{prompt}"
         try:
             return await agent.get_response(full_prompt)

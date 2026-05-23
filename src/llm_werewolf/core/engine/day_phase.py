@@ -1,4 +1,4 @@
-"""Day phase logic for the game engine."""
+"""游戏引擎的白天阶段逻辑。"""
 
 from collections.abc import Callable
 
@@ -11,7 +11,7 @@ from llm_werewolf.core.game_state import GameState
 
 
 class DayPhaseMixin:
-    """Mixin for handling day phase logic."""
+    """处理白天阶段逻辑的 Mixin。"""
 
     game_state: GameState | None
     locale: Locale
@@ -19,7 +19,7 @@ class DayPhaseMixin:
     build_player_observation: Callable[[PlayerProtocol], str]
 
     def _build_discussion_context(self, player: PlayerProtocol) -> str:
-        """Build static context for day discussion; in-round speech uses MsgHub memory."""
+        """构建白天讨论的静态上下文；回合内发言使用 MsgHub 记忆。"""
         if not self.game_state:
             return ""
 
@@ -48,7 +48,7 @@ class DayPhaseMixin:
         speaker: PlayerProtocol,
         decision: SpeechDecision,
     ) -> None:
-        """Log day speech; visibility is PUBLIC (engine decides, not the agent)."""
+        """记录白天发言；可见性为 PUBLIC（由引擎决定，而非 agent）。"""
         if not self.game_state:
             return
         self._log_event(
@@ -63,7 +63,7 @@ class DayPhaseMixin:
         )
 
     async def run_day_phase(self) -> list[str]:
-        """Execute the day discussion phase via InformationHub."""
+        """通过 InformationHub 执行白天讨论阶段。"""
         if not self.game_state:
             msg = "Game not initialized"
             raise RuntimeError(msg)
@@ -87,11 +87,11 @@ class DayPhaseMixin:
             for player_id in self.game_state.night_deaths:
                 player = self.game_state.get_player(player_id)
                 if player:
-                    messages.append(f"{player.name} was killed last night.")
+                    messages.append(self.locale.get("night_death_announce", player=player.name))
         else:
-            messages.append("No one died last night.")
+            messages.append(self.locale.get("peaceful_night"))
 
-        messages.append("\n--- 讨论阶段 ---")
+        messages.append(self.locale.get("discussion_phase_separator"))
         alive_players = self.game_state.get_alive_players()
         interaction = self.game_state.require_phase_interaction()
 
@@ -127,7 +127,7 @@ class DayPhaseMixin:
                 alive_players,
                 channel=VisibilityChannel.PUBLIC,
                 context_builder=self._build_discussion_context,
-                instruction="",
+                instruction=self.locale.get("day_discussion_instruction"),
                 phase=GamePhase.DAY_DISCUSSION.value,
                 round_number=self.game_state.round_number,
                 opening_announcement=opening_announcement,

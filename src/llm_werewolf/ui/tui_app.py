@@ -12,7 +12,7 @@ from llm_werewolf.ui.components import ChatPanel, GamePanel, PlayerPanel
 
 
 class WerewolfTUI(App):
-    """Textual TUI application for the Werewolf game."""
+    """狼人杀游戏的 Textual TUI 应用。"""
 
     CSS = """
     Screen {
@@ -61,10 +61,10 @@ class WerewolfTUI(App):
     BINDINGS: ClassVar = [("q", "quit", "Quit"), ("ctrl+c", "quit", "Quit")]
 
     def __init__(self, game_engine: GameEngine | None = None) -> None:
-        """Initialize the TUI application.
+        """初始化 TUI 应用。
 
         Args:
-            game_engine: The game engine to display.
+            game_engine: 要展示的游戏引擎。
         """
         super().__init__()
         self.game_engine = game_engine
@@ -76,18 +76,18 @@ class WerewolfTUI(App):
         self.chat_panel: ChatPanel | None = None
 
     def compose(self) -> ComposeResult:
-        """Compose the TUI layout.
+        """组合 TUI 布局。
 
-        Layout:
-        - Top (35%): Players (left 2/3) | Game Status (right 1/3)
-        - Bottom (65%): Chat/Terminal Output (full width)
+        布局：
+        - 上方（35%）：玩家（左 2/3）| 游戏状态（右 1/3）
+        - 下方（65%）：聊天/终端输出（全宽）
 
         Yields:
-            Textual widgets for the UI.
+            Textual UI 组件。
         """
         yield Header(show_clock=True)
 
-        # Top container: Players and Game Status side by side
+        # 顶部容器：玩家与游戏状态并排
         with Horizontal(id="top_container"):
             with Vertical(id="player_section"):
                 self.player_panel = PlayerPanel()
@@ -97,7 +97,7 @@ class WerewolfTUI(App):
                 self.game_panel = GamePanel()
                 yield self.game_panel
 
-        # Bottom container: Chat/Terminal output
+        # 底部容器：聊天/终端输出
         with Vertical(id="bottom_container"):
             self.chat_panel = ChatPanel()
             yield self.chat_panel
@@ -105,7 +105,7 @@ class WerewolfTUI(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        """Called when the app is mounted."""
+        """应用挂载时调用。"""
         self.title = "🐺 Werewolf Game"
         self.sub_title = f"AI-Powered Werewolf | Session: {self.session_id}"
 
@@ -114,19 +114,19 @@ class WerewolfTUI(App):
 
             self.game_engine.on_event = self.on_game_event
 
-            # Start the game automatically in the background
+            # 在后台自动启动游戏
             self.run_worker(self._run_game, exclusive=True)
 
-        # Update footer with uptime every second
+        # 每秒更新页脚运行时长
         self.set_interval(1.0, self.update_footer)
 
     async def _run_game(self) -> None:
-        """Run the game in a background worker."""
+        """在后台 worker 中运行游戏。"""
         if self.game_engine:
             await self.game_engine.play_game()
 
     def update_footer(self) -> None:
-        """Update the footer with current uptime."""
+        """更新页脚中的当前运行时长。"""
         uptime = datetime.now() - self.start_time
         hours, remainder = divmod(int(uptime.total_seconds()), 3600)
         minutes, seconds = divmod(remainder, 60)
@@ -134,7 +134,7 @@ class WerewolfTUI(App):
         self.sub_title = f"AI-Powered Werewolf | Session: {self.session_id} | Uptime: {uptime_str}"
 
     def update_game_state(self) -> None:
-        """Update all panels with current game state."""
+        """用当前游戏状态更新所有面板。"""
         if not self.game_engine or not self.game_engine.game_state:
             return
 
@@ -145,10 +145,10 @@ class WerewolfTUI(App):
             self.game_panel.set_game_state(self.game_engine.game_state)
 
     def on_game_event(self, event: Event) -> None:
-        """Handle a game event.
+        """处理游戏事件。
 
         Args:
-            event: The game event.
+            event: 游戏事件。
         """
         if self.chat_panel:
             self.chat_panel.add_event(event)
@@ -156,29 +156,29 @@ class WerewolfTUI(App):
         self.update_game_state()
 
     def add_system_message(self, message: str) -> None:
-        """Add a system message to the chat.
+        """向聊天区添加系统消息。
 
         Args:
-            message: The message to add.
+            message: 要添加的消息。
         """
         if self.chat_panel:
             self.chat_panel.add_system_message(message)
 
     def add_error(self, error: str) -> None:
-        """Add an error message to the chat.
+        """向聊天区添加错误消息。
 
         Args:
-            error: The error message.
+            error: 错误消息。
         """
         if self.chat_panel:
             self.chat_panel.add_system_message(f"ERROR: {error}")
 
 
 def run_tui(game_engine: GameEngine) -> None:
-    """Run the TUI application.
+    """运行 TUI 应用。
 
     Args:
-        game_engine: The game engine to display.
+        game_engine: 要展示的游戏引擎。
     """
     app = WerewolfTUI(game_engine=game_engine)
     app.run()

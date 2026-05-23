@@ -150,7 +150,7 @@ class GamePrompts:
     BAD_WIN = "狼人阵营胜利"
 
 
-# Catalog / runtime role_name → 选座/行动提示（bridge / night_plans 使用运行时名）
+# 目录键 / 运行时 role_name → 选座/行动提示（bridge / night_plans 使用运行时名）
 _CATALOG_ROLE_SEAT_ACTION: dict[str, str] = {
     "Seer": GamePrompts.PROPHET_ACTION,
     "Witch": GamePrompts.WITCH_POISON_TARGET,
@@ -171,7 +171,7 @@ _CATALOG_ROLE_SEAT_ACTION: dict[str, str] = {
 
 
 def build_role_seat_action_map() -> dict[str, str]:
-    """Map runtime Role.config.name and catalog keys to seat-action prompts."""
+    """将运行时 Role.config.name 与目录键映射到选座/行动 prompt。"""
     from llm_werewolf.core.roles.registry import CATALOG_TO_RUNTIME_NAME
 
     merged = dict(_CATALOG_ROLE_SEAT_ACTION)

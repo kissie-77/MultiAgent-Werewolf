@@ -1,11 +1,11 @@
-"""Tests for the MessageAdapter."""
+"""MessageAdapter 的测试。"""
 
 import pytest
 from llm_werewolf.adapter.message import MessageAdapter, Msg
 
 
 class TestMsg:
-    """Test cases for the Msg class."""
+    """Msg 类的测试用例。"""
 
     def test_msg_creation(self):
         msg = Msg(name="Test", content="Hello", role="user")
@@ -71,7 +71,7 @@ class TestMsg:
 
 
 class TestMessageAdapter:
-    """Test cases for the MessageAdapter class."""
+    """MessageAdapter 类的测试用例。"""
 
     def test_str_to_msg(self):
         msg = MessageAdapter.str_to_msg("测试消息", name="Test", role="user")

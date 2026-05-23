@@ -72,7 +72,7 @@ class PromptBadCaseChecker:
         return text[start:end].strip()
 
     def _check_response_format(self, events: list[Event]) -> list[CheckResult]:
-        """Speech uses SpeechDecision JSON at runtime; log stores public_speech text."""
+        """运行时发言使用 SpeechDecision JSON；日志存 public_speech 文本。"""
         results: list[CheckResult] = []
         for event in events:
             if event.event_type != EventType.PLAYER_SPEECH:
@@ -381,7 +381,7 @@ class RoleSkillChecker:
 
 
 class DecisionConsistencyChecker:
-    """Check that parsed decisions agree with resolved action targets."""
+    """检查解析后的决策与最终行动目标一致。"""
 
     _target_events = {
         EventType.GUARD_PROTECTED,

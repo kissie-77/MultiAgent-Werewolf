@@ -1,4 +1,4 @@
-"""Death-triggered skills (hunter shot, alpha wolf, etc.)."""
+"""死亡触发的技能（猎人开枪、狼王等）。"""
 
 from __future__ import annotations
 

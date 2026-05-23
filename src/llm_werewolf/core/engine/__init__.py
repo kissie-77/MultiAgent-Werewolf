@@ -1,14 +1,14 @@
-"""Game engine module for LLM Werewolf.
+"""LLM 狼人杀游戏引擎模块。
 
-This module provides the core game engine functionality split across multiple files:
-- base.py: Core game engine initialization and main loop
-- night_phase.py: Night phase execution logic
-- day_phase.py: Day discussion phase logic
-- voting_phase.py: Voting phase logic
-- death_handler.py: Death-related logic (kills, lover deaths, etc.)
-- action_processor.py: Action processing logic
+本模块将核心引擎功能拆分到多个文件：
+- base.py：引擎初始化与主循环
+- night_phase.py：夜晚阶段逻辑
+- day_phase.py：白天讨论阶段逻辑
+- voting_phase.py：投票阶段逻辑
+- death_handler.py：死亡相关逻辑（击杀、恋人殉情等）
+- action_processor.py：动作处理逻辑
 
-The GameEngine class combines all these components using mixins.
+GameEngine 类通过 Mixin 组合上述组件。
 """
 
 from llm_werewolf.core.engine.game_engine import GameEngine

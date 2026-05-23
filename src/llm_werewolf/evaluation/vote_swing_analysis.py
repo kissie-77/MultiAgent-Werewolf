@@ -1,4 +1,4 @@
-"""Vote swing / persuasion analysis from vote_intentions.jsonl or event logs."""
+"""从 vote_intentions.jsonl 或事件日志进行投票摇摆/说服效果分析。"""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 
 @dataclass
 class SpeechInfluence:
-    """Persuasion impact of one roundtable speech."""
+    """单条圆桌发言的说服影响。"""
 
     speaker_id: str
     speaker_name: str
@@ -42,7 +42,7 @@ class SpeechInfluence:
 
 @dataclass
 class PlayerPersuasionStats:
-    """Aggregate persuasion metrics for one player."""
+    """单名玩家的说服指标汇总。"""
 
     player_id: str
     player_name: str
@@ -69,7 +69,7 @@ class PlayerPersuasionStats:
 
 @dataclass
 class VoteSwingReport:
-    """Full-game persuasion analysis."""
+    """整局说服分析。"""
 
     speech_influences: list[SpeechInfluence] = field(default_factory=list)
     player_stats: dict[str, PlayerPersuasionStats] = field(default_factory=dict)
@@ -106,12 +106,12 @@ def _intentions_summary(intentions: dict[str, Any]) -> str:
 
 
 def _influence_score(swing_count: int) -> int:
-    """Foaster-style base score: each changed intention +10."""
+    """Foaster 风格基础分：每次意向变更 +10。"""
     return swing_count * 10
 
 
 def analyze_speech_records(records: list[dict[str, Any]]) -> VoteSwingReport:
-    """Build persuasion report from speech-linked intention records."""
+    """由发言关联意向记录构建说服报告。"""
     report = VoteSwingReport()
     for raw in records:
         if not str(raw.get("public_speech", "")).strip():
@@ -165,7 +165,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def load_speech_records(source: str | Path) -> list[dict[str, Any]]:
-    """Load records from vote_intentions.jsonl, events.jsonl, or a game directory."""
+    """从 vote_intentions.jsonl、events.jsonl 或对局目录加载记录。"""
     path = Path(source)
     if path.is_file():
         if path.name == "vote_intentions.jsonl":
@@ -201,12 +201,12 @@ def _records_from_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def analyze_path(source: str | Path) -> VoteSwingReport:
-    """Load and analyze vote intention artifacts."""
+    """加载并分析投票意向产物。"""
     return analyze_speech_records(load_speech_records(source))
 
 
 def format_markdown_report(report: VoteSwingReport, *, title: str = "Vote Swing Analysis") -> str:
-    """Human-readable persuasion report."""
+    """人类可读的说服报告。"""
     lines = [
         f"# {title}",
         "",
@@ -263,7 +263,7 @@ def write_persuasion_artifacts(
     source: str | Path,
     output_dir: str | Path | None = None,
 ) -> Path:
-    """Analyze source and write vote_swing_report.md + vote_swing_summary.json."""
+    """分析源数据并写入 vote_swing_report.md 与 vote_swing_summary.json。"""
     report = analyze_path(source)
     out = Path(output_dir) if output_dir else Path(source)
     if out.is_file():

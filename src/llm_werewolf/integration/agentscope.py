@@ -1,7 +1,7 @@
-"""AgentScope Agent adapter for LLMWerewolf integration.
+"""AgentScope Agent 适配器，用于 LLMWerewolf 集成。
 
-This module provides an adapter that wraps AgentScope's AgentBase
-to be compatible with LLMWerewolf's AgentProtocol interface.
+本模块封装 AgentScope 的 AgentBase，
+使其符合 LLMWerewolf 的 AgentProtocol 接口。
 """
 import re
 import asyncio
@@ -26,10 +26,10 @@ from llm_werewolf.adapter.serial_calls import run_serial_agent_call
 
 
 class AgentScopeWerewolfAgent(BaseAgent):
-    """Werewolf player agent for the AgentScope integration layer.
+    """AgentScope 集成层的狼人杀玩家 Agent。
 
-    This agent wraps AgentScope's AgentBase to work with LLMWerewolf's
-    game engine while providing ReAct reasoning and better prompt management.
+    封装 AgentScope 的 AgentBase，对接 LLMWerewolf 游戏引擎，
+    并提供 ReAct 推理与更完善的 prompt 管理。
     """
 
     model: str = Field(default="agentscope")
@@ -57,18 +57,18 @@ class AgentScopeWerewolfAgent(BaseAgent):
         agentscope_agent: Any = None,
         player_config: Any = None,
     ):
-        """Initialize the werewolf agent.
+        """初始化狼人杀 Agent。
 
         Args:
-            name: Player name.
-            model: Model name.
-            role: Role type (villager, prophet, witch, wolf, wolf_king, guard, hunter).
-            number: Seat number (1-12).
-            plan: Strategy plan text (resolved from plan_name after role assignment).
-            plan_name: Plan strategy key (default, complicated, bold, ...).
-            language: Response language.
-            agentscope_agent: Pre-created AgentScope ReActAgent instance (optional).
-            player_config: PlayerConfig used to build the ReActAgent after role assignment.
+            name: 玩家名称。
+            model: 模型名称。
+            role: 角色类型（villager、prophet、witch、wolf、wolf_king、guard、hunter）。
+            number: 座位号（1–12）。
+            plan: 策略计划文本（角色分配后由 plan_name 解析）。
+            plan_name: 策略键（default、complicated、bold 等）。
+            language: 回复语言。
+            agentscope_agent: 预创建的 AgentScope ReActAgent（可选）。
+            player_config: 角色分配后用于构建 ReActAgent 的 PlayerConfig。
         """
         super().__init__(name=name, model=model)
         self.role = role
@@ -90,7 +90,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         game_role_name: str,
         plan_text: str,
     ) -> None:
-        """Apply role-specific system prompt after the engine assigns roles."""
+        """引擎分配角色后应用角色专属系统 prompt。"""
         from llm_werewolf.adapter.factory import GAME_ROLE_TO_PROMPT_KEY, build_system_prompt, create_react_agent
 
         self.number = seat_number
@@ -117,7 +117,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         seat_number: int,
         plan: str | None = None,
     ) -> None:
-        """Collaborator API: bind engine-assigned role after ``setup_game``."""
+        """协作者 API：在 ``setup_game`` 之后绑定引擎分配的角色。"""
         plan_text = plan if plan is not None else self.plan
         self.configure_role(
             seat_number=seat_number,
@@ -126,7 +126,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         )
 
     def _init_system_prompt(self) -> None:
-        """Initialize local chat history mirror from role configuration."""
+        """根据角色配置初始化本地对话历史镜像。"""
         if self.game_role_name:
             from llm_werewolf.adapter.factory import build_system_prompt
 
@@ -144,7 +144,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.chat_history = [{"role": "system", "content": sys_prompt}]
 
     def _get_role_config(self) -> dict:
-        """Get role configuration."""
+        """获取角色配置。"""
         role_map = {
             "villager": RolePrompts.VILLAGER,
             "prophet": RolePrompts.PROPHET,
@@ -158,24 +158,24 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
     @property
     def role_name(self) -> str:
-        """Get role Chinese name."""
+        """获取角色中文名。"""
         return self._get_role_config()["role_name"]
 
     @property
     def is_wolf(self) -> bool:
-        """Check if player is on werewolf team."""
+        """判断玩家是否属于狼人阵营。"""
         return self.role in ("wolf", "wolf_king")
 
     async def get_response(self, message: str) -> str:
-        """Get response from the agent.
+        """从 Agent 获取回复。
 
-        This method adapts the AgentScope agent to LLMWerewolf's interface.
+        将 AgentScope Agent 适配为 LLMWerewolf 接口。
 
         Args:
-            message: The prompt message from game engine.
+            message: 游戏引擎下发的 prompt。
 
         Returns:
-            str: The agent's response.
+            str: Agent 的回复文本。
         """
         self.chat_history.append({"role": "user", "content": message})
 
@@ -186,13 +186,13 @@ class AgentScopeWerewolfAgent(BaseAgent):
         return await self._call_agentscope_agent(message)
 
     async def _call_agentscope_agent(self, message: str) -> str:
-        """Call AgentScope agent for response (serialized across all 12 players).
+        """调用 AgentScope Agent 获取回复（12 名玩家串行调用）。
 
         Args:
-            message: The prompt message.
+            message: prompt 消息。
 
         Returns:
-            str: The agent's response text.
+            str: Agent 的回复文本。
         """
         input_msg = AgentScopeMsg(name="Moderator", content=message, role="user")
         response_text = ""
@@ -246,7 +246,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         message: str,
         structured_model: Type[BaseModel],
     ) -> BaseModel | None:
-        """Get a typed response from AgentScope when the backend supports it."""
+        """在后端支持时从 AgentScope 获取结构化类型回复。"""
         self.chat_history.append({"role": "user", "content": message})
 
         if self.agentscope_agent is None:
@@ -329,7 +329,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
     @staticmethod
     def _extract_agentscope_text(response_msg: Any) -> str:
-        """Normalize AgentScope Msg / raw response to plain text."""
+        """将 AgentScope Msg / 原始响应规范为纯文本。"""
         if hasattr(response_msg, "get_text_content"):
             return response_msg.get_text_content() or ""
         if hasattr(response_msg, "content"):
@@ -351,14 +351,14 @@ class AgentScopeWerewolfAgent(BaseAgent):
         return str(response_msg)
 
     def _generate_fallback_response(self, message: str, error: str) -> str:
-        """Generate a fallback response when the agent fails.
+        """Agent 失败时生成兜底回复。
 
         Args:
-            message: The original prompt message.
-            error: The error message.
+            message: 原始 prompt。
+            error: 错误信息。
 
         Returns:
-            str: A reasonable fallback response.
+            str: 合理的兜底回复。
         """
         import random
 
@@ -380,18 +380,18 @@ class AgentScopeWerewolfAgent(BaseAgent):
         return random.choice(speeches)
 
     def add_decision(self, decision: str) -> None:
-        """Add a decision to the decision history.
+        """将一条决策记入决策历史。
 
         Args:
-            decision: A safe summary of the decision.
+            decision: 决策的安全摘要。
         """
         self.decision_history.append(decision)
 
     def get_decision_context(self) -> str:
-        """Get formatted decision history for context.
+        """获取格式化的决策历史作为上下文。
 
         Returns:
-            str: Formatted decision history.
+            str: 格式化后的决策历史。
         """
         if not self.decision_history:
             return ""
@@ -400,13 +400,13 @@ class AgentScopeWerewolfAgent(BaseAgent):
         )
 
     def extract_target(self, text: str) -> Optional[int]:
-        """Extract target number from [[...]] pattern.
+        """从 [[...]] 模式中解析目标座位号。
 
         Args:
-            text: The response text.
+            text: 回复文本。
 
         Returns:
-            Optional[int]: The extracted target number, or None.
+            Optional[int]: 解析出的座位号，无则 None。
         """
         match = re.search(r"\[\[\s*(\d+)\s*\]\]", text)
         if match:
@@ -415,7 +415,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
     @staticmethod
     def _message_expects_seat_only(message: str) -> bool:
-        """True when the prompt asks for a seat number / vote, not a speech line."""
+        """prompt 要求座位号/投票而非发言时返回 True。"""
         from llm_werewolf.core.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
 
         if ROUNDTABLE_SPEECH_ONLY_MARKER in message:
@@ -457,14 +457,14 @@ class AgentScopeWerewolfAgent(BaseAgent):
         return False
 
     def extract_content(self, text: str) -> Optional[str]:
-        """Extract public speech from [[...]] (legacy helper)."""
+        """从 [[...]] 提取公开发言（遗留辅助方法）。"""
         extracted = extract_public_text(text)
         if is_valid_public_speech(extracted):
             return extracted
         return None
 
     def reset(self) -> None:
-        """Reset agent state."""
+        """重置 Agent 状态。"""
         self.decision_history = []
         self.chat_history = []
         self._init_system_prompt()

@@ -1,8 +1,8 @@
-"""Per-role identity prompts (Chinese only, injected for matching role only)."""
+"""各角色身份提示词（仅中文，仅注入匹配角色）。"""
 
 from llm_werewolf.core.types.enums import VictoryGoal
 
-# victory_goal -> short Chinese description (appended to identity block)
+# victory_goal → 简短中文描述（追加到身份块末尾）
 _VICTORY_TEXT = {
     VictoryGoal.WEREWOLF_PARITY: "胜利目标：狼人数量不少于好人即可获胜。",
     VictoryGoal.VILLAGER_ELIMINATE_WEREWOLVES: "胜利目标：找出并淘汰所有狼人。",
@@ -105,7 +105,7 @@ IDENTITY_PROMPTS: dict[str, dict[str, str]] = {
 
 
 def get_identity_template(role_name: str) -> dict[str, str]:
-    """Return identity fields for a role, with fallback to villager-style text."""
+    """返回角色的身份字段；无匹配时回退为村民风格文案。"""
     return IDENTITY_PROMPTS.get(
         role_name,
         {
@@ -121,7 +121,7 @@ def format_identity_prompt(
     camp_label: str,
     victory_goal: VictoryGoal,
 ) -> str:
-    """Build the identity-only prompt block."""
+    """构建仅含身份的提示词块。"""
     fields = get_identity_template(role_name)
     victory_text = _VICTORY_TEXT.get(victory_goal, "")
     return (

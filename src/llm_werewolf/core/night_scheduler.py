@@ -1,4 +1,4 @@
-"""Ordered night-skill orchestration (pre-wolf → wolf votes → witch → other roles)."""
+"""按顺序编排夜间技能（预狼阶段 → 狼票 → 女巫 → 其余角色）。"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from llm_werewolf.core.game_state import GameState
     from llm_werewolf.core.types import PlayerProtocol
 
-# Roles that act before wolf kill target is finalized (fixed order).
+# 在狼刀目标确定前行动的角色（固定顺序）。
 PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
     "Cupid",
     "Nightmare Wolf",
@@ -25,7 +25,7 @@ PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
 
 WITCH_ROLE_NAMES: frozenset[str] = frozenset({"Witch"})
 
-# After wolf target is known: witch first, then remaining night roles in this order.
+# 狼刀目标已知后：先女巫，再按此顺序处理其余夜间角色。
 POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = (
     "Seer",
     "Graveyard Keeper",
@@ -34,7 +34,7 @@ POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = (
 
 
 class NightSkillScheduler:
-    """Runs night skills in standard werewolf order."""
+    """按标准狼人杀顺序执行夜间技能。"""
 
     def __init__(
         self,
@@ -53,7 +53,7 @@ class NightSkillScheduler:
         self._wolf_role_names = get_werewolf_roles()
 
     async def run(self) -> tuple[list[Action], list[str]]:
-        """Pre-wolf batch then wolf vote collection (legacy combined entry)."""
+        """预狼批次，随后收集狼票（旧版合并入口）。"""
         messages: list[str] = []
         pending: list[Action] = []
         pending.extend(await self.run_pre_wolf_phase())
@@ -61,15 +61,15 @@ class NightSkillScheduler:
         return pending, messages
 
     async def run_pre_wolf_phase(self) -> list[Action]:
-        """Cupid, Nightmare Wolf, Guard, etc. — before wolf votes."""
+        """丘比特、梦魇狼、守卫等——在狼票之前。"""
         return await self._collect_for_players(self._players_pre_wolf())
 
     async def run_wolf_vote_phase(self) -> list[Action]:
-        """Collect werewolf pack kill votes only."""
+        """仅收集狼队击杀投票。"""
         return await self._collect_for_players(self._players_werewolf_voters())
 
     async def run_post_wolf_resolution(self) -> list[Action]:
-        """Witch (after ``werewolf_target`` is set), then Seer / Graveyard / Raven."""
+        """女巫（在 ``werewolf_target`` 确定后），随后预言家 / 守墓人 / 乌鸦。"""
         actions: list[Action] = []
         actions.extend(await self._collect_for_players(self._players_witch()))
         actions.extend(await self._collect_for_players(self._players_post_witch_ordered()))

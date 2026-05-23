@@ -2,17 +2,17 @@ from llm_werewolf.core.types import Event, EventType
 
 
 class EventLogger:
-    """Logs and manages game events."""
+    """记录并管理游戏事件。"""
 
     def __init__(self) -> None:
-        """Initialize the event logger."""
+        """初始化事件记录器。"""
         self.events: list[Event] = []
 
     def log_event(self, event: Event) -> None:
-        """Log an event.
+        """记录一条事件。
 
         Args:
-            event: The event to log.
+            event: 待记录的事件。
         """
         self.events.append(event)
 
@@ -25,18 +25,18 @@ class EventLogger:
         data: dict | None = None,
         visible_to: list[str] | None = None,
     ) -> Event:
-        """Create and log a new event.
+        """创建并记录新事件。
 
         Args:
-            event_type: Type of the event.
-            round_number: Current round number.
-            phase: Current game phase.
-            message: Event message.
-            data: Additional event data.
-            visible_to: List of player IDs who can see this event.
+            event_type: 事件类型。
+            round_number: 当前回合数。
+            phase: 当前游戏阶段。
+            message: 事件消息。
+            data: 附加事件数据。
+            visible_to: 可查看该事件的玩家 ID 列表。
 
         Returns:
-            Event: The created event.
+            Event: 创建的事件。
         """
         event = Event(
             event_type=event_type,
@@ -50,14 +50,14 @@ class EventLogger:
         return event
 
     def get_events_for_player(self, player_id: str, since_round: int | None = None) -> list[Event]:
-        """Get all events visible to a specific player.
+        """获取指定玩家可见的所有事件。
 
         Args:
-            player_id: The player ID.
-            since_round: Only return events from this round onward.
+            player_id: 玩家 ID。
+            since_round: 仅返回该回合及之后的事件。
 
         Returns:
-            list[Event]: List of visible events.
+            list[Event]: 可见事件列表。
         """
         events = [e for e in self.events if e.is_visible_to(player_id)]
 
@@ -69,7 +69,7 @@ class EventLogger:
     def get_events_for_players(
         self, player_ids: list[str], since_round: int | None = None
     ) -> list[Event]:
-        """Get all events visible to every player in a group."""
+        """获取一组玩家均可见的所有事件。"""
         shared_events = [
             event for event in self.events if all(event.is_visible_to(player_id) for player_id in player_ids)
         ]
@@ -80,27 +80,27 @@ class EventLogger:
         return shared_events
 
     def get_recent_events(self, count: int = 10) -> list[Event]:
-        """Get the most recent events.
+        """获取最近的事件。
 
         Args:
-            count: Number of events to retrieve.
+            count: 要获取的事件数量。
 
         Returns:
-            list[Event]: Recent events.
+            list[Event]: 最近的事件。
         """
         return self.events[-count:]
 
     def get_events_by_type(
         self, event_type: EventType, round_number: int | None = None
     ) -> list[Event]:
-        """Get all events of a specific type.
+        """获取指定类型的所有事件。
 
         Args:
-            event_type: The event type to filter by.
-            round_number: Optionally filter by round number.
+            event_type: 要筛选的事件类型。
+            round_number: 可选，按回合数筛选。
 
         Returns:
-            list[Event]: List of matching events.
+            list[Event]: 匹配的事件列表。
         """
         events = [e for e in self.events if e.event_type == event_type]
 
@@ -110,13 +110,13 @@ class EventLogger:
         return events
 
     def clear_events(self) -> None:
-        """Clear all events."""
+        """清空所有事件。"""
         self.events.clear()
 
     def get_event_count(self) -> int:
-        """Get the total number of events.
+        """获取事件总数。
 
         Returns:
-            int: Number of events logged.
+            int: 已记录的事件数量。
         """
         return len(self.events)

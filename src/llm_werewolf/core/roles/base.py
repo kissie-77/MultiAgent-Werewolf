@@ -10,15 +10,15 @@ from llm_werewolf.core.types import (
     GameStateProtocol,
 )
 class Role(ABC):
-    """Abstract base class for all roles in the Werewolf game."""
+    """狼人杀游戏中所有角色的抽象基类。"""
 
     def __init__(self, player: PlayerProtocol) -> None:
-        """Initialize the role."""
+        """初始化角色。"""
         self.player = player
         self.ability_uses = 0
         self.config = self.get_config()
         self._apply_catalog_description()
-        self.disabled = False  # If True, role abilities are disabled
+        self.disabled = False  # 为 True 时角色技能被禁用
 
     def _apply_catalog_description(self) -> None:
         try:
@@ -32,58 +32,58 @@ class Role(ABC):
 
     @abstractmethod
     def get_config(self) -> RoleConfig:
-        """Get the configuration for this role.
+        """获取本角色的配置。
 
         Returns:
-            RoleConfig: The role's configuration.
+            RoleConfig: 角色配置。
         """
         pass
 
     @property
     def name(self) -> str:
-        """Get the role name.
+        """获取角色名称。
 
         Returns:
-            str: The role name.
+            str: 角色名称。
         """
         return self.config.name
 
     @property
     def camp(self) -> Camp:
-        """Get the role's camp.
+        """获取角色阵营。
 
         Returns:
-            Camp: The camp this role belongs to.
+            Camp: 角色所属阵营。
         """
         return self.config.camp
 
     @property
     def description(self) -> str:
-        """Get the role description.
+        """获取角色描述。
 
         Returns:
-            str: Description of the role's abilities.
+            str: 角色技能说明。
         """
         return self.config.description
 
     @property
     def priority(self) -> ActionPriority | None:
-        """Get the action priority.
+        """获取行动优先级。
 
         Returns:
-            ActionPriority | None: The priority of night actions, or None if no night action.
+            ActionPriority | None: 夜间行动优先级；无夜间行动时为 None。
         """
         return self.config.priority
 
     def can_act_tonight(self, player: PlayerProtocol, round_number: int) -> bool:
-        """Check if this role can perform an action tonight.
+        """检查本角色今夜是否可以行动。
 
         Args:
-            player: The player with this role.
-            round_number: The current round number.
+            player: 持有本角色的玩家。
+            round_number: 当前回合数。
 
         Returns:
-            bool: True if the role can act tonight.
+            bool: 今夜可行动则为 True。
         """
         if self.disabled:
             return False
@@ -97,13 +97,13 @@ class Role(ABC):
         return not (self.config.max_uses is not None and self.ability_uses >= self.config.max_uses)
 
     def can_act_today(self, player: PlayerProtocol) -> bool:
-        """Check if this role can perform an action today.
+        """检查本角色今日是否可以行动。
 
         Args:
-            player: The player with this role.
+            player: 持有本角色的玩家。
 
         Returns:
-            bool: True if the role can act today.
+            bool: 今日可行动则为 True。
         """
         if not self.config.can_act_day:
             return False
@@ -111,14 +111,14 @@ class Role(ABC):
         return player.is_alive()
 
     def get_action_prompt(self, player: PlayerProtocol, game_state: object) -> str:
-        """Get the prompt for the AI agent when this role needs to act.
+        """获取本角色需要行动时给 AI 智能体的提示词。
 
         Args:
-            player: The player with this role.
-            game_state: The current game state.
+            player: 持有本角色的玩家。
+            game_state: 当前游戏状态。
 
         Returns:
-            str: The prompt string for the AI agent.
+            str: 给 AI 智能体的提示字符串。
         """
         try:
             from llm_werewolf.core.prompts.manager import PromptManager
@@ -132,11 +132,11 @@ class Role(ABC):
             return f"你是{player.name}，身份：{self.name}。{self.description}"
 
     def get_private_notes(self, game_state: GameStateProtocol | None = None) -> list[str]:
-        """Return role-specific facts visible only to this player."""
+        """返回仅该玩家可见的角色相关事实。"""
         return [f"你的身份是 {self.name}。", self.description]
 
     async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Collect night actions via PhaseInteraction / InformationHub."""
+        """通过 PhaseInteraction / InformationHub 收集夜间行动。"""
         interaction = getattr(game_state, "phase_interaction", None)
         if interaction is None:
             return []
@@ -145,13 +145,13 @@ class Role(ABC):
         return await dispatch_night_plan(self, game_state, interaction)
 
     def has_night_action(self, game_state: GameStateProtocol) -> bool:
-        """Check if the role has a night action.
+        """检查角色是否具有夜间行动。
 
         Args:
-            game_state: The current game state.
+            game_state: 当前游戏状态。
 
         Returns:
-            bool: True if the role has a night action.
+            bool: 有夜间行动则为 True。
         """
         if self.disabled:
             return False
@@ -169,34 +169,34 @@ class Role(ABC):
     def validate_action(
         self, actor: PlayerProtocol, target: PlayerProtocol | None, action_data: dict
     ) -> bool:
-        """Validate if an action is legal.
+        """校验行动是否合法。
 
         Args:
-            actor: The player performing the action.
-            target: The target player (if any).
-            action_data: Additional action data.
+            actor: 执行行动的玩家。
+            target: 目标玩家（若有）。
+            action_data: 附加行动数据。
 
         Returns:
-            bool: True if the action is valid.
+            bool: 行动合法则为 True。
         """
         return True
 
     def use_ability(self) -> None:
-        """Mark that the ability has been used."""
+        """标记技能已使用。"""
         self.ability_uses += 1
 
     def __str__(self) -> str:
-        """String representation of the role.
+        """角色的字符串表示。
 
         Returns:
-            str: The role name.
+            str: 角色名称。
         """
         return self.name
 
     def __repr__(self) -> str:
-        """Repr of the role.
+        """角色的 repr 表示。
 
         Returns:
-            str: The role representation.
+            str: 角色表示。
         """
         return f"{self.__class__.__name__}()"

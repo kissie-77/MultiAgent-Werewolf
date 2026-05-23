@@ -1,4 +1,4 @@
-"""Event formatter for consistent event display across CLI and TUI."""
+"""在 CLI 与 TUI 间统一事件展示格式。"""
 
 from typing import ClassVar
 
@@ -8,9 +8,9 @@ from llm_werewolf.core.types import Event, EventType
 
 
 class EventFormatter:
-    """Formats game events for display with consistent styling."""
+    """以一致样式格式化游戏事件以供展示。"""
 
-    # Event type to style mapping (shared by CLI and TUI)
+    # 事件类型到样式的映射（CLI 与 TUI 共用）
     EVENT_STYLES: ClassVar[dict[EventType, str]] = {
         EventType.GAME_STARTED: "bold green",
         EventType.GAME_ENDED: "bold red",
@@ -47,38 +47,38 @@ class EventFormatter:
 
     @classmethod
     def format_event(cls, event: Event, include_timestamp: bool = True) -> Text:
-        """Format an event as Rich Text with appropriate styling.
+        """将事件格式化为带合适样式的 Rich Text。
 
         Args:
-            event: The event to format.
-            include_timestamp: Whether to include timestamp in the output.
+            event: 待格式化的事件。
+            include_timestamp: 是否在输出中包含时间戳。
 
         Returns:
-            Text: Formatted Rich Text object.
+            Text: 格式化后的 Rich Text 对象。
         """
         text = Text()
 
-        # Add timestamp if requested
+        # 按需添加时间戳
         if include_timestamp:
             time_str = event.timestamp.strftime("%H:%M:%S")
             text.append(f"[{time_str}] ", style="dim")
 
-        # Get style for this event type (default to white if not found)
+        # 获取该事件类型的样式（未找到则默认为 white）
         style = cls.EVENT_STYLES.get(event.event_type, "white")
 
-        # Add the message with appropriate style
+        # 以对应样式追加消息
         text.append(event.message, style=style)
 
         return text
 
     @classmethod
     def get_event_style(cls, event_type: EventType) -> str:
-        """Get the style for a specific event type.
+        """获取指定事件类型的样式。
 
         Args:
-            event_type: The event type.
+            event_type: 事件类型。
 
         Returns:
-            str: The style string for Rich formatting.
+            str: 用于 Rich 格式化的样式字符串。
         """
         return cls.EVENT_STYLES.get(event_type, "white")

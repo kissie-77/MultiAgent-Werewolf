@@ -7,34 +7,34 @@ from llm_werewolf.core.game_state import GameState
 
 
 class PlayerPanel(RichLog):
-    """Widget displaying the list of players and their status."""
+    """展示玩家列表及其状态的组件。"""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-        """Initialize the player panel."""
+        """初始化玩家面板。"""
         super().__init__(*args, **kwargs)
         self.game_state: GameState | None = None
 
     def set_game_state(self, game_state: GameState) -> None:
-        """Set the game state to display.
+        """设置要展示的游戏状态。
 
         Args:
-            game_state: The current game state.
+            game_state: 当前游戏状态。
         """
         self.game_state = game_state
         self.refresh_display()
 
     def refresh_display(self) -> None:
-        """Refresh the display with current game state."""
+        """用当前游戏状态刷新展示。"""
         if not self.game_state:
             return
 
-        # Clear previous content
+        # 清除先前内容
         self.clear()
 
-        # Check if there are any human players in the game
+        # 检查游戏中是否存在人类玩家
         has_human_player = any(p.ai_model == "human" for p in self.game_state.players)
 
-        # Create table without title
+        # 创建无标题表格
         table = Table(
             show_header=True,
             header_style="bold magenta",
@@ -48,7 +48,7 @@ class PlayerPanel(RichLog):
         table.add_column("Role", style="yellow", no_wrap=True)
 
         for player in self.game_state.players:
-            # Determine status icon
+            # 确定状态图标
             if player.is_alive():
                 status_icon = "✓"
                 status_style = "green"
@@ -56,15 +56,15 @@ class PlayerPanel(RichLog):
                 status_icon = "✗"
                 status_style = "red"
 
-            # Role display logic:
-            # - If there's a human player: hide roles (show "?") unless dead
-            # - If no human player: show all roles (spectator/testing mode)
+            # 角色展示逻辑：
+            # - 若存在人类玩家：隐藏角色（显示 "?"），除非已死亡
+            # - 若无人类玩家：展示所有角色（观战/测试模式）
             if has_human_player:
                 role_display = player.get_role_name() if not player.is_alive() else "?"
             else:
                 role_display = player.get_role_name()
 
-            # Add special status indicators
+            # 添加特殊状态指示
             status_text = status_icon
             if player.has_status("protected"):
                 status_text += " 🛡️"
@@ -82,9 +82,9 @@ class PlayerPanel(RichLog):
                 role_display,
             )
 
-        # Write table to RichLog
+        # 将表格写入 RichLog
         self.write(table)
 
     def on_mount(self) -> None:
-        """Called when widget is mounted."""
+        """组件挂载时调用。"""
         self.refresh_display()

@@ -48,7 +48,7 @@ class Event(BaseModel):
         default_factory=datetime.now, description="When the event occurred"
     )
     round_number: int = Field(..., description="Round number when event occurred")
-    phase: str = Field(..., description="Game phase when event occurred")
+    phase: GamePhase = Field(..., description="Game phase when event occurred")
     message: str = Field(..., description="Human-readable event message")
     data: dict = Field(default_factory=dict, description="Additional event data")
     visible_to: list[str] | None = Field(

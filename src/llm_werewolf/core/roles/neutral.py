@@ -29,9 +29,8 @@ class Thief(Role):
             name="Thief",
             camp=Camp.NEUTRAL,  # 初始为中立，选择身份后变为对应阵营
             description=(
-                "You are the Thief. On the first night, you are shown two extra role cards "
-                "that were not dealt to other players. You must choose one of these roles "
-                "to play for the rest of the game. Choose wisely!"
+                "你是盗贼。第一夜，你会看到两张未发给其他玩家的身份牌。"
+                "你必须从中选择一个身份进行剩余游戏。请谨慎选择！"
             ),
             priority=ActionPriority.THIEF,
             can_act_night=True,
@@ -64,10 +63,9 @@ class Lover(Role):
             name="Lover",
             camp=Camp.NEUTRAL,  # 情侣拥有独立的胜利条件
             description=(
-                "You have been chosen as a Lover by Cupid. You share a special bond with another "
-                "player. You both know each other's identities. If your partner dies, you will "
-                "die immediately from heartbreak. Your goal is to survive together with your lover, "
-                "even if it means going against your original camp."
+                "你被丘比特选为恋人。你与另一名玩家有特殊羁绊，彼此知晓对方身份。"
+                "如果你的恋人死亡，你会立即心碎殉情。"
+                "你的目标是与恋人一起存活到最后，即使这意味着背叛你的原始阵营。"
             ),
             priority=None,
             can_act_night=False,
@@ -93,10 +91,9 @@ class WhiteLoverWolf(Role):
             name="White Lover Wolf",
             camp=Camp.NEUTRAL,
             description=(
-                "You are in a unique situation: you (or your lover) are a werewolf, "
-                "and your lover (or you) are a villager. You must work together to eliminate "
-                "all other players so that only you two remain. This is an extremely challenging "
-                "victory condition, but if achieved, you both win together."
+                "你处于一种特殊情况：你（或你的恋人）是狼人，而你的恋人（或你）是好人。"
+                "你们必须合作淘汰所有其他玩家，直到仅剩你们两人。"
+                "这是一个极具挑战性的胜利条件，但如果达成，你们将共同获胜。"
             ),
             priority=None,
             can_act_night=False,

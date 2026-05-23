@@ -1,4 +1,5 @@
 from llm_werewolf.core.types import Event, EventType
+from llm_werewolf.core.types.enums import GamePhase
 
 
 class EventLogger:
@@ -20,7 +21,7 @@ class EventLogger:
         self,
         event_type: EventType,
         round_number: int,
-        phase: str,
+        phase: GamePhase,
         message: str,
         data: dict | None = None,
         visible_to: list[str] | None = None,

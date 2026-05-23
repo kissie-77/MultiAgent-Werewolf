@@ -128,9 +128,8 @@ class WolfBeauty(Role):
             name="Wolf Beauty",
             camp=Camp.WEREWOLF,
             description=(
-                "You are the Wolf Beauty. You wake up with other werewolves to kill villagers. "
-                "Each night, you can also charm a player. If you die, the charmed player "
-                "dies with you immediately."
+                "你是狼美人。每晚与其他狼人一起击杀好人。"
+                "此外，每晚你可以魅惑一名玩家。如果你死亡，被魅惑的玩家会立即殉情。"
             ),
             priority=ActionPriority.WEREWOLF,
             can_act_night=True,
@@ -151,9 +150,8 @@ class GuardianWolf(Role):
             name="Guardian Wolf",
             camp=Camp.WEREWOLF,
             description=(
-                "You are the Guardian Wolf. You wake up with other werewolves to kill villagers. "
-                "Additionally, you can choose to protect one werewolf each night. "
-                "The protected werewolf cannot be eliminated that night."
+                "你是守卫狼。每晚与其他狼人一起击杀好人。"
+                "此外，每晚你可以选择保护一名狼队友，使其当夜不会被击杀。"
             ),
             priority=ActionPriority.GUARD,
             can_act_night=True,
@@ -174,9 +172,8 @@ class HiddenWolf(Role):
             name="Hidden Wolf",
             camp=Camp.WEREWOLF,
             description=(
-                "You are the Hidden Wolf. You wake up with other werewolves to kill villagers. "
-                "Your special ability is that you appear as a villager when checked by the Seer. "
-                "This makes you much harder to detect."
+                "你是隐狼。每晚与其他狼人一起击杀好人。"
+                "你的特殊能力是：预言家查验你时会显示为好人，这让你更难被发现。"
             ),
             priority=ActionPriority.WEREWOLF,
             can_act_night=True,
@@ -203,10 +200,9 @@ class BloodMoonApostle(Role):
             name="Blood Moon Apostle",
             camp=Camp.WEREWOLF,
             description=(
-                "You are the Blood Moon Apostle. You support the werewolves but don't wake up "
-                "with them initially. Once per game, if all werewolves are dead, you transform "
-                "into a werewolf and can start killing. You appear as a villager to the Seer "
-                "until transformed."
+                "你是血月使徒。你支持狼人阵营，但最初不与狼队一起醒来。"
+                "每局游戏一次，当所有狼人死亡后，你可以变身为真正的狼人并开始击杀。"
+                "变身前，预言家查验你时会显示为好人。"
             ),
             priority=ActionPriority.WEREWOLF,  # 变身后与狼人一同行动
             can_act_night=True,  # 每夜需检查变身条件
@@ -228,9 +224,8 @@ class NightmareWolf(Role):
             name="Nightmare Wolf",
             camp=Camp.WEREWOLF,
             description=(
-                "You are the Nightmare Wolf. You wake up with other werewolves to kill villagers. "
-                "Additionally, you can choose one player each night to block their ability. "
-                "That player cannot use their role ability that night."
+                "你是梦魇狼。每晚与其他狼人一起击杀好人。"
+                "此外，每晚你可以选择封锁一名玩家，使其当夜无法使用技能。"
             ),
             priority=ActionPriority.WEREWOLF,
             can_act_night=True,

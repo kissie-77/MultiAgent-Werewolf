@@ -31,9 +31,8 @@ class Villager(Role):
             name="Villager",
             camp=Camp.VILLAGER,
             description=(
-                "You are a Villager. You have no special abilities, but you can vote "
-                "during the day to eliminate suspected werewolves. Use your deduction "
-                "and persuasion skills to help the village win!"
+                "你是平民。你没有特殊技能，但可以在白天投票淘汰疑似狼人的玩家。"
+                "运用你的推理和说服能力帮助好人阵营获胜！"
             ),
             priority=None,
             can_act_night=False,
@@ -57,8 +56,8 @@ class Seer(Role):
         for round_num, player_id in game_state.seer_checked.items():
             player = game_state.get_player(player_id)
             if player:
-                result = "werewolf" if player.get_camp() == Camp.WEREWOLF else "villager"
-                checked_info.append(f"Round {round_num}: {player.name} was confirmed as {result}.")
+                result = "狼人" if player.get_camp() == Camp.WEREWOLF else "好人"
+                checked_info.append(f"第{round_num}夜：查验{player.name}，结果为{result}。")
 
         return notes + checked_info
 
@@ -68,9 +67,8 @@ class Seer(Role):
             name="Seer",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Seer (Prophet). Each night, you can check one player "
-                "to learn their true identity (werewolf or villager). Use this information "
-                "wisely to guide the village, but be careful not to reveal yourself too early."
+                "你是预言家。每晚可以查验一名玩家的真实身份（狼人或好人）。"
+                "善用这些信息引导好人阵营，但要注意不要过早暴露自己。"
             ),
             priority=ActionPriority.SEER,
             can_act_night=True,
@@ -94,12 +92,12 @@ class Witch(Role):
 
     def get_private_notes(self, game_state: GameStateProtocol | None = None) -> list[str]:
         notes = super().get_private_notes(game_state)
-        notes.append(f"Save potion available: {'yes' if self.has_save_potion else 'no'}.")
-        notes.append(f"Poison potion available: {'yes' if self.has_poison_potion else 'no'}.")
+        notes.append(f"解药可用：{'是' if self.has_save_potion else '否'}。")
+        notes.append(f"毒药可用：{'是' if self.has_poison_potion else '否'}。")
         if game_state and game_state.werewolf_target:
             target = game_state.get_player(game_state.werewolf_target)
             if target:
-                notes.append(f"Tonight's werewolf target is {target.name}.")
+                notes.append(f"今晚狼人目标是{target.name}。")
         return notes
 
     def get_config(self) -> RoleConfig:
@@ -108,9 +106,8 @@ class Witch(Role):
             name="Witch",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Witch. You have two potions: a save potion to resurrect someone "
-                "killed by werewolves, and a poison potion to kill any player. "
-                "Each potion can only be used once per game. Use them wisely!"
+                "你是女巫。你有两瓶药：解药可以救活被狼人击杀的人，毒药可以毒死任意一名玩家。"
+                "每瓶药整局游戏只能使用一次，请谨慎使用！"
             ),
             priority=ActionPriority.WITCH,
             can_act_night=True,
@@ -132,9 +129,8 @@ class Hunter(Role):
             name="Hunter",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Hunter. When you are eliminated (by werewolves at night or "
-                "by voting during the day), you can immediately shoot and eliminate another "
-                "player before you die. Choose your target carefully!"
+                "你是猎人。当你被击杀（被狼人或被投票出局）时，可以立即开枪带走另一名玩家。"
+                "请谨慎选择你的目标！"
             ),
             priority=None,
             can_act_night=False,
@@ -160,7 +156,7 @@ class Guard(Role):
         if self.last_protected and game_state:
             last_player = game_state.get_player(self.last_protected)
             if last_player:
-                notes.append(f"You protected {last_player.name} last night and cannot protect them again tonight.")
+                notes.append(f"你昨晚保护了{last_player.name}，今晚不能再次保护他/她。")
         return notes
 
     def get_config(self) -> RoleConfig:
@@ -169,9 +165,8 @@ class Guard(Role):
             name="Guard",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Guard. Each night, you can protect one player from werewolf attacks. "
-                "The protected player cannot be killed by werewolves that night. "
-                "However, you cannot protect the same player two nights in a row."
+                "你是守卫。每晚可以保护一名玩家免受狼人攻击。"
+                "被保护的玩家当夜不会被狼人击杀，但你不能连续两晚保护同一名玩家。"
             ),
             priority=ActionPriority.GUARD,
             can_act_night=True,
@@ -197,9 +192,8 @@ class Idiot(Role):
             name="Idiot",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Idiot. If you are voted out during the day, you reveal your "
-                "identity card and survive the elimination. However, you lose your right to vote "
-                "for the rest of the game. You can still be killed by werewolves at night."
+                "你是白痴。如果你在白天被投票出局，你会亮明身份并存活，但会失去剩余游戏的投票权。"
+                "你仍然可能在夜间被狼人击杀。"
             ),
             priority=None,
             can_act_night=False,
@@ -226,9 +220,8 @@ class Elder(Role):
             name="Elder",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Elder. You have two lives and can survive one werewolf attack. "
-                "However, if you are eliminated by voting during the day, all villagers with "
-                "special abilities lose their powers as punishment for killing an elder."
+                "你是长老。你有两条命，可以承受一次狼人攻击。"
+                "但如果你在白天被投票出局，所有拥有特殊技能的好人将失去能力，作为对杀害长老的惩罚。"
             ),
             priority=None,
             can_act_night=False,
@@ -256,9 +249,8 @@ class Knight(Role):
             name="Knight",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Knight. Once per game during the day, you can challenge a player "
-                "to a duel before voting. If they are a werewolf, they die immediately. "
-                "If they are not a werewolf, you die instead. Use this power wisely!"
+                "你是骑士。整局游戏中，你可以在白天投票前与一名玩家决斗一次。"
+                "如果对方是狼人，对方立即死亡；如果对方不是狼人，你死亡。请明智使用你的能力！"
             ),
             priority=None,
             can_act_night=False,
@@ -285,9 +277,8 @@ class Magician(Role):
             name="Magician",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Magician. Once per game, you can swap the roles of two players "
-                "at night. The players will not be aware of the swap initially. "
-                "Use this to confuse the werewolves or save valuable roles!"
+                "你是魔术师。整局游戏中，你可以在夜晚交换两名玩家的身份一次。"
+                "被交换的玩家最初不会察觉。利用这个能力来迷惑狼人或保护重要角色！"
             ),
             priority=ActionPriority.GUARD,
             can_act_night=True,
@@ -315,9 +306,9 @@ class Cupid(Role):
             name="Cupid",
             camp=Camp.VILLAGER,
             description=(
-                "You are Cupid. On the first night only, you choose two players to become lovers. "
-                "The lovers will learn each other's identities. If one lover dies, the other dies "
-                "immediately from heartbreak. Lovers win together regardless of their original camps."
+                "你是丘比特。仅在第一夜，你选择两名玩家结为恋人。"
+                "恋人会知晓彼此的身份。如果一名恋人死亡，另一名会立即心碎殉情。"
+                "无论原始阵营如何，恋人共同获胜。"
             ),
             priority=ActionPriority.CUPID,
             can_act_night=True,
@@ -340,9 +331,9 @@ class Raven(Role):
             name="Raven",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Raven. Each night, you can mark a player with a curse. "
-                "During the next day's voting, that player will have one extra vote against them "
-                "from the start. Use this to help eliminate werewolves!"
+                "你是渡鸦。每晚你可以诅咒一名玩家。"
+                "在次日的投票阶段，被诅咒的玩家从一开始就会额外获得一票反对。"
+                "利用这个能力帮助淘汰狼人！"
             ),
             priority=ActionPriority.RAVEN,
             can_act_night=True,
@@ -363,9 +354,8 @@ class GraveyardKeeper(Role):
             name="Graveyard Keeper",
             camp=Camp.VILLAGER,
             description=(
-                "You are the Graveyard Keeper. Each night, you can check the true identity "
-                "of one dead player (werewolf or villager). This helps you piece together "
-                "who the remaining werewolves might be."
+                "你是守墓人。每晚可以查验一名已死亡玩家的真实身份（狼人或好人）。"
+                "这有助于你推断剩余的狼人可能是谁。"
             ),
             priority=ActionPriority.GRAVEYARD_KEEPER,
             can_act_night=True,

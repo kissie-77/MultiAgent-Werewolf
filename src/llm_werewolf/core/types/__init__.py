@@ -6,6 +6,7 @@ from llm_werewolf.core.types.enums import (
     ActionType,
     PlayerStatus,
     ActionPriority,
+    VictoryGoal,
 )
 
 # 导出所有模型

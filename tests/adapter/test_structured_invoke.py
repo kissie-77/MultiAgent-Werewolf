@@ -24,11 +24,11 @@ def test_agent_uses_structured_when_agentscope_present() -> None:
     assert agent_uses_structured_output(FakeAgent()) is True
 
 
-def test_agent_uses_structured_flag() -> None:
+def test_agent_uses_structured_flag_without_backend() -> None:
     class FlagAgent:
         uses_structured_output = True
 
-    assert agent_uses_structured_output(FlagAgent()) is True
+    assert agent_uses_structured_output(FlagAgent()) is False
 
 
 def test_seat_choice_schema_fields() -> None:

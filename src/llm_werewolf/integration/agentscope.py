@@ -110,6 +110,21 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.chat_history = []
         self._init_system_prompt()
 
+
+    def bind_role_prompt(
+        self,
+        role_name: str,
+        seat_number: int,
+        plan: str | None = None,
+    ) -> None:
+        """Collaborator API: bind engine-assigned role after ``setup_game``."""
+        plan_text = plan if plan is not None else self.plan
+        self.configure_role(
+            seat_number=seat_number,
+            game_role_name=role_name,
+            plan_text=plan_text,
+        )
+
     def _init_system_prompt(self) -> None:
         """Initialize local chat history mirror from role configuration."""
         if self.game_role_name:

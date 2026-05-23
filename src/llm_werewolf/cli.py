@@ -5,8 +5,11 @@ import fire
 import logfire
 from rich.console import Console
 
+from llm_werewolf.adapter.bootstrap import (
+    create_players_from_config,
+    wire_agentscope_after_setup,
+)
 from llm_werewolf.core import GameEngine
-from llm_werewolf.core.agent import create_agent
 from llm_werewolf.core.utils import load_config
 from llm_werewolf.core.config import create_game_config_from_player_count
 from llm_werewolf.core.locale import Locale
@@ -25,30 +28,20 @@ async def main(config: str) -> None:
     config_path = Path(config)
     players_config = load_config(config_path=config_path)
 
-    # Automatically generate game config based on player count
     num_players = len(players_config.players)
     game_config = create_game_config_from_player_count(num_players)
 
-    players = [
-        create_agent(player_cfg, language=players_config.language)
-        for player_cfg in players_config.players
-    ]
+    players = create_players_from_config(players_config)
     roles = create_roles(role_names=game_config.role_names)
 
-    # Initialize locale and game engine with language support
     locale = Locale(players_config.language)
     engine = GameEngine(game_config, language=players_config.language)
 
-    # Set up beautified console presenter
     presenter = ConsolePresenter(locale)
     engine.on_event = presenter.present_event
 
     engine.setup_game(players=players, roles=roles)
-
-    if engine.game_state:
-        from llm_werewolf.adapter.setup import bind_agentscope_roles
-
-        bind_agentscope_roles(engine.game_state, default_plan=players_config.default_plan)
+    wire_agentscope_after_setup(engine, players_config)
 
     logfire.info("game_created", config_path=str(config_path), num_players=num_players)
 
@@ -95,7 +88,6 @@ async def main(config: str) -> None:
                 )
 
     except KeyboardInterrupt:
-        # Use locale for interruption message
         if players_config.language == "zh-TW":
             console.print("\n遊戲已由使用者中止。")
         elif players_config.language == "zh-CN":
@@ -109,7 +101,6 @@ async def main(config: str) -> None:
             config_path=str(config_path),
             num_players=num_players,
         )
-        # Use locale for error message
         if players_config.language == "zh-TW":
             console.print(f"[red]執行遊戲時發生錯誤: {exc}[/red]")
         elif players_config.language == "zh-CN":
@@ -120,11 +111,7 @@ async def main(config: str) -> None:
 
 
 def _run_main(config: str) -> None:
-    """Sync wrapper to run the async main function.
-
-    Args:
-        config: Path to the YAML configuration file
-    """
+    """Sync wrapper to run the async main function."""
     asyncio.run(main(config))
 
 

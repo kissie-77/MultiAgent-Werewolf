@@ -1,5 +1,5 @@
 import dotenv
-from pydantic import Field, BaseModel, field_validator
+from pydantic import Field, BaseModel, computed_field, field_validator
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
@@ -77,6 +77,12 @@ class PlayersConfig(BaseModel):
         min_length=6,
         max_length=20,
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def use_agentscope_backend(self) -> bool:
+        """True when YAML ``agent_backend`` selects AgentScope ReAct (not legacy OpenAI)."""
+        return self.agent_backend.strip().lower() not in {"openai", "legacy", "llm"}
 
     @field_validator("players")
     @classmethod

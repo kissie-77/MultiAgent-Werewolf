@@ -133,19 +133,24 @@ def configure_agents_for_players(
     default_plan: str = "default",
 ) -> None:
     """After roles are assigned, configure each AgentScope agent's system prompt."""
-    from llm_werewolf.adapter.agent import AgentScopeWerewolfAgent
-
     for player in players:
         agent = player.agent
-        if not isinstance(agent, AgentScopeWerewolfAgent):
-            continue
-
         seat = player_id_to_seat(player.player_id)
         role_name = player.get_role_name()
-        plan_name = agent.plan_name or default_plan
-        plan_text = resolve_plan_text(plan_name, GAME_ROLE_TO_PROMPT_KEY.get(role_name, "villager"))
+        plan_name = getattr(agent, "plan_name", None) or default_plan
+        prompt_key = GAME_ROLE_TO_PROMPT_KEY.get(role_name, "villager")
+        plan_text = resolve_plan_text(plan_name, prompt_key)
 
-        agent.configure_role(
+        bind_prompt = getattr(agent, "bind_role_prompt", None)
+        if callable(bind_prompt):
+            bind_prompt(role_name, seat, plan_text)
+            continue
+
+        configure_role = getattr(agent, "configure_role", None)
+        if not callable(configure_role):
+            continue
+
+        configure_role(
             seat_number=seat,
             game_role_name=role_name,
             plan_text=plan_text,

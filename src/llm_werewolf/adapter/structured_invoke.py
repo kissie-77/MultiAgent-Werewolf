@@ -21,10 +21,8 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def agent_uses_structured_output(agent: Any) -> bool:
-    """True when agent should use AgentScope generate_response (not legacy text)."""
-    if getattr(agent, "agentscope_agent", None) is not None:
-        return True
-    return getattr(agent, "uses_structured_output", False) is True
+    """True only when a live AgentScope ReAct backend is attached."""
+    return getattr(agent, "agentscope_agent", None) is not None
 
 
 def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:

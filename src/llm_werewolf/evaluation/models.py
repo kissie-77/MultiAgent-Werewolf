@@ -93,6 +93,7 @@ class EvaluationSummary(BaseModel):
     victory_rule_violation_count: int = 0
     phase_order_violation_count: int = 0
     invalid_action_count: int = 0
+    bad_case_count: int = 0
 
     # 运行时错误按角色和阶段聚合，用来快速定位“哪个角色/阶段最容易炸”。
     exception_count_by_role: dict[str, int] = Field(default_factory=dict)

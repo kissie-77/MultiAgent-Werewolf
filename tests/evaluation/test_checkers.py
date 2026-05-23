@@ -2,6 +2,7 @@ from llm_werewolf.core.types import Event, EventType
 from llm_werewolf.evaluation.checkers import (
     AsyncFlowChecker,
     InformationIsolationChecker,
+    PromptBadCaseChecker,
     RoleSkillChecker,
     VictoryCheckerEvaluator,
 )
@@ -81,3 +82,60 @@ def test_role_skill_checker_detects_missing_structured_fields() -> None:
     assert not results[0].passed
     assert results[0].data["event_type"] == "witch_saved"
     assert results[0].data["missing_fields"] == ["target_id"]
+
+
+def test_prompt_bad_case_checker_detects_missing_final_answer_format() -> None:
+    event = Event(
+        event_type=EventType.PLAYER_SPEECH,
+        round_number=1,
+        phase="day_discussion",
+        message="Player speaks",
+        data={"player_id": "player_1", "speech": "大家谨慎一点"},
+    )
+
+    results = PromptBadCaseChecker().check(events=[event])
+
+    assert any("final-answer format" in result.message for result in results)
+
+
+def test_prompt_bad_case_checker_detects_repeated_seer_target() -> None:
+    events = [
+        Event(
+            event_type=EventType.SEER_CHECKED,
+            round_number=1,
+            phase="night",
+            message="Seer checked player 2",
+            data={"target_id": "player_2", "result": "villager"},
+        ),
+        Event(
+            event_type=EventType.SEER_CHECKED,
+            round_number=2,
+            phase="night",
+            message="Seer checked player 2 again",
+            data={"target_id": "player_2", "result": "villager"},
+        ),
+    ]
+
+    results = PromptBadCaseChecker().check(events=events)
+
+    assert len(results) == 1
+    assert results[0].data["target_id"] == "player_2"
+
+
+def test_prompt_bad_case_checker_detects_death_shot_on_villager() -> None:
+    event = Event(
+        event_type=EventType.HUNTER_REVENGE,
+        round_number=2,
+        phase="day_voting",
+        message="Hunter shoots player 3",
+        data={"shooter_id": "player_1", "target_id": "player_3", "role": "Hunter"},
+    )
+
+    results = PromptBadCaseChecker().check(
+        events=[event],
+        player_roles={"player_3": "Villager"},
+        player_camps={"player_3": "villager"},
+    )
+
+    assert len(results) == 1
+    assert results[0].data["target_role"] == "Villager"

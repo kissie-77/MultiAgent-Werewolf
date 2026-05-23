@@ -50,6 +50,7 @@ class EvaluationReporter:
             "victory_rule_violation_count",
             "phase_order_violation_count",
             "invalid_action_count",
+            "bad_case_count",
             "missing_structured_event_count",
         ]
         with path.open("w", newline="", encoding="utf-8") as f:
@@ -74,6 +75,7 @@ class EvaluationReporter:
             f"- Information leaks: {summary.information_leak_count}",
             f"- Victory rule violations: {summary.victory_rule_violation_count}",
             f"- Phase order violations: {summary.phase_order_violation_count}",
+            f"- Prompt bad case candidates: {summary.bad_case_count}",
             f"- Missing structured events: {summary.missing_structured_event_count}",
             "",
             "## Top Errors",

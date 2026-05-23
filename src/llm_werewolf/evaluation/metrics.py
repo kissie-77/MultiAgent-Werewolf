@@ -48,6 +48,7 @@ def build_summary(results: list[GameRunResult]) -> EvaluationSummary:
         information_leak_count=checker_failures["InformationIsolationChecker"],
         victory_rule_violation_count=checker_failures["VictoryCheckerEvaluator"],
         phase_order_violation_count=checker_failures["AsyncFlowChecker"],
+        bad_case_count=checker_failures["PromptBadCaseChecker"],
         # RuntimeErrorEventChecker 的 data 里带 role/phase，用于找高风险角色和阶段。
         exception_count_by_role=dict(
             Counter(check.data.get("role_name") or "unknown" for check in runtime_error_checks)

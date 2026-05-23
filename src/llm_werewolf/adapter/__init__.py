@@ -7,11 +7,11 @@ from llm_werewolf.adapter.information_hub import InformationHub
 from llm_werewolf.adapter.message import MessageAdapter, Msg
 from llm_werewolf.adapter.prompts import GamePrompts, PlanStrategies, ROLE_SEAT_ACTION, RolePrompts
 from llm_werewolf.adapter.bootstrap import (
+    bind_agentscope_roles,
     create_players_from_config,
     prepare_game_roster,
     wire_agentscope_after_setup,
 )
-from llm_werewolf.adapter.setup import bind_agentscope_roles
 from llm_werewolf.adapter.visibility import RoutedMessage, VisibilityChannel
 from llm_werewolf.core.prompts import PromptManager, SYSTEM_PROMPT
 

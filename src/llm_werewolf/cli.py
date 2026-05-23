@@ -6,14 +6,12 @@ import logfire
 from rich.console import Console
 
 from llm_werewolf.adapter.bootstrap import (
-    create_players_from_config,
+    prepare_game_roster,
     wire_agentscope_after_setup,
 )
 from llm_werewolf.core import GameEngine
 from llm_werewolf.core.utils import load_config
-from llm_werewolf.core.config import create_game_config_from_player_count
 from llm_werewolf.core.locale import Locale
-from llm_werewolf.core.role_registry import create_roles
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 console = Console()
@@ -29,10 +27,7 @@ async def main(config: str) -> None:
     players_config = load_config(config_path=config_path)
 
     num_players = len(players_config.players)
-    game_config = create_game_config_from_player_count(num_players)
-
-    players = create_players_from_config(players_config)
-    roles = create_roles(role_names=game_config.role_names)
+    players, roles, game_config = prepare_game_roster(players_config)
 
     locale = Locale(players_config.language)
     engine = GameEngine(game_config, language=players_config.language)

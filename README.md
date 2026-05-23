@@ -1,94 +1,108 @@
 # MultiAgent-Werewolf 🐺
 
-基于多 Agent 的狼人杀博弈系统：自建规则引擎 + AgentScope 结构化决策 + 信息隔离与离线评测。
+基于多 Agent 协作框架的狼人杀智能体博弈系统。
 
-其他语言: [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md)
+## 项目简介
 
-## 分支说明
+本项目构建一个多智能体协作/对抗的狼人杀博弈系统。每个 Agent 根据其扮演角色（狼人、预言家、女巫等）拥有独立的目标、策略与行动空间，在信息隔离的约束下进行推理、发言与决策。
 
-| 分支 | 用途 |
-|------|------|
-| **`lvyihan_test`** | **当前集成开发分支**（推荐 clone 与日常开发） |
-| `main` | 稳定基线 |
+**技术路线**：AgentScope 作为 Agent 执行底座 + 自建 GameEngine 管理游戏逻辑
 
-```bash
-git clone -b lvyihan_test https://github.com/LBP97541135/MultiAgent-Werewolf.git
-cd MultiAgent-Werewolf
-uv sync
-```
+**参考项目**：
+- [werewolf_kills_agentscope](https://github.com/muranUSTB/werewolf_kills_agentscope) — AgentScope 用法 + 提示词设计
 
 ## 快速开始
 
+### 环境要求
+
+- Python 3.10+
+- uv 包管理器
+
+### 安装
+
 ```bash
-cp .env.example .env   # 填入 OPENAI_API_KEY 等
+git clone https://github.com/kissie-77/MultiAgent-Werewolf.git
+cd MultiAgent-Werewolf
 
-# 无 API（demo 代理）
-uv run llm-werewolf configs/demo-6.yaml
+# 安装依赖
+uv sync
+```
 
-# 真实 API（6 人，省 token）
-uv run llm-werewolf configs/llm-6p-openai.yaml
+### 配置 API
 
-# AgentScope 12 人局
-uv run llm-werewolf configs/llm-12p-agentscope.yaml
+1. 复制示例配置文件：
+```bash
+cp configs/example.yaml configs/my_game.yaml
+```
 
-# TUI
-uv run llm-werewolf-tui configs/demo.yaml
+2. 编辑 `configs/my_game.yaml`，填入你的 API 信息：
+```yaml
+language: en-US
 
-# 离线评测（无 API）
-uv run werewolf-eval --help
+players:
+  - name: Player1
+    model: your-model-name        # 如 qwen3.5-plus, deepseek-chat, gpt-4o 等
+    base_url: https://your-api-url/v1
+    api_key_env: YOUR_API_KEY     # 你的 API 密钥
+  # ... 6-20 个玩家
+```
+
+支持任何兼容 OpenAI Chat Completions 格式的 API（DeepSeek、SiliconFlow、小米、通义千问等）。
+
+### 运行游戏
+
+```bash
+# 控制台模式（纯文本日志，推荐开发测试用）
+uv run python src/llm_werewolf/cli.py --config configs/my_game.yaml
+
+# TUI 模式（交互式终端界面）
+uv run werewolf-tui configs/my_game.yaml
+
+# Demo 模式（不需要 API，用随机 Agent 测试）
+uv run werewolf configs/demo.yaml
 ```
 
 ## 项目架构
 
-详见 [docs/arch.md](docs/arch.md)、[docs/project-structure.md](docs/project-structure.md)、[docs/README.md](docs/README.md)。
-
 ```
 src/llm_werewolf/
-├── cli.py / tui.py / eval_cli.py   # 应用入口
-├── agents/                         # BaseAgent、create_agent、PromptAgentMixin
-├── integration/                    # AgentScopeWerewolfAgent、message 适配
-├── adapter/                        # InformationHub、Bridge、factory、prompts.py
-├── core/
-│   ├── prompts/                    # PromptManager、identity/system、ActionSelector
-│   ├── engine/                     # 阶段 Mixin
-│   ├── roles/                      # catalog、registry、implementation 路径
-│   ├── night_scheduler.py          # 夜间顺序：狼票结算后再女巫
-│   ├── role_night_plans.py         # 核心角色夜间 LLM 规划
-│   ├── phase_interaction.py        # 引擎 → Hub 门面
-│   └── events + event_visibility   # 事件与可见性
-├── evaluation/                     # werewolf-eval
-└── ui/                             # TUI / Console 展示
+├── cli.py / tui.py        # 入口（bootstrap 创建玩家并接线 AgentScope）
+├── adapter/               # 适配层：InformationHub、Bridge、RolePrompts、bootstrap
+├── integration/           # AgentScope ReAct 与 Msg 集成
+├── agents/                # BaseAgent / Demo / LLM 实现
+├── core/                  # 游戏引擎、角色、阶段交互、配置
+│   ├── engine/            # 阶段 Mixin（经 PhaseInteraction 驱动 AI）
+│   ├── roles/             # 角色与夜晚行动编排
+│   └── prompts/           # OpenAI 轨 PromptManager / ActionSelector（兼容）
+└── ui/                    # TUI 界面
 ```
-
-**提示词双轨（并存，逐步收敛）**
-
-- **Catalog 轨**：`core/prompts` + `RoleDefinition.implementation` + `bind_role()`
-- **AgentScope 轨**：`adapter/prompts.py` + `factory` / `bind_agentscope_roles()`
-
-**依赖方向**：`core` 不依赖 `adapter` 实现细节；`roles` 经 `phase_interaction` 调 LLM，不直接 import Hub。
 
 ## 当前进度
 
-- [x] 异步 GameEngine + 20+ 角色 + YAML 配置
-- [x] AgentScope 适配（`integration/` + `adapter/`）
-- [x] 信息隔离（`Event.visible_to` + `InformationHub`）
-- [x] 夜间技能调度（`NightSkillScheduler` / `role_night_plans`）
-- [x] 角色目录 `ROLE_CATALOG` + `core/prompts` 中文选目标
-- [x] 离线评测 CLI（`werewolf-eval`）
-- [ ] 扩展狼人角色全部迁入 `role_night_plans`
-- [ ] Web 观战 / 信念矩阵（远期）
+- [x] 游戏引擎核心流程（异步化改造完成）
+- [x] 多模型支持（OpenAI/Anthropic/DeepSeek/Ollama）
+- [x] 20+ 角色系统
+- [x] YAML 配置
+- [x] Demo 模式验证
+- [x] AgentScope 接入（ReAct + InformationHub + 适配层）
+- [x] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
+- [ ] 结构化日志（JSON 事件流）
+- [ ] Web 前端观战 UI
+- [x] 评测与复盘（vote intention / swing 分析）
+
+## 团队分工
+
+| 成员 | 负责模块 |
+|------|----------|
+| A | AgentScope 接入 + 适配层 |
+| B | GameEngine 改造 + 异步化 |
+| C | 前端 + API + 日志 |
 
 ## 致谢
 
-- [AgentScope](https://github.com/agentscope-ai/agentscope)
-- [werewolf_kills_agentscope](https://github.com/muranUSTB/werewolf_kills_agentscope)
+- [AgentScope](https://github.com/agentscope-ai/agentscope) — Agent 执行框架
+- [werewolf_kills_agentscope](https://github.com/muranUSTB/werewolf_kills_agentscope) — 提示词设计参考
 
 ## License
 
 MIT
-
-## Conventions
-
-- **Commit**: [Conventional Commits](https://www.conventionalcommits.org/) — 见 [docs/workflow.md](docs/workflow.md)
-- **ADR**: [docs/adr/](docs/adr/)
-- **Roadmap**: [docs/roadmap.md](docs/roadmap.md)

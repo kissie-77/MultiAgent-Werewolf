@@ -4,16 +4,35 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from llm_werewolf.adapter.factory import configure_agents_for_players
 from llm_werewolf.core.agent import create_agent
 from llm_werewolf.core.config import PlayersConfig, create_game_config_from_player_count
 from llm_werewolf.core.role_registry import create_roles
-from llm_werewolf.adapter.setup import bind_agentscope_roles
 
 if TYPE_CHECKING:
     from llm_werewolf.core import GameEngine
     from llm_werewolf.core.agent import DemoAgent, HumanAgent, LLMAgent
     from llm_werewolf.core.config import GameConfig
+    from llm_werewolf.core.game_state import GameState
     from llm_werewolf.core.types import AgentProtocol, RoleProtocol
+
+__all__ = [
+    "bind_agentscope_roles",
+    "create_players_from_config",
+    "prepare_game_roster",
+    "wire_agentscope_after_setup",
+]
+
+
+def bind_agentscope_roles(
+    game_state: GameState | None,
+    *,
+    default_plan: str = "default",
+) -> None:
+    """Configure AgentScope system prompts once roles are assigned to players."""
+    if game_state is None:
+        return
+    configure_agents_for_players(game_state.players, default_plan=default_plan)
 
 
 def create_players_from_config(

@@ -1,7 +1,7 @@
 """Tests for unified prompt manager."""
 
 from llm_werewolf.core.roles.catalog import get_definition
-from llm_werewolf.adapter.prompt_manager import PromptManager
+from llm_werewolf.core.prompts import PromptManager
 
 
 def test_system_and_identity_messages() -> None:

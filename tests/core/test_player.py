@@ -71,7 +71,7 @@ def test_player_private_notes() -> None:
     player = Player("p1", "Alice", Villager)
 
     notes = player.get_private_notes()
-    assert any("Your role is Villager." == note for note in notes)
+    assert any("你的身份是 Villager" in note for note in notes)
 
 
 def test_player_public_info() -> None:

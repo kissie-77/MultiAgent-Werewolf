@@ -1,5 +1,3 @@
-import logfire
-
 from llm_werewolf.core.types import (
     Camp,
     RoleConfig,
@@ -18,7 +16,6 @@ from llm_werewolf.core.actions import (
     GraveyardKeeperCheckAction,
 )
 from llm_werewolf.core.roles.base import Role
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 class Villager(Role):
@@ -43,9 +40,6 @@ class Villager(Role):
             can_act_day=False,
         )
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Villager has no night actions."""
-        return []
 
 
 class Seer(Role):
@@ -83,45 +77,6 @@ class Seer(Role):
             can_act_day=False,
         )
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Seer role."""
-        if not self.player.is_alive():
-            return []
-
-        possible_targets = [
-            p for p in game_state.get_alive_players() if p.player_id != self.player.player_id
-        ]
-        if not possible_targets:
-            return []
-
-        # Get target from AI agent
-        if self.player.agent:
-            # Build context with previously checked players
-            checked_info = []
-            for round_num, player_id in game_state.seer_checked.items():
-                player = game_state.get_player(player_id)
-                if player:
-                    checked_info.append(f"Round {round_num}: {player.name}")
-
-            context = "Choose a player to check their identity (werewolf or villager)."
-            if checked_info:
-                context += f"\n\nPreviously checked: {', '.join(checked_info)}"
-
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
-                role_name="Seer",
-                action_description="Choose a player to check tonight",
-                possible_targets=possible_targets,
-                allow_skip=False,
-                additional_context=context,
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-
-            if target:
-                return [SeerCheckAction(self.player, target, game_state)]
-
-        return []
 
 
 class Witch(Role):
@@ -162,62 +117,6 @@ class Witch(Role):
             can_act_day=False,
         )
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Witch role."""
-        if not self.player.is_alive():
-            return []
-
-        actions = []
-
-        # Ask about save potion first
-        if self.has_save_potion and game_state.werewolf_target:
-            target = game_state.get_player(game_state.werewolf_target)
-            if target and self.player.agent:
-                prompt = ActionSelector.build_yes_no_prompt(
-                    role_name="Witch",
-                    question=f"Do you want to use your save potion to save {target.name}?",
-                    context=f"{target.name} will be killed by werewolves tonight. You can only use this potion once in the entire game.",
-                    round_number=game_state.round_number,
-                    phase="Night",
-                )
-
-                try:
-                    response = await self.player.agent.get_response(prompt)
-                    use_save = ActionSelector.parse_yes_no(response)
-
-                    if use_save:
-                        actions.append(WitchSaveAction(self.player, target, game_state))
-                        return actions  # Can't use both potions same night
-                except Exception as e:
-                    logfire.error(
-                        "Witch failed to respond for save potion decision",
-                        error=str(e),
-                        player=self.player.name,
-                    )
-
-        # Ask about poison potion
-        if self.has_poison_potion and self.player.agent:
-            possible_targets = [
-                p for p in game_state.get_alive_players() if p.player_id != self.player.player_id
-            ]
-
-            if possible_targets:
-                target = await ActionSelector.get_target_from_agent(
-                    agent=self.player.agent,
-                    role_name="Witch",
-                    action_description="Choose a player to poison (or skip)",
-                    possible_targets=possible_targets,
-                    allow_skip=True,
-                    additional_context="You can poison any player tonight. You can only use this potion once in the entire game.",
-                    fallback_random=False,
-                    round_number=game_state.round_number,
-                    phase="Night",
-                )
-
-                if target:
-                    actions.append(WitchPoisonAction(self.player, target, game_state))
-
-        return actions
 
 
 class Hunter(Role):
@@ -226,9 +125,6 @@ class Hunter(Role):
     When eliminated (by werewolves or voting), can shoot and eliminate another player.
     """
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Hunter has no night actions."""
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Hunter role."""
@@ -282,43 +178,6 @@ class Guard(Role):
             can_act_day=False,
         )
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Guard role."""
-        if not self.player.is_alive():
-            return []
-
-        possible_targets = [
-            p for p in game_state.get_alive_players() if p.player_id != self.last_protected
-        ]
-        if not possible_targets:
-            return []
-
-        # Get target from AI agent
-        if self.player.agent:
-            context = "Choose a player to protect from werewolf attacks tonight."
-            if self.last_protected:
-                last_player = game_state.get_player(self.last_protected)
-                if last_player:
-                    context += (
-                        f"\n\nYou cannot protect {last_player.name} again (protected last night)."
-                    )
-
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
-                role_name="Guard",
-                action_description="Choose a player to protect tonight",
-                possible_targets=possible_targets,
-                allow_skip=False,
-                additional_context=context,
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-
-            if target:
-                # Note: last_protected is updated in GuardProtectAction.execute()
-                return [GuardProtectAction(self.player, target, game_state)]
-
-        return []
 
 
 class Idiot(Role):
@@ -347,9 +206,6 @@ class Idiot(Role):
             can_act_day=False,
         )
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Idiot has no night actions."""
-        return []
 
 
 class Elder(Role):
@@ -379,9 +235,6 @@ class Elder(Role):
             can_act_day=False,
         )
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Elder has no night actions."""
-        return []
 
 
 class Knight(Role):
@@ -396,9 +249,6 @@ class Knight(Role):
         super().__init__(player)
         self.has_dueled = False
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Knight has no night actions."""
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Knight role."""
@@ -428,24 +278,6 @@ class Magician(Role):
         super().__init__(player)
         self.has_swapped = False
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Magician role."""
-        # NOTE: Full implementation requires a MagicianSwapAction and game engine support
-        # for swapping roles between players. This is a complex operation that affects
-        # player.role and all role-specific state.
-        #
-        # For now, this is left as a stub to avoid breaking the game.
-        # To fully implement:
-        # 1. Create MagicianSwapAction in actions.py
-        # 2. Add logic to swap roles between two players
-        # 3. Handle role-specific state transfer
-        # 4. Update serialization to save swap state
-        if not self.player.is_alive() or self.has_swapped:
-            return []
-
-        # Simplified implementation: skip action for now
-        # TODO: Implement multi-target selection for swapping
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Magician role."""
@@ -476,47 +308,6 @@ class Cupid(Role):
         super().__init__(player)
         self.has_linked = False
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Cupid role."""
-        if game_state.round_number != 1:
-            return []
-
-        possible_targets = game_state.get_alive_players()
-        if len(possible_targets) < 2:
-            return []
-
-        # Get two targets from AI agent
-        if self.player.agent:
-            # Use a multi-target approach - select 2 different players
-            prompt = ActionSelector.build_multi_target_prompt(
-                role_name="Cupid",
-                action_description="Choose 2 players to become lovers",
-                possible_targets=possible_targets,
-                num_targets=2,
-                additional_context=(
-                    "The two lovers will know each other's identities. "
-                    "If one dies, the other dies immediately from heartbreak."
-                ),
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-
-            try:
-                response = await self.player.agent.get_response(prompt)
-                selected = ActionSelector.parse_multi_target_selection(
-                    response, possible_targets, num_targets=2
-                )
-
-                if selected and len(selected) == 2:
-                    return [CupidLinkAction(self.player, selected[0], selected[1], game_state)]
-            except Exception as e:
-                logfire.error(
-                    "Cupid failed to respond for lover selection",
-                    error=str(e),
-                    player=self.player.name,
-                )
-
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Cupid role."""
@@ -542,32 +333,6 @@ class Raven(Role):
     during the next day's voting.
     """
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Raven role."""
-        if not self.player.is_alive():
-            return []
-
-        possible_targets = game_state.get_alive_players()
-        if not possible_targets:
-            return []
-
-        # Get target from AI agent
-        if self.player.agent:
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
-                role_name="Raven",
-                action_description="Choose a player to mark with a curse",
-                possible_targets=possible_targets,
-                allow_skip=False,
-                additional_context="The marked player will have one extra vote against them in tomorrow's voting.",
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-
-            if target:
-                return [RavenMarkAction(self.player, target, game_state)]
-
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Raven role."""
@@ -591,38 +356,6 @@ class GraveyardKeeper(Role):
     Each night, can check if a dead player was a werewolf or villager.
     """
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the GraveyardKeeper role."""
-        if not self.player.is_alive():
-            return []
-
-        # Get all dead players
-        dead_players = game_state.get_dead_players()
-
-        if not dead_players:
-            return []
-
-        # Get target from AI agent
-        if self.player.agent:
-            target = await ActionSelector.get_target_from_agent(
-                agent=self.player.agent,
-                role_name="Graveyard Keeper",
-                action_description="Choose a dead player to check",
-                possible_targets=dead_players,
-                allow_skip=True,
-                additional_context=(
-                    "You can check the identity of one dead player tonight. "
-                    "This will reveal their role and camp."
-                ),
-                fallback_random=False,
-                round_number=game_state.round_number,
-                phase="Night",
-            )
-
-            if target:
-                return [GraveyardKeeperCheckAction(self.player, target, game_state)]
-
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Graveyard Keeper role."""

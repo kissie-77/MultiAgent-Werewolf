@@ -153,12 +153,18 @@ class ChatPanel(RichLog):
             return True
         return False
 
-    def display_event(self, event: Event) -> None:
+    def display_event(self, event: Event, viewer_id: str | None = None) -> None:
         """Display an event in the chat panel with grouped formatting.
 
         Args:
             event: The event to display.
+            viewer_id: If set, filter to events visible to this player.
         """
+        if viewer_id is not None and not event.is_visible_to(viewer_id):
+            return
+        if viewer_id is not None and self._is_night_action_event(event.event_type):
+            return
+
         # Handle phase transitions
         if event.event_type == EventType.PHASE_CHANGED:
             self._handle_phase_change(event)
@@ -229,7 +235,7 @@ class ChatPanel(RichLog):
             # Flush werewolf discussion before voting
             self._flush_werewolf_discussion()
             self.write("")
-            self.write(Text("🐺 狼人正在投票...", style="dim red"))
+            self.write(Text("🐺 狼人正在选择目标...", style="dim red"))
         elif action == "werewolves_sleep":
             # Flush night actions when werewolves sleep
             self._flush_night_actions()

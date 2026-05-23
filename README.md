@@ -66,23 +66,14 @@ uv run werewolf configs/demo.yaml
 
 ```
 src/llm_werewolf/
-├── cli.py                 # 控制台模式入口
-├── tui.py                 # TUI 模式入口
-├── ai/                    # Agent 系统（后续将替换为 AgentScope）
-│   └── agents.py
-├── core/                  # 核心游戏逻辑
-│   ├── engine/            # 游戏引擎（Mixin 拆分）
-│   │   ├── game_engine.py      # 主引擎
-│   │   ├── base.py             # 主循环
-│   │   ├── night_phase.py      # 夜晚阶段
-│   │   ├── day_phase.py        # 白天讨论
-│   │   ├── voting_phase.py     # 投票阶段
-│   │   ├── death_handler.py    # 死亡处理
-│   │   └── action_processor.py # 行动处理
-│   ├── actions/           # 行动系统
-│   ├── roles/             # 角色实现（20+ 角色）
-│   ├── config/            # 配置系统
-│   └── types/             # 类型定义
+├── cli.py / tui.py        # 入口（bootstrap 创建玩家并接线 AgentScope）
+├── adapter/               # 适配层：InformationHub、Bridge、RolePrompts、bootstrap
+├── integration/           # AgentScope ReAct 与 Msg 集成
+├── agents/                # BaseAgent / Demo / LLM 实现
+├── core/                  # 游戏引擎、角色、阶段交互、配置
+│   ├── engine/            # 阶段 Mixin（经 PhaseInteraction 驱动 AI）
+│   ├── roles/             # 角色与夜晚行动编排
+│   └── prompts/           # OpenAI 轨 PromptManager / ActionSelector（兼容）
 └── ui/                    # TUI 界面
 ```
 
@@ -93,11 +84,11 @@ src/llm_werewolf/
 - [x] 20+ 角色系统
 - [x] YAML 配置
 - [x] Demo 模式验证
-- [ ] AgentScope 接入
-- [ ] 信息隔离层（ObservationBuilder）
+- [x] AgentScope 接入（ReAct + InformationHub + 适配层）
+- [x] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
 - [ ] 结构化日志（JSON 事件流）
 - [ ] Web 前端观战 UI
-- [ ] 评测与复盘体系
+- [x] 评测与复盘（vote intention / swing 分析）
 
 ## 团队分工
 

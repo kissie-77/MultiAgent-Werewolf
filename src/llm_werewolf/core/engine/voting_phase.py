@@ -3,18 +3,20 @@
 import asyncio
 from collections.abc import Callable
 
+from llm_werewolf.core.phase_outputs import ActionPhase, action_phase_instruction
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.actions import VoteAction
 from llm_werewolf.core.game_state import GameState
+from llm_werewolf.core.events import EventLogger
 from llm_werewolf.core.actions.base import Action
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 class VotingPhaseMixin:
     """Mixin for handling voting phase logic."""
 
     game_state: GameState | None
+    event_logger: EventLogger
     locale: Locale
     _log_event: Callable
     _handle_elder_penalty: Callable
@@ -35,21 +37,26 @@ class VotingPhaseMixin:
         if not self.game_state:
             return ""
 
+        from llm_werewolf.adapter.prompts import GamePrompts
+        from llm_werewolf.core.prompts.actions import EngineContexts
+
         context_parts = [
-            self.build_player_observation(player, include_visible_events=True, include_private_notes=True),
+            self.build_player_observation(
+                player,
+                include_visible_events=True,
+                include_private_notes=True,
+                for_agent_decision=True,
+            ),
+            "",
+            EngineContexts.hub_decision_memory_notice(),
         ]
 
-        # Include player's decision history (safe, no sensitive info)
-        if player.agent:
-            decision_context = player.agent.get_decision_context()
-            if decision_context:
-                context_parts.append(decision_context)
-
-        context_parts.append("")
-        context_parts.append(
-            "Based on the discussion and your role knowledge, "
-            "vote for the player you believe should be eliminated."
-        )
+        context_parts.extend([
+            "",
+            GamePrompts.VOTE_BEGIN,
+            action_phase_instruction(ActionPhase.DAY_VOTE),
+            "请结合对话记忆中的讨论内容投票；弃票则 seat=0。",
+        ])
 
         return "\n".join(context_parts)
 
@@ -70,15 +77,19 @@ class VotingPhaseMixin:
 
             try:
                 context = self._build_voting_context(player)
-                target_player = await ActionSelector.get_target_from_agent(
-                    agent=player.agent,
-                    role_name=player.get_role_name(),
-                    action_description="Vote for a player to eliminate",
-                    possible_targets=possible_targets,
-                    allow_skip=False,
+                interaction = self.game_state.require_phase_interaction()
+                target_player = await interaction.request_seat_choice(
+                    player,
+                    player.agent,
+                    player.get_role_name(),
+                    "投票放逐一名玩家",
+                    possible_targets,
+                    allow_skip=True,
                     additional_context=context,
+                    fallback_random=True,
                     round_number=self.game_state.round_number,
                     phase="Voting",
+                    action_phase=ActionPhase.DAY_VOTE,
                 )
 
                 if target_player:

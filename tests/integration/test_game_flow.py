@@ -1,7 +1,7 @@
 from llm_werewolf.core import GameEngine
 from llm_werewolf.core.agent import DemoAgent
 from llm_werewolf.core.config import create_game_config_from_player_count
-from llm_werewolf.core.role_registry import create_roles
+from llm_werewolf.core.roles.registry import create_roles
 
 
 def test_game_initialization() -> None:

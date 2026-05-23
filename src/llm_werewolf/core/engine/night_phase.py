@@ -1,13 +1,17 @@
 """Night phase logic for the game engine."""
 
 import random
-import asyncio
 from typing import TYPE_CHECKING
 from collections.abc import Callable
 
-from llm_werewolf.core.types import Camp, EventType, GamePhase
+from llm_werewolf.adapter.message_router import MessageRouter
+from llm_werewolf.adapter.visibility import VisibilityChannel
+from llm_werewolf.core.decisions import SpeechDecision
+from llm_werewolf.core.types import Camp, EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
+from llm_werewolf.core.night_scheduler import NightSkillScheduler
+from llm_werewolf.core.prompts.actions import EngineContexts
 
 if TYPE_CHECKING:
     from llm_werewolf.core.actions.base import Action
@@ -21,17 +25,63 @@ class NightPhaseMixin:
     _log_event: Callable
     process_actions: Callable
     resolve_deaths: Callable
-    werewolf_discussion_history: list[str]
-    _get_werewolf_discussion_context: Callable[[], str]
     build_player_observation: Callable
     build_shared_observation: Callable
 
-    async def _run_werewolf_discussion(self) -> list[str]:
-        """Run werewolf discussion phase where werewolves discuss their target.
+    def _build_werewolf_discussion_context(self, werewolf: PlayerProtocol) -> str:
+        """Static wolf context; in-round pack chat uses MsgHub memory."""
+        if not self.game_state:
+            return ""
 
-        Returns:
-            list[str]: Messages from the discussion.
-        """
+        werewolves = [
+            p for p in self.game_state.get_players_by_camp(Camp.WEREWOLF) if p.is_alive()
+        ]
+        possible_targets = [
+            p for p in self.game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
+        ]
+        werewolf_names = [w.name for w in werewolves]
+        target_names = [p.name for p in possible_targets]
+
+        shared = self.build_shared_observation(
+            werewolves,
+            additional_notes=EngineContexts.werewolf_coordination_note(
+                werewolf_names, target_names
+            ),
+            include_visible_events=True,
+            for_agent_decision=True,
+        )
+        return shared + "\n" + EngineContexts.werewolf_discussion(
+            werewolf.name,
+            self.game_state.round_number,
+            werewolf_names,
+            target_names,
+            "",
+        )
+
+    def _log_werewolf_speech(
+        self,
+        speaker: PlayerProtocol,
+        decision: SpeechDecision,
+    ) -> None:
+        if not self.game_state:
+            return
+        wolf_ids = MessageRouter.wolf_player_ids(self.game_state.get_alive_players())
+        self._log_event(
+            MessageRouter.event_type_for_channel(VisibilityChannel.WOLF_TEAM),
+            self.locale.get(
+                "werewolf_discussion", player=speaker.name, speech=decision.public_speech
+            ),
+            data={
+                "player_id": speaker.player_id,
+                "player_name": speaker.name,
+                "speech": decision.public_speech,
+                "role": "Werewolf",
+            },
+            visible_to=wolf_ids,
+        )
+
+    async def _run_werewolf_discussion(self) -> list[str]:
+        """Werewolf pack discussion via Hub; only wolves hear (engine-routed)."""
         if not self.game_state:
             return []
 
@@ -41,93 +91,62 @@ class NightPhaseMixin:
         ]
 
         if len(werewolves) <= 1:
-            # If only one werewolf, skip discussion
             return messages
 
-        # Narrator: Werewolves wake up
         self._log_event(
             EventType.MESSAGE,
             self.locale.get("narrator_werewolves_wake"),
             data={"action": "werewolves_wake"},
         )
 
-        # Get possible targets
         possible_targets = [
             p for p in self.game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
         ]
-
         if not possible_targets:
             return messages
 
         target_names = [p.name for p in possible_targets]
-        werewolf_names = [w.name for w in werewolves]
+        interaction = self.game_state.require_phase_interaction()
 
-        # Each werewolf discusses
-        for werewolf in werewolves:
-            if werewolf.agent:
-                shared_observation = self.build_shared_observation(
-                    werewolves,
-                    additional_notes=[
-                        f"You are coordinating with these werewolves: {', '.join(werewolf_names)}.",
-                        f"Available targets: {', '.join(target_names)}.",
-                    ],
-                    include_visible_events=True,
-                )
-                context_parts = [
-                    shared_observation,
-                    f"You are {werewolf.name}, a Werewolf.",
-                    f"Current: Round {self.game_state.round_number} - Night Phase",
-                    f"You are working with these werewolves: {', '.join(werewolf_names)}.",
-                    f"Available targets: {', '.join(target_names)}.",
-                ]
+        def on_speech(
+            speaker: PlayerProtocol,
+            decision: SpeechDecision,
+            _routed: object,
+        ) -> None:
+            self._log_werewolf_speech(speaker, decision)
+            messages.append(f"🐺 {speaker.name}: {decision.public_speech}")
 
-                # Include werewolf discussion history
-                werewolf_history = self._get_werewolf_discussion_context()
-                if werewolf_history:
-                    context_parts.append(werewolf_history)
+        tracker = (
+            self.game_state.vote_intention_tracker
+            if self.game_state.track_vote_intentions
+            else None
+        )
+        on_intention = self._log_vote_intention_record if tracker else None
 
-                context_parts.extend([
-                    "",
-                    "Discuss with your fellow werewolves who should be eliminated tonight.",
-                    "Share your thoughts and suggestions (1-2 sentences).",
-                ])
+        try:
+            await interaction.run_roundtable(
+                werewolves,
+                channel=VisibilityChannel.WOLF_TEAM,
+                context_builder=self._build_werewolf_discussion_context,
+                instruction="",
+                phase=GamePhase.NIGHT.value,
+                round_number=self.game_state.round_number,
+                audience=werewolves,
+                opening_announcement=(
+                    f"狼人请睁眼。可选刀口目标：{', '.join(target_names)}。"
+                    "请与队友讨论今晚击杀目标。"
+                ),
+                on_speech=on_speech,
+                vote_intention_tracker=tracker,
+                on_vote_intention_record=on_intention,
+            )
+        except Exception as exc:
+            self._log_event(
+                EventType.ERROR,
+                self.locale.get("discussion_failed", player="*", error=str(exc)),
+                data={"error": str(exc)},
+            )
 
-                context = "\n".join(context_parts)
-
-                try:
-                    speech = await werewolf.agent.get_response(context)
-
-                    self._log_event(
-                        EventType.PLAYER_DISCUSSION,
-                        self.locale.get(
-                            "werewolf_discussion", player=werewolf.name, speech=speech
-                        ),
-                        data={
-                            "player_id": werewolf.player_id,
-                            "player_name": werewolf.name,
-                            "speech": speech,
-                            "role": "Werewolf",
-                        },
-                    )
-
-                    messages.append(f"🐺 {werewolf.name}: {speech}")
-
-                    # Add to global werewolf discussion history
-                    self.werewolf_discussion_history.append(f"{werewolf.name}: {speech}")
-
-                    # Record werewolf's own speech in decision history
-                    # This is safe: only records what they said, not sensitive context
-                    werewolf.agent.add_decision(
-                        f"Round {self.game_state.round_number} (Werewolf discussion): You said: {speech}"
-                    )
-                except Exception as e:
-                    self._log_event(
-                        EventType.ERROR,
-                        self.locale.get("discussion_failed", player=werewolf.name, error=str(e)),
-                        data={"player_id": werewolf.player_id, "error": str(e)},
-                    )
-
-        # Narrator: Time to vote
         self._log_event(
             EventType.MESSAGE,
             self.locale.get("narrator_werewolves_vote"),
@@ -137,11 +156,7 @@ class NightPhaseMixin:
         return messages
 
     def _resolve_werewolf_votes(self) -> list[str]:
-        """Resolve werewolf voting to determine kill target.
-
-        Returns:
-            list[str]: Messages describing the voting result.
-        """
+        """Resolve werewolf voting to determine kill target."""
         if not self.game_state:
             return []
 
@@ -172,19 +187,14 @@ class NightPhaseMixin:
         return messages
 
     async def run_night_phase(self) -> list[str]:
-        """Execute the night phase where roles perform actions.
-
-        Returns:
-            list[str]: Messages describing night actions.
-        """
+        """Execute the night phase where roles perform actions."""
         if not self.game_state:
             msg = "Game not initialized"
             raise RuntimeError(msg)
 
-        messages = []
+        messages: list[str] = []
         self.game_state.set_phase(GamePhase.NIGHT)
 
-        # Narrator: Night falls
         self._log_event(
             EventType.MESSAGE,
             self.locale.get("narrator_night_falls"),
@@ -199,15 +209,10 @@ class NightPhaseMixin:
 
         messages.append("")
 
-        # Run werewolf discussion phase (if multiple werewolves exist)
         discussion_messages = await self._run_werewolf_discussion()
         messages.extend(discussion_messages)
 
-        # Get players with night actions (non-werewolf roles)
-        players_with_night_actions = self.game_state.get_players_with_night_actions()
-
-        # Log that roles are acting, then gather all night actions concurrently
-        for player in players_with_night_actions:
+        def _log_role_acting(player: PlayerProtocol) -> None:
             role_name = player.get_role_name()
             self._log_event(
                 EventType.ROLE_ACTING,
@@ -215,36 +220,29 @@ class NightPhaseMixin:
                 data={"player_id": player.player_id, "role": role_name},
             )
 
-        action_results = []
-        for player in players_with_night_actions:
-            try:
-                result = await player.role.get_night_actions(self.game_state)
-                action_results.append(result)
-            except Exception as e:
-                action_results.append(e)
+        scheduler = NightSkillScheduler(
+            self.game_state,
+            log_event=self._log_event,
+            locale=self.locale,
+            resolve_werewolf_votes=self._resolve_werewolf_votes,
+            log_role_acting=_log_role_acting,
+        )
 
-        night_actions: list[Action] = []
-        for player, result in zip(players_with_night_actions, action_results):
-            if isinstance(result, Exception):
-                self._log_event(
-                    EventType.ERROR,
-                    self.locale.get("night_action_failed", player=player.name, role=player.get_role_name(), error=str(result)),
-                    data={"player_id": player.player_id, "error": str(result), "error_type": type(result).__name__},
-                )
-                continue
-            if result:
-                night_actions.extend(result)
+        pre_wolf_actions = await scheduler.run_pre_wolf_phase()
+        messages.extend(self.process_actions(pre_wolf_actions))
 
-        action_messages = self.process_actions(night_actions)
-        messages.extend(action_messages)
+        wolf_vote_actions = await scheduler.run_wolf_vote_phase()
+        messages.extend(self.process_actions(wolf_vote_actions))
 
         werewolf_vote_messages = self._resolve_werewolf_votes()
         messages.extend(werewolf_vote_messages)
 
+        post_wolf_actions = await scheduler.run_post_wolf_resolution()
+        messages.extend(self.process_actions(post_wolf_actions))
+
         death_messages = await self.resolve_deaths()
         messages.extend(death_messages)
 
-        # Narrator: Werewolves sleep (end of night)
         self._log_event(
             EventType.MESSAGE,
             self.locale.get("narrator_werewolves_sleep"),

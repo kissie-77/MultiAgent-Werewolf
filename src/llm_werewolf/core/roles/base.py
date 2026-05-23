@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from llm_werewolf.core.roles.catalog import get_definition_by_role_class
 from llm_werewolf.core.types import (
     Camp,
     RoleConfig,
@@ -8,8 +9,6 @@ from llm_werewolf.core.types import (
     PlayerProtocol,
     GameStateProtocol,
 )
-
-
 class Role(ABC):
     """Abstract base class for all roles in the Werewolf game."""
 
@@ -18,7 +17,18 @@ class Role(ABC):
         self.player = player
         self.ability_uses = 0
         self.config = self.get_config()
+        self._apply_catalog_description()
         self.disabled = False  # If True, role abilities are disabled
+
+    def _apply_catalog_description(self) -> None:
+        try:
+            from llm_werewolf.core.prompts.manager import PromptManager
+
+            definition = get_definition_by_role_class(type(self))
+            description = PromptManager.get_role_description(definition)
+            self.config = self.config.model_copy(update={"description": description})
+        except KeyError:
+            pass
 
     @abstractmethod
     def get_config(self) -> RoleConfig:
@@ -110,26 +120,29 @@ class Role(ABC):
         Returns:
             str: The prompt string for the AI agent.
         """
-        return f"You are {player.name}, a {self.name}. {self.description}"
+        try:
+            from llm_werewolf.core.prompts.manager import PromptManager
+
+            definition = get_definition_by_role_class(type(self))
+            return (
+                f"{PromptManager.build_identity_prompt(definition)}\n"
+                f"玩家名：{player.name}\n技能说明：{self.description}"
+            )
+        except KeyError:
+            return f"你是{player.name}，身份：{self.name}。{self.description}"
 
     def get_private_notes(self, game_state: GameStateProtocol | None = None) -> list[str]:
         """Return role-specific facts visible only to this player."""
-        return [f"Your role is {self.name}.", self.description]
+        return [f"你的身份是 {self.name}。", self.description]
 
-    @abstractmethod
     async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for this role.
+        """Collect night actions via PhaseInteraction / InformationHub."""
+        interaction = getattr(game_state, "phase_interaction", None)
+        if interaction is None:
+            return []
+        from llm_werewolf.core.role_night_plans import dispatch_night_plan
 
-        All roles must implement this method. If the role has no night actions,
-        return an empty list. This forces developers to explicitly consider
-        whether a role has night abilities.
-
-        Args:
-            game_state: The current game state.
-
-        Returns:
-            list[ActionProtocol]: A list of actions to perform. Return [] if no actions.
-        """
+        return await dispatch_night_plan(self, game_state, interaction)
 
     def has_night_action(self, game_state: GameStateProtocol) -> bool:
         """Check if the role has a night action.

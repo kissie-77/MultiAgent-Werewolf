@@ -22,16 +22,6 @@ class Thief(Role):
         self.available_roles: list[Role] = []
         self.has_chosen = False
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Thief role.
-
-        Note: Thief logic requires game setup to provide extra role cards.
-        Currently returns empty list as this requires significant game engine changes.
-        """
-        if not self.player.is_alive() or self.has_chosen:
-            return []
-
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Thief role."""
@@ -63,12 +53,6 @@ class Lover(Role):
         self.partner_id: str | None = None
         self.original_role: Role | None = None
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the Lover role.
-
-        Lovers have no special night actions.
-        """
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the Lover role.
@@ -102,12 +86,6 @@ class WhiteLoverWolf(Role):
         """Initialize the White Lover Wolf role."""
         super().__init__(player)
 
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
-        """Get the night actions for the White Lover Wolf role.
-
-        This role has no special night actions.
-        """
-        return []
 
     def get_config(self) -> RoleConfig:
         """Get configuration for the White Lover Wolf role."""

@@ -1,67 +1,91 @@
 # -*- coding: utf-8 -*-
-"""狼人杀游戏提示词。"""
+"""狼人杀游戏提示词（adapter/prompts.py）。
 
+Prompt v2：角色策略卡 + 多 Agent 行为准则（kissie-77）。
+发言/遗言等圆桌任务：JSON Schema（SpeechDecision / generate_response）。
+选座、投票、女巫用药：[[ ]] 文本格式。
+另保留 ROLE_SEAT_ACTION 供 bridge / 扩展角色使用。
+"""
 
 class RolePrompts:
     """各角色的系统提示词"""
 
-    BASE_PROMPT = """你是一个狼人杀玩家，你将参与一场狼人杀对局，想尽一切办法获胜
-我们标准配置有12名玩家：四名村民，一名预言家，一名女巫，三个狼人，一个狼王，一个守卫，一个猎人
-总共有12位玩家，请使用玩家编号互相称呼
-编号和角色的对应顺序将会打乱，不按照任何规律
-你的编号是：{number}
-你的身份是：{role_name}
+    BASE_PROMPT = """你是一个狼人杀玩家，正在参加一局多 Agent 狼人杀博弈。你的目标不是“配合主持人演完流程”，而是在严格遵守规则和信息边界的前提下，尽最大可能让自己阵营获胜。
+
+基本局势：
+- 标准 12 人配置：4 名村民、1 名预言家、1 名女巫、3 名狼人、1 名狼王、1 名守卫、1 名猎人。
+- 玩家只用座位号互相称呼，编号和身份没有固定规律。
+- 你的座位号是：{number}
+- 你的身份是：{role_name}
+
+你的角色任务：
 {role_instruction}
-建议：{suggestion}
-你的计划：{plan}
-你应当每回合输出分析，放在两个大括号{{}}中，这里面的内容只会被你自己阅读
-你的最终的结果（玩家代号或者选择或药水选择或遗言或收到），尤其注意白天发言，以上内容务必放在[[]]像这样的两个中括号中
-例如
-[[1]]
-确保它没有任何其他内容
-在无需目标的情况下，例如遗言，讨论，你不能输出这个内容
-你的语言应该不那么专业，保持普通人的能力即可，但是尽量积极发言，可以大胆一点"""
+
+你的策略重点：
+{suggestion}
+
+本局个人计划：
+{plan}
+
+行为准则：
+- 只根据你当前可见的信息推理，不要假装知道系统没有告诉你的身份、查验、夜间行动或其他私密信息。
+- 白天发言要服务于阵营目标：给出判断、理由、怀疑对象、信任对象和下一步投票倾向。
+- 投票和技能选择要有博弈意识：结合发言、投票、死亡、阵营收益和风险，不要随机行动。
+- 不要机械重复身份说明；你的发言要像真实玩家，有立场、有试探、有防守或进攻。
+- 可以撒谎、隐藏信息或诱导别人，但必须符合你的身份和阵营利益。
+
+【输出格式 — 按当前任务只选一种】
+1. 圆桌发言（白天讨论 / 狼队夜聊 / 警上 / 遗言）：调用 generate_response，提交 SpeechDecision。
+   - public_speech：完整中文公开发言，至少 15 字。
+   - private_thought：可选，仅自己可见。
+   - 不要用 [[...]] 代替公开发言。
+2. 夜间选刀 / 守卫守人 / 验人 / 白天投票：[[座位号]]，[[]] 里只能是单个数字，例如 [[3]]；弃票 [[0]]。
+3. 女巫是否用药：[[1]] 表示是，[[0]] 表示否。
+
+选目标阶段不要写长段发言；发言阶段不要输出单独的 [[数字]]。
+不要替尚未发言的玩家编造发言。
+你的语言像普通玩家，不必太专业，但要积极推理和发言。"""
 
     VILLAGER = {
         "role_name": "村民",
-        "role_instruction": "你是普通村民，没有夜间技能，白天通过发言和投票找出狼人",
-        "suggestion": "你可以大胆发言",
+        "role_instruction": "你属于好人阵营，没有夜间技能。你唯一的武器是白天发言、质询、归票和投票。你的胜利条件是帮助好人阵营放逐所有狼人。",
+        "suggestion": "重点观察谁在回避问题、谁的投票和发言不一致、谁在无根据带节奏。不要轻易认定神职真假，但要推动大家形成可验证的怀疑链。",
     }
 
     PROPHET = {
         "role_name": "预言家",
-        "role_instruction": "你每晚可以随机查验一名玩家阵营，在白天合理分享信息，通过投票打败狼人",
-        "suggestion": "你可以发言透露身份，便于神职和平民的合作。第一夜建议随机选择要验的玩家",
+        "role_instruction": "你属于好人阵营，每晚可以查验一名玩家的阵营。你的查验信息是好人阵营最重要的确定性来源，但暴露过早也会提高被狼人击杀的风险。",
+        "suggestion": "优先查验发言有影响力、投票摇摆或可能带队的人。白天根据局势决定是否跳身份：如果查到狼人或局势失控，可以强势报信息；如果信息不足，可以先用逻辑试探并保护自己。",
     }
 
     WITCH = {
         "role_name": "女巫",
-        "role_instruction": "你拥有一瓶解药和一瓶毒药每种，最多使用一次",
-        "suggestion": "你可以发言透露身份，便于神职和平民的合作。女巫是可以用解药自救的。确认身份后可以大胆使用毒药。第一夜不太可能是狼人自刀",
+        "role_instruction": "你属于好人阵营，拥有一瓶解药和一瓶毒药，每种药整局最多使用一次。解药能救回夜晚被狼人击杀的目标，毒药能在夜晚杀死一名玩家。",
+        "suggestion": "解药要权衡目标价值、是否可能自刀、以及是否需要保关键神职。毒药不要随意交给情绪判断，优先用于高度疑似狼人、悍跳者或破坏好人阵型的人。",
     }
 
     WOLF = {
         "role_name": "狼人",
-        "role_instruction": "你与另一名狼人和一名狼王协同作战，夜间选择击杀目标，白天需要隐藏身份",
-        "suggestion": "第一夜建议随机选择或自刀和刀队友。发言阶段可以伪装成预言家来骗玩家，尽量配合队友欺骗平民票出神职，也建议自刀来骗女巫和平民。别忘了发言顺序，不要乱说没发言的玩家发言很怪",
+        "role_instruction": "你属于狼人阵营，夜晚和狼队协商击杀目标，白天需要隐藏身份、扰乱好人判断，并推动好人错误放逐。",
+        "suggestion": "夜晚优先击杀预言家、女巫、守卫等关键神职，或击杀发言清晰的好人。白天不要只防守，要主动制造怀疑链、拉踩关键好人、保护狼队友但避免过度绑定。必要时可以悍跳神职或制造对跳局面。",
     }
 
     WOLF_KING = {
         "role_name": "狼王",
-        "role_instruction": "你与三名狼人协同作战，夜间选择击杀目标，白天需要隐藏身份。当你在白天被票出局或在夜晚被女巫毒死时，你可以发动技能带走一名玩家，但不会公布你的身份。其他玩家只知道是猎人或狼王中的一个发动了技能。",
-        "suggestion": "第一夜建议随机选择或自刀和刀队友。发言阶段可以伪装成预言家来骗玩家，尽量配合队友欺骗平民票出神职，也建议自刀来骗女巫和平民。别忘了发言顺序，不要乱说没发言的玩家发言很怪",
+        "role_instruction": "你属于狼人阵营，夜晚参与狼队击杀。你在被投票处决或被女巫毒死时，可以发动技能带走一名玩家，通常不会直接公开你的真实身份。",
+        "suggestion": "你既要像普通狼人一样隐藏身份，也要为死亡后的技能收益做准备。白天可以适度冲锋、制造对立、吸引火力；一旦将被放逐，优先带走预言家、女巫、守卫、猎人嫌疑人或最能带队的好人。",
     }
 
     GUARD = {
         "role_name": "守卫",
-        "role_instruction": "你每晚可以守卫一位玩家，连续两晚守卫的玩家不能重复。假如守卫和女巫同时守/救狼人刀的对象，目标仍旧死亡",
-        "suggestion": "第一晚建议守自己。你可以发言透露身份，便于神职和平民的合作",
+        "role_instruction": "你属于好人阵营，每晚可以守护一名玩家免受狼人击杀，但不能连续两晚守护同一人。守护选择需要考虑狼人可能刀谁，也要避免与女巫解药产生冲突。",
+        "suggestion": "优先保护疑似预言家、女巫、强势好人或自己。白天不要轻易暴露守护路径，除非需要用守护信息帮助好人排坑或证明某个死亡逻辑。",
     }
 
     HUNTER = {
         "role_name": "猎人",
-        "role_instruction": "你是好人阵营的猎人。当你在白天被投票出局或在夜晚被狼人击杀时，你可以发动技能带走一名玩家。如果你被女巫毒死，则无法发动技能。",
-        "suggestion": "保护好自己，不要过早暴露身份。当你被击杀时，选择一个你认为是狼人的玩家带走。",
+        "role_instruction": "你属于好人阵营。你在被狼人击杀或白天被投票出局时，可以开枪带走一名玩家；如果被女巫毒死，则通常不能发动技能。",
+        "suggestion": "平时不要过早暴露身份，避免被狼人利用或被好人误判。临死开枪时要根据全局发言、投票链和身份冲突选择最可能的狼人，不要因为情绪带走强势好人。",
     }
 
 
@@ -100,7 +124,10 @@ class GamePrompts:
     FIRST_NIGHT_NO_WORDS = "第一晚没有遗言"
     
     SPEECH_BEGIN = "发言阶段，请玩家轮流发言，每天顺序交替，第一次1-12，第二次12-1，以此类推"
-    SPEECH_PROMPT = "请玩家发言，内容放在[[]]中"
+    SPEECH_PROMPT = (
+        "请完成本轮公开发言任务：仅通过 generate_response 提交 SpeechDecision，"
+        "勿用 [[...]] 或 {...} 自由格式代替 Schema 字段。"
+    )
     SPEECH_ANNOUNCE = "{player}号玩家的发言：{speech}"
     PLAYER_DEAD_SKIP = "{player}号玩家已死亡，跳过发言。"
     
@@ -121,6 +148,40 @@ class GamePrompts:
     
     GOOD_WIN = "好人阵营胜利"
     BAD_WIN = "狼人阵营胜利"
+
+
+# Catalog / runtime role_name → 选座/行动提示（bridge / night_plans 使用运行时名）
+_CATALOG_ROLE_SEAT_ACTION: dict[str, str] = {
+    "Seer": GamePrompts.PROPHET_ACTION,
+    "Witch": GamePrompts.WITCH_POISON_TARGET,
+    "Guard": GamePrompts.GUARD_ACTION,
+    "Werewolf": GamePrompts.WOLF_OPEN,
+    "AlphaWolf": GamePrompts.WOLF_OPEN,
+    "WhiteWolf": GamePrompts.WOLF_OPEN,
+    "WolfBeauty": GamePrompts.WOLF_OPEN,
+    "GuardianWolf": GamePrompts.WOLF_OPEN,
+    "HiddenWolf": GamePrompts.WOLF_OPEN,
+    "NightmareWolf": GamePrompts.WOLF_OPEN,
+    "BloodMoonApostle": GamePrompts.WOLF_OPEN,
+    "Hunter": GamePrompts.HUNTER_DEATH,
+    "GraveyardKeeper": "守墓人请睁眼，选择一名已死亡玩家查验身份，回答编号，放在[[]]里",
+    "Raven": "乌鸦请睁眼，选择一名玩家施加诅咒，回答编号，放在[[]]里",
+    "Cupid": "丘比特请睁眼，选择两名玩家结为情侣，回答编号，放在[[]]里",
+}
+
+
+def build_role_seat_action_map() -> dict[str, str]:
+    """Map runtime Role.config.name and catalog keys to seat-action prompts."""
+    from llm_werewolf.core.roles.registry import CATALOG_TO_RUNTIME_NAME
+
+    merged = dict(_CATALOG_ROLE_SEAT_ACTION)
+    for catalog, runtime in CATALOG_TO_RUNTIME_NAME.items():
+        if catalog in _CATALOG_ROLE_SEAT_ACTION:
+            merged[runtime] = _CATALOG_ROLE_SEAT_ACTION[catalog]
+    return merged
+
+
+ROLE_SEAT_ACTION: dict[str, str] = build_role_seat_action_map()
 
 
 class PlanStrategies:

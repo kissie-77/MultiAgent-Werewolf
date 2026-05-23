@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from llm_werewolf.core.config import GameConfig, create_game_config_from_player_count
-from llm_werewolf.core.role_registry import create_roles
+from llm_werewolf.core.roles.registry import create_roles
 
 
 def test_valid_game_config() -> None:

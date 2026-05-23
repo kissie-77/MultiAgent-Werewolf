@@ -24,6 +24,17 @@ class PlayerObservation(BaseModel):
     )
 
 
+def flatten_private_notes(notes: list | None) -> list[str]:
+    """Coerce private_notes to plain strings (EngineContexts may pass nested lists)."""
+    flat: list[str] = []
+    for item in notes or []:
+        if isinstance(item, (list, tuple)):
+            flat.extend(str(part) for part in item if str(part).strip())
+        elif item is not None and str(item).strip():
+            flat.append(str(item))
+    return flat
+
+
 class ObservationBuilder:
     """Builds player-specific views under strict information isolation."""
 
@@ -40,7 +51,7 @@ class ObservationBuilder:
             game_state=game_state,
             visible_players=[other.get_public_info() for other in all_players],
             visible_events=visible_events,
-            private_notes=private_notes or [],
+            private_notes=flatten_private_notes(private_notes),
         )
 
     def format_for_prompt(
@@ -50,30 +61,30 @@ class ObservationBuilder:
         include_private_notes: bool = True,
     ) -> str:
         lines = [
-            f"You are {observation.self_player.name}.",
-            f"Current phase: {observation.game_state.phase.value}",
-            f"Current round: {observation.game_state.round_number}",
+            f"你是 {observation.self_player.name}。",
+            f"当前阶段：{observation.game_state.phase.value}",
+            f"当前轮次：第 {observation.game_state.round_number} 轮",
             (
-                "Alive summary: "
-                f"{observation.game_state.alive_players}/{observation.game_state.total_players} alive, "
-                f"werewolves alive: {observation.game_state.werewolves_alive}, "
-                f"villagers alive: {observation.game_state.villagers_alive}"
+                "存活概况："
+                f"{observation.game_state.alive_players}/{observation.game_state.total_players} 人存活，"
+                f"狼人 {observation.game_state.werewolves_alive}，"
+                f"好人 {observation.game_state.villagers_alive}"
             ),
             "",
-            "Visible players:",
+            "场上玩家：",
         ]
 
         for info in observation.visible_players:
-            status = "alive" if info.is_alive else "dead"
-            lines.append(f"- {info.name} ({info.player_id}): {status}")
+            status = "存活" if info.is_alive else "死亡"
+            lines.append(f"- {info.name}（{info.player_id}）：{status}")
 
         if include_visible_events and observation.visible_events:
-            lines.extend(["", "Visible event history:"])
+            lines.extend(["", "可见事件记录："])
             for event in observation.visible_events:
-                lines.append(f"- [{event.phase} R{event.round_number}] {event.message}")
+                lines.append(f"- [{event.phase} 第{event.round_number}轮] {event.message}")
 
         if include_private_notes and observation.private_notes:
-            lines.extend(["", "Private notes:"])
+            lines.extend(["", "私密信息："])
             for note in observation.private_notes:
                 lines.append(f"- {note}")
 

@@ -45,6 +45,7 @@ __all__ = [
     "PlayerObservation",
     "PlayerProtocol",
     "PlayerStatus",
+    "VictoryGoal",
     "RoleConfig",
     "RoleProtocol",
     "VictoryResult",

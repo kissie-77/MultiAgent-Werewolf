@@ -7,7 +7,7 @@ from pydantic import Field, BaseModel
 from llm_werewolf.core.types import GamePhase, PlayerStatus, PlayerProtocol, GameStateProtocol
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.game_state import GameState
-from llm_werewolf.core.role_registry import get_role_map
+from llm_werewolf.core.roles.registry import get_role_map
 from llm_werewolf.core.roles.neutral import Thief
 from llm_werewolf.core.roles.villager import Cupid, Elder, Guard, Idiot, Witch, Knight, Magician
 from llm_werewolf.core.roles.werewolf import WolfBeauty, BloodMoonApostle

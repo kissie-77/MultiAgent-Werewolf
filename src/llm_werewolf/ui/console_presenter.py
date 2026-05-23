@@ -150,12 +150,18 @@ class ConsolePresenter:
             return True
         return False
 
-    def present_event(self, event: Event) -> None:
+    def present_event(self, event: Event, viewer_id: str | None = None) -> None:
         """Present an event with appropriate formatting.
 
         Args:
             event: The event to present.
+            viewer_id: If set, only show events visible to this player (god view when None).
         """
+        if viewer_id is not None and not event.is_visible_to(viewer_id):
+            return
+        if viewer_id is not None and self._is_night_action_event(event.event_type):
+            return
+
         # Handle phase transitions
         if event.event_type == EventType.PHASE_CHANGED:
             self._handle_phase_change(event)
@@ -223,7 +229,7 @@ class ConsolePresenter:
             # Flush werewolf discussion before voting
             self._flush_werewolf_discussion()
             console.print()
-            console.print("🐺 狼人正在投票...", style="dim red")
+            console.print("🐺 狼人正在选择目标...", style="dim red")
         elif action == "werewolves_sleep":
             # Flush night actions when werewolves sleep
             self._flush_night_actions()

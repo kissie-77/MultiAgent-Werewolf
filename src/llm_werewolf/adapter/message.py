@@ -1,4 +1,9 @@
-"""Message adapter for converting between LLMWerewolf str and AgentScope Msg formats."""
+"""Message adapter for converting between LLMWerewolf str and AgentScope Msg formats.
+
+.. deprecated::
+    Prefer InformationHub for game-time messaging. ``visible_to`` on Msg metadata
+    is not wired into the engine event log; kept for AgentScope agent helpers only.
+"""
 
 from typing import Literal, Sequence
 from datetime import datetime
@@ -42,6 +47,7 @@ class Msg:
         metadata: dict | None = None,
         timestamp: str | None = None,
         invocation_id: str | None = None,
+        id: str | None = None,
     ) -> None:
         """Initialize the Msg object.
 
@@ -57,7 +63,7 @@ class Msg:
         self.content = content
         self.role = role
         self.metadata = metadata or {}
-        self.id = shortuuid.uuid()
+        self.id = id or shortuuid.uuid()
         self.timestamp = timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         self.invocation_id = invocation_id
 
@@ -82,6 +88,7 @@ class Msg:
             metadata=data.get("metadata"),
             timestamp=data.get("timestamp"),
             invocation_id=data.get("invocation_id"),
+            id=data.get("id"),
         )
 
     def get_text_content(self, separator: str = "\n") -> str | None:

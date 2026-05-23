@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
-from llm_werewolf.core.types import EventType, ActionPriority
+from llm_werewolf.core.action_registry import get_action_priority
+from llm_werewolf.core.types import EventType
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.actions.base import Action
@@ -27,31 +28,18 @@ class ActionProcessorMixin:
 
     @staticmethod
     def _get_action_priority(action: Action) -> int:
-        """Get action priority. Higher number = higher priority (executes first).
+        """Get action priority. Higher number = higher priority (executes first)."""
+        return get_action_priority(action.__class__.__name__)
 
-        Args:
-            action: The action to get priority for.
-
-        Returns:
-            int: Priority value (higher executes first).
-        """
-        # Priority map ordered from highest to lowest priority
-        priority_map = {
-            "CupidLinkAction": ActionPriority.CUPID.value,
-            "NightmareWolfBlockAction": ActionPriority.NIGHTMARE_WOLF.value,
-            "GuardProtectAction": ActionPriority.GUARD.value,
-            "GuardianWolfProtectAction": ActionPriority.GUARD.value,
-            "WerewolfVoteAction": ActionPriority.WEREWOLF.value,
-            "WerewolfKillAction": ActionPriority.WEREWOLF.value,
-            "WolfBeautyCharmAction": ActionPriority.WEREWOLF.value,
-            "WhiteWolfKillAction": ActionPriority.WHITE_WOLF.value,
-            "WitchSaveAction": ActionPriority.WITCH.value,
-            "WitchPoisonAction": ActionPriority.WITCH.value,
-            "SeerCheckAction": ActionPriority.SEER.value,
-            "GraveyardKeeperCheckAction": ActionPriority.GRAVEYARD_KEEPER.value,
-            "RavenMarkAction": ActionPriority.RAVEN.value,
-        }
-        return priority_map.get(action.__class__.__name__, 0)
+    @staticmethod
+    def _decision_data(action: Action) -> dict:
+        """Return the latest parsed decision metadata for an action actor."""
+        actor = getattr(action, "actor", None)
+        agent = getattr(actor, "agent", None)
+        metadata = getattr(agent, "_last_decision_metadata", None)
+        if not metadata:
+            return {}
+        return {"decision": metadata}
 
     def _is_actor_blocked(self, action: Action) -> bool:
         """Check if actor is blocked by Nightmare Wolf.
@@ -78,7 +66,11 @@ class ActionProcessorMixin:
         self._log_event(
             EventType.GUARD_PROTECTED,
             self.locale.get("guard_protected", target=action.target.name),
-            data={"target_id": action.target.player_id},
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                **self._decision_data(action),
+            },
         )
         if action.actor.agent and self.game_state:
             action.actor.agent.add_decision(
@@ -90,7 +82,11 @@ class ActionProcessorMixin:
         self._log_event(
             EventType.WITCH_SAVED,
             self.locale.get("witch_saved", target=action.target.name),
-            data={"target_id": action.target.player_id},
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                **self._decision_data(action),
+            },
         )
         if action.actor.agent and self.game_state:
             action.actor.agent.add_decision(
@@ -100,9 +96,13 @@ class ActionProcessorMixin:
     def _log_witch_poison_action(self, action: WitchPoisonAction) -> None:
         """Log witch poison action."""
         self._log_event(
-            EventType.MESSAGE,
+            EventType.WITCH_POISONED,
             self.locale.get("witch_uses_poison", target=action.target.name),
-            data={"target_id": action.target.player_id},
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                **self._decision_data(action),
+            },
         )
         if action.actor.agent and self.game_state:
             action.actor.agent.add_decision(
@@ -124,9 +124,13 @@ class ActionProcessorMixin:
             result = "villager"
         self._log_event(
             EventType.SEER_CHECKED,
-            self.locale.get("seer_checked", target=action.target.name, result=result),
-            data={"target_id": action.target.player_id, "result": result},
-            visible_to=[action.actor.player_id],
+            self.locale.get("seer_checked_public", target=action.target.name),
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                "result": result,
+                **self._decision_data(action),
+            },
         )
         if action.actor.agent and self.game_state:
             action.actor.agent.add_decision(
@@ -140,7 +144,11 @@ class ActionProcessorMixin:
             self.locale.get(
                 "cupid_links", player1=action.target1.name, player2=action.target2.name
             ),
-            data={"player1_id": action.target1.player_id, "player2_id": action.target2.player_id},
+            data={
+                "player_id": action.actor.player_id,
+                "player1_id": action.target1.player_id,
+                "player2_id": action.target2.player_id,
+            },
         )
         if action.actor.agent and self.game_state:
             action.actor.agent.add_decision(
@@ -152,7 +160,11 @@ class ActionProcessorMixin:
         self._log_event(
             EventType.MESSAGE,
             self.locale.get("white_wolf_kills", target=action.target.name),
-            data={"target_id": action.target.player_id},
+            data={
+                "target_id": action.target.player_id,
+                "visibility": "wolf_team",
+                **self._decision_data(action),
+            },
         )
 
     def _log_wolf_beauty_action(self, action: WolfBeautyCharmAction) -> None:
@@ -160,7 +172,11 @@ class ActionProcessorMixin:
         self._log_event(
             EventType.MESSAGE,
             self.locale.get("wolf_beauty_charms", target=action.target.name),
-            data={"target_id": action.target.player_id},
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                **self._decision_data(action),
+            },
         )
 
     def _log_action_event(self, action: Action) -> None:

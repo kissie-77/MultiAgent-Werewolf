@@ -182,6 +182,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
     def _generate_fallback_response(self, message: str, error: str) -> str:
         """Generate a fallback response when the agent fails.
 
+        Fallback text must never reveal camp or role (e.g. no "我是好人/狼人").
+        Wolf-only night chat uses team-coordination lines, not villager identity claims.
+
         Args:
             message: The original prompt message.
             error: The error message.
@@ -191,31 +194,107 @@ class AgentScopeWerewolfAgent(BaseAgent):
         """
         import random
 
-        # Check if it's a yes/no question
-        if "YES" in message or "NO" in message or "0]]或[[1" in message:
-            return random.choice(["[[0]]", "[[1]]"])
+        lower = message.lower()
 
-        # Check if it's a target selection
-        if "[[]]" in message or "编号" in message or "select" in message.lower():
-            # Extract available numbers from message
-            numbers = re.findall(r'(\d+)\s*号', message)
-            if numbers:
-                return f"[[{random.choice(numbers)}]]"
+        # Check if it's a yes/no question
+        if (
+            "ONLY 'YES' or 'NO'" in message
+            or "respond with ONLY 'YES' or 'NO'" in message
+            or "0]]或[[1" in message
+        ):
+            return random.choice(["[[0]]", "[[1]]", "YES", "NO"])
+
+        # Engine target selection: numeric answer only
+        if "responding with ONLY the number" in message or "select a target" in lower:
+            seat = self._pick_seat_from_message(message)
+            return str(seat) if seat is not None else "1"
+
+        # Bracket-style target / vote (adapter / legacy prompts)
+        if "[[]]" in message or "编号" in message:
+            seat = self._pick_seat_from_message(message)
+            if seat is not None:
+                return f"[[{seat}]]"
             return f"[[{random.randint(1, 12)}]]"
 
-        # Check if it's a vote
-        if "投票" in message or "vote" in message.lower():
-            return f"[[{random.randint(0, 12)}]]"
+        if "投票" in message or "vote" in lower:
+            seat = self._pick_seat_from_message(message)
+            if seat is not None:
+                return f"[[{seat}]]"
+            return f"[[{random.randint(1, 12)}]]"
 
-        # Default speech response
-        speeches = [
-            f"我认为{random.randint(1, 12)}号玩家很可疑",
-            f"我觉得我是好人，我会好好分析局势",
-            f"我建议大家多关注一下发言不自然的玩家",
-            f"我是{self.role_name}，我会尽力帮助大家",
-            f"我觉得我们应该团结起来找出狼人",
-        ]
-        return random.choice(speeches)
+        if self._is_werewolf_private_chat(message):
+            return self._werewolf_team_fallback_speech(message)
+
+        return self._public_fallback_speech(message)
+
+    @staticmethod
+    def _pick_seat_from_message(message: str) -> int | None:
+        """Pick a seat number mentioned in the prompt, if any."""
+        import random
+
+        numbers = re.findall(r"(?:^|\s)(\d+)\s*号", message)
+        if not numbers:
+            numbers = re.findall(r"^\s*(\d+)\.\s+", message, flags=re.M)
+        if numbers:
+            return int(random.choice(numbers))
+        return None
+
+    @staticmethod
+    def _is_werewolf_private_chat(message: str) -> bool:
+        """True when the prompt is wolf-team night coordination (not public day speech)."""
+        lower = message.lower()
+        markers = (
+            "fellow werewolves",
+            "werewolf team discussion",
+            "coordinating with these werewolves",
+            "working with these werewolves",
+            "discuss with your fellow werewolves",
+            ", a werewolf.",
+            "all werewolves will vote",
+            "狼人请睁眼",
+            "你的另外三个队友",
+        )
+        return any(m in lower or m in message for m in markers)
+
+    def _werewolf_team_fallback_speech(self, message: str) -> str:
+        """Short coordination line for private wolf chat; no identity reveal."""
+        import random
+
+        seat = self._pick_seat_from_message(message) or random.randint(1, 12)
+        english = sum(1 for c in message if ord(c) < 128) / max(len(message), 1) > 0.6
+        if english:
+            options = [
+                f"I suggest we focus on {seat} tonight — low risk and good pressure.",
+                f"Let's align on {seat}; we can revisit if the vote splits.",
+                f"{seat} stood out yesterday — worth discussing as our primary option.",
+            ]
+        else:
+            options = [
+                f"今晚可以先压一下{seat}号，风险相对可控。",
+                f"我和大家想法接近，{seat}号可以当作首选。",
+                f"{seat}号昨天发言有点问题，值得我们先对齐。",
+            ]
+        return random.choice(options)
+
+    def _public_fallback_speech(self, message: str) -> str:
+        """Neutral day-discussion fallback; never claims good/evil role."""
+        import random
+
+        seat = self._pick_seat_from_message(message) or random.randint(1, 12)
+        english = sum(1 for c in message if ord(c) < 128) / max(len(message), 1) > 0.6
+        if english:
+            options = [
+                f"Player {seat} felt off to me — worth more attention.",
+                "I'll keep tracking who contradicts themselves in later rounds.",
+                f"I'm not fully convinced by {seat}'s explanation yet.",
+            ]
+        else:
+            options = [
+                f"{seat}号的发言我还需要再听一轮。",
+                f"我会多留意{seat}号和其他人的逻辑是否对得上。",
+                "今天信息量不少，我先把疑点记一下，下一轮再对齐。",
+            ]
+        return random.choice(options)
 
     async def _call_direct_model(self, message: str) -> str:
         """Call model directly without AgentScope agent wrapper.

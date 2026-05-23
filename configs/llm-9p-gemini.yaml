@@ -1,0 +1,51 @@
+# 9 人标准局（自动配板：2狼+狼王、预言家、女巫、守卫、猎人、2平民）
+# 使用 .env 中的 OPENAI_API_KEY（wenhuichen 网关）
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+
+players:
+  - name: 玩家1
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家2
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家3
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家4
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家5
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家6
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家7
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家8
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY
+
+  - name: 玩家9
+    model: gemini-3.1-flash-lite-preview
+    base_url: https://api.wenhuichen.cn/v1
+    api_key_env: OPENAI_API_KEY

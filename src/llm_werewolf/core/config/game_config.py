@@ -1,6 +1,6 @@
 from pydantic import Field, BaseModel, field_validator
 
-from llm_werewolf.core.role_registry import validate_role_names
+from llm_werewolf.core.roles.registry import validate_role_names
 
 
 class GameConfig(BaseModel):
@@ -41,6 +41,13 @@ class GameConfig(BaseModel):
         default=False,
         description="Enable sheriff election (future feature)",
         examples=[True, False],
+    )
+    track_vote_intentions: bool = Field(
+        default=True,
+        description=(
+            "Collect each agent's day-vote intention before/after every roundtable speech "
+            "for replay and persuasion analysis."
+        ),
     )
 
     @field_validator("role_names")

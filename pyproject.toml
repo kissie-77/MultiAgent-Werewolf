@@ -64,6 +64,7 @@ name = "llm_werewolf"
 version = "0.1.0"
 description = "AI-powered Werewolf game with LLM integration and TUI interface"
 dependencies = [
+    "agentscope>=1.0.20",
     "fire>=0.7.1",
     "logfire>=4.27.0",
     "openai>=2.26.0",
@@ -79,13 +80,15 @@ requires-python = ">= 3.10"
 license = { text = "MIT" }
 
 [project.urls]
-Repository = "https://github.com/kissie-77/MultiAgent-Werewolf"
+Repository = "https://github.com/LBP97541135/MultiAgent-Werewolf"
 
 [project.scripts]
 llm-werewolf = "llm_werewolf.cli:entry"
 llm-werewolf-tui = "llm_werewolf.tui:entry"
 werewolf = "llm_werewolf.cli:entry"
 werewolf-tui = "llm_werewolf.tui:entry"
+werewolf-eval = "llm_werewolf.eval_cli:entry"
+werewolf-vote-swing = "llm_werewolf.vote_swing_cli:entry"
 
 [dependency-groups]
 dev = [
@@ -97,6 +100,7 @@ dev = [
     "ty",
 ]
 test = [
+    "agentscope>=1.0.20",
     "genbadge[all]",
     "pytest",
     "pytest-asyncio",

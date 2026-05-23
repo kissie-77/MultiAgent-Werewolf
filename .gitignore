@@ -152,6 +152,7 @@ activemq-data/
 .env
 .envrc
 .venv
+eval_runs/
 env/
 venv/
 ENV/
@@ -217,6 +218,10 @@ __marimo__/
 .streamlit/secrets.toml
 
 /data/
+
+# Local-only: serialized AgentScope API calls (see docs/LOCAL_ONLY-serial-agent-calls.md)
+src/llm_werewolf/adapter/serial_calls.py
+runs/
 
 # Real API config files (keep example.yaml only)
 configs/xiaomi.yaml

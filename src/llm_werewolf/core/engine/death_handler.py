@@ -3,10 +3,10 @@
 import random
 from collections.abc import Callable
 
+from llm_werewolf.core.death_abilities import DEATH_ABILITY_ROLE_NAMES
 from llm_werewolf.core.types import Camp, EventType, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
-from llm_werewolf.core.action_selector import ActionSelector
 
 
 class DeathHandlerMixin:
@@ -166,21 +166,24 @@ class DeathHandlerMixin:
                 )
                 return messages
 
+            from llm_werewolf.core.prompts.actions import ActionDescriptions, EngineContexts
+
             context = (
-                f"You are {sheriff.name}, the sheriff, and you have died.\n"
-                f"You can choose to:\n"
-                f"1. Transfer the sheriff badge to another living player\n"
-                f"2. Tear the badge (choose 'skip' or 'none')\n\n"
-                f"Living players: {', '.join([p.name for p in possible_targets])}\n"
+                EngineContexts.sheriff_died(sheriff.name)
+                + "\n可将警徽交给存活玩家，或选择跳过以撕毁警徽。\n"
+                f"存活玩家：{', '.join(p.name for p in possible_targets)}\n"
             )
 
-            target = await ActionSelector.get_target_from_agent(
-                agent=sheriff.agent,
-                role_name="Sheriff",
-                action_description="Choose a player to transfer the sheriff badge to (or skip to tear it)",
-                possible_targets=possible_targets,
+            interaction = self.game_state.require_phase_interaction()
+            target = await interaction.request_seat_choice(
+                sheriff,
+                sheriff.agent,
+                "警长",
+                ActionDescriptions.TRANSFER_BADGE,
+                possible_targets,
                 allow_skip=True,
                 additional_context=context,
+                fallback_random=False,
             )
 
             if target:
@@ -230,13 +233,16 @@ class DeathHandlerMixin:
 
         # Get target from agent or random
         if player.agent:
-            target = await ActionSelector.get_target_from_agent(
-                agent=player.agent,
-                role_name=role_name,
-                action_description="Choose a player to shoot before you die",
-                possible_targets=possible_targets,
+            interaction = self.game_state.require_phase_interaction()
+            target = await interaction.request_seat_choice(
+                player,
+                player.agent,
+                role_name,
+                "临死前选择带走的玩家",
+                possible_targets,
                 allow_skip=False,
-                additional_context=f"You ({player.name}) have been killed. You can take one player down with you.",
+                additional_context=f"你（{player.name}）已死亡，可以带走一名玩家。",
+                fallback_random=True,
             )
         else:
             target = random.choice(possible_targets)  # noqa: S311
@@ -316,7 +322,7 @@ class DeathHandlerMixin:
             if not player:
                 continue
 
-            if player.role.name in ("Hunter", "AlphaWolf"):
+            if player.role.name in DEATH_ABILITY_ROLE_NAMES:
                 # Check if poisoned
                 death_cause = self.game_state.death_causes.get(player_id)
                 if death_cause == "witch_poison":

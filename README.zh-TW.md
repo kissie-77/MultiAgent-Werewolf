@@ -7,11 +7,11 @@
 [![uv](https://img.shields.io/badge/-uv_dependency_management-2C5F2D?logo=python&logoColor=white)](https://docs.astral.sh/uv/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://docs.pydantic.dev/latest/contributing/#badges)
-[![tests](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/test.yml/badge.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/test.yml)
-[![code-quality](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml/badge.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml)
-[![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/kissie-77/MultiAgent-Werewolf/tree/main?tab=License-1-ov-file)
-[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/pulls)
-[![contributors](https://img.shields.io/github/contributors/kissie-77/MultiAgent-Werewolf.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/graphs/contributors)
+[![tests](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/test.yml/badge.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/test.yml)
+[![code-quality](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml/badge.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/actions/workflows/code-quality-check.yml)
+[![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/LBP97541135/MultiAgent-Werewolf/tree/main?tab=License-1-ov-file)
+[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/pulls)
+[![contributors](https://img.shields.io/github/contributors/LBP97541135/MultiAgent-Werewolf.svg)](https://github.com/LBP97541135/MultiAgent-Werewolf/graphs/contributors)
 
 </div>
 
@@ -19,11 +19,19 @@
 
 其他語言: [English](README.md) | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
+## 分支说明
+
+| 分支 | 用途 |
+|------|------|
+| **`lvyihan_test`** | **當前集成开发分支**（推薦 clone 此分支） |
+| `main` | 穩定基线 |
+
 ## 特色功能
 
 - 🎮 **完整遊戲邏輯**：包含 20+ 種角色的完整狼人殺規則實作
 - 🤖 **LLM 整合**：統一的代理介面，輕鬆整合任何 LLM（OpenAI、Anthropic、DeepSeek、本地模型等）
-- ⚡ **串流響應**：LLM 代理預設使用串流 API，透過更快的首字元回應時間降低等待感
+- 🤝 **AgentScope**：預設經 AgentScope ReAct + `generate_response` 結構化決策
+- 📋 **角色目錄**：`ROLE_CATALOG` 與 `implementation`（`module:Class`）統一註冊
 - 🖥️ **精美 TUI**：使用 Textual 框架的即時遊戲視覺化，支援互動式終端介面
 - 👤 **真人玩家**：支援真人玩家與 AI 混合遊戲
 - ⚙️ **可配置**：透過 YAML 配置檔案靈活設定玩家和遊戲參數
@@ -35,12 +43,10 @@
 ### 安裝
 
 ```bash
-# 複製儲存庫
-git clone https://github.com/kissie-77/MultiAgent-Werewolf.git
-cd LLMWereWolf
-
-# 安裝依賴
+git clone -b lvyihan_test https://github.com/LBP97541135/MultiAgent-Werewolf.git
+cd MultiAgent-Werewolf
 uv sync
+cp .env.example .env
 ```
 
 ### 執行遊戲
@@ -248,15 +254,7 @@ players:
 
 ## 代理系統
 
-### 代理類型
-
-本專案提供三種內建代理類型：
-
-1. **LLMAgent**：支援任何 OpenAI 相容 API 的 LLM 模型（GPT-4、Claude、DeepSeek、Grok、本地模型等）
-2. **HumanAgent**：真人玩家透過終端輸入
-3. **DemoAgent**：測試用的簡單代理（隨機回應）
-
-所有代理都透過 YAML 配置檔案設定（參見[配置](#%E9%85%8D%E7%BD%AE)章節）。遊戲支援在同一局中混合使用不同類型的代理。
+`create_agent()` **預設**建立 **AgentScope** 玩家。另支援 **LLMAgent**、**HumanAgent**、**DemoAgent**。結構化輸出見 `core/decisions.py`；提示詞見 `core/prompts` 與 `adapter/prompts.py`。詳見 [docs/README.md](docs/README.md)。
 
 ## TUI 介面
 
@@ -458,80 +456,39 @@ Console 模式會顯示即時狀態提示，讓你了解遊戲進度：
 
 ## 專案架構
 
-專案採用模組化架構，各模組職責清晰：
+分層說明見 [docs/arch.md](docs/arch.md) 與 [docs/project-structure.md](docs/project-structure.md)。
 
 ```
 src/llm_werewolf/
-├── cli.py                 # 命令列入口（主控台模式）
-├── tui.py                 # TUI 入口（互動模式）
-├── ai/                    # 代理系統
-│   └── agents.py         # LLM 代理實作和配置模型
-├── core/                 # 核心遊戲邏輯
-│   ├── agent.py          # 基礎代理、HumanAgent 和 DemoAgent
-│   ├── game_state.py     # 遊戲狀態管理
-│   ├── player.py         # 玩家類
-│   ├── action_selector.py # 動作選擇邏輯
-│   ├── events.py         # 事件系統
-│   ├── event_formatter.py # 事件格式化顯示
-│   ├── locale.py         # 本地化與語言支援
-│   ├── victory.py        # 勝利條件檢查
-│   ├── serialization.py  # 序列化工具
-│   ├── role_registry.py  # 角色註冊與驗證
-│   ├── engine/           # 遊戲引擎（拆分為多個 mixin）
-│   │   ├── game_engine.py     # 主要遊戲引擎（組合所有 mixin）
-│   │   ├── base.py            # 核心初始化與遊戲迴圈
-│   │   ├── night_phase.py     # 夜晚階段執行邏輯
-│   │   ├── day_phase.py       # 白天討論階段邏輯
-│   │   ├── voting_phase.py    # 投票階段邏輯
-│   │   ├── death_handler.py   # 死亡相關邏輯
-│   │   └── action_processor.py # 處理遊戲動作
-│   ├── actions/          # 動作系統
-│   │   ├── base.py       # 基礎動作類別
-│   │   ├── common.py     # 通用動作
-│   │   ├── villager.py   # 村民陣營動作
-│   │   └── werewolf.py   # 狼人陣營動作
-│   ├── config/           # 配置系統
-│   │   ├── game_config.py    # 遊戲配置模型
-│   │   └── presets.py        # 根據人數自動生成角色配置
-│   ├── types/            # 類型定義
-│   │   ├── enums.py      # 列舉（陣營、階段、狀態等）
-│   │   ├── models.py     # 資料模型
-│   │   └── protocols.py  # 協議定義
-│   └── roles/            # 角色實作
-│       ├── base.py       # 角色基類
-│       ├── werewolf.py   # 狼人陣營角色
-│       ├── villager.py   # 村民陣營角色
-│       └── neutral.py    # 中立角色
-└── ui/                   # 使用者介面
-    ├── tui_app.py        # TUI 應用程式
-    ├── styles.py         # TUI 樣式
-    └── components/       # TUI 元件
-        ├── player_panel.py
-        ├── game_panel.py
-        └── chat_panel.py
+├── cli.py / tui.py / eval_cli.py   # 應用入口
+├── adapter/                        # LLM 適配層（roles 不得直接 import）
+│   ├── information_hub.py          # MsgHub 通道與 Agent I/O
+│   ├── bridge.py                   # Prompt、座位解析、結構化輸出
+│   ├── agent.py / factory.py       # AgentScope 整合
+│   └── prompts.py                  # GamePrompts / RolePrompts
+├── core/                           # 領域層：規則、狀態、階段編排
+│   ├── engine/                     # GameEngine（Mixin）
+│   ├── night_scheduler.py          # 夜間技能順序（狼票 → 女巫）
+│   ├── role_night_plans.py         # 核心四角色夜間 LLM 規劃
+│   ├── phase_interaction.py        # 引擎/角色 → Hub 門面
+│   ├── event_visibility.py         # Event.visible_to 預設規則
+│   ├── roles/ / actions/           # 角色產 Action、Action 改狀態
+│   └── game_state.py / events.py   # 狀態與事件（觀察單一事實源）
+├── evaluation/                     # 離線評測（werewolf-eval）
+└── ui/                             # 展示（唯讀 Event，支援 viewer 過濾）
 ```
 
 ### 模組說明
 
-- **cli.py**：主控台模式的命令列介面，負責載入配置並自動啟動遊戲
-- **tui.py**：互動模式的 TUI 入口，提供終端使用者介面
-- **ai/**：LLM 代理實作和配置模型（PlayerConfig、PlayersConfig）
-- **core/agent.py**：基礎代理協定和內建代理（HumanAgent、DemoAgent）
-- **core/engine/**：遊戲引擎實作，拆分為多個 mixin 以清楚分離職責：
-    - **game_engine.py**：主要 GameEngine 類別，組合所有 mixin
-    - **base.py**：核心初始化、事件處理與主要遊戲迴圈
-    - **night_phase.py**：夜晚階段執行邏輯（狼人討論、角色行動）
-    - **day_phase.py**：白天討論階段邏輯
-    - **voting_phase.py**：投票階段邏輯
-    - **death_handler.py**：死亡相關邏輯（狼人殺人、戀人殉情等）
-    - **action_processor.py**：處理並套用遊戲動作
-- **core/actions/**：動作系統，包含基礎類別和陣營特定動作
-- **core/config/**：配置系統，包含遊戲參數和自動角色生成
-- **core/types/**：類型定義，包含列舉、資料模型和協議定義
-- **core/event_formatter.py**：集中式事件格式化，確保主控台和 TUI 模式的顯示一致性
-- **core/locale.py**：多語言本地化支援（en-US、zh-TW、zh-CN）
-- **core/**：遊戲核心邏輯，包含角色、玩家、遊戲狀態、動作選擇、事件和勝利檢查
-- **ui/**：基於 Textual 框架的終端使用者介面
+- **cli.py**：主控台自動對局；`--viewer player_N` 可依玩家視角過濾事件
+- **tui.py**：Textual 互動介面
+- **adapter/**：所有 LLM 呼叫經 `PhaseInteraction` → `InformationHub` → `WerewolfAdapterBridge`
+- **core/engine/**：階段編排；夜晚委託 `NightSkillScheduler`（守衛等 → 狼票結算 → 女巫 → 其餘）
+- **core/roles/**：角色規則，目標態只產 `Action`、不調模型（擴展狼角色仍在遷移）
+- **evaluation/**：規則正確性與資訊隔離檢查
+- **ui/**：事件展示，與引擎解耦
+
+文件索引：[docs/README.md](docs/README.md)
 
 ## 系統需求
 
@@ -588,7 +545,7 @@ src/llm_werewolf/
 
 歡迎貢獻！您可以透過以下方式參與：
 
-1. **回報問題**：在 [Issues](https://github.com/kissie-77/MultiAgent-Werewolf/issues) 頁面回報 bug 或提出功能建議
+1. **回報問題**：在 [Issues](https://github.com/LBP97541135/MultiAgent-Werewolf/issues) 頁面回報 bug 或提出功能建議
 2. **提交 Pull Request**：修復 bug 或新增功能
 3. **改進文件**：幫助改善 README 和程式碼註解
 4. **分享反饋**：告訴我們您的使用體驗
@@ -620,9 +577,16 @@ src/llm_werewolf/
 
 ## 相關連結
 
-- [專案首頁](https://github.com/kissie-77/MultiAgent-Werewolf)
-- [問題追蹤](https://github.com/kissie-77/MultiAgent-Werewolf/issues)
+- [專案首頁](https://github.com/LBP97541135/MultiAgent-Werewolf)
+- [問題追蹤](https://github.com/LBP97541135/MultiAgent-Werewolf/issues)
 
 ## 更新日誌
 
-請參閱 [Releases](https://github.com/kissie-77/MultiAgent-Werewolf/releases) 頁面查看版本更新記錄。
+請參閱 [Releases](https://github.com/LBP97541135/MultiAgent-Werewolf/releases) 頁面查看版本更新記錄。
+
+## 約定
+
+- **Commit**：使用 [Conventional Commits](https://www.conventionalcommits.org/zh-hant/) 格式。詳見 [docs/workflow.md](docs/workflow.md)。
+- **ADR**：跨模組/介面/效能取捨的決策寫一篇 5 分鐘 ADR。詳見 [docs/adr/](docs/adr/)。
+- **CHANGELOG**：由 git-cliff 自動產生，不手寫。
+- **Roadmap**：見 [docs/roadmap.md](docs/roadmap.md)。

@@ -9,6 +9,10 @@ from llm_werewolf.core.config import GameConfig
 from llm_werewolf.core.events import EventLogger
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.observation import ObservationBuilder
+from llm_werewolf.adapter.information_hub import InformationHub
+from llm_werewolf.core.event_visibility import HUB_DIALOGUE_EVENT_TYPES, resolve_visible_to
+from llm_werewolf.core.phase_interaction import PhaseInteraction
+from llm_werewolf.core.types import Camp
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.victory import VictoryChecker
 from llm_werewolf.core.game_state import GameState
@@ -39,9 +43,8 @@ class GameEngineBase:
         self.observation_builder = ObservationBuilder()
         self._last_phase: str = ""  # Track phase changes for separators
 
-        # Global discussion history for context management
-        self.public_discussion_history: list[str] = []  # All players can see
-        self.werewolf_discussion_history: list[str] = []  # Only werewolves can see
+        self.information_hub = InformationHub()
+        self.phase_interaction = PhaseInteraction(self.information_hub)
 
         self.on_event: Callable[[Event], None] = self._default_print_event
 
@@ -93,10 +96,28 @@ class GameEngineBase:
             player = Player(
                 player_id=player_id, name=name, role=role_class, agent=agent, ai_model=ai_model
             )
+            if hasattr(agent, "bind_role"):
+                agent.bind_role(role_class, seat_number=idx)  # type: ignore[attr-defined]
             player_objects.append(player)
 
         self.game_state = GameState(player_objects)
+        self.game_state.information_hub = self.information_hub
+        self.game_state.phase_interaction = self.phase_interaction
+        track_intentions = True if self.config is None else self.config.track_vote_intentions
+        self.game_state.track_vote_intentions = track_intentions
+        if track_intentions:
+            from llm_werewolf.core.vote_intention import VoteIntentionTracker
+
+            self.game_state.vote_intention_tracker = VoteIntentionTracker()
         self.victory_checker = VictoryChecker(self.game_state)
+        self.information_hub.set_context_provider(
+            build_observation=lambda player: self.build_player_observation(
+                player, for_agent_decision=True
+            ),
+            get_alive_players=lambda: self.game_state.get_alive_players()
+            if self.game_state
+            else [],
+        )
 
         self._log_event(
             EventType.GAME_STARTED,
@@ -146,6 +167,30 @@ class GameEngineBase:
 
         return False
 
+    def _log_vote_intention_record(self, record: object) -> None:
+        """Log speech-linked vote intention deltas for replay analysis."""
+        from llm_werewolf.core.vote_intention import (
+            SpeechVoteIntentionRecord,
+            format_intentions_line,
+        )
+
+        if not isinstance(record, SpeechVoteIntentionRecord):
+            return
+        before_line = format_intentions_line(record.before) if record.before else "—"
+        after_line = format_intentions_line(record.after)
+        if not record.public_speech and not record.before:
+            message = f"【初始意向】[{after_line}]"
+        else:
+            message = (
+                f"听完 {record.speaker_name} 发言后意向："
+                f"[{before_line}] → [{after_line}]；{len(record.swings)} 人改意向"
+            )
+        self._log_event(
+            EventType.VOTE_INTENTION_SNAPSHOT,
+            message,
+            data=record.to_dict(),
+        )
+
     def _log_event(
         self,
         event_type: EventType,
@@ -164,6 +209,16 @@ class GameEngineBase:
         if not self.game_state:
             return
 
+        if visible_to is None:
+            wolf_ids = [
+                p.player_id
+                for p in self.game_state.get_players_by_camp(Camp.WEREWOLF)
+                if p.is_alive()
+            ]
+            visible_to = resolve_visible_to(
+                event_type, data, wolf_player_ids=wolf_ids
+            )
+
         event = self.event_logger.create_event(
             event_type=event_type,
             round_number=self.game_state.round_number,
@@ -175,40 +230,35 @@ class GameEngineBase:
 
         self.on_event(event)
 
-    def _get_public_discussion_context(self) -> str:
-        """Get formatted public discussion history as context.
-
-        Returns:
-            str: Formatted discussion history for all players.
-        """
-        if not self.public_discussion_history:
-            return ""
-
-        return "\n\nPrevious discussion:\n" + "\n".join(self.public_discussion_history)
-
-    def _get_werewolf_discussion_context(self) -> str:
-        """Get formatted werewolf discussion history as context.
-
-        Returns:
-            str: Formatted discussion history for werewolves only.
-        """
-        if not self.werewolf_discussion_history:
-            return ""
-
-        return "\n\nWerewolf team discussion:\n" + "\n".join(self.werewolf_discussion_history)
-
     def build_player_observation(
         self,
         player: Player,
         include_visible_events: bool = True,
         include_private_notes: bool = True,
+        exclude_event_types: frozenset | None = None,
+        *,
+        for_agent_decision: bool = False,
     ) -> str:
-        """Build a filtered prompt context for a single player."""
+        """Build a filtered prompt context for a single player.
+
+        When ``for_agent_decision`` is True, dialogue events are omitted from the
+        event block; speeches are expected in MsgHub / ReAct memory instead.
+        """
         if not self.game_state:
             return ""
 
+        merged_exclude = exclude_event_types
+        if for_agent_decision:
+            merged_exclude = (merged_exclude or frozenset()) | HUB_DIALOGUE_EVENT_TYPES
+
         public_state = self.game_state.get_public_info()
         visible_events = self.event_logger.get_events_for_player(player.player_id)
+        if merged_exclude:
+            visible_events = [
+                event
+                for event in visible_events
+                if event.event_type not in merged_exclude
+            ]
         private_notes = player.get_private_notes(self.game_state)
         observation = self.observation_builder.build(
             player=player,
@@ -228,13 +278,27 @@ class GameEngineBase:
         players: list[Player],
         additional_notes: list[str] | None = None,
         include_visible_events: bool = True,
+        exclude_event_types: frozenset | None = None,
+        *,
+        for_agent_decision: bool = False,
     ) -> str:
         """Build filtered context that is safe to share across a player group."""
         if not self.game_state or not players:
             return ""
 
         shared_events = self.event_logger.get_events_for_players([player.player_id for player in players])
-        private_notes = list(additional_notes or [])
+        merged_exclude = exclude_event_types
+        if for_agent_decision:
+            merged_exclude = (merged_exclude or frozenset()) | HUB_DIALOGUE_EVENT_TYPES
+        if merged_exclude:
+            shared_events = [
+                event
+                for event in shared_events
+                if event.event_type not in merged_exclude
+            ]
+        from llm_werewolf.core.observation import flatten_private_notes
+
+        private_notes = flatten_private_notes(list(additional_notes or []))
         observation = self.observation_builder.build(
             player=players[0],
             game_state=self.game_state.get_public_info(),

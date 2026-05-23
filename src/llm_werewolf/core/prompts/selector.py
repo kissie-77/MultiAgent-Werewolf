@@ -1,5 +1,5 @@
-import re
 import random
+import re
 
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 from llm_werewolf.core.prompts.manager import PromptManager
@@ -66,20 +66,21 @@ class ActionSelector:
             phase=phase,
         )
 
-    parse_yes_no = staticmethod(PromptManager.parse_yes_no)
+    @staticmethod
+    def parse_yes_no(response: str) -> bool:
+        """解析是/否决策。"""
+        return PromptManager.parse_yes_no(response)
 
     @staticmethod
     def parse_target_selection(
         response: str, possible_targets: list[PlayerProtocol], allow_skip: bool = False
     ) -> PlayerProtocol | None:
-        """解析 [[n]] 或纯数字形式的目标选择。"""
+        """解析目标选择。"""
         selection = PromptManager.parse_bracket_number(response)
         if selection is None:
             return None
         if 1 <= selection <= len(possible_targets):
             return possible_targets[selection - 1]
-        if allow_skip and selection == len(possible_targets) + 1:
-            return None
         return None
 
     @staticmethod

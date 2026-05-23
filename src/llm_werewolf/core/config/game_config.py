@@ -1,4 +1,5 @@
 from pydantic import Field, BaseModel, field_validator
+from pydantic_core.core_schema import ValidationInfo
 
 from llm_werewolf.core.roles.registry import validate_role_names
 
@@ -52,7 +53,7 @@ class GameConfig(BaseModel):
 
     @field_validator("role_names")
     @classmethod
-    def validate_role_count(cls, v: list[str], info: object) -> list[str]:
+    def validate_role_count(cls, v: list[str], info: ValidationInfo) -> list[str]:
         """校验角色数量与玩家数量一致。
 
         Args:

@@ -1,4 +1,5 @@
-from llm_werewolf.core.types import VictoryResult, PlayerProtocol, GameStateProtocol
+from llm_werewolf.core.types import Camp, VictoryResult, PlayerProtocol, GameStateProtocol
+from llm_werewolf.core.roles.names import is_untransformed_blood_moon, player_camp_is
 
 
 class VictoryChecker:
@@ -46,24 +47,20 @@ class VictoryChecker:
         # 统计狼人数量，排除未变身的血月使徒
         werewolf_count = 0
         for p in alive_players:
-            if p.get_camp() == "werewolf":
-                # 未变身的血月使徒不计入
-                if (
-                    p.role.name == "Blood Moon Apostle"
-                    and hasattr(p.role, "transformed")
-                    and not p.role.transformed
-                ):
-                    continue  # 未变身使徒不计数
+            if player_camp_is(p, Camp.WEREWOLF):
+                if is_untransformed_blood_moon(p.role):
+                    continue
                 werewolf_count += 1
 
-        villager_count = sum(1 for p in alive_players if p.get_camp() == "villager")
+        villager_count = sum(
+            1 for p in alive_players if player_camp_is(p, Camp.VILLAGER)
+        )
 
         if werewolf_count >= villager_count and werewolf_count > 0:
             # 胜者列表包含所有狼人（含已变身血月使徒）
             werewolf_ids = []
             for p in alive_players:
-                if p.get_camp() == "werewolf":
-                    # 未变身血月使徒仍随狼人阵营获胜
+                if player_camp_is(p, Camp.WEREWOLF):
                     werewolf_ids.append(p.player_id)
 
             return VictoryResult(
@@ -87,10 +84,14 @@ class VictoryChecker:
         alive_players = self.game_state.get_alive_players()
 
         # 统计所有狼人（含血月使徒，即使未变身）
-        werewolf_count = sum(1 for p in alive_players if p.get_camp() == "werewolf")
+        werewolf_count = sum(
+            1 for p in alive_players if player_camp_is(p, Camp.WEREWOLF)
+        )
 
         if werewolf_count == 0:
-            villager_ids = [p.player_id for p in alive_players if p.get_camp() == "villager"]
+            villager_ids = [
+                p.player_id for p in alive_players if player_camp_is(p, Camp.VILLAGER)
+            ]
             return VictoryResult(
                 has_winner=True,
                 winner_camp="villager",

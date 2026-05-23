@@ -18,9 +18,9 @@ def build_werewolf_team_context(
     return "\n\n".join(filter(None, [
         *private_notes,
         (
-            f"You are working with these werewolves: {', '.join(werewolf_names)}.\n"
-            f"All werewolves will vote on who to eliminate tonight.\n"
-            f"作为{role_name}，请选择要投票击杀的好人目标。"
+            f"你的狼队友：{', '.join(werewolf_names)}。\n"
+            f"所有狼人将在今晚投票决定击杀目标。\n"
+            f"作为{role_name}，请选择要投票击杀的目标。"
         ),
     ]))
 
@@ -43,7 +43,7 @@ class Werewolf(Role):
             if player.player_id != self.player.player_id and player.is_alive()
         ]
         if teammates:
-            notes.append(f"Your living werewolf teammates: {', '.join(teammates)}.")
+            notes.append(f"存活的狼队友：{', '.join(teammates)}。")
         return notes
 
     def get_config(self) -> RoleConfig:
@@ -52,9 +52,8 @@ class Werewolf(Role):
             name="Werewolf",
             camp=Camp.WEREWOLF,
             description=(
-                "You are a Werewolf. Each night, you wake up with other werewolves "
-                "and collectively choose a villager to eliminate. Your goal is to "
-                "outnumber the villagers."
+                "你是狼人。每晚与其他狼人一起醒来，集体选择一名玩家击杀。"
+                "你的目标是让狼人数量不少于好人数量。"
             ),
             priority=ActionPriority.WEREWOLF,
             can_act_night=True,
@@ -77,9 +76,8 @@ class AlphaWolf(Werewolf):
             name="Alpha Wolf",
             camp=Camp.WEREWOLF,
             description=(
-                "You are the Alpha Wolf. You wake up with other werewolves each night "
-                "to kill a villager. When you are eliminated (by voting or hunter), "
-                "you can immediately shoot and eliminate another player before you die."
+                "你是狼王。每晚与其他狼人一起击杀玩家。"
+                "当你被放逐或被猎人带走时，可以立即开枪带走另一名玩家。"
             ),
             priority=ActionPriority.WEREWOLF,
             can_act_night=True,
@@ -101,9 +99,9 @@ class WhiteWolf(Role):
             name="White Wolf",
             camp=Camp.WEREWOLF,
             description=(
-                "You are the White Wolf. You wake up with other werewolves to kill villagers. "
-                "Additionally, every other night, you wake up alone and can choose to kill "
-                "another werewolf. Your ultimate goal may be to be the last werewolf standing."
+                "你是白狼王。每晚与其他狼人一起击杀好人。"
+                "此外，每隔一晚你可以独自醒来并选择击杀另一名狼人。"
+                "你的最终目标可能是成为最后存活的狼人。"
             ),
             priority=ActionPriority.WHITE_WOLF,
             can_act_night=True,

@@ -1,5 +1,6 @@
-from llm_werewolf.core.types import ActionType, PlayerProtocol, GameStateProtocol
+from llm_werewolf.core.types import ActionType, Camp, PlayerProtocol, GameStateProtocol
 from llm_werewolf.core.actions.base import Action
+from llm_werewolf.core.roles.names import player_camp_is, seer_apparent_camp
 
 
 class WitchSaveAction(Action):
@@ -106,22 +107,9 @@ class SeerCheckAction(Action):
 
     def execute(self) -> list[str]:
         """执行预言家查验。"""
-        result = self.target.get_camp()
-
-        # 隐狼对预言家显示为村民（按角色名判断）
-        if self.target.role.name == "HiddenWolf":
-            result = "villager"
-
-        # 未变身血月使徒对预言家显示为村民
-        if (
-            self.target.role.name == "Blood Moon Apostle"
-            and hasattr(self.target.role, "transformed")
-            and not self.target.role.transformed
-        ):
-            result = "villager"
-
+        apparent = seer_apparent_camp(self.target)
         self.game_state.seer_checked[self.game_state.round_number] = self.target.player_id
-        return [f"Seer checks {self.target.name}: {result}"]
+        return [f"Seer checks {self.target.name}: {apparent.value}"]
 
 
 class GuardProtectAction(Action):
@@ -317,7 +305,7 @@ class KnightDuelAction(Action):
         """执行骑士决斗。"""
         messages = []
 
-        if self.target.get_camp() == "werewolf":
+        if player_camp_is(self.target, Camp.WEREWOLF):
             self.target.kill()
             self.game_state.day_deaths.add(self.target.player_id)
             messages.append(f"Knight {self.actor.name} duels and defeats {self.target.name}!")

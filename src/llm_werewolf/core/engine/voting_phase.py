@@ -9,6 +9,7 @@ from llm_werewolf.core.phase_outputs import ActionPhase, action_phase_instructio
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.actions import VoteAction
+from llm_werewolf.core.roles.names import RoleNames
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.events import EventLogger
 from llm_werewolf.core.actions.base import Action
@@ -179,7 +180,7 @@ class VotingPhaseMixin:
 
         # 特殊情况：白痴翻牌而非死亡
         if (
-            eliminated.role.name == "Idiot"
+            eliminated.role.name == RoleNames.IDIOT
             and hasattr(eliminated.role, "revealed")
             and not eliminated.role.revealed
         ):
@@ -206,7 +207,7 @@ class VotingPhaseMixin:
         )
 
         # 处理长老惩罚
-        if eliminated.role.name == "Elder":
+        if eliminated.role.name == RoleNames.ELDER:
             self._handle_elder_penalty()
             self._log_event(
                 EventType.ROLE_REVEALED,

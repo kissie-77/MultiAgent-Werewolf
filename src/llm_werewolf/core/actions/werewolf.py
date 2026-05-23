@@ -1,5 +1,6 @@
 from llm_werewolf.core.types import ActionType, Camp, PlayerProtocol, GameStateProtocol
 from llm_werewolf.core.actions.base import Action
+from llm_werewolf.core.roles.names import RoleNames, player_camp_is, role_name_is
 
 
 class WerewolfVoteAction(Action):
@@ -24,7 +25,13 @@ class WerewolfVoteAction(Action):
 
     def validate(self) -> bool:
         """校验投票是否合法。"""
-        return self.actor.is_alive() and self.target.is_alive()
+        return (
+            self.actor.is_alive()
+            and self.target.is_alive()
+            and player_camp_is(self.actor, Camp.WEREWOLF)
+            and not player_camp_is(self.target, Camp.WEREWOLF)
+            and self.actor.player_id != self.target.player_id
+        )
 
     def execute(self) -> list[str]:
         """执行狼人投票。"""
@@ -84,18 +91,23 @@ class WhiteWolfKillAction(Action):
 
     def validate(self) -> bool:
         """校验白狼王击杀是否合法。"""
-        # 校验行动者是否为 WhiteWolf（按角色名）
-        if self.actor.role.name != "WhiteWolf":
+        if not role_name_is(self.actor.role, RoleNames.WHITE_WOLF):
             return False
 
         # 白狼王仅在奇数轮（1、3、5…）可行动
         if self.game_state.round_number % 2 == 0:
             return False
 
+        if (
+            hasattr(self.game_state, "guardian_wolf_protected")
+            and self.game_state.guardian_wolf_protected == self.target.player_id
+        ):
+            return False
+
         return (
             self.actor.is_alive()
             and self.target.is_alive()
-            and self.target.get_camp() == Camp.WEREWOLF
+            and player_camp_is(self.target, Camp.WEREWOLF)
             and self.target.player_id != self.actor.player_id
         )
 
@@ -180,7 +192,8 @@ class GuardianWolfProtectAction(Action):
         return (
             self.actor.is_alive()
             and self.target.is_alive()
-            and self.target.get_camp() == "werewolf"
+            and player_camp_is(self.target, Camp.WEREWOLF)
+            and self.actor.player_id != self.target.player_id
         )
 
     def execute(self) -> list[str]:

@@ -4,7 +4,6 @@ import random
 import asyncio
 from functools import cached_property
 
-import dotenv
 from openai import AsyncOpenAI, APIError, RateLimitError, APITimeoutError
 from pydantic import Field, BaseModel, ConfigDict, computed_field
 from rich.console import Console
@@ -12,8 +11,6 @@ from openai.types.shared import ReasoningEffort
 
 from llm_werewolf.core.config import PlayerConfig
 from llm_werewolf.agents.mixin import PromptAgentMixin
-
-dotenv.load_dotenv()
 
 
 console = Console()

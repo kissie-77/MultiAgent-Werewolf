@@ -1,9 +1,6 @@
-import dotenv
 from pydantic import Field, BaseModel, computed_field, field_validator
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
-
-dotenv.load_dotenv()
 
 
 class PlayerConfig(BaseModel):

@@ -4,6 +4,7 @@ import random
 from collections.abc import Callable
 
 from llm_werewolf.core.death_abilities import DEATH_ABILITY_ROLE_NAMES
+from llm_werewolf.core.roles.names import RoleNames
 from llm_werewolf.core.types import Camp, EventType, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
@@ -283,7 +284,7 @@ class DeathHandlerMixin:
         # 根据角色记录相应事件
         event_msg = (
             self.locale.get("hunter_shoots", hunter=shooter.name, target=target.name)
-            if shooter.role.name == "Hunter"
+            if shooter.role.name == RoleNames.HUNTER
             else self.locale.get("alpha_wolf_shoots", alpha=shooter.name, target=target.name)
         )
 

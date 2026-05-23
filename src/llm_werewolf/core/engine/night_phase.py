@@ -116,13 +116,6 @@ class NightPhaseMixin:
             self._log_werewolf_speech(speaker, decision)
             messages.append(f"🐺 {speaker.name}: {decision.public_speech}")
 
-        tracker = (
-            self.game_state.vote_intention_tracker
-            if self.game_state.track_vote_intentions
-            else None
-        )
-        on_intention = self._log_vote_intention_record if tracker else None
-
         try:
             await interaction.run_roundtable(
                 werewolves,
@@ -137,8 +130,6 @@ class NightPhaseMixin:
                     "请与队友讨论今晚击杀目标。"
                 ),
                 on_speech=on_speech,
-                vote_intention_tracker=tracker,
-                on_vote_intention_record=on_intention,
             )
         except Exception as exc:
             self._log_event(

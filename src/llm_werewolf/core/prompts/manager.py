@@ -1,5 +1,7 @@
 """单轨提示构建器：系统提示 + 各角色身份（中文）。"""
 
+import re
+
 from llm_werewolf.core.roles.catalog import VICTORY_GOAL_DESCRIPTIONS
 from llm_werewolf.core.roles.definition import RoleDefinition
 from llm_werewolf.core.types.enums import Camp
@@ -144,8 +146,6 @@ class PromptManager:
     @staticmethod
     def parse_bracket_number(response: str) -> int | None:
         """从 [[n]] 或纯数字中解析第一个整数。"""
-        import re
-
         match = re.search(r"\[\[\s*(\d+)\s*\]\]", response)
         if match:
             return int(match.group(1))
@@ -157,12 +157,10 @@ class PromptManager:
     @staticmethod
     def parse_yes_no(response: str) -> bool:
         """解析 [[1]]/[[0]] 或 是/否。"""
-        import re
-
         match = re.search(r"\[\[\s*(\d+)\s*\]\]", response)
         if match:
             return match.group(1) == "1"
         lower = response.strip().lower()
-        if "1" in lower or "yes" in lower or "是" in response:
+        if "1" in lower or "yes" in lower or "是" in lower:
             return True
         return False

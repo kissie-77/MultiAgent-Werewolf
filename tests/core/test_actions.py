@@ -1,10 +1,13 @@
 """core/actions 模块的测试。"""
 
 from llm_werewolf.core.actions.villager import SeerCheckAction, WitchPoisonAction, WitchSaveAction
-from llm_werewolf.core.actions.werewolf import WerewolfVoteAction
+from llm_werewolf.core.actions.werewolf import WhiteWolfKillAction, WerewolfVoteAction
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.roles import Seer, Villager, Werewolf, Witch
+from llm_werewolf.core.roles.werewolf import HiddenWolf, WhiteWolf
+from llm_werewolf.core.roles.names import seer_apparent_camp
+from llm_werewolf.core.types import Camp
 
 
 def test_witch_save_validate_and_execute() -> None:
@@ -54,3 +57,31 @@ def test_werewolf_vote_action() -> None:
     assert action.validate() is True
     action.execute()
     assert state.werewolf_votes["w1"] == "v1"
+
+
+def test_werewolf_vote_rejects_wolf_target() -> None:
+    wolf1 = Player("w1", "Wolf1", Werewolf)
+    wolf2 = Player("w2", "Wolf2", Werewolf)
+    state = GameState([wolf1, wolf2])
+
+    action = WerewolfVoteAction(wolf1, wolf2, state)
+    assert action.validate() is False
+
+
+def test_seer_hidden_wolf_appears_villager() -> None:
+    hidden = Player("h1", "Hidden", HiddenWolf)
+    assert seer_apparent_camp(hidden) == Camp.VILLAGER
+
+    action = SeerCheckAction(Player("s1", "Seer", Seer), hidden, GameState([hidden]))
+    messages = action.execute()
+    assert "villager" in messages[0]
+
+
+def test_white_wolf_kill_validate_uses_role_config_name() -> None:
+    white_wolf = Player("ww1", "WhiteWolf", WhiteWolf)
+    teammate = Player("w1", "Wolf", Werewolf)
+    state = GameState([white_wolf, teammate])
+    state.round_number = 1
+
+    action = WhiteWolfKillAction(white_wolf, teammate, state)
+    assert action.validate() is True

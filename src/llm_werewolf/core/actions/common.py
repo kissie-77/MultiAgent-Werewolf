@@ -24,7 +24,11 @@ class VoteAction(Action):
 
     def validate(self) -> bool:
         """校验投票。"""
-        return self.actor.can_vote() and self.target.is_alive()
+        return (
+            self.actor.can_vote()
+            and self.target.is_alive()
+            and self.actor.player_id != self.target.player_id
+        )
 
     def execute(self) -> list[str]:
         """执行投票。"""

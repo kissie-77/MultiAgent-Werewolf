@@ -1,22 +1,26 @@
 from collections.abc import Callable
 
 from llm_werewolf.core.action_registry import get_action_priority
-from llm_werewolf.core.types import EventType, Camp
+from llm_werewolf.core.types import EventType
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.actions.base import Action
 from llm_werewolf.core.actions.villager import (
     CupidLinkAction,
+    GraveyardKeeperCheckAction,
+    RavenMarkAction,
     SeerCheckAction,
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
 )
 from llm_werewolf.core.actions.werewolf import (
+    GuardianWolfProtectAction,
     WhiteWolfKillAction,
     WolfBeautyCharmAction,
     NightmareWolfBlockAction,
 )
+from llm_werewolf.core.roles.names import seer_apparent_camp
 
 
 class ActionProcessorMixin:
@@ -111,30 +115,21 @@ class ActionProcessorMixin:
 
     def _log_seer_action(self, action: SeerCheckAction) -> None:
         """记录预言家查验行动。"""
-        result = action.target.get_camp()
-        # 隐狼对预言家显示为村民
-        if action.target.role.name == "HiddenWolf":
-            result = Camp.VILLAGER
-        # 血月使徒（未变身）对预言家显示为村民
-        if (
-            action.target.role.name == "Blood Moon Apostle"
-            and hasattr(action.target.role, "transformed")
-            and not action.target.role.transformed
-        ):
-            result = Camp.VILLAGER
+        apparent = seer_apparent_camp(action.target)
         self._log_event(
             EventType.SEER_CHECKED,
             self.locale.get("seer_checked_public", target=action.target.name),
             data={
                 "player_id": action.actor.player_id,
                 "target_id": action.target.player_id,
-                "result": result.value,
+                "result": apparent.value,
                 **self._decision_data(action),
             },
         )
         if action.actor.agent and self.game_state:
             action.actor.agent.add_decision(
-                f"Round {self.game_state.round_number}: Checked {action.target.name}, result: {result}"
+                f"Round {self.game_state.round_number}: Checked {action.target.name}, "
+                f"result: {apparent.value}"
             )
 
     def _log_cupid_action(self, action: CupidLinkAction) -> None:
@@ -191,6 +186,48 @@ class ActionProcessorMixin:
             },
         )
 
+    def _log_guardian_wolf_action(self, action: GuardianWolfProtectAction) -> None:
+        """记录守墓狼保护行动。"""
+        self._log_event(
+            EventType.MESSAGE,
+            self.locale.get("guardian_wolf_protected", target=action.target.name),
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                "visibility": "wolf_team",
+                **self._decision_data(action),
+            },
+        )
+
+    def _log_raven_action(self, action: RavenMarkAction) -> None:
+        """记录乌鸦标记行动。"""
+        self._log_event(
+            EventType.MESSAGE,
+            self.locale.get("raven_marks", target=action.target.name),
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                **self._decision_data(action),
+            },
+        )
+
+    def _log_graveyard_keeper_action(self, action: GraveyardKeeperCheckAction) -> None:
+        """记录守墓人查验行动。"""
+        self._log_event(
+            EventType.MESSAGE,
+            self.locale.get(
+                "graveyard_keeper_checked",
+                target=action.target.name,
+                role=action.target.get_role_name(),
+                camp=action.target.get_camp(),
+            ),
+            data={
+                "player_id": action.actor.player_id,
+                "target_id": action.target.player_id,
+                **self._decision_data(action),
+            },
+        )
+
     def _log_action_event(self, action: Action) -> None:
         """为特定行动类型记录事件。
 
@@ -213,6 +250,12 @@ class ActionProcessorMixin:
             self._log_wolf_beauty_action(action)
         elif isinstance(action, NightmareWolfBlockAction):
             self._log_nightmare_block_action(action)
+        elif isinstance(action, GuardianWolfProtectAction):
+            self._log_guardian_wolf_action(action)
+        elif isinstance(action, RavenMarkAction):
+            self._log_raven_action(action)
+        elif isinstance(action, GraveyardKeeperCheckAction):
+            self._log_graveyard_keeper_action(action)
 
     def process_actions(self, actions: list) -> list[str]:
         """处理行动列表。
@@ -251,13 +294,28 @@ class ActionProcessorMixin:
                     self._log_action_event(action)
                     if result_messages:
                         messages.extend(result_messages)
+                else:
+                    self._log_event(
+                        EventType.ERROR,
+                        self.locale.get(
+                            "action_rejected",
+                            role=action.actor.get_role_name(),
+                            player=action.actor.name,
+                            action=action.__class__.__name__,
+                        ),
+                        data={
+                            "player_id": action.actor.player_id,
+                            "role": action.actor.get_role_name(),
+                            "action": action.__class__.__name__,
+                        },
+                    )
             except Exception as exc:
                 self._log_event(
                     EventType.ERROR,
                     self.locale.get(
                         "action_failed",
-                        player=action.actor.name,
                         role=action.actor.get_role_name(),
+                        player=action.actor.name,
                         error=str(exc),
                     ),
                     data={

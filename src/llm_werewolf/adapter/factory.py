@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import os
+
+from llm_werewolf.core.env import load_project_dotenv
+
+load_project_dotenv()
 from typing import TYPE_CHECKING, Any
 
 from agentscope.agent import ReActAgent

@@ -5,6 +5,10 @@ import fire
 import logfire
 from rich.console import Console
 
+from llm_werewolf.core.env import load_project_dotenv
+
+load_project_dotenv()
+
 from llm_werewolf.adapter.bootstrap import (
     prepare_game_roster,
     wire_agentscope_after_setup,

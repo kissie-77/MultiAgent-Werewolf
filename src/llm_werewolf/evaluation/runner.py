@@ -17,6 +17,7 @@ from llm_werewolf.evaluation.checkers import (
     InformationIsolationChecker,
     RoleSkillChecker,
     VictoryCheckerEvaluator,
+    PromptBadCaseChecker,
 )
 from llm_werewolf.evaluation.metrics import build_summary
 from llm_werewolf.evaluation.models import CheckResult, GameRunResult
@@ -187,6 +188,15 @@ class EvaluationRunner:
         checker 自身不应该让评测中断；如果 checker 代码抛异常，也会转成失败结果。
         """
         final_winner = engine.game_state.winner if engine.game_state else None
+        player_roles = {}
+        player_camps = {}
+        if engine.game_state:
+            player_roles = {
+                player.player_id: player.get_role_name() for player in engine.game_state.players
+            }
+            player_camps = {
+                player.player_id: player.get_camp() for player in engine.game_state.players
+            }
         checks: list[CheckResult] = []
         checkers: list[tuple[Any, dict[str, Any]]] = [
             (RoleSkillChecker(), {"events": events}),
@@ -197,6 +207,14 @@ class EvaluationRunner:
             (VictoryCheckerEvaluator(), {"events": events, "final_winner": final_winner}),
             (AsyncFlowChecker(), {"events": events}),
             (DecisionConsistencyChecker(), {"events": events}),
+            (
+                PromptBadCaseChecker(),
+                {
+                    "events": events,
+                    "player_roles": player_roles,
+                    "player_camps": player_camps,
+                },
+            ),
         ]
 
         for checker, kwargs in checkers:

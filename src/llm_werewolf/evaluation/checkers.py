@@ -2,6 +2,172 @@ from llm_werewolf.core.types import Event, EventType
 from llm_werewolf.evaluation.models import CheckResult, CheckSeverity
 
 
+class PromptBadCaseChecker:
+    """自动发现 Prompt 调优用的候选 bad case。
+
+    这一版只做可复现的规则检查，不声称判断“最优博弈”。它的目标是把
+    明显可定位的问题先从对局日志里捞出来，供 prompt_tuning 复盘使用。
+    """
+
+    _generic_speech_markers = {
+        "i agree",
+        "i am not sure",
+        "let me think",
+        "that's interesting",
+        "我同意",
+        "不确定",
+        "大家谨慎",
+        "好好分析",
+    }
+
+    def check(
+        self,
+        events: list[Event],
+        player_roles: dict[str, str] | None = None,
+        player_camps: dict[str, str] | None = None,
+    ) -> list[CheckResult]:
+        player_roles = player_roles or {}
+        player_camps = player_camps or {}
+        results: list[CheckResult] = []
+        results.extend(self._check_response_format(events))
+        results.extend(self._check_low_information_speech(events))
+        results.extend(self._check_repeated_seer_checks(events))
+        results.extend(self._check_harmful_power_targets(events, player_roles, player_camps))
+        return results
+
+    def _bad_case(
+        self,
+        message: str,
+        event: Event,
+        data: dict | None = None,
+        severity: CheckSeverity = CheckSeverity.WARNING,
+    ) -> CheckResult:
+        payload = {
+            "round_number": event.round_number,
+            "phase": event.phase,
+            "event_type": event.event_type.value,
+        }
+        payload.update(data or {})
+        return CheckResult(
+            checker=self.__class__.__name__,
+            passed=False,
+            message=f"Potential prompt bad case: {message}",
+            severity=severity,
+            data=payload,
+        )
+
+    @staticmethod
+    def _has_bracket_answer(text: str) -> bool:
+        return "[[" in text and "]]" in text
+
+    @staticmethod
+    def _extract_speech_text(text: str) -> str:
+        if "[[" not in text or "]]" not in text:
+            return text.strip()
+        start = text.find("[[") + 2
+        end = text.rfind("]]")
+        return text[start:end].strip()
+
+    def _check_response_format(self, events: list[Event]) -> list[CheckResult]:
+        results: list[CheckResult] = []
+        for event in events:
+            if event.event_type == EventType.PLAYER_SPEECH:
+                speech = str(event.data.get("speech", ""))
+                if speech and not self._has_bracket_answer(speech):
+                    results.append(
+                        self._bad_case(
+                            "day speech did not use [[...]] final-answer format",
+                            event,
+                            data={"player_id": event.data.get("player_id")},
+                            severity=CheckSeverity.INFO,
+                        )
+                    )
+        return results
+
+    def _check_low_information_speech(self, events: list[Event]) -> list[CheckResult]:
+        results: list[CheckResult] = []
+        for event in events:
+            if event.event_type != EventType.PLAYER_SPEECH:
+                continue
+            raw_speech = str(event.data.get("speech", ""))
+            speech = self._extract_speech_text(raw_speech).lower()
+            if not speech:
+                continue
+            has_player_reference = any(char.isdigit() for char in speech)
+            is_too_short = len(speech) < 12
+            is_generic = any(marker in speech for marker in self._generic_speech_markers)
+            if is_too_short or (is_generic and not has_player_reference):
+                results.append(
+                    self._bad_case(
+                        "speech was too generic to support role-specific reasoning",
+                        event,
+                        data={
+                            "player_id": event.data.get("player_id"),
+                            "speech": raw_speech[:120],
+                        },
+                        severity=CheckSeverity.INFO,
+                    )
+                )
+        return results
+
+    def _check_repeated_seer_checks(self, events: list[Event]) -> list[CheckResult]:
+        results: list[CheckResult] = []
+        checked_targets: set[str] = set()
+        for event in events:
+            if event.event_type != EventType.SEER_CHECKED:
+                continue
+            target_id = event.data.get("target_id")
+            if not target_id:
+                continue
+            if target_id in checked_targets:
+                results.append(
+                    self._bad_case(
+                        "seer checked the same target more than once",
+                        event,
+                        data={"target_id": target_id},
+                    )
+                )
+            checked_targets.add(target_id)
+        return results
+
+    def _check_harmful_power_targets(
+        self,
+        events: list[Event],
+        player_roles: dict[str, str],
+        player_camps: dict[str, str],
+    ) -> list[CheckResult]:
+        results: list[CheckResult] = []
+        for event in events:
+            if event.event_type == EventType.HUNTER_REVENGE:
+                target_id = event.data.get("target_id")
+                if target_id and player_camps.get(target_id) == "villager":
+                    results.append(
+                        self._bad_case(
+                            "death-shot ability targeted a villager-camp player",
+                            event,
+                            data={
+                                "shooter_id": event.data.get("shooter_id"),
+                                "target_id": target_id,
+                                "target_role": player_roles.get(target_id),
+                            },
+                        )
+                    )
+            elif event.event_type == EventType.WITCH_POISONED:
+                target_id = event.data.get("target_id")
+                if target_id and player_camps.get(target_id) == "villager":
+                    results.append(
+                        self._bad_case(
+                            "witch poison targeted a villager-camp player",
+                            event,
+                            data={
+                                "target_id": target_id,
+                                "target_role": player_roles.get(target_id),
+                            },
+                        )
+                    )
+        return results
+
+
 class InformationIsolationChecker:
     """检查私有事件是否泄露到无权限玩家视角。
 

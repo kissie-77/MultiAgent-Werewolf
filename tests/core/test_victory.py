@@ -122,14 +122,13 @@ class TestVictoryChecker:
         assert "have not won" in result.reason
 
     def test_lover_victory(self) -> None:
-        """测试仅情侣存活时情侣获胜。"""
+        """测试仅同阵营情侣存活时情侣获胜。"""
         players = [
             self.create_mock_player("p1", "Player1", Villager),
-            self.create_mock_player("p2", "Player2", Werewolf),
+            self.create_mock_player("p2", "Player2", Villager),
             self.create_mock_player("p3", "Player3", Villager, is_alive=False),
             self.create_mock_player("p4", "Player4", Werewolf, is_alive=False),
         ]
-        # 设置情侣
         players[0].set_lover("p2")
         players[1].set_lover("p1")
 
@@ -141,9 +140,25 @@ class TestVictoryChecker:
         assert result.has_winner is True
         assert result.winner_camp == "lover"
         assert len(result.winner_ids) == 2
-        assert "p1" in result.winner_ids
-        assert "p2" in result.winner_ids
-        assert "only the lovers remain" in result.reason.lower()
+
+    def test_white_lover_wolf_victory(self) -> None:
+        """测试狼+好人情侣仅剩两人时白狼情侣胜。"""
+        players = [
+            self.create_mock_player("p1", "Player1", Villager),
+            self.create_mock_player("p2", "Player2", Werewolf),
+            self.create_mock_player("p3", "Player3", Villager, is_alive=False),
+        ]
+        players[0].set_lover("p2")
+        players[1].set_lover("p1")
+
+        game_state = GameState(players=players)
+        checker = VictoryChecker(game_state)
+
+        result = checker.check_special_victory()
+
+        assert result.has_winner is True
+        assert result.winner_camp == "white_lover_wolf"
+        assert checker.check_lover_victory().has_winner is False
 
     def test_lover_not_won_more_alive(self) -> None:
         """测试存活超过 2 人时情侣未获胜。"""
@@ -182,13 +197,12 @@ class TestVictoryChecker:
         assert result.has_winner is False
 
     def test_check_victory_priority_lover_first(self) -> None:
-        """测试优先检查情侣胜利。"""
+        """测试同阵营情侣优先于阵营胜负。"""
         players = [
             self.create_mock_player("p1", "Player1", Villager),
-            self.create_mock_player("p2", "Player2", Werewolf),
+            self.create_mock_player("p2", "Player2", Villager),
             self.create_mock_player("p3", "Player3", Villager, is_alive=False),
         ]
-        # 设置情侣
         players[0].set_lover("p2")
         players[1].set_lover("p1")
 
@@ -197,9 +211,26 @@ class TestVictoryChecker:
 
         result = checker.check_victory()
 
-        # 即使狼人也可获胜，情侣仍应获胜
         assert result.has_winner is True
         assert result.winner_camp == "lover"
+
+    def test_check_victory_white_lover_priority(self) -> None:
+        """测试白狼情侣走 special 路径。"""
+        players = [
+            self.create_mock_player("p1", "Player1", Villager),
+            self.create_mock_player("p2", "Player2", Werewolf),
+            self.create_mock_player("p3", "Player3", Villager, is_alive=False),
+        ]
+        players[0].set_lover("p2")
+        players[1].set_lover("p1")
+
+        game_state = GameState(players=players)
+        checker = VictoryChecker(game_state)
+
+        result = checker.check_victory()
+
+        assert result.has_winner is True
+        assert result.winner_camp == "white_lover_wolf"
 
     def test_check_victory_werewolf_wins(self) -> None:
         """测试 check_victory 返回狼人胜利。"""

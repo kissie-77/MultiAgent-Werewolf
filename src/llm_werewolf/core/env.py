@@ -7,6 +7,7 @@ from pathlib import Path
 import dotenv
 
 _LOADED = False
+_LOADED_ENV_PATH: Path | None = None
 
 
 def find_project_root(start: Path | None = None) -> Path:
@@ -20,9 +21,9 @@ def find_project_root(start: Path | None = None) -> Path:
 
 def load_project_dotenv() -> Path | None:
     """每个进程仅从仓库根目录加载一次 ``.env``。若文件存在则返回其路径。"""
-    global _LOADED
+    global _LOADED, _LOADED_ENV_PATH
     if _LOADED:
-        return find_project_root() / ".env"
+        return _LOADED_ENV_PATH
 
     root = find_project_root()
     env_path = root / ".env"
@@ -31,4 +32,5 @@ def load_project_dotenv() -> Path | None:
     else:
         dotenv.load_dotenv(override=False)
     _LOADED = True
-    return env_path if env_path.is_file() else None
+    _LOADED_ENV_PATH = env_path if env_path.is_file() else None
+    return _LOADED_ENV_PATH

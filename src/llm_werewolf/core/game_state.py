@@ -40,10 +40,13 @@ class GameState:
         self.guardian_wolf_protected: str | None = None
         self.nightmare_blocked: str | None = None
         self.seer_checked: dict[int, str] = {}
+        self.graveyard_checked: dict[int, str] = {}
+        self.wolf_beauty_charmed: str | None = None  # 狼美人魅惑目标
 
         self.votes: dict[str, str] = {}
         self.raven_marked: str | None = None
 
+        self.enable_sheriff = False
         self.sheriff_id: str | None = None
         self.sheriff_election_done = False
         self.sheriff_votes: dict[str, str] = {}
@@ -56,6 +59,14 @@ class GameState:
         self.phase_interaction: PhaseInteraction | None = None
         self.track_vote_intentions = False
         self.vote_intention_tracker = None
+
+    def get_alive_witch_player_ids(self) -> list[str]:
+        """返回存活女巫的玩家 ID 列表（用于刀口等仅女巫可见的事件）。"""
+        return [
+            p.player_id
+            for p in self.get_alive_players()
+            if p.get_role_name() == "Witch"
+        ]
 
     def require_phase_interaction(self) -> PhaseInteraction:
         """返回为本局游戏注入的阶段交互 API。"""
@@ -85,6 +96,8 @@ class GameState:
         Args:
             phase: 要设置的新阶段。
         """
+        if phase == GamePhase.NIGHT and self.round_number == 0:
+            self.round_number = 1
         self.phase = phase
 
     def next_phase(self) -> GamePhase:
@@ -97,8 +110,12 @@ class GameState:
             self.phase = GamePhase.NIGHT
             self.round_number = 1
         elif self.phase == GamePhase.NIGHT:
-            # 首夜结束后，若尚未完成警长选举则进入警长竞选
-            if self.round_number == 1 and not self.sheriff_election_done:
+            # 首夜结束后，若开启警长且尚未完成选举则进入警长竞选
+            if (
+                self.round_number == 1
+                and self.enable_sheriff
+                and not self.sheriff_election_done
+            ):
                 self.phase = GamePhase.SHERIFF_ELECTION
             else:
                 self.phase = GamePhase.DAY_DISCUSSION
@@ -106,6 +123,7 @@ class GameState:
             self.phase = GamePhase.DAY_DISCUSSION
         elif self.phase == GamePhase.DAY_DISCUSSION:
             self.phase = GamePhase.DAY_VOTING
+            self.vote_tie_count = 0
         elif self.phase == GamePhase.DAY_VOTING:
             self.phase = GamePhase.NIGHT
             self.round_number += 1
@@ -219,9 +237,10 @@ class GameState:
         vote_counts: dict[str, float] = {}
         for voter_id, target_id in self.votes.items():
             voter = self.get_player(voter_id)
-            if voter:
-                vote_weight = voter.get_vote_weight()
-                vote_counts[target_id] = vote_counts.get(target_id, 0.0) + vote_weight
+            if not voter or not voter.is_alive() or not voter.can_vote():
+                continue
+            vote_weight = voter.get_vote_weight()
+            vote_counts[target_id] = vote_counts.get(target_id, 0.0) + vote_weight
 
         # 加上渡鸦标记（额外 1 票）
         if self.raven_marked and self.raven_marked in vote_counts:

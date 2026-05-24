@@ -296,15 +296,31 @@ class VotingPhaseMixin:
 
         return messages
 
+    def _build_exile_pk_speech_context(
+        self, player: PlayerProtocol, candidates: list[PlayerProtocol]
+    ) -> str:
+        if not self.game_state:
+            return ""
+
+        other_candidates = [c.name for c in candidates if c.player_id != player.player_id]
+        from llm_werewolf.core.prompts.actions import EngineContexts
+
+        base = EngineContexts.exile_pk_speech(
+            player.name, player.get_role_name(), self.game_state.round_number, len(candidates)
+        )
+        others = ", ".join(other_candidates) if other_candidates else "无"
+        obs = self.build_player_observation(
+            player,
+            include_visible_events=True,
+            include_private_notes=True,
+            for_agent_decision=True,
+        )
+        return f"{obs}\n\n{base}\n{self.locale.get('pk_opponents', opponents=others)}"
+
     async def _conduct_pk_speeches(
         self, pk_candidates: list[PlayerProtocol], messages: list[str]
     ) -> None:
-        """执行 PK 发言阶段。
-
-        Args:
-            pk_candidates: PK 候选玩家列表。
-            messages: 消息列表，用于追加 PK 发言消息。
-        """
+        """执行 PK 发言阶段（仅 PK 候选人发言，全员旁听）。"""
         if not self.game_state:
             return
 
@@ -322,6 +338,9 @@ class VotingPhaseMixin:
             candidates=", ".join(p.name for p in pk_candidates),
         )
 
+        def context_builder(candidate: PlayerProtocol) -> str:
+            return self._build_exile_pk_speech_context(candidate, pk_candidates)
+
         def on_speech(
             speaker: PlayerProtocol,
             decision: SpeechDecision,
@@ -333,15 +352,99 @@ class VotingPhaseMixin:
             )
 
         await interaction.run_roundtable(
-            alive_players,
+            pk_candidates,
             channel=VisibilityChannel.PUBLIC,
-            context_builder=self._build_discussion_context,
+            context_builder=context_builder,
             instruction=self.locale.get("pk_speech_instruction"),
-            phase=GamePhase.DAY_DISCUSSION.value,
+            phase=GamePhase.DAY_VOTING.value,
             round_number=self.game_state.round_number,
+            audience=alive_players,
             opening_announcement=opening,
             on_speech=on_speech,
         )
+
+    async def _handle_knight_duel(self) -> list[str]:
+        """处理骑士白天决斗（投票前执行）。
+
+        Returns:
+            list[str]: 决斗产生的消息。
+        """
+        if not self.game_state:
+            return []
+
+        messages = []
+        # 查找存活且未决斗过的骑士
+        knights = [
+            p for p in self.game_state.get_alive_players()
+            if p.get_role_name() == "Knight"
+            and hasattr(p.role, "has_dueled")
+            and not p.role.has_dueled
+            and p.role.can_act_today(self.game_state)
+        ]
+
+        for knight in knights:
+            if not knight.agent:
+                continue
+
+            possible_targets = self.game_state.get_alive_players(except_ids=[knight.player_id])
+            if not possible_targets:
+                continue
+
+            self._log_event(
+                EventType.MESSAGE,
+                self.locale.get("knight_duel_begin", knight=knight.name),
+                data={"player_id": knight.player_id},
+            )
+
+            interaction = self.game_state.require_phase_interaction()
+            target = await interaction.request_seat_choice(
+                knight,
+                knight.agent,
+                role_name="Knight",
+                action_description="选择一名玩家进行决斗（对方是狼则其死，否则你死）",
+                possible_targets=possible_targets,
+                allow_skip=True,
+                additional_context="决斗是整局游戏仅一次的机会；若目标是狼人则其死，否则你死。不确定请跳过。",
+                fallback_random=False,
+                round_number=self.game_state.round_number,
+                phase="Day",
+            )
+
+            if target and target.is_alive():
+                from llm_werewolf.core.actions.villager import KnightDuelAction
+                action = KnightDuelAction(knight, target, self.game_state)
+                if action.validate():
+                    action.execute()
+                    knight.role.has_dueled = True
+
+                    if target.get_camp().value == "werewolf":
+                        self._log_event(
+                            EventType.KNIGHT_DUEL,
+                            self.locale.get("knight_duel_wolf", knight=knight.name, target=target.name),
+                            data={"knight_id": knight.player_id, "target_id": target.player_id, "target_is_wolf": True},
+                        )
+                        messages.append(self.locale.get("knight_duel_wolf", knight=knight.name, target=target.name))
+                        # 处理决斗导致的死亡连锁
+                        self._handle_lover_death(target)
+                        self._handle_wolf_beauty_charm_death(target)
+                    else:
+                        self._log_event(
+                            EventType.KNIGHT_DUEL,
+                            self.locale.get("knight_duel_good", knight=knight.name, target=target.name),
+                            data={"knight_id": knight.player_id, "target_id": target.player_id, "target_is_wolf": False},
+                        )
+                        messages.append(self.locale.get("knight_duel_good", knight=knight.name, target=target.name))
+                        # 处理骑士死亡连锁
+                        self._handle_lover_death(knight)
+                        self._handle_wolf_beauty_charm_death(knight)
+                else:
+                    self._log_event(
+                        EventType.ERROR,
+                        self.locale.get("knight_duel_failed", knight=knight.name, target=target.name),
+                        data={"player_id": knight.player_id},
+                    )
+
+        return messages
 
     async def run_voting_phase(self) -> list[str]:
         """执行投票阶段。
@@ -355,7 +458,12 @@ class VotingPhaseMixin:
 
         messages = []
         self.game_state.set_phase(GamePhase.DAY_VOTING)
+        self.game_state.vote_tie_count = 0
         messages.append(self.locale.get("voting_phase_separator"))
+
+        # 先处理骑士决斗（投票前）
+        knight_messages = await self._handle_knight_duel()
+        messages.extend(knight_messages)
 
         # 收集并处理投票
         vote_actions = await self._collect_votes()

@@ -25,6 +25,7 @@ from llm_werewolf.core.actions.werewolf import (
     WolfBeautyCharmAction,
 )
 from llm_werewolf.core.roles.werewolf import build_werewolf_team_context
+from llm_werewolf.core.roles.names import is_untransformed_blood_moon
 from llm_werewolf.core.types import Camp
 
 if TYPE_CHECKING:
@@ -174,9 +175,7 @@ async def plan_guardian_wolf(
     game_state: GameStateProtocol,
     interaction: PhaseInteraction,
 ) -> list[ActionProtocol]:
-    actions = await _plan_werewolf_pack_vote(
-        role, game_state, interaction, role_name="Guardian Wolf"
-    )
+    actions: list[ActionProtocol] = []
     wolf_targets = [
         p for p in game_state.get_players_by_camp(Camp.WEREWOLF) if p.is_alive()
     ]
@@ -220,11 +219,6 @@ async def plan_nightmare_wolf(
         )
         if target:
             actions.append(NightmareWolfBlockAction(role.player, target, game_state))
-    actions.extend(
-        await _plan_werewolf_pack_vote(
-            role, game_state, interaction, role_name="Nightmare Wolf"
-        )
-    )
     return actions
 
 
@@ -233,25 +227,52 @@ async def plan_blood_moon_apostle(
     game_state: GameStateProtocol,
     interaction: PhaseInteraction,
 ) -> list[ActionProtocol]:
-    from llm_werewolf.core.roles.werewolf import BloodMoonApostle as BmaClass
-
     if not role.transformed:
-        werewolves = [
-            p
-            for p in game_state.get_players_by_camp(Camp.WEREWOLF)
-            if p.is_alive()
-            and p.player_id != role.player.player_id
-            and not isinstance(p.role, BmaClass)
-        ]
-        if not werewolves and role.player.is_alive():
-            role.transformed = True
         return []
 
-    if role.transformed and role.player.is_alive() and role.player.agent:
+    if role.player.is_alive() and role.player.agent:
         return await _plan_werewolf_pack_vote(
             role, game_state, interaction, role_name="Blood Moon Apostle"
         )
     return []
+
+
+def blood_moon_other_wolves_alive(game_state: GameStateProtocol, apostle: PlayerProtocol) -> bool:
+    """除给定血月使徒外是否仍有存活狼人（不含其他未变身血月）。"""
+    from llm_werewolf.core.roles.werewolf import BloodMoonApostle as BmaClass
+
+    for player in game_state.get_players_by_camp(Camp.WEREWOLF):
+        if not player.is_alive() or player.player_id == apostle.player_id:
+            continue
+        if isinstance(player.role, BmaClass) and is_untransformed_blood_moon(player.role):
+            continue
+        return True
+    return False
+
+
+async def offer_blood_moon_transform(
+    role: BloodMoonApostle,
+    game_state: GameStateProtocol,
+    interaction: PhaseInteraction,
+) -> bool:
+    """当其余狼人全灭时，由 LLM 决定是否变身。返回是否已变身。"""
+    if role.transformed or not role.player.is_alive() or not role.player.agent:
+        return False
+    if blood_moon_other_wolves_alive(game_state, role.player):
+        return False
+
+    yes = await interaction.request_yes_no(
+        role.player,
+        role.player.agent,
+        role_name="Blood Moon Apostle",
+        question="所有狼人队友已阵亡。是否在本夜变身为狼人，加入狼队击杀？",
+        context="变身前你不与狼队同醒；变身后将参与狼队讨论与投票。整局仅可变身一次。",
+        round_number=game_state.round_number,
+        phase="Night",
+    )
+    if yes:
+        role.transformed = True
+    return role.transformed
 
 
 async def plan_witch_actions(
@@ -465,6 +486,14 @@ async def plan_graveyard_check(
     dead_players = game_state.get_dead_players()
     if not dead_players:
         return []
+    checked_info = []
+    for round_num, player_id in game_state.graveyard_checked.items():
+        player = game_state.get_player(player_id)
+        if player:
+            checked_info.append(f"第{round_num}轮：{_seat_label(player)}号 {player.name}")
+    context = "可查验一名死者的真实阵营；不确定请跳过。"
+    if checked_info:
+        context += f"\n\n已验尸：{', '.join(checked_info)}。尽量不要重复查验同一人。"
     target = await interaction.request_seat_choice(
         role.player,
         role.player.agent,
@@ -472,7 +501,7 @@ async def plan_graveyard_check(
         action_description="选择一名已死亡玩家查验身份",
         possible_targets=dead_players,
         allow_skip=True,
-        additional_context="可查验一名死者的真实阵营；不确定请跳过。",
+        additional_context=context,
         fallback_random=False,
         round_number=game_state.round_number,
         phase="Night",

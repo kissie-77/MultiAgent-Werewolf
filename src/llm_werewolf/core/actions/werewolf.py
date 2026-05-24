@@ -164,6 +164,9 @@ class WolfBeautyCharmAction(Action):
         if hasattr(self.actor.role, "charmed_player"):
             self.actor.role.charmed_player = self.target.player_id
 
+        # 持久化到 game_state 防止序列化/重建时丢失
+        self.game_state.wolf_beauty_charmed = self.target.player_id
+
         return [f"Wolf Beauty charms {self.target.name}"]
 
 

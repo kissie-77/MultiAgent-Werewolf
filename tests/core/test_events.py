@@ -125,7 +125,7 @@ class TestEventLogger:
             event_type=EventType.PHASE_CHANGED, round_number=2, phase="night", message="Round 2"
         )
         logger.create_event(
-            event_type=EventType.PHASE_CHANGED, round_number=3, phase="day", message="Round 3"
+            event_type=EventType.PHASE_CHANGED, round_number=3, phase="day_discussion", message="Round 3"
         )
 
         # 获取第 2 回合起的事件
@@ -166,7 +166,7 @@ class TestEventLogger:
             logger.create_event(
                 event_type=EventType.PLAYER_DISCUSSION,
                 round_number=1,
-                phase="day",
+                phase="day_discussion",
                 message=f"Message {i}",
             )
 
@@ -186,7 +186,7 @@ class TestEventLogger:
             logger.create_event(
                 event_type=EventType.PLAYER_DISCUSSION,
                 round_number=1,
-                phase="day",
+                phase="day_discussion",
                 message=f"Message {i}",
             )
 
@@ -204,7 +204,7 @@ class TestEventLogger:
         logger.create_event(
             event_type=EventType.PLAYER_DISCUSSION,
             round_number=1,
-            phase="day",
+            phase="day_discussion",
             message="Discussion",
         )
         logger.create_event(
@@ -230,7 +230,7 @@ class TestEventLogger:
         logger.create_event(
             event_type=EventType.PLAYER_DISCUSSION,
             round_number=1,
-            phase="day",
+            phase="day_discussion",
             message="Discussion",
         )
 
@@ -248,7 +248,7 @@ class TestEventLogger:
             logger.create_event(
                 event_type=EventType.PLAYER_DISCUSSION,
                 round_number=1,
-                phase="day",
+                phase="day_discussion",
                 message=f"Message {i}",
             )
 
@@ -285,7 +285,7 @@ class TestEventLogger:
             logger.create_event(
                 event_type=EventType.PLAYER_DISCUSSION if i % 2 == 0 else EventType.PLAYER_DIED,
                 round_number=i // 3 + 1,
-                phase="day" if i % 2 == 0 else "night",
+                phase="day_discussion" if i % 2 == 0 else "night",
                 message=f"Event {i}",
             )
 

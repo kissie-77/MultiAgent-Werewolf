@@ -14,6 +14,7 @@ from llm_werewolf.core.event_visibility import HUB_DIALOGUE_EVENT_TYPES, resolve
 from llm_werewolf.core.phase_interaction import PhaseInteraction
 from llm_werewolf.core.types import Camp
 from llm_werewolf.core.player import Player
+from llm_werewolf.core.roles.names import participates_in_wolf_team
 from llm_werewolf.core.victory import VictoryChecker
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.serialization import load_game_state, save_game_state
@@ -41,7 +42,7 @@ class GameEngineBase:
         self.victory_checker: VictoryChecker | None = None
         self.locale = Locale(language)
         self.observation_builder = ObservationBuilder()
-        self._last_phase: str = ""  # 跟踪阶段变化以输出分隔符
+        self._last_phase: GamePhase | None = None  # 跟踪阶段变化以输出分隔符
 
         self.information_hub = InformationHub()
         self.phase_interaction = PhaseInteraction(self.information_hub)
@@ -58,19 +59,65 @@ class GameEngineBase:
         """
         # 阶段变化时打印阶段分隔符
         if event.phase != self._last_phase and event.event_type == EventType.PHASE_CHANGED:
-            if "night" in event.phase.lower():
+            phase_value = event.phase.value
+            if "night" in phase_value:
                 console.print(f"\n{self.locale.get('night_separator')}")
-            elif "sheriff" in event.phase.lower():
+            elif "sheriff" in phase_value:
                 console.print("\n" + "=" * 60)
                 console.print("        🎖️  SHERIFF ELECTION PHASE  🎖️")
                 console.print("=" * 60 + "\n")
-            elif "day" in event.phase.lower():
+            elif "day" in phase_value:
                 console.print(f"\n{self.locale.get('day_separator')}")
             self._last_phase = event.phase
 
         # 使用集中式事件格式化器（CLI 不包含时间戳）
         formatted_text = EventFormatter.format_event(event, include_timestamp=False)
         console.print(formatted_text)
+
+    def _wire_game_state(self) -> None:
+        """将 GameState 与 Hub / PhaseInteraction / 胜利判定等运行时依赖绑定。"""
+        if not self.game_state:
+            return
+
+        self.game_state.information_hub = self.information_hub
+        self.game_state.phase_interaction = self.phase_interaction
+
+        track_intentions = True if self.config is None else self.config.track_vote_intentions
+        if self.config is not None:
+            self.game_state.track_vote_intentions = track_intentions
+        elif not getattr(self.game_state, "track_vote_intentions", False):
+            self.game_state.track_vote_intentions = track_intentions
+
+        if not self.game_state.enable_sheriff and not self.game_state.sheriff_election_done:
+            self.game_state.sheriff_election_done = True
+
+        if self.game_state.track_vote_intentions and self.game_state.vote_intention_tracker is None:
+            from llm_werewolf.core.vote_intention import VoteIntentionTracker
+
+            self.game_state.vote_intention_tracker = VoteIntentionTracker()
+
+        self.victory_checker = VictoryChecker(self.game_state)
+        self.information_hub.set_context_provider(
+            build_observation=lambda player: self.build_player_observation(
+                player, for_agent_decision=True
+            ),
+            get_alive_players=lambda: self.game_state.get_alive_players()
+            if self.game_state
+            else [],
+        )
+
+    @staticmethod
+    def _attach_agent_to_player(
+        player: Player,
+        agent: AgentProtocol,
+        seat_number: int,
+        role_class: type | None = None,
+    ) -> None:
+        """为玩家绑定 agent 并同步角色信息。"""
+        player.agent = agent
+        if hasattr(agent, "bind_role"):
+            bind_target = role_class if role_class is not None else type(player.role)
+            agent.bind_role(bind_target, seat_number=seat_number)  # type: ignore[attr-defined]
 
     def setup_game(self, players: list[AgentProtocol], roles: list[RoleProtocol]) -> None:
         """使用玩家和角色初始化游戏。
@@ -96,28 +143,15 @@ class GameEngineBase:
             player = Player(
                 player_id=player_id, name=name, role=role_class, agent=agent, ai_model=ai_model
             )
-            if hasattr(agent, "bind_role"):
-                agent.bind_role(role_class, seat_number=idx)  # type: ignore[attr-defined]
+            self._attach_agent_to_player(player, agent, idx, role_class)
             player_objects.append(player)
 
         self.game_state = GameState(player_objects)
-        self.game_state.information_hub = self.information_hub
-        self.game_state.phase_interaction = self.phase_interaction
-        track_intentions = True if self.config is None else self.config.track_vote_intentions
-        self.game_state.track_vote_intentions = track_intentions
-        if track_intentions:
-            from llm_werewolf.core.vote_intention import VoteIntentionTracker
-
-            self.game_state.vote_intention_tracker = VoteIntentionTracker()
-        self.victory_checker = VictoryChecker(self.game_state)
-        self.information_hub.set_context_provider(
-            build_observation=lambda player: self.build_player_observation(
-                player, for_agent_decision=True
-            ),
-            get_alive_players=lambda: self.game_state.get_alive_players()
-            if self.game_state
-            else [],
-        )
+        enable_sheriff = False if self.config is None else self.config.enable_sheriff
+        self.game_state.enable_sheriff = enable_sheriff
+        if not enable_sheriff:
+            self.game_state.sheriff_election_done = True
+        self._wire_game_state()
 
         self._log_event(
             EventType.GAME_STARTED,
@@ -212,17 +246,21 @@ class GameEngineBase:
         if visible_to is None:
             wolf_ids = [
                 p.player_id
-                for p in self.game_state.get_players_by_camp(Camp.WEREWOLF)
-                if p.is_alive()
+                for p in self.game_state.get_alive_players()
+                if participates_in_wolf_team(p)
             ]
+            witch_ids = self.game_state.get_alive_witch_player_ids()
             visible_to = resolve_visible_to(
-                event_type, data, wolf_player_ids=wolf_ids
+                event_type,
+                data,
+                wolf_player_ids=wolf_ids,
+                witch_player_ids=witch_ids,
             )
 
         event = self.event_logger.create_event(
             event_type=event_type,
             round_number=self.game_state.round_number,
-            phase=self.game_state.phase.value,
+            phase=self.game_state.phase,
             message=message,
             data=data,
             visible_to=visible_to,
@@ -345,8 +383,12 @@ class GameEngineBase:
             if self.check_victory():
                 break
 
-            # 警长选举（仅第一天）
-            if self.game_state.round_number == 1 and not self.game_state.sheriff_election_done:
+            # 警长选举（仅第一天且 enable_sheriff）
+            if (
+                self.game_state.round_number == 1
+                and self.game_state.enable_sheriff
+                and not self.game_state.sheriff_election_done
+            ):
                 self.game_state.next_phase()  # 进入 SHERIFF_ELECTION
                 await self.execute_sheriff_election()
 
@@ -434,4 +476,10 @@ class GameEngineBase:
             传入 player_id 到 agent 实例的映射字典以恢复 agent。
         """
         self.game_state = load_game_state(file_path, agent_factory)
-        self.victory_checker = VictoryChecker(self.game_state)
+        if agent_factory:
+            for idx, player in enumerate(self.game_state.players, start=1):
+                agent = agent_factory.get(player.player_id)
+                if agent is not None:
+                    self._attach_agent_to_player(player, agent, idx)
+        self._wire_game_state()
+        self.event_logger.clear_events()

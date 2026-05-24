@@ -1,5 +1,10 @@
 from llm_werewolf.core.types import Camp, VictoryResult, PlayerProtocol, GameStateProtocol
-from llm_werewolf.core.roles.names import is_untransformed_blood_moon, player_camp_is
+from llm_werewolf.core.roles.names import (
+    RoleNames,
+    is_untransformed_blood_moon,
+    player_camp_is,
+    role_name_is,
+)
 
 
 class VictoryChecker:
@@ -13,12 +18,22 @@ class VictoryChecker:
         """
         self.game_state = game_state
 
+    @staticmethod
+    def _is_white_lover_pair(player_a: PlayerProtocol, player_b: PlayerProtocol) -> bool:
+        """情侣一方为狼、一方为好人（白狼情侣）。"""
+        camps = {player_a.get_camp(), player_b.get_camp()}
+        return Camp.WEREWOLF in camps and Camp.VILLAGER in camps
+
     def check_victory(self) -> VictoryResult:
         """检查是否已满足任一胜利条件。
 
         Returns:
             VictoryResult: 胜利判定结果。
         """
+        special_result = self.check_special_victory()
+        if special_result.has_winner:
+            return special_result
+
         lover_result = self.check_lover_victory()
         if lover_result.has_winner:
             return lover_result
@@ -61,6 +76,8 @@ class VictoryChecker:
             werewolf_ids = []
             for p in alive_players:
                 if player_camp_is(p, Camp.WEREWOLF):
+                    if is_untransformed_blood_moon(p.role):
+                        continue
                     werewolf_ids.append(p.player_id)
 
             return VictoryResult(
@@ -102,9 +119,7 @@ class VictoryChecker:
         return VictoryResult(has_winner=False, reason="Villagers have not won")
 
     def check_lover_victory(self) -> VictoryResult:
-        """检查恋人是否获胜。
-
-        场上仅剩两名恋人存活时恋人胜。
+        """检查同阵营情侣是否获胜（场上仅剩两名恋人且非白狼情侣）。
 
         Returns:
             VictoryResult: 胜利判定结果。
@@ -114,6 +129,8 @@ class VictoryChecker:
         lovers = [p for p in alive_players if p.is_lover()]
 
         if len(lovers) == 2 and len(alive_players) == 2:
+            if self._is_white_lover_pair(lovers[0], lovers[1]):
+                return VictoryResult(has_winner=False, reason="White lover pair uses special victory")
             lover_ids = [p.player_id for p in lovers]
             return VictoryResult(
                 has_winner=True,
@@ -124,14 +141,49 @@ class VictoryChecker:
 
         return VictoryResult(has_winner=False, reason="Lovers have not won")
 
+    def check_white_lover_wolf_victory(self) -> VictoryResult:
+        """白狼情侣：狼+好人恋人消灭其余所有人后双人获胜。"""
+        alive_players = self.game_state.get_alive_players()
+        lovers = [p for p in alive_players if p.is_lover()]
+
+        if len(lovers) != 2 or len(alive_players) != 2:
+            return VictoryResult(has_winner=False, reason="White lover wolves have not won")
+
+        if not self._is_white_lover_pair(lovers[0], lovers[1]):
+            return VictoryResult(has_winner=False, reason="Not a white lover wolf pair")
+
+        lover_ids = [p.player_id for p in lovers]
+        return VictoryResult(
+            has_winner=True,
+            winner_camp="white_lover_wolf",
+            winner_ids=lover_ids,
+            reason="White lover wolves eliminated all other players",
+        )
+
+    def check_thief_victory(self) -> VictoryResult:
+        """盗贼选身份后随当前阵营获胜（仍走常规阵营判定，此处仅标记无独立终局）。"""
+        for player in self.game_state.get_alive_players():
+            if not role_name_is(player.role, RoleNames.THIEF):
+                continue
+            if not getattr(player.role, "has_chosen", False):
+                continue
+            camp = player.get_camp()
+            if camp == Camp.WEREWOLF:
+                return self.check_werewolf_victory()
+            if camp == Camp.VILLAGER:
+                return self.check_villager_victory()
+        return VictoryResult(has_winner=False, reason="Thief has not won")
+
     def check_special_victory(self) -> VictoryResult:
-        """检查特殊胜利条件。
+        """检查特殊胜利条件（白狼情侣、盗贼随阵营等）。"""
+        white_lover = self.check_white_lover_wolf_victory()
+        if white_lover.has_winner:
+            return white_lover
 
-        可扩展以支持自定义模式或特殊角色。
+        thief = self.check_thief_victory()
+        if thief.has_winner:
+            return thief
 
-        Returns:
-            VictoryResult: 胜利判定结果。
-        """
         return VictoryResult(has_winner=False, reason="No special victory")
 
     def get_winner(self) -> VictoryResult:
@@ -143,11 +195,6 @@ class VictoryChecker:
         return self.check_victory()
 
     def is_game_over(self) -> bool:
-        """检查游戏是否已结束。
-
-        Returns:
-            bool: 若已结束则为 True。
-        """
         return self.check_victory().has_winner
 
     def get_winning_players(self) -> list[PlayerProtocol]:

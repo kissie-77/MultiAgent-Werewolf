@@ -59,6 +59,13 @@ def is_untransformed_blood_moon(role: object) -> bool:
     )
 
 
+def participates_in_wolf_team(player: PlayerProtocol) -> bool:
+    """是否参与狼队夜间讨论与投票（未变身血月使徒排除）。"""
+    if not player_camp_is(player, Camp.WEREWOLF):
+        return False
+    return not is_untransformed_blood_moon(player.role)
+
+
 def seer_apparent_camp(target: PlayerProtocol) -> Camp:
     """预言家查验时对目标显示的阵营（含隐狼 / 未变身血月伪装）。"""
     if role_name_is(target.role, RoleNames.HIDDEN_WOLF):

@@ -19,6 +19,11 @@ WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_DISCUSSION,
 })
 
+# 刀口结算：写入事件日志，但仅存活女巫在 observation 中可见。
+WITCH_ONLY_TYPES: frozenset[EventType] = frozenset({
+    EventType.WEREWOLF_KILLED,
+})
+
 # 对话写入 Event 仅供复盘/UI——LLM 决策提示从 MsgHub 读取。
 HUB_DIALOGUE_EVENT_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_SPEECH,
@@ -50,8 +55,12 @@ def resolve_visible_to(
     data: dict | None,
     *,
     wolf_player_ids: list[str] | None = None,
+    witch_player_ids: list[str] | None = None,
 ) -> list[str] | None:
     """在事件写入日志前返回默认的 visible_to。"""
+    if event_type in WITCH_ONLY_TYPES:
+        return list(witch_player_ids) if witch_player_ids else []
+
     if event_type in WOLF_TEAM_TYPES:
         return list(wolf_player_ids) if wolf_player_ids else None
 

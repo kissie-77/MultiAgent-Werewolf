@@ -40,7 +40,7 @@ class GameConfig(BaseModel):
     )
     enable_sheriff: bool = Field(
         default=False,
-        description="Enable sheriff election (future feature)",
+        description="Enable sheriff election after the first night",
         examples=[True, False],
     )
     track_vote_intentions: bool = Field(

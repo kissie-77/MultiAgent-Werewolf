@@ -31,6 +31,7 @@ class EventFormatter:
         EventType.KNIGHT_DUEL: "yellow",
         EventType.VOTE_CAST: "yellow",
         EventType.VOTE_RESULT: "bold yellow",
+        EventType.VOTE_INTENTION_SNAPSHOT: "dim yellow",
         EventType.PLAYER_ELIMINATED: "bold red",
         EventType.SHERIFF_CAMPAIGN_STARTED: "bold gold1",
         EventType.SHERIFF_CANDIDATE_SPEECH: "gold1",

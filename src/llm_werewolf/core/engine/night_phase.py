@@ -12,6 +12,9 @@ from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.night_scheduler import NightSkillScheduler
 from llm_werewolf.core.prompts.actions import EngineContexts
+from llm_werewolf.core.roles.names import participates_in_wolf_team
+from llm_werewolf.core.role_night_plans import offer_blood_moon_transform
+from llm_werewolf.core.roles.werewolf import BloodMoonApostle
 
 if TYPE_CHECKING:
     from llm_werewolf.core.actions.base import Action
@@ -34,7 +37,10 @@ class NightPhaseMixin:
             return ""
 
         werewolves = [
-            p for p in self.game_state.get_players_by_camp(Camp.WEREWOLF) if p.is_alive()
+            p for p in self.game_state.get_alive_players() if participates_in_wolf_team(p)
+        ]
+        werewolves_for_obs = [werewolf] + [
+            w for w in werewolves if w.player_id != werewolf.player_id
         ]
         possible_targets = [
             p for p in self.game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
@@ -43,7 +49,7 @@ class NightPhaseMixin:
         target_names = [p.name for p in possible_targets]
 
         shared = self.build_shared_observation(
-            werewolves,
+            werewolves_for_obs,
             additional_notes=EngineContexts.werewolf_coordination_note(
                 werewolf_names, target_names
             ),
@@ -65,7 +71,11 @@ class NightPhaseMixin:
     ) -> None:
         if not self.game_state:
             return
-        wolf_ids = MessageRouter.wolf_player_ids(self.game_state.get_alive_players())
+        wolf_ids = [
+            p.player_id
+            for p in self.game_state.get_alive_players()
+            if participates_in_wolf_team(p)
+        ]
         self._log_event(
             MessageRouter.event_type_for_channel(VisibilityChannel.WOLF_TEAM),
             self.locale.get(
@@ -80,6 +90,30 @@ class NightPhaseMixin:
             visible_to=wolf_ids,
         )
 
+    async def _resolve_blood_moon_transforms(self) -> None:
+        """其余狼人全灭时，询问未变身血月使徒是否变身（仅其本人可见）。"""
+        if not self.game_state:
+            return
+        interaction = self.game_state.require_phase_interaction()
+        for player in self.game_state.get_alive_players():
+            if not isinstance(player.role, BloodMoonApostle):
+                continue
+            if player.role.transformed:
+                continue
+            transformed = await offer_blood_moon_transform(
+                player.role, self.game_state, interaction
+            )
+            if transformed:
+                self._log_event(
+                    EventType.MESSAGE,
+                    self.locale.get(
+                        "blood_moon_transformed",
+                        player=player.name,
+                    ),
+                    data={"player_id": player.player_id, "action": "blood_moon_transform"},
+                    visible_to=[player.player_id],
+                )
+
     async def _run_werewolf_discussion(self) -> list[str]:
         """经 Hub 进行狼队讨论；仅狼人可听（引擎路由）。"""
         if not self.game_state:
@@ -87,7 +121,7 @@ class NightPhaseMixin:
 
         messages: list[str] = []
         werewolves = [
-            p for p in self.game_state.get_players_by_camp(Camp.WEREWOLF) if p.is_alive()
+            p for p in self.game_state.get_alive_players() if participates_in_wolf_team(p)
         ]
 
         if len(werewolves) <= 1:
@@ -125,9 +159,8 @@ class NightPhaseMixin:
                 phase=GamePhase.NIGHT.value,
                 round_number=self.game_state.round_number,
                 audience=werewolves,
-                opening_announcement=(
-                    f"狼人请睁眼。可选刀口目标：{', '.join(target_names)}。"
-                    "请与队友讨论今晚击杀目标。"
+                opening_announcement=self.locale.get(
+                    "werewolf_wake_opening", targets=", ".join(target_names)
                 ),
                 on_speech=on_speech,
             )
@@ -200,7 +233,7 @@ class NightPhaseMixin:
         self._log_event(
             EventType.PHASE_CHANGED,
             self.locale.get("night_begins", round_number=self.game_state.round_number),
-            data={"phase": "night", "round": self.game_state.round_number},
+            data={"phase": GamePhase.NIGHT.value, "round": self.game_state.round_number},
         )
 
         messages.append("")
@@ -224,6 +257,8 @@ class NightPhaseMixin:
         # 先执行预狼阶段（梦魇狼在讨论前封锁技能）
         pre_wolf_actions = await scheduler.run_pre_wolf_phase()
         messages.extend(self.process_actions(pre_wolf_actions))
+
+        await self._resolve_blood_moon_transforms()
 
         # 预狼行动结束后再进行狼队讨论
         discussion_messages = await self._run_werewolf_discussion()

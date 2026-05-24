@@ -59,7 +59,7 @@ def test_format_event_styles() -> None:
     ]
 
     for event_type, expected_style in test_cases:
-        event = Event(event_type=event_type, round_number=1, phase="test", message="Test message")
+        event = Event(event_type=event_type, round_number=1, phase="setup", message="Test message")
         formatted = EventFormatter.format_event(event)
         # 仅验证不抛出错误
         assert formatted is not None
@@ -73,7 +73,7 @@ def test_format_all_event_types() -> None:
         event = Event(
             event_type=event_type,
             round_number=1,
-            phase="test",
+            phase="setup",
             message=f"Test message for {event_type.value}",
         )
         formatted = EventFormatter.format_event(event, include_timestamp=True)

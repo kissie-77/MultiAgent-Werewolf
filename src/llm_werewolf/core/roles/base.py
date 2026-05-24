@@ -105,6 +105,9 @@ class Role(ABC):
         Returns:
             bool: 今日可行动则为 True。
         """
+        if self.disabled:
+            return False
+
         if not self.config.can_act_day:
             return False
 

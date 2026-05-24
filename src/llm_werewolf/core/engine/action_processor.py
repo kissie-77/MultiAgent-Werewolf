@@ -219,7 +219,7 @@ class ActionProcessorMixin:
                 "graveyard_keeper_checked",
                 target=action.target.name,
                 role=action.target.get_role_name(),
-                camp=action.target.get_camp(),
+                camp=action.target.get_camp().value,
             ),
             data={
                 "player_id": action.actor.player_id,

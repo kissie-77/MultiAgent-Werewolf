@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from llm_werewolf.adapter.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision
-from llm_werewolf.core.types import EventType, PlayerProtocol
+from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.game_state import GameState
 
@@ -64,7 +64,7 @@ class SheriffElectionMixin:
                     self.locale.get("sheriff_ask_run"),
                     context,
                     round_number=self.game_state.round_number,
-                    phase="sheriff_election",
+                    phase=GamePhase.SHERIFF_ELECTION.value,
                 )
                 if yes:
                     candidates.append(player)
@@ -142,7 +142,7 @@ class SheriffElectionMixin:
             channel=VisibilityChannel.PUBLIC,
             context_builder=context_builder,
             instruction=self.locale.get("sheriff_speech_instruction"),
-            phase="sheriff_election",
+            phase=GamePhase.SHERIFF_ELECTION.value,
             round_number=self.game_state.round_number,
             audience=alive,
             on_speech=on_speech,
@@ -207,7 +207,7 @@ class SheriffElectionMixin:
                     additional_context=context,
                     fallback_random=False,
                     round_number=self.game_state.round_number,
-                    phase="sheriff_election",
+                    phase=GamePhase.SHERIFF_ELECTION.value,
                 )
             except Exception as exc:
                 self._log_event(
@@ -365,7 +365,7 @@ class SheriffElectionMixin:
             channel=VisibilityChannel.PUBLIC,
             context_builder=context_builder,
             instruction=self.locale.get("pk_speech_instruction"),
-            phase="sheriff_election_pk",
+            phase=GamePhase.SHERIFF_ELECTION.value,
             round_number=self.game_state.round_number,
             audience=alive,
             on_speech=on_speech,
@@ -392,38 +392,6 @@ class SheriffElectionMixin:
             for_agent_decision=True,
         )
         return f"{obs}\n\n{base}\n{self.locale.get('pk_opponents', opponents=others)}"
-
-    def _determine_sheriff_winner(
-        self, vote_counts: dict[str, int], candidates: list[PlayerProtocol]
-    ) -> None:
-        if not self.game_state or not vote_counts:
-            return
-
-        max_votes = max(vote_counts.values())
-        winners = [pid for pid, count in vote_counts.items() if count == max_votes]
-
-        for candidate in candidates:
-            votes = vote_counts.get(candidate.player_id, 0)
-            self._log_event(
-                EventType.MESSAGE,
-                self.locale.get("sheriff_vote_result", candidate=candidate.name, votes=votes),
-            )
-
-        if len(winners) > 1:
-            winner_names = [
-                self.game_state.get_player(pid).name
-                for pid in winners
-                if self.game_state.get_player(pid)
-            ]
-            self._log_event(
-                EventType.SHERIFF_TIE,
-                self.locale.get("sheriff_tie", candidates=", ".join(winner_names)),
-            )
-        else:
-            winner_id = winners[0]
-            winner = self.game_state.get_player(winner_id)
-            if winner:
-                self._elect_sheriff(winner)
 
     def _elect_sheriff(self, player: PlayerProtocol) -> None:
         if not self.game_state:

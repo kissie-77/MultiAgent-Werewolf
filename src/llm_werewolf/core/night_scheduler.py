@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from llm_werewolf.core.role_night_plans import dispatch_night_plan
 from llm_werewolf.core.role_registry import get_werewolf_roles
+from llm_werewolf.core.roles.names import participates_in_wolf_team
 from llm_werewolf.core.types import EventType
 
 if TYPE_CHECKING:
@@ -95,6 +96,7 @@ class NightSkillScheduler:
             for p in self.game_state.get_alive_players()
             if p.get_role_name() in self._wolf_role_names
             and p.role.has_night_action(self.game_state)
+            and participates_in_wolf_team(p)
         ]
 
     def _players_witch(self) -> list[PlayerProtocol]:

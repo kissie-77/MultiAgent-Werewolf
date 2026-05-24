@@ -50,12 +50,15 @@ class GameStateSnapshot(BaseModel):
     guardian_wolf_protected: str | None = None
     nightmare_blocked: str | None = None
     seer_checked: dict[str, str] = Field(default_factory=dict)
+    graveyard_checked: dict[str, str] = Field(default_factory=dict)
 
     # 投票追踪
     votes: dict[str, str] = Field(default_factory=dict)
     raven_marked: str | None = None
+    wolf_beauty_charmed: str | None = None
 
     # 警长选举
+    enable_sheriff: bool = False
     sheriff_id: str | None = None
     sheriff_election_done: bool = False
     sheriff_votes: dict[str, str] = Field(default_factory=dict)
@@ -157,9 +160,12 @@ def serialize_game_state(game_state: GameStateProtocol) -> GameStateSnapshot:
         guardian_wolf_protected=game_state.guardian_wolf_protected,
         nightmare_blocked=game_state.nightmare_blocked,
         seer_checked={str(k): v for k, v in game_state.seer_checked.items()},
+        graveyard_checked={str(k): v for k, v in game_state.graveyard_checked.items()},
         votes=game_state.votes,
         raven_marked=game_state.raven_marked,
+        wolf_beauty_charmed=game_state.wolf_beauty_charmed,
         sheriff_id=game_state.sheriff_id,
+        enable_sheriff=game_state.enable_sheriff,
         sheriff_election_done=game_state.sheriff_election_done,
         sheriff_votes=game_state.sheriff_votes,
         sheriff_tie_count=game_state.sheriff_tie_count,
@@ -320,11 +326,16 @@ def _restore_game_state_fields(game_state: GameState, snapshot: GameStateSnapsho
     game_state.guardian_wolf_protected = snapshot.guardian_wolf_protected
     game_state.nightmare_blocked = snapshot.nightmare_blocked
     game_state.seer_checked = {int(k): v for k, v in snapshot.seer_checked.items()}
+    game_state.graveyard_checked = {
+        int(k): v for k, v in snapshot.graveyard_checked.items()
+    }
 
     game_state.votes = snapshot.votes
     game_state.raven_marked = snapshot.raven_marked
+    game_state.wolf_beauty_charmed = snapshot.wolf_beauty_charmed
 
     game_state.sheriff_election_done = snapshot.sheriff_election_done
+    game_state.enable_sheriff = snapshot.enable_sheriff
     game_state.sheriff_votes = snapshot.sheriff_votes
     game_state.sheriff_tie_count = snapshot.sheriff_tie_count
     game_state.vote_tie_count = snapshot.vote_tie_count

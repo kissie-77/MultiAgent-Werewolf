@@ -78,32 +78,26 @@ class DayPhaseMixin:
         self._log_event(
             EventType.PHASE_CHANGED,
             self.locale.get("day_begins", round_number=self.game_state.round_number),
-            data={"phase": "day", "round": self.game_state.round_number},
+            data={"phase": GamePhase.DAY_DISCUSSION.value, "round": self.game_state.round_number},
         )
 
         messages.append("")
 
         if self.game_state.night_deaths:
-            for player_id in self.game_state.night_deaths:
-                player = self.game_state.get_player(player_id)
-                if player:
-                    messages.append(self.locale.get("night_death_announce", player=player.name))
-        else:
-            messages.append(self.locale.get("peaceful_night"))
-
-        messages.append(self.locale.get("discussion_phase_separator"))
-        alive_players = self.game_state.get_alive_players()
-        interaction = self.game_state.require_phase_interaction()
-
-        if self.game_state.night_deaths:
-            death_lines = [
-                f"{self.game_state.get_player(pid).name} 昨夜死亡"
+            death_lines = "; ".join(
+                self.locale.get("night_death_line", player=self.game_state.get_player(pid).name)
                 for pid in self.game_state.night_deaths
                 if self.game_state.get_player(pid)
-            ]
-            opening_announcement = "天亮了。" + "；".join(death_lines) + "。请依次发表白天讨论发言。"
+            )
+            opening_announcement = self.locale.get("daybreak_announcement", death_lines=death_lines)
         else:
-            opening_announcement = "天亮了，昨夜平安夜。请依次发表白天讨论发言。"
+            opening_announcement = self.locale.get("peaceful_night_announcement")
+
+        messages.append(opening_announcement)
+        messages.append(self.locale.get("discussion_phase_separator"))
+
+        alive_players = self.game_state.get_alive_players()
+        interaction = self.game_state.require_phase_interaction()
 
         def on_speech(
             speaker: PlayerProtocol,

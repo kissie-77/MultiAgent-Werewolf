@@ -45,24 +45,27 @@ class DeathHandlerMixin:
         Args:
             wolf_beauty: 已死亡的狼美人玩家。
         """
-        if not self.game_state or not hasattr(wolf_beauty.role, "charmed_player"):
+        if not self.game_state:
             return
 
-        if wolf_beauty.role.charmed_player:
-            charmed = self.game_state.get_player(wolf_beauty.role.charmed_player)
-            if charmed and charmed.is_alive():
-                charmed.kill()
-                if self.game_state.phase.value == "night":
-                    self.game_state.night_deaths.add(charmed.player_id)
-                else:
-                    self.game_state.day_deaths.add(charmed.player_id)
-                self._log_event(
-                    EventType.PLAYER_DIED,
-                    self.locale.get(
-                        "died_from_charm", player=charmed.name, wolf_beauty=wolf_beauty.name
-                    ),
-                    data={"player_id": charmed.player_id, "reason": "wolf_beauty_charm"},
-                )
+        charmed_id = self.game_state.wolf_beauty_charmed or getattr(wolf_beauty.role, "charmed_player", None)
+        if not charmed_id:
+            return
+
+        charmed = self.game_state.get_player(charmed_id)
+        if charmed and charmed.is_alive():
+            charmed.kill()
+            if self.game_state.phase.value == "night":
+                self.game_state.night_deaths.add(charmed.player_id)
+            else:
+                self.game_state.day_deaths.add(charmed.player_id)
+            self._log_event(
+                EventType.PLAYER_DIED,
+                self.locale.get(
+                    "died_from_charm", player=charmed.name, wolf_beauty=wolf_beauty.name
+                ),
+                data={"player_id": charmed.player_id, "reason": "wolf_beauty_charm"},
+            )
 
     def _handle_elder_penalty(self) -> None:
         """长老被投票出局时禁用所有村民技能。"""
@@ -94,23 +97,15 @@ class DeathHandlerMixin:
         messages: list[str] = []
 
         if self.game_state.witch_saved_target == target.player_id:
-            self._log_event(
-                EventType.WITCH_SAVED,
-                self.locale.get("saved_by_witch", player=target.name),
-                data={"player_id": target.player_id},
-            )
+            pass
         elif self.game_state.guard_protected == target.player_id:
-            self._log_event(
-                EventType.GUARD_PROTECTED,
-                self.locale.get("protected_by_guard", player=target.name),
-                data={"player_id": target.player_id},
-            )
+            pass
         elif hasattr(target.role, "lives") and target.role.lives > 1:
             target.role.lives -= 1
             self._log_event(
-                EventType.PLAYER_DIED,
+                EventType.MESSAGE,
                 self.locale.get("elder_attacked", player=target.name),
-                data={"player_id": target.player_id},
+                data={"player_id": target.player_id, "reason": "elder_survived"},
             )
         else:
             target.kill()
@@ -123,15 +118,7 @@ class DeathHandlerMixin:
             )
 
             if target.is_lover() and target.lover_partner_id:
-                partner = self.game_state.get_player(target.lover_partner_id)
-                if partner and partner.is_alive():
-                    partner.kill()
-                    self.game_state.night_deaths.add(partner.player_id)
-                    self._log_event(
-                        EventType.LOVER_DIED,
-                        self.locale.get("died_of_heartbreak", player=partner.name),
-                        data={"player_id": partner.player_id},
-                    )
+                self._handle_lover_death(target)
 
         return messages
 
@@ -250,7 +237,7 @@ class DeathHandlerMixin:
                 "临死前选择带走的玩家",
                 possible_targets,
                 allow_skip=False,
-                additional_context=f"你（{player.name}）已死亡，可以带走一名玩家。",
+                additional_context=self.locale.get("death_skill_context", player=player.name),
                 fallback_random=True,
             )
         else:
@@ -300,14 +287,7 @@ class DeathHandlerMixin:
 
         # 处理情侣死亡
         if target.is_lover() and target.lover_partner_id:
-            partner = self.game_state.get_player(target.lover_partner_id)
-            if partner and partner.is_alive():
-                partner.kill()
-                if self.game_state.phase.value == "night":
-                    self.game_state.night_deaths.add(partner.player_id)
-                else:
-                    self.game_state.day_deaths.add(partner.player_id)
-                messages.append(self.locale.get("died_of_heartbreak", player=partner.name))
+            self._handle_lover_death(target)
 
     async def _handle_death_abilities(self) -> list[str]:
         """处理死亡时触发的技能（猎人、白狼王）。
@@ -371,38 +351,43 @@ class DeathHandlerMixin:
 
         # 处理情侣死亡
         if target.is_lover() and target.lover_partner_id:
-            partner = self.game_state.get_player(target.lover_partner_id)
-            if partner and partner.is_alive():
-                partner.kill()
-                self.game_state.night_deaths.add(partner.player_id)
-                self._log_event(
-                    EventType.LOVER_DIED,
-                    self.locale.get("died_of_heartbreak", player=partner.name),
-                    data={"player_id": partner.player_id},
-                )
+            self._handle_lover_death(target)
 
     def _resolve_wolf_beauty_charm_deaths(self) -> None:
         """结算狼美人死亡时被魅惑玩家的连带死亡。"""
         if not self.game_state:
             return
 
+        charmed_id = self.game_state.wolf_beauty_charmed
+        if not charmed_id:
+            return
+
+        # 检查是否有狼美人已死亡
+        all_deaths = self.game_state.night_deaths | self.game_state.day_deaths
+        wolf_beauty_dead = False
         for player in self.game_state.players:
             if (
                 hasattr(player.role, "charmed_player")
                 and not player.is_alive()
-                and player.role.charmed_player
+                and player.player_id in all_deaths
             ):
-                charmed = self.game_state.get_player(player.role.charmed_player)
-                if charmed and charmed.is_alive():
-                    charmed.kill()
-                    self.game_state.night_deaths.add(charmed.player_id)
-                    self._log_event(
-                        EventType.PLAYER_DIED,
-                        self.locale.get(
-                            "died_from_charm", player=charmed.name, wolf_beauty=player.name
-                        ),
-                        data={"player_id": charmed.player_id, "reason": "wolf_beauty_charm"},
-                    )
+                wolf_beauty_dead = True
+                break
+
+        if not wolf_beauty_dead:
+            return
+
+        charmed = self.game_state.get_player(charmed_id)
+        if charmed and charmed.is_alive():
+            charmed.kill()
+            self.game_state.night_deaths.add(charmed.player_id)
+            self._log_event(
+                EventType.PLAYER_DIED,
+                self.locale.get(
+                    "died_from_charm", player=charmed.name, wolf_beauty=charmed.name
+                ),
+                data={"player_id": charmed.player_id, "reason": "wolf_beauty_charm"},
+            )
 
     async def resolve_deaths(self) -> list[str]:
         """根据夜间行动结算所有死亡。

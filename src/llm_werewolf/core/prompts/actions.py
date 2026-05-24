@@ -93,6 +93,20 @@ class EngineContexts:
         )
 
     @staticmethod
+    def exile_pk_speech(
+        player_name: str,
+        role_name: str,
+        round_number: int,
+        num_candidates: int,
+    ) -> str:
+        return (
+            f"你是 {player_name}，身份为 {role_name}。\n"
+            f"当前：第 {round_number} 轮 · 放逐 PK 发言\n"
+            f"你是 {num_candidates} 名 PK 候选人之一。\n"
+            "请发表 PK 发言（1-3 句），内容放在 [[]] 中，争取存活。"
+        )
+
+    @staticmethod
     def sheriff_speech(
         player_name: str,
         role_name: str,

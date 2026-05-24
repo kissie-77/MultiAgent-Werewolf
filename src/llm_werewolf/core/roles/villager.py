@@ -16,6 +16,7 @@ from llm_werewolf.core.actions import (
     GraveyardKeeperCheckAction,
 )
 from llm_werewolf.core.roles.base import Role
+from llm_werewolf.core.roles.names import seer_apparent_camp
 
 
 class Villager(Role):
@@ -56,7 +57,8 @@ class Seer(Role):
         for round_num, player_id in game_state.seer_checked.items():
             player = game_state.get_player(player_id)
             if player:
-                result = "狼人" if player.get_camp() == Camp.WEREWOLF else "好人"
+                apparent = seer_apparent_camp(player)
+                result = "狼人" if apparent == Camp.WEREWOLF else "好人"
                 checked_info.append(f"第{round_num}夜：查验{player.name}，结果为{result}。")
 
         return notes + checked_info

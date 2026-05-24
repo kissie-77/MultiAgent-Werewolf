@@ -26,8 +26,19 @@ def test_next_phase_first_night_to_sheriff_election() -> None:
     state = GameState(_players())
     state.phase = GamePhase.NIGHT
     state.round_number = 1
+    state.enable_sheriff = True
     state.next_phase()
     assert state.phase == GamePhase.SHERIFF_ELECTION
+
+
+def test_next_phase_first_night_skips_sheriff_when_disabled() -> None:
+    state = GameState(_players())
+    state.phase = GamePhase.NIGHT
+    state.round_number = 1
+    state.enable_sheriff = False
+    state.sheriff_election_done = True
+    state.next_phase()
+    assert state.phase == GamePhase.DAY_DISCUSSION
 
 
 def test_next_phase_voting_increments_round_and_clears_state() -> None:

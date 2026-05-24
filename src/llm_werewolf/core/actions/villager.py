@@ -39,6 +39,7 @@ class WitchSaveAction(Action):
         # 更新女巫解药状态
         if hasattr(self.actor.role, "has_save_potion"):
             self.actor.role.has_save_potion = False
+        self.game_state.witch_save_used = True
         self.game_state.witch_saved_target = self.target.player_id
         return [f"Witch saves {self.target.name}"]
 
@@ -77,6 +78,7 @@ class WitchPoisonAction(Action):
         # 更新女巫毒药状态
         if hasattr(self.actor.role, "has_poison_potion"):
             self.actor.role.has_poison_potion = False
+        self.game_state.witch_poison_used = True
         self.game_state.witch_poison_target = self.target.player_id
         return [f"Witch poisons {self.target.name}"]
 
@@ -263,8 +265,9 @@ class GraveyardKeeperCheckAction(Action):
 
     def execute(self) -> list[str]:
         """执行守墓人查验。"""
-        camp = self.target.get_camp()
+        camp = self.target.get_camp().value
         role_name = self.target.get_role_name()
+        self.game_state.graveyard_checked[self.game_state.round_number] = self.target.player_id
         return [
             f"Graveyard Keeper checks {self.target.name}: They were a {role_name} ({camp} camp)"
         ]

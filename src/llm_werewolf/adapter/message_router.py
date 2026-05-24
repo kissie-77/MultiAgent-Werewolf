@@ -69,8 +69,10 @@ class MessageRouter:
 
     @staticmethod
     def wolf_player_ids(alive_players: list[PlayerProtocol]) -> list[str]:
+        from llm_werewolf.core.roles.names import participates_in_wolf_team
+
         return [
             p.player_id
             for p in alive_players
-            if p.is_alive() and p.get_camp() == Camp.WEREWOLF
+            if participates_in_wolf_team(p)
         ]

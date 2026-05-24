@@ -52,6 +52,9 @@ class Player:
         self._alive = True
         self.statuses.discard(PlayerStatus.DEAD)
         self.statuses.add(PlayerStatus.ALIVE)
+        if self.has_status(PlayerStatus.NO_VOTE):
+            self.can_vote_flag = True
+            self.remove_status(PlayerStatus.NO_VOTE)
 
     def add_status(self, status: PlayerStatus) -> None:
         """为玩家添加状态。

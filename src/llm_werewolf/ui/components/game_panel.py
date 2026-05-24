@@ -8,6 +8,7 @@ from rich.console import Console
 from textual.widgets import Static
 
 from llm_werewolf.core.game_state import GameState
+from llm_werewolf.core.types import Camp
 
 
 class GamePanel(Static):
@@ -57,8 +58,8 @@ class GamePanel(Static):
 
         alive_players = len(self.game_state.get_alive_players())
         total_players = len(self.game_state.players)
-        werewolves = self.game_state.count_alive_by_camp("werewolf")
-        villagers = self.game_state.count_alive_by_camp("villager")
+        werewolves = self.game_state.count_alive_by_camp(Camp.WEREWOLF)
+        villagers = self.game_state.count_alive_by_camp(Camp.VILLAGER)
 
         stats_table.add_row("Total Players:", f"{alive_players}/{total_players}")
         stats_table.add_row(

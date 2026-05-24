@@ -1,4 +1,4 @@
-from llm_werewolf.core.types import PlayerInfo, PlayerStatus, RoleProtocol, AgentProtocol
+from llm_werewolf.core.types import Camp, PlayerInfo, PlayerStatus, RoleProtocol, AgentProtocol
 
 
 class Player:
@@ -162,13 +162,13 @@ class Player:
         """
         return self.role.name
 
-    def get_camp(self) -> str:
+    def get_camp(self) -> Camp:
         """获取玩家阵营。
 
         Returns:
-            str: 阵营名称。
+            Camp: 阵营枚举。
         """
-        return self.role.camp.value
+        return self.role.camp
 
     def __str__(self) -> str:
         """玩家的字符串表示。

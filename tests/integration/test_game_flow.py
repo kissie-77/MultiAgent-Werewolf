@@ -2,6 +2,7 @@ from llm_werewolf.core import GameEngine
 from llm_werewolf.core.agent import DemoAgent
 from llm_werewolf.core.config import create_game_config_from_player_count
 from llm_werewolf.core.roles.registry import create_roles
+from llm_werewolf.core.types import Camp
 
 
 def test_game_initialization() -> None:
@@ -74,7 +75,7 @@ def test_victory_checker() -> None:
 
     # 杀死所有狼人（村民应获胜）
     for player in engine.game_state.players:
-        if player.get_camp() == "werewolf":
+        if player.get_camp() == Camp.WEREWOLF:
             player.kill()
 
     # 此时村民应获胜

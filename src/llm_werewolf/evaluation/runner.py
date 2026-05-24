@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from llm_werewolf.core import GameEngine
-from llm_werewolf.core.agent import DemoAgent
+from llm_werewolf.agents.base import DemoAgent
 from llm_werewolf.core.config import GameConfig
 from llm_werewolf.core.role_registry import create_roles
 from llm_werewolf.core.types import Event, EventType
@@ -249,7 +249,7 @@ class EvaluationRunner:
                     passed=False,
                     message=event.data.get("error", event.message),
                     data={
-                        "phase": event.phase,
+                        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
                         "round_number": event.round_number,
                         "player_id": event.data.get("player_id"),
                         "role_name": role_name,

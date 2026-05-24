@@ -65,4 +65,4 @@ def seer_apparent_camp(target: PlayerProtocol) -> Camp:
         return Camp.VILLAGER
     if is_untransformed_blood_moon(target.role):
         return Camp.VILLAGER
-    return Camp(target.get_camp()) if isinstance(target.get_camp(), str) else target.get_camp()
+    return target.get_camp()

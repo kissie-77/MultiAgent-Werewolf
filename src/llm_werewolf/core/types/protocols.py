@@ -91,11 +91,7 @@ class RoleProtocol(Protocol):
         """检查该角色今天是否可以行动。"""
         ...
 
-    def night_action(self, game_state: GameStateProtocol) -> ActionProtocol | None:
-        """执行角色的夜间行动（已弃用，请使用 get_night_actions）。"""
-        ...
-
-    async def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
+    def get_night_actions(self, game_state: GameStateProtocol) -> list[ActionProtocol]:
         """获取该角色的夜间行动列表。"""
         ...
 
@@ -161,7 +157,7 @@ class PlayerProtocol(Protocol):
         """获取玩家的角色名称。"""
         ...
 
-    def get_camp(self) -> str:
+    def get_camp(self) -> Camp:
         """获取玩家的阵营。"""
         ...
 
@@ -219,6 +215,10 @@ class GameStateProtocol(Protocol):
         """按 ID 获取玩家。"""
         ...
 
+    def get_players_by_camp(self, camp: Camp) -> list[PlayerProtocol]:
+        """获取指定阵营的所有玩家。"""
+        ...
+
     def count_alive_by_camp(self, camp: Camp) -> int:
         """统计指定阵营的存活玩家数。"""
         ...
@@ -239,6 +239,6 @@ class ActionProtocol(Protocol):
         """校验该行动是否可以执行。"""
         ...
 
-    def execute(self) -> list[str]:
+    def execute(self) -> list[str] | None:
         """执行该行动。"""
         ...

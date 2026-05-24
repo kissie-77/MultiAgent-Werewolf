@@ -16,7 +16,7 @@ class EvaluationScenario(BaseModel):
     num_players: int = Field(ge=6, le=20)
     # 明确写出角色列表，避免评测时因为默认配置变化导致结果不可复现。
     role_names: list[str]
-    language: str = "en-US"
+    language: str = "zh-CN"
     # 基础随机种子；多局 repetition 会在此基础上递增。
     seed: int = 1
     # 单局硬超时，防止异步流程卡住后阻塞整批评测。

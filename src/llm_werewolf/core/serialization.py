@@ -55,6 +55,13 @@ class GameStateSnapshot(BaseModel):
     votes: dict[str, str] = Field(default_factory=dict)
     raven_marked: str | None = None
 
+    # 警长选举
+    sheriff_id: str | None = None
+    sheriff_election_done: bool = False
+    sheriff_votes: dict[str, str] = Field(default_factory=dict)
+    sheriff_tie_count: int = 0
+    vote_tie_count: int = 0
+
     # 获胜方
     winner: str | None = None
 
@@ -152,6 +159,11 @@ def serialize_game_state(game_state: GameStateProtocol) -> GameStateSnapshot:
         seer_checked={str(k): v for k, v in game_state.seer_checked.items()},
         votes=game_state.votes,
         raven_marked=game_state.raven_marked,
+        sheriff_id=game_state.sheriff_id,
+        sheriff_election_done=game_state.sheriff_election_done,
+        sheriff_votes=game_state.sheriff_votes,
+        sheriff_tie_count=game_state.sheriff_tie_count,
+        vote_tie_count=game_state.vote_tie_count,
         winner=game_state.winner,
     )
 
@@ -311,6 +323,13 @@ def _restore_game_state_fields(game_state: GameState, snapshot: GameStateSnapsho
 
     game_state.votes = snapshot.votes
     game_state.raven_marked = snapshot.raven_marked
+
+    game_state.sheriff_election_done = snapshot.sheriff_election_done
+    game_state.sheriff_votes = snapshot.sheriff_votes
+    game_state.sheriff_tie_count = snapshot.sheriff_tie_count
+    game_state.vote_tie_count = snapshot.vote_tie_count
+    if snapshot.sheriff_id:
+        game_state.set_sheriff(snapshot.sheriff_id)
 
     game_state.winner = snapshot.winner
 

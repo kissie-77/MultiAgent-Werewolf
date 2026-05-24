@@ -1,4 +1,4 @@
-from llm_werewolf.core.types import Event, EventType
+from llm_werewolf.core.types import Camp, Event, EventType
 from llm_werewolf.evaluation.checkers import (
     PromptBadCaseChecker,
     AsyncFlowChecker,
@@ -169,7 +169,7 @@ def test_prompt_bad_case_checker_detects_death_shot_on_villager() -> None:
     results = PromptBadCaseChecker().check(
         events=[event],
         player_roles={"player_3": "Villager"},
-        player_camps={"player_3": "villager"},
+        player_camps={"player_3": Camp.VILLAGER},
     )
 
     assert len(results) == 1

@@ -1,5 +1,5 @@
 from llm_werewolf.core.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
-from llm_werewolf.core.types import Event, EventType
+from llm_werewolf.core.types import Camp, Event, EventType
 
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 from llm_werewolf.evaluation.models import CheckResult, CheckSeverity
@@ -27,7 +27,7 @@ class PromptBadCaseChecker:
         self,
         events: list[Event],
         player_roles: dict[str, str] | None = None,
-        player_camps: dict[str, str] | None = None,
+        player_camps: dict[str, Camp] | None = None,
     ) -> list[CheckResult]:
         player_roles = player_roles or {}
         player_camps = player_camps or {}
@@ -47,7 +47,7 @@ class PromptBadCaseChecker:
     ) -> CheckResult:
         payload = {
             "round_number": event.round_number,
-            "phase": event.phase,
+            "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
             "event_type": event.event_type.value,
         }
         payload.update(data or {})
@@ -149,13 +149,13 @@ class PromptBadCaseChecker:
         self,
         events: list[Event],
         player_roles: dict[str, str],
-        player_camps: dict[str, str],
+        player_camps: dict[str, Camp],
     ) -> list[CheckResult]:
         results: list[CheckResult] = []
         for event in events:
             if event.event_type == EventType.HUNTER_REVENGE:
                 target_id = event.data.get("target_id")
-                if target_id and player_camps.get(target_id) == "villager":
+                if target_id and player_camps.get(target_id) == Camp.VILLAGER:
                     results.append(
                         self._bad_case(
                             "death-shot ability targeted a villager-camp player",
@@ -169,7 +169,7 @@ class PromptBadCaseChecker:
                     )
             elif event.event_type == EventType.WITCH_POISONED:
                 target_id = event.data.get("target_id")
-                if target_id and player_camps.get(target_id) == "villager":
+                if target_id and player_camps.get(target_id) == Camp.VILLAGER:
                     results.append(
                         self._bad_case(
                             "witch poison targeted a villager-camp player",
@@ -226,7 +226,7 @@ class InformationIsolationChecker:
                                     "player_id": player_id,
                                     "event_type": event.event_type.value,
                                     "round_number": event.round_number,
-                                    "phase": event.phase,
+                                    "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
                                     "leaked_fragment": fragment[:80],
                                 },
                             )
@@ -252,9 +252,6 @@ class InformationIsolationChecker:
                         for part in item.values():
                             if isinstance(part, str) and part:
                                 fragments.append(part)
-        result = data.get("result")
-        if isinstance(result, str) and result:
-            fragments.append(result)
         return fragments
 
 
@@ -281,16 +278,18 @@ class AsyncFlowChecker:
 
         # 逐对比较相邻阶段事件；只要出现不在白名单里的跳转就记录违规。
         for previous, current in zip(phase_events, phase_events[1:], strict=False):
-            allowed = self._allowed_transitions.get(previous.phase, set())
-            if current.phase not in allowed:
+            prev_phase = previous.phase.value if hasattr(previous.phase, "value") else str(previous.phase)
+            curr_phase = current.phase.value if hasattr(current.phase, "value") else str(current.phase)
+            allowed = self._allowed_transitions.get(prev_phase, set())
+            if curr_phase not in allowed:
                 results.append(
                     CheckResult(
                         checker=self.__class__.__name__,
                         passed=False,
                         message="Illegal phase transition",
                         data={
-                            "from_phase": previous.phase,
-                            "to_phase": current.phase,
+                            "from_phase": prev_phase,
+                            "to_phase": curr_phase,
                             "from_round": previous.round_number,
                             "to_round": current.round_number,
                         },
@@ -370,7 +369,7 @@ class RoleSkillChecker:
                         severity=CheckSeverity.WARNING,
                         data={
                             "event_type": event.event_type.value,
-                            "phase": event.phase,
+                            "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
                             "round_number": event.round_number,
                             "missing_fields": missing,
                         },

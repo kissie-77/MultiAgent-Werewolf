@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from llm_werewolf.core.types import Event, GamePhase, GameStateInfo, PlayerProtocol
+from llm_werewolf.core.types import Camp, Event, GamePhase, GameStateInfo, PlayerProtocol
 
 if TYPE_CHECKING:
     from llm_werewolf.adapter.information_hub import InformationHub
@@ -160,22 +160,22 @@ class GameState:
         """
         return self.player_dict.get(player_id)
 
-    def get_players_by_camp(self, camp: str) -> list[PlayerProtocol]:
+    def get_players_by_camp(self, camp: Camp) -> list[PlayerProtocol]:
         """获取指定阵营的所有玩家。
 
         Args:
-            camp: 阵营名称。
+            camp: 阵营枚举。
 
         Returns:
             list[Player]: 该阵营的玩家列表。
         """
         return [p for p in self.players if p.get_camp() == camp]
 
-    def count_alive_by_camp(self, camp: str) -> int:
+    def count_alive_by_camp(self, camp: Camp) -> int:
         """统计指定阵营的存活玩家数量。
 
         Args:
-            camp: 阵营名称。
+            camp: 阵营枚举。
 
         Returns:
             int: 该阵营存活玩家数。
@@ -287,8 +287,8 @@ class GameState:
             round_number=self.round_number,
             total_players=len(self.players),
             alive_players=len(alive),
-            werewolves_alive=self.count_alive_by_camp("werewolf"),
-            villagers_alive=self.count_alive_by_camp("villager"),
+            werewolves_alive=self.count_alive_by_camp(Camp.WEREWOLF),
+            villagers_alive=self.count_alive_by_camp(Camp.VILLAGER),
         )
 
     def __repr__(self) -> str:

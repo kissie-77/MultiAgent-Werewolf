@@ -1,10 +1,10 @@
-"""根据玩家配置构建 AgentScope ReAct Agent 的工厂。"""
+﻿"""根据玩家配置构建 AgentScope ReAct Agent 的工厂。"""
 
 from __future__ import annotations
 
 import os
 
-from llm_werewolf.core.env import load_project_dotenv
+from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 from typing import TYPE_CHECKING, Any
@@ -15,47 +15,14 @@ from agentscope.memory import InMemoryMemory
 from agentscope.model import OpenAIChatModel
 from agentscope.tool import Toolkit
 
-from llm_werewolf.strategy.role_prompts import PlanStrategies, RolePrompts
-from llm_werewolf.core.config import PlayerConfig
+from llm_werewolf.game_runtime.config import PlayerConfig
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 if TYPE_CHECKING:
-    from llm_werewolf.core.player import Player
+    from llm_werewolf.game_runtime.player import Player
 
-# 将 Role.config.name（运行时）映射到 strategy/role_prompts.py 中的 RolePrompts 键
-GAME_ROLE_TO_PROMPT_KEY: dict[str, str] = {
-    "Villager": "villager",
-    "Seer": "prophet",
-    "Witch": "witch",
-    "Hunter": "hunter",
-    "Guard": "guard",
-    "Werewolf": "wolf",
-    "Alpha Wolf": "wolf_king",
-    "White Wolf": "wolf",
-    "Wolf Beauty": "wolf",
-    "Guardian Wolf": "wolf",
-    "Hidden Wolf": "wolf",
-    "Nightmare Wolf": "wolf",
-    "Blood Moon Apostle": "wolf",
-    "Idiot": "villager",
-    "Elder": "villager",
-    "Knight": "villager",
-    "Cupid": "villager",
-    "Raven": "villager",
-    "Magician": "villager",
-    "Graveyard Keeper": "villager",
-    "Thief": "villager",
-    "Lover": "villager",
-}
-
-PROMPT_KEY_TO_ROLE_CONFIG: dict[str, dict[str, str]] = {
-    "villager": RolePrompts.VILLAGER,
-    "prophet": RolePrompts.PROPHET,
-    "witch": RolePrompts.WITCH,
-    "wolf": RolePrompts.WOLF,
-    "wolf_king": RolePrompts.WOLF_KING,
-    "guard": RolePrompts.GUARD,
-    "hunter": RolePrompts.HUNTER,
-}
+GAME_ROLE_TO_PROMPT_KEY = PromptManager.GAME_ROLE_TO_PROMPT_KEY
+PROMPT_KEY_TO_ROLE_CONFIG = PromptManager.get_role_strategy_configs()
 
 
 def player_id_to_seat(player_id: str) -> int:
@@ -65,8 +32,7 @@ def player_id_to_seat(player_id: str) -> int:
 
 def resolve_plan_text(plan_name: str, prompt_role_key: str) -> str:
     """将策略计划名称解析为对应角色的 prompt 文本。"""
-    plan = PlanStrategies.get_plan_by_name(plan_name)
-    return plan.get(prompt_role_key, plan.get("villager", "自由发挥"))
+    return PromptManager.resolve_plan_text(plan_name, prompt_role_key)
 
 
 def build_system_prompt(
@@ -74,16 +40,11 @@ def build_system_prompt(
     game_role_name: str,
     plan_text: str,
 ) -> str:
-    """为已知角色的就座玩家构建 RolePrompts.BASE_PROMPT。"""
-    prompt_role_key = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
-    role_config = PROMPT_KEY_TO_ROLE_CONFIG.get(prompt_role_key, RolePrompts.VILLAGER)
-
-    return RolePrompts.BASE_PROMPT.format(
-        number=seat_number,
-        role_name=role_config["role_name"],
-        role_instruction=role_config["role_instruction"],
-        suggestion=role_config["suggestion"],
-        plan=plan_text,
+    """为已知角色的就座玩家构建系统 prompt。"""
+    return PromptManager.build_role_strategy_prompt(
+        seat_number,
+        game_role_name,
+        plan_text,
     )
 
 
@@ -142,7 +103,7 @@ def configure_agents_for_players(
         seat = player_id_to_seat(player.player_id)
         role_name = player.get_role_name()
         plan_name = getattr(agent, "plan_name", None) or default_plan
-        prompt_key = GAME_ROLE_TO_PROMPT_KEY.get(role_name, "villager")
+        prompt_key = PromptManager.get_prompt_role_key(role_name)
         plan_text = resolve_plan_text(plan_name, prompt_key)
 
         bind_prompt = getattr(agent, "bind_role_prompt", None)

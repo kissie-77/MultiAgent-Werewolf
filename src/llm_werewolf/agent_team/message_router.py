@@ -1,4 +1,4 @@
-"""由引擎控制的路由：谁能听到什么在此决定，不由 Agent 自行决定。
+﻿"""由引擎控制的路由：谁能听到什么在此决定，不由 Agent 自行决定。
 
 Agent 仅产出发言（public_speech / private_thought）或接收消息；
 Hub 在 ``MessageRouter`` 按游戏规则解析受众后再投递。
@@ -11,7 +11,7 @@ from llm_werewolf.agent_team.visibility import (
     VisibilityChannel,
     audience_for_channel,
 )
-from llm_werewolf.core.types import Camp, EventType, PlayerProtocol
+from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
 
 
 class MessageRouter:
@@ -73,7 +73,7 @@ class MessageRouter:
 
     @staticmethod
     def wolf_player_ids(alive_players: list[PlayerProtocol]) -> list[str]:
-        from llm_werewolf.core.roles.names import participates_in_wolf_team
+        from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 
         return [
             p.player_id

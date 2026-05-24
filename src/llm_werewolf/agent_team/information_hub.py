@@ -1,4 +1,4 @@
-"""基于 MsgHub 的 Agent 交互信息隔离。
+﻿"""基于 MsgHub 的 Agent 交互信息隔离。
 
 每次 LLM 调用在面向正确受众的 MsgHub 作用域内执行：
 - PUBLIC：所有存活玩家可听广播（白天讨论、警上发言、旁白）
@@ -23,11 +23,11 @@ from llm_werewolf.agent_team.visibility import (
     RoutedMessage,
     VisibilityChannel,
 )
-from llm_werewolf.core.decisions import SpeechDecision
-from llm_werewolf.core.phase_outputs import ActionPhase
-from llm_werewolf.core.prompts.actions import EngineContexts
-from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
-from llm_werewolf.core.vote_intention import (
+from llm_werewolf.strategy.decisions import SpeechDecision
+from llm_werewolf.strategy.phase_outputs import ActionPhase
+from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
+from llm_werewolf.strategy.vote_intention import (
     SpeechVoteIntentionRecord,
     VoteIntentionAnchor,
     VoteIntentionEntry,
@@ -37,7 +37,7 @@ from llm_werewolf.core.vote_intention import (
 )
 
 if TYPE_CHECKING:
-    from llm_werewolf.core.player import Player
+    from llm_werewolf.game_runtime.player import Player
 
 
 class InformationHub:
@@ -325,7 +325,7 @@ class InformationHub:
                     )
                 )
                 if on_vote_intention_record:
-                    from llm_werewolf.core.vote_intention import SpeechVoteIntentionRecord
+                    from llm_werewolf.strategy.vote_intention import SpeechVoteIntentionRecord
 
                     on_vote_intention_record(
                         SpeechVoteIntentionRecord(
@@ -350,7 +350,7 @@ class InformationHub:
                     context,
                     EngineContexts.hub_roundtable_memory_notice(channel.value),
                 ])
-                from llm_werewolf.core.phase_outputs import resolve_roundtable_phase
+                from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
 
                 rt_phase = resolve_roundtable_phase(
                     channel=channel.value, phase=phase
@@ -508,7 +508,7 @@ class InformationHub:
         round_number: int | None = None,
         phase: str | None = None,
     ):
-        from llm_werewolf.core.decisions import WitchNightDecision
+        from llm_werewolf.strategy.decisions import WitchNightDecision
 
         context = self._merge_private_context(actor, additional_context)
 
@@ -617,7 +617,7 @@ class InformationHub:
         if speaker.agent is None:
             return SpeechDecision(public_speech="（无公开发言）", private_thought=None)
 
-        from llm_werewolf.core.phase_outputs import resolve_roundtable_phase
+        from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
 
         rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
         decision = await WerewolfAdapterBridge.request_speech(

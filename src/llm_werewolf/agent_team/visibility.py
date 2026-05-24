@@ -1,4 +1,4 @@
-"""各游戏阶段信息隔离用的可见性通道。"""
+﻿"""各游戏阶段信息隔离用的可见性通道。"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from llm_werewolf.core.player import Player
+    from llm_werewolf.game_runtime.player import Player
 
 
 class VisibilityChannel(str, Enum):
@@ -45,7 +45,7 @@ def audience_for_channel(
     players: list[Player],
 ) -> list[str]:
     """解析可收听某通道的 player_id（仅存活玩家，不按 Agent 过滤）。"""
-    from llm_werewolf.core.types import Camp
+    from llm_werewolf.game_runtime.types import Camp
 
     alive = [p for p in players if p.is_alive()]
     if channel == VisibilityChannel.PUBLIC:

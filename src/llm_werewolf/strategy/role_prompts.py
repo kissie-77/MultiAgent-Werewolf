@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """狼人杀角色策略提示词。
 
 Prompt v2：角色策略卡 + 多 Agent 行为准则。
@@ -172,7 +172,7 @@ _CATALOG_ROLE_SEAT_ACTION: dict[str, str] = {
 
 def build_role_seat_action_map() -> dict[str, str]:
     """将运行时 Role.config.name 与目录键映射到选座/行动 prompt。"""
-    from llm_werewolf.core.roles.registry import CATALOG_TO_RUNTIME_NAME
+    from llm_werewolf.game_runtime.roles.registry import CATALOG_TO_RUNTIME_NAME
 
     merged = dict(_CATALOG_ROLE_SEAT_ACTION)
     for catalog, runtime in CATALOG_TO_RUNTIME_NAME.items():

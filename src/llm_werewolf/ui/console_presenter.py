@@ -1,4 +1,4 @@
-"""控制台展示器，用于美化游戏输出。"""
+﻿"""控制台展示器，用于美化游戏输出。"""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.console import Console
 
-from llm_werewolf.core.types import Event, EventType
+from llm_werewolf.game_runtime.types import Event, EventType
 
 if TYPE_CHECKING:
-    from llm_werewolf.core.locale import Locale
+    from llm_werewolf.game_runtime.locale import Locale
 
 console = Console()
 

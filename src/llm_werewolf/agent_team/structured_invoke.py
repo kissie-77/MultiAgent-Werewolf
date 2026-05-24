@@ -1,4 +1,4 @@
-"""通过 generate_response → Msg.metadata 的统一 AgentScope 结构化输出。"""
+﻿"""通过 generate_response → Msg.metadata 的统一 AgentScope 结构化输出。"""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from llm_werewolf.core.decisions import (
+from llm_werewolf.strategy.decisions import (
     GENERATE_RESPONSE_INSTRUCTION,
     SeatChoiceDecision,
     SpeechDecision,

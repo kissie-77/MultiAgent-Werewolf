@@ -1,11 +1,11 @@
-import json
+﻿import json
 import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from llm_werewolf.core.serialization import serialize_game_state
-from llm_werewolf.core.types import Event, GameStateProtocol
+from llm_werewolf.game_runtime.serialization import serialize_game_state
+from llm_werewolf.game_runtime.types import Event, GameStateProtocol
 from llm_werewolf.evaluation.models import CheckResult
 
 

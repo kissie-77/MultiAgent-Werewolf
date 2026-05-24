@@ -1,4 +1,4 @@
-"""AgentScope Agent 适配器，用于 LLMWerewolf 集成。
+﻿"""AgentScope Agent 适配器，用于 LLMWerewolf 集成。
 
 本模块封装 AgentScope 的 AgentBase，
 使其符合 LLMWerewolf 的 AgentProtocol 接口。
@@ -14,14 +14,14 @@ from openai import RateLimitError
 from agentscope.message import Msg as AgentScopeMsg
 
 from llm_werewolf.agent_team.base import BaseAgent
-from llm_werewolf.core.decisions import (
+from llm_werewolf.strategy.decisions import (
     SpeechDecision,
     extract_public_text,
     is_valid_public_speech,
 )
 from llm_werewolf.agent_team.structured_invoke import unwrap_structured_metadata
-from llm_werewolf.adapter.message import MessageAdapter, Msg
-from llm_werewolf.strategy.role_prompts import RolePrompts, PlanStrategies
+from llm_werewolf.agent_team.message import MessageAdapter, Msg
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.agent_team.serial_calls import run_serial_agent_call
 
 
@@ -128,33 +128,23 @@ class AgentScopeWerewolfAgent(BaseAgent):
     def _init_system_prompt(self) -> None:
         """根据角色配置初始化本地对话历史镜像。"""
         if self.game_role_name:
-            from llm_werewolf.agent_team.factory import build_system_prompt
-
-            sys_prompt = build_system_prompt(self.number, self.game_role_name, self.plan)
+            sys_prompt = PromptManager.build_role_strategy_prompt(
+                self.number,
+                self.game_role_name,
+                self.plan,
+            )
         else:
-            role_config = self._get_role_config()
-            sys_prompt = RolePrompts.BASE_PROMPT.format(
-                number=self.number,
-                role_name=role_config["role_name"],
-                role_instruction=role_config["role_instruction"],
-                suggestion=role_config["suggestion"],
-                plan=self.plan,
+            sys_prompt = PromptManager.build_prompt_key_strategy_prompt(
+                self.number,
+                self.role,
+                self.plan,
             )
 
         self.chat_history = [{"role": "system", "content": sys_prompt}]
 
     def _get_role_config(self) -> dict:
         """获取角色配置。"""
-        role_map = {
-            "villager": RolePrompts.VILLAGER,
-            "prophet": RolePrompts.PROPHET,
-            "witch": RolePrompts.WITCH,
-            "wolf": RolePrompts.WOLF,
-            "wolf_king": RolePrompts.WOLF_KING,
-            "guard": RolePrompts.GUARD,
-            "hunter": RolePrompts.HUNTER,
-        }
-        return role_map.get(self.role, RolePrompts.VILLAGER)
+        return PromptManager.get_role_strategy_config(self.role)
 
     @property
     def role_name(self) -> str:
@@ -270,7 +260,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 )
                 if metadata:
                     if structured_model is SpeechDecision:
-                        from llm_werewolf.core.decisions import (
+                        from llm_werewolf.strategy.decisions import (
                             metadata_looks_like_wrong_schema_for_speech,
                         )
 
@@ -282,7 +272,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                         except Exception:
                             decision = structured_model.model_construct(**metadata)
                         if structured_model is SpeechDecision:
-                            from llm_werewolf.core.decisions import normalize_speech_decision
+                            from llm_werewolf.strategy.decisions import normalize_speech_decision
 
                             decision = normalize_speech_decision(
                                 decision,
@@ -470,7 +460,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     @staticmethod
     def _message_expects_seat_only(message: str) -> bool:
         """prompt 要求座位号/投票而非发言时返回 True。"""
-        from llm_werewolf.core.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
+        from llm_werewolf.strategy.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
 
         if ROUNDTABLE_SPEECH_ONLY_MARKER in message:
             return False

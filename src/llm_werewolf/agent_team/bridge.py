@@ -1,4 +1,4 @@
-"""LLM 输出、AgentScope Agent 与游戏引擎之间的统一适配层。
+﻿"""LLM 输出、AgentScope Agent 与游戏引擎之间的统一适配层。
 
 所有基于座位的决策、结构化输出解析与 Agent 调用应经本模块
 （通过 InformationHub / PhaseInteraction）完成。
@@ -20,7 +20,7 @@ from llm_werewolf.agent_team.structured_invoke import (
     coerce_speech,
     invoke_structured,
 )
-from llm_werewolf.core.decisions import (
+from llm_werewolf.strategy.decisions import (
     GENERATE_RESPONSE_INSTRUCTION,
     MultiSeatChoiceDecision,
     SeatChoiceDecision,
@@ -36,9 +36,9 @@ from llm_werewolf.core.decisions import (
     vote_intention_schema_instruction,
     witch_night_schema_instruction,
 )
-from llm_werewolf.core.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
-from llm_werewolf.core.phase_outputs import ActionPhase, RoundtablePhase, action_phase_instruction
-from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
+from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
+from llm_werewolf.strategy.phase_outputs import ActionPhase, RoundtablePhase, action_phase_instruction
+from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
     pass
@@ -291,7 +291,7 @@ class WerewolfAdapterBridge:
         structured: bool = True,
         roundtable_phase: RoundtablePhase | None = None,
     ) -> str:
-        from llm_werewolf.core.phase_outputs import roundtable_phase_instruction
+        from llm_werewolf.strategy.phase_outputs import roundtable_phase_instruction
 
         parts = [context]
         if instruction:

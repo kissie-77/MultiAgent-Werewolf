@@ -1,8 +1,8 @@
-"""使用统一 AgentScope 风格 prompt 的 Agent 混入类。"""
+﻿"""使用统一 AgentScope 风格 prompt 的 Agent 混入类。"""
 
-from llm_werewolf.core.roles.catalog import get_definition_by_role_class
-from llm_werewolf.core.roles.definition import RoleDefinition
-from llm_werewolf.core.prompts.manager import PromptManager
+from llm_werewolf.game_runtime.roles.catalog import get_definition_by_role_class
+from llm_werewolf.game_runtime.roles.definition import RoleDefinition
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 
 class PromptAgentMixin:

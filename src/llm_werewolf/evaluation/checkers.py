@@ -1,5 +1,5 @@
-from llm_werewolf.core.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
-from llm_werewolf.core.types import Camp, Event, EventType
+﻿from llm_werewolf.strategy.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
+from llm_werewolf.game_runtime.types import Camp, Event, EventType
 
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 from llm_werewolf.evaluation.models import CheckResult, CheckSeverity

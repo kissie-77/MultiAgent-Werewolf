@@ -8,9 +8,6 @@
 
 **技术路线**：AgentScope 作为 Agent 执行底座 + 自建 GameEngine 管理游戏逻辑
 
-**参考项目**：
-- [werewolf_kills_agentscope](https://github.com/muranUSTB/werewolf_kills_agentscope) — AgentScope 用法 + 提示词设计
-
 ## 快速开始
 
 ### 环境要求
@@ -66,15 +63,12 @@ uv run werewolf configs/demo.yaml
 
 ```
 src/llm_werewolf/
-├── cli.py / tui.py        # 入口（bootstrap 创建玩家并接线 AgentScope）
-├── adapter/               # 适配层：InformationHub、Bridge、RolePrompts、bootstrap
-├── integration/           # AgentScope ReAct 与 Msg 集成
-├── agents/                # BaseAgent / Demo / LLM 实现
-├── core/                  # 游戏引擎、角色、阶段交互、配置
-│   ├── engine/            # 阶段 Mixin（经 PhaseInteraction 驱动 AI）
-│   ├── roles/             # 角色与夜晚行动编排
-│   └── prompts/           # OpenAI 轨 PromptManager / ActionSelector（兼容）
-└── ui/                    # TUI 界面
+├── game_runtime/          # 狼人杀规则、角色、动作、状态、引擎与配置
+├── agent_team/            # AgentScope Agent、消息路由、信息隔离、LLM 调用封装
+├── strategy/              # 角色 Prompt、结构化决策、阶段输出契约、投票意向
+├── interface/             # CLI / TUI / 评测入口与模式选择
+├── ui/                    # TUI 界面与展示组件
+└── evaluation/            # 对局评测、日志记录、复盘分析
 ```
 
 ## 当前进度
@@ -101,7 +95,6 @@ src/llm_werewolf/
 ## 致谢
 
 - [AgentScope](https://github.com/agentscope-ai/agentscope) — Agent 执行框架
-- [werewolf_kills_agentscope](https://github.com/muranUSTB/werewolf_kills_agentscope) — 提示词设计参考
 
 ## License
 

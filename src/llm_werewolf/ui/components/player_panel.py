@@ -1,9 +1,9 @@
-from typing import Any
+﻿from typing import Any
 
 from rich.table import Table
 from textual.widgets import RichLog
 
-from llm_werewolf.core.game_state import GameState
+from llm_werewolf.game_runtime.game_state import GameState
 
 
 class PlayerPanel(RichLog):

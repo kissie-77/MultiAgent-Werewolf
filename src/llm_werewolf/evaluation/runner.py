@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import random
 import time
@@ -6,11 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from llm_werewolf.core import GameEngine
-from llm_werewolf.agents.base import DemoAgent
-from llm_werewolf.core.config import GameConfig
-from llm_werewolf.core.role_registry import create_roles
-from llm_werewolf.core.types import Event, EventType
+from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.agent_team.base import DemoAgent
+from llm_werewolf.game_runtime.config import GameConfig
+from llm_werewolf.game_runtime.role_registry import create_roles
+from llm_werewolf.game_runtime.types import Event, EventType
 from llm_werewolf.evaluation.checkers import (
     AsyncFlowChecker,
     DecisionConsistencyChecker,

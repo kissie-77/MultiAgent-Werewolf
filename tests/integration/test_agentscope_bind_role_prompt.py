@@ -1,8 +1,8 @@
-"""面向协作者的 AgentScope agent 上 bind_role_prompt 的测试。"""
+﻿"""面向协作者的 AgentScope agent 上 bind_role_prompt 的测试。"""
 
 from unittest.mock import MagicMock, patch
 
-from llm_werewolf.core.config import PlayerConfig
+from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
 
 

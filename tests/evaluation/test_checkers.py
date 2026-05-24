@@ -1,4 +1,4 @@
-from llm_werewolf.core.types import Camp, Event, EventType
+﻿from llm_werewolf.game_runtime.types import Camp, Event, EventType
 from llm_werewolf.evaluation.checkers import (
     PromptBadCaseChecker,
     AsyncFlowChecker,

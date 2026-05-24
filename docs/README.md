@@ -24,7 +24,7 @@
 |------|------|
 | [adr/](./adr/) | 架构决策记录 |
 | [adr/0005-night-skill-scheduler.md](./adr/0005-night-skill-scheduler.md) | 夜间技能顺序与女巫刀口 |
-| [LOCAL_ONLY-serial-agent-calls.md](./LOCAL_ONLY-serial-agent-calls.md) | 本地 API 限流（`adapter/serial_calls.py`） |
+| [LOCAL_ONLY-serial-agent-calls.md](./LOCAL_ONLY-serial-agent-calls.md) | 本地 API 限流（`agent_team/serial_calls.py`） |
 
 ## 代码入口对照
 
@@ -32,16 +32,16 @@
 |------|------|
 | 控制台对局 | `src/llm_werewolf/interface/cli.py` |
 | TUI 对局 | `src/llm_werewolf/interface/tui.py` |
-| 离线评测 | `src/llm_werewolf/eval_cli.py`（`werewolf-eval`） |
-| 游戏引擎 | `src/llm_werewolf/core/engine/game_engine.py` |
-| 创建玩家 | `src/llm_werewolf/agents/base.py` → `create_agent()` |
-| AgentScope 实现 | `src/llm_werewolf/integration/agentscope.py` |
-| 统一中文 Prompt | `src/llm_werewolf/core/prompts/manager.py` |
-| 角色注册表 | `src/llm_werewolf/core/roles/catalog.py`、`registry.py` |
-| MsgHub / Bridge | `adapter/information_hub.py`、`adapter/bridge.py` |
-| AgentScope 绑定 | `adapter/setup.py` → `bind_agentscope_roles()` |
-| 夜间顺序 | `core/night_scheduler.py`、`core/role_night_plans.py` |
-| 事件可见性 | `core/event_visibility.py` |
+| 离线评测 | `src/llm_werewolf/interface/eval_cli.py`（`werewolf-eval`） |
+| 游戏引擎 | `src/llm_werewolf/game_runtime/engine/game_engine.py` |
+| 创建玩家 | `src/llm_werewolf/agent_team/base.py` → `create_agent()` |
+| AgentScope 实现 | `src/llm_werewolf/agent_team/agentscope_agent.py` |
+| 统一中文 Prompt | `src/llm_werewolf/game_runtime/prompts/manager.py` |
+| 角色注册表 | `src/llm_werewolf/game_runtime/roles/catalog.py`、`registry.py` |
+| MsgHub / Bridge | `src/llm_werewolf/agent_team/information_hub.py`、`bridge.py` |
+| AgentScope 绑定 | `src/llm_werewolf/interface/bootstrap.py` → `bind_agentscope_roles()` |
+| 夜间顺序 | `src/llm_werewolf/game_runtime/night_scheduler.py`、`role_night_plans.py` |
+| 事件可见性 | `src/llm_werewolf/game_runtime/event_visibility.py` |
 
 ## 配置样例
 

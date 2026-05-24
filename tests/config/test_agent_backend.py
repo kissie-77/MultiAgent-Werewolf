@@ -1,6 +1,8 @@
 """PlayersConfig 智能体后端选择的测试。"""
 
-from llm_werewolf.core.config import PlayerConfig, PlayersConfig
+import pytest
+
+from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
 
 
 def _six_demo_players() -> list[PlayerConfig]:
@@ -12,11 +14,20 @@ def test_use_agentscope_backend_default() -> None:
     assert cfg.use_agentscope_backend is True
 
 
-def test_use_agentscope_backend_openai_legacy() -> None:
+def test_rejects_removed_single_call_llm_backends() -> None:
     for backend in ("openai", "OPENAI", "legacy", "llm"):
-        cfg = PlayersConfig(
-            language="zh-CN",
-            agent_backend=backend,
-            players=_six_demo_players(),
-        )
-        assert cfg.use_agentscope_backend is False
+        with pytest.raises(ValueError, match="agent_backend only supports 'agentscope'"):
+            PlayersConfig(
+                language="zh-CN",
+                agent_backend=backend,
+                players=_six_demo_players(),
+            )
+
+
+def test_accepts_agentscope_backend_value() -> None:
+    cfg = PlayersConfig(
+        language="zh-CN",
+        agent_backend="agentscope",
+        players=_six_demo_players(),
+    )
+    assert cfg.use_agentscope_backend is True

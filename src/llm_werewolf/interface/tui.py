@@ -1,17 +1,17 @@
-import fire
+﻿import fire
 import logfire
 
-from llm_werewolf.core.env import load_project_dotenv
+from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 
-from llm_werewolf.adapter.bootstrap import (
+from llm_werewolf.interface.bootstrap import (
     prepare_game_roster,
     wire_agentscope_after_setup,
 )
 from llm_werewolf.ui import run_tui
-from llm_werewolf.core import GameEngine
-from llm_werewolf.core.utils import load_config
+from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.interface.modes import resolve_config_path
 
 

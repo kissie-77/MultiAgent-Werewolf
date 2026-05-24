@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, Field
 
-from llm_werewolf.core.config import create_game_config_from_player_count
+from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 
 
 class EvaluationScenario(BaseModel):

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .agents/skills/change-logger/scripts/log_change.py"
+          }
+        ]
+      }
+    ]
+  }
+}

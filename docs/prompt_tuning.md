@@ -15,10 +15,13 @@
 | --- | --- | --- | --- | --- | --- |
 | v1_baseline | 2026-05-23 | `src/llm_werewolf/adapter/prompts.py` 中的原始角色 Prompt | 项目初始实现 | 提供基础角色身份说明和输出格式约束 | 基线版本 |
 | v2_role_strategy | 2026-05-23 | 改写村民、预言家、女巫、狼人、狼王、守卫、猎人 7 个核心角色 Prompt | 评分标准与本项目角色目标 | 完成初始策略化改写，提升角色策略、信息边界意识、发言质量、投票逻辑和技能使用决策 | 已实现，待对局验证 |
+| v2_strategy_module | 2026-05-24 | `src/llm_werewolf/strategy/role_prompts.py` | 工程架构重构计划 | 将角色策略 Prompt 从 adapter 适配层迁入 strategy 策略层，保留 `adapter/prompts.py` 兼容导出 | 已实现 |
 
 ## v2_role_strategy 改动说明
 
 本次 v2 Prompt 改写将原本较短的身份描述升级为“角色策略卡”。这是一次基于评分标准和角色设计目标的初始策略化改写，尚未基于真实对局 bad case 完成闭环调优。
+
+当前角色策略卡的权威位置为 `src/llm_werewolf/strategy/role_prompts.py`。`src/llm_werewolf/adapter/prompts.py` 仅作为旧 import 的兼容导出。
 
 主要改动：
 

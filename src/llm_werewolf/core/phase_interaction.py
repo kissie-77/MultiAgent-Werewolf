@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from llm_werewolf.adapter.information_hub import InformationHub
-from llm_werewolf.adapter.visibility import VisibilityChannel
+from llm_werewolf.agent_team.information_hub import InformationHub
+from llm_werewolf.agent_team.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision, WitchNightDecision
 from llm_werewolf.core.vote_intention import SpeechVoteIntentionRecord, VoteIntentionTracker
 from llm_werewolf.core.phase_outputs import ActionPhase
 from llm_werewolf.core.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
-    from llm_werewolf.adapter.visibility import RoutedMessage
+    from llm_werewolf.agent_team.visibility import RoutedMessage
 
 
 class PhaseInteraction:

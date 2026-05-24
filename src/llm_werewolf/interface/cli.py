@@ -16,18 +16,29 @@ from llm_werewolf.adapter.bootstrap import (
 from llm_werewolf.core import GameEngine
 from llm_werewolf.core.utils import load_config
 from llm_werewolf.core.locale import Locale
+from llm_werewolf.interface.modes import resolve_config_path
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 console = Console()
 
 
-async def main(config: str) -> None:
+async def main(
+    config: str | None = None,
+    participation: str = "all_agent",
+    rules: str = "badge_flow",
+) -> None:
     """在控制台模式下运行狼人杀游戏（自动进行）。
 
     Args:
-        config: YAML 配置文件路径
+        config: YAML 配置文件路径；提供后优先于模式选择。
+        participation: 参与方式，例如 all_agent。
+        rules: 规则模式，例如 basic、badge_flow、extended_roles。
     """
-    config_path = Path(config)
+    config_path = resolve_config_path(
+        config,
+        participation=participation,
+        rules=rules,
+    )
     players_config = load_config(config_path=config_path)
 
     num_players = len(players_config.players)
@@ -109,9 +120,13 @@ async def main(config: str) -> None:
         raise
 
 
-def _run_main(config: str) -> None:
+def _run_main(
+    config: str | None = None,
+    participation: str = "all_agent",
+    rules: str = "badge_flow",
+) -> None:
     """同步包装器，用于运行异步 main 函数。"""
-    asyncio.run(main(config))
+    asyncio.run(main(config, participation=participation, rules=rules))
 
 
 def entry() -> None:

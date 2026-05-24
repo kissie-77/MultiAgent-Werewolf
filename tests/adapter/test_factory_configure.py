@@ -4,11 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_werewolf.adapter.factory import configure_agents_for_players
+from llm_werewolf.agent_team.factory import configure_agents_for_players
 from llm_werewolf.core.config import PlayerConfig
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.roles.villager import Seer
-from llm_werewolf.integration.agentscope import AgentScopeWerewolfAgent
+from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
 
 
 def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
@@ -26,7 +26,7 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
     )
     player = Player("player_3", "P1", Seer, agent=agent, ai_model="gpt-test")
 
-    with patch("llm_werewolf.adapter.factory.create_react_agent") as mock_create:
+    with patch("llm_werewolf.agent_team.factory.create_react_agent") as mock_create:
         mock_create.return_value = MagicMock(name="ReActAgent")
         configure_agents_for_players([player], default_plan="default")
 
@@ -37,7 +37,7 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
 
 
 def test_configure_agents_skips_agents_without_configure_role() -> None:
-    from llm_werewolf.agents.base import LLMAgent
+    from llm_werewolf.agent_team.base import LLMAgent
 
     agent = LLMAgent(
         name="P1",
@@ -52,7 +52,7 @@ def test_configure_agents_skips_agents_without_configure_role() -> None:
 
 
 def test_agent_uses_structured_output_requires_react_backend() -> None:
-    from llm_werewolf.adapter.structured_invoke import agent_uses_structured_output
+    from llm_werewolf.agent_team.structured_invoke import agent_uses_structured_output
 
     agent = AgentScopeWerewolfAgent(name="P1")
     assert agent_uses_structured_output(agent) is False

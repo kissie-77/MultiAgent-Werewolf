@@ -1,4 +1,4 @@
-from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
+from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.roles import Villager, Werewolf
 

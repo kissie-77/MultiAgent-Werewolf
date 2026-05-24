@@ -9,7 +9,7 @@ from llm_werewolf.core.config import GameConfig
 from llm_werewolf.core.events import EventLogger
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.observation import ObservationBuilder
-from llm_werewolf.adapter.information_hub import InformationHub
+from llm_werewolf.agent_team.information_hub import InformationHub
 from llm_werewolf.core.event_visibility import HUB_DIALOGUE_EVENT_TYPES, resolve_visible_to
 from llm_werewolf.core.phase_interaction import PhaseInteraction
 from llm_werewolf.core.types import Camp

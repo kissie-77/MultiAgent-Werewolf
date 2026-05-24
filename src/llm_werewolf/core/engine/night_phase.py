@@ -4,8 +4,8 @@ import random
 from typing import TYPE_CHECKING
 from collections.abc import Callable
 
-from llm_werewolf.adapter.message_router import MessageRouter
-from llm_werewolf.adapter.visibility import VisibilityChannel
+from llm_werewolf.agent_team.message_router import MessageRouter
+from llm_werewolf.agent_team.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision
 from llm_werewolf.core.types import Camp, EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale

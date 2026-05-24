@@ -7,7 +7,7 @@ __all__ = ["AgentScopeWerewolfAgent", "MessageAdapter", "Msg"]
 
 def __getattr__(name: str):
     if name == "AgentScopeWerewolfAgent":
-        from llm_werewolf.integration.agentscope import AgentScopeWerewolfAgent
+        from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
 
         return AgentScopeWerewolfAgent
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

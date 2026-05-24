@@ -1,13 +1,13 @@
-"""玩家 Agent（Demo、人类、LLM、工厂）。"""
+"""Compatibility exports for player Agent classes."""
 
-from llm_werewolf.agents.base import (
+from llm_werewolf.agent_team.base import (
     BaseAgent,
     DemoAgent,
     HumanAgent,
     LLMAgent,
     create_agent,
 )
-from llm_werewolf.agents.mixin import PromptAgentMixin
+from llm_werewolf.agent_team.mixin import PromptAgentMixin
 
 __all__ = [
     "BaseAgent",

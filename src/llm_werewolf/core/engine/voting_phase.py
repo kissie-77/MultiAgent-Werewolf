@@ -3,9 +3,10 @@
 import asyncio
 from collections.abc import Callable
 
-from llm_werewolf.adapter.visibility import VisibilityChannel
+from llm_werewolf.agent_team.visibility import VisibilityChannel
 from llm_werewolf.core.decisions import SpeechDecision
 from llm_werewolf.core.phase_outputs import ActionPhase, action_phase_instruction
+from llm_werewolf.core.prompts.actions import EngineContexts
 from llm_werewolf.core.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.core.locale import Locale
 from llm_werewolf.core.actions import VoteAction
@@ -13,6 +14,7 @@ from llm_werewolf.core.roles.names import RoleNames
 from llm_werewolf.core.game_state import GameState
 from llm_werewolf.core.events import EventLogger
 from llm_werewolf.core.actions.base import Action
+from llm_werewolf.strategy.role_prompts import GamePrompts
 
 
 class VotingPhaseMixin:
@@ -39,9 +41,6 @@ class VotingPhaseMixin:
         """
         if not self.game_state:
             return ""
-
-        from llm_werewolf.adapter.prompts import GamePrompts
-        from llm_werewolf.core.prompts.actions import EngineContexts
 
         context_parts = [
             self.build_player_observation(

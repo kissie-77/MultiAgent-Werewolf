@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from llm_werewolf.adapter.factory import configure_agents_for_players
+from llm_werewolf.agent_team.factory import configure_agents_for_players
 from llm_werewolf.core.agent import create_agent
 from llm_werewolf.core.config import PlayersConfig, create_game_config_from_player_count
 from llm_werewolf.core.role_registry import create_roles
@@ -55,7 +55,7 @@ def wire_agentscope_after_setup(
     engine: GameEngine,
     players_config: PlayersConfig,
 ) -> None:
-    """在 ``GameEngine.setup_game`` 之后绑定 RolePrompts 并创建 ReAct Agent。"""
+    """在 ``GameEngine.setup_game`` 之后绑定策略 Prompt 并创建 ReAct Agent。"""
     if not players_config.use_agentscope_backend:
         return
     bind_agentscope_roles(engine.game_state, default_plan=players_config.default_plan)

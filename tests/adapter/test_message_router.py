@@ -1,7 +1,7 @@
 """引擎控制消息路由的测试。"""
 
-from llm_werewolf.adapter.message_router import MessageRouter
-from llm_werewolf.adapter.visibility import VisibilityChannel
+from llm_werewolf.agent_team.message_router import MessageRouter
+from llm_werewolf.agent_team.visibility import VisibilityChannel
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.roles import Villager, Werewolf
 from llm_werewolf.core.types import Camp, EventType

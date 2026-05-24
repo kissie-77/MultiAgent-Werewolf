@@ -1,6 +1,6 @@
 """发言与仅座位 [[...]] 解析的测试。"""
 
-from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
+from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 import pytest
 
 from llm_werewolf.core.decisions import (

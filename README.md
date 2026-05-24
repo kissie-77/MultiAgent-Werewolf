@@ -53,7 +53,7 @@ players:
 
 ```bash
 # 控制台模式（纯文本日志，推荐开发测试用）
-uv run python src/llm_werewolf/cli.py --config configs/my_game.yaml
+uv run python -m llm_werewolf.interface.cli --config configs/my_game.yaml
 
 # TUI 模式（交互式终端界面）
 uv run werewolf-tui configs/my_game.yaml

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from llm_werewolf.eval_cli import main
+from llm_werewolf.interface.eval_cli import main
 
 
 def test_eval_cli_main_writes_outputs(tmp_path: Path) -> None:

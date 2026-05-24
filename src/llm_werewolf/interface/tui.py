@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import fire
 import logfire
 
@@ -14,15 +12,26 @@ from llm_werewolf.adapter.bootstrap import (
 from llm_werewolf.ui import run_tui
 from llm_werewolf.core import GameEngine
 from llm_werewolf.core.utils import load_config
+from llm_werewolf.interface.modes import resolve_config_path
 
 
-def main(config: str) -> None:
+def main(
+    config: str | None = None,
+    participation: str = "all_agent",
+    rules: str = "badge_flow",
+) -> None:
     """使用 TUI 界面运行狼人杀游戏。
 
     Args:
-        config: YAML 配置文件路径
+        config: YAML 配置文件路径；提供后优先于模式选择。
+        participation: 参与方式，例如 all_agent。
+        rules: 规则模式，例如 basic、badge_flow、extended_roles。
     """
-    config_path = Path(config)
+    config_path = resolve_config_path(
+        config,
+        participation=participation,
+        rules=rules,
+    )
     players_config = load_config(config_path=config_path)
 
     num_players = len(players_config.players)

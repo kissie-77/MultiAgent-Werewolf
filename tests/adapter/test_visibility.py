@@ -1,4 +1,4 @@
-from llm_werewolf.adapter.visibility import VisibilityChannel, audience_for_channel
+from llm_werewolf.agent_team.visibility import VisibilityChannel, audience_for_channel
 from llm_werewolf.core.player import Player
 from llm_werewolf.core.roles import Villager, Werewolf
 

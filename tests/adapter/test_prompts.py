@@ -1,4 +1,4 @@
-"""adapter/prompts（遗留重导出）的测试。"""
+"""adapter/prompts（兼容重导出）的测试。"""
 
 from llm_werewolf.adapter.prompts import GamePrompts, PlanStrategies
 from llm_werewolf.core.prompts.system import SYSTEM_PROMPT

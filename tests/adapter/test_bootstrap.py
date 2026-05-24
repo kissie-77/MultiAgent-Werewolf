@@ -6,6 +6,7 @@ from llm_werewolf.adapter.bootstrap import (
     create_players_from_config,
     wire_agentscope_after_setup,
 )
+from llm_werewolf.agent_team.base import DemoAgent
 from llm_werewolf.core.config import PlayerConfig, PlayersConfig
 
 
@@ -16,7 +17,6 @@ def _six_demo_players() -> list[PlayerConfig]:
 def test_create_players_demo_never_agentscope_class() -> None:
     cfg = PlayersConfig(language="zh-CN", agent_backend="agentscope", players=_six_demo_players())
     players = create_players_from_config(cfg)
-    from llm_werewolf.agents.base import DemoAgent
 
     assert all(isinstance(p, DemoAgent) for p in players)
 

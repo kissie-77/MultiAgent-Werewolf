@@ -20,7 +20,7 @@ async def test_witch_collected_after_wolf_phase_not_in_pre_wolf() -> None:
     game_state = GameState([witch, wolf, seer, villager])
     game_state.round_number = 2
 
-    from llm_werewolf.adapter.information_hub import InformationHub
+    from llm_werewolf.agent_team.information_hub import InformationHub
     from llm_werewolf.core.phase_interaction import PhaseInteraction
 
     game_state.phase_interaction = PhaseInteraction(InformationHub())

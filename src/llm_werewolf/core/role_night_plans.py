@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
-from llm_werewolf.adapter.prompts import GamePrompts
-from llm_werewolf.adapter.bridge import WerewolfAdapterBridge
+from llm_werewolf.strategy.role_prompts import GamePrompts
+from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.core.phase_outputs import ActionPhase
 from llm_werewolf.core.actions.villager import (
     CupidLinkAction,

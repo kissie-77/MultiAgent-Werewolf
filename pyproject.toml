@@ -83,12 +83,12 @@ license = { text = "MIT" }
 Repository = "https://github.com/LBP97541135/MultiAgent-Werewolf"
 
 [project.scripts]
-llm-werewolf = "llm_werewolf.cli:entry"
-llm-werewolf-tui = "llm_werewolf.tui:entry"
-werewolf = "llm_werewolf.cli:entry"
-werewolf-tui = "llm_werewolf.tui:entry"
-werewolf-eval = "llm_werewolf.eval_cli:entry"
-werewolf-vote-swing = "llm_werewolf.vote_swing_cli:entry"
+llm-werewolf = "llm_werewolf.interface.cli:entry"
+llm-werewolf-tui = "llm_werewolf.interface.tui:entry"
+werewolf = "llm_werewolf.interface.cli:entry"
+werewolf-tui = "llm_werewolf.interface.tui:entry"
+werewolf-eval = "llm_werewolf.interface.eval_cli:entry"
+werewolf-vote-swing = "llm_werewolf.interface.vote_swing_cli:entry"
 
 [dependency-groups]
 dev = [
@@ -173,11 +173,11 @@ exclude = [
 
 [tool.poe.tasks]
 # Run game in console mode (auto-play)
-cli = "python ./src/llm_werewolf/cli.py"
-main = "python ./src/llm_werewolf/cli.py"
+cli = "python -m llm_werewolf.interface.cli"
+main = "python -m llm_werewolf.interface.cli"
 
 # Run game in TUI mode (interactive)
-tui = "python ./src/llm_werewolf/tui.py"
+tui = "python -m llm_werewolf.interface.tui"
 
 # Documentation
 docs_gen = "make gen-docs"

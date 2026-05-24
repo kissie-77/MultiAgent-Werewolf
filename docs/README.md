@@ -30,8 +30,8 @@
 
 | 功能 | 入口 |
 |------|------|
-| 控制台对局 | `src/llm_werewolf/cli.py` |
-| TUI 对局 | `src/llm_werewolf/tui.py` |
+| 控制台对局 | `src/llm_werewolf/interface/cli.py` |
+| TUI 对局 | `src/llm_werewolf/interface/tui.py` |
 | 离线评测 | `src/llm_werewolf/eval_cli.py`（`werewolf-eval`） |
 | 游戏引擎 | `src/llm_werewolf/core/engine/game_engine.py` |
 | 创建玩家 | `src/llm_werewolf/agents/base.py` → `create_agent()` |

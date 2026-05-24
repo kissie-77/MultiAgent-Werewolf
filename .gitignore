@@ -226,3 +226,11 @@ runs/
 configs/xiaomi.yaml
 configs/test_real_llm.yaml
 configs/human_game.yaml
+
+# Local development files
+.claude/
+.kiro/
+.env.llmwerewolf
+*.pptx
+generate_ppt.py
+add_agentscope_slides.py

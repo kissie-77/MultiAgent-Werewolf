@@ -28,7 +28,11 @@ def test_wire_agentscope_calls_bind_after_setup() -> None:
 
     with patch("llm_werewolf.interface.bootstrap.bind_agentscope_roles") as mock_bind:
         wire_agentscope_after_setup(engine, cfg)
-        mock_bind.assert_called_once_with(engine.game_state, default_plan="default")
+        mock_bind.assert_called_once_with(
+            engine.game_state,
+            default_plan="default",
+            prompt_version="v2",
+        )
 
 
 def test_wire_agentscope_backend_is_the_only_llm_backend() -> None:
@@ -38,4 +42,8 @@ def test_wire_agentscope_backend_is_the_only_llm_backend() -> None:
 
     with patch("llm_werewolf.interface.bootstrap.bind_agentscope_roles") as mock_bind:
         wire_agentscope_after_setup(engine, cfg)
-        mock_bind.assert_called_once_with(engine.game_state, default_plan="default")
+        mock_bind.assert_called_once_with(
+            engine.game_state,
+            default_plan="default",
+            prompt_version="v2",
+        )

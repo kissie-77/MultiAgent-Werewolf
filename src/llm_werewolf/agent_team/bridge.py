@@ -1,4 +1,4 @@
-﻿"""LLM 输出、AgentScope Agent 与游戏引擎之间的统一适配层。
+"""LLM 输出、AgentScope Agent 与游戏引擎之间的统一适配层。
 
 所有基于座位的决策、结构化输出解析与 Agent 调用应经本模块
 （通过 InformationHub / PhaseInteraction）完成。
@@ -780,7 +780,8 @@ class WerewolfAdapterBridge:
             parsed = WerewolfAdapterBridge.parse_speech(raw)
             if is_valid_public_speech(parsed.public_speech):
                 return parsed
+        # 最终兜底：返回一条合法的公开发言（≥15字）
         return SpeechDecision(
-            public_speech="（无公开发言）",
+            public_speech="目前场上信息还不够，我需要多听几轮发言再做判断。先观察大家的站队和投票倾向，重点关注发言前后矛盾的人。",
             private_thought=None,
         )

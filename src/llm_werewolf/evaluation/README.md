@@ -2,6 +2,8 @@
 
 这个组件用于离线评测狼人杀游戏系统本身的正确性，优先检查角色技能、信息隔离、胜负判定和异步阶段流程。它默认使用 `DemoAgent`，不需要真实模型 API key。
 
+对局结束后会自动跑 **PostGame**（`evaluation/post_game/`）：阵营匹配说服分析、Prompt 提案 JSON、**Skill 提取（MD + JSON）**（不写入运行时 v2 Prompt 正文）。真实 LLM 对局由 `interface/finalize_run.py` 触发；批量 eval 默认 `skip_llm=True`。
+
 ## 运行方式
 
 运行 6 人基础 smoke 评测：

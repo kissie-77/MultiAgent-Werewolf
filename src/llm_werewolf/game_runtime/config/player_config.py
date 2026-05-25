@@ -67,6 +67,11 @@ class PlayersConfig(BaseModel):
         default="default",
         description="Default plan strategy for AgentScope RolePrompts / PlanStrategies",
     )
+    prompt_version: str = Field(
+        default="v2",
+        description="Prompt registry version (e.g. v2). Maps to strategy/prompts/<version>/",
+        examples=["v2", "v3"],
+    )
     players: list[PlayerConfig] = Field(
         ...,
         title="Player List",
@@ -89,6 +94,16 @@ class PlayersConfig(BaseModel):
             msg = "agent_backend only supports 'agentscope'"
             raise ValueError(msg)
         return v
+
+    @field_validator("prompt_version")
+    @classmethod
+    def validate_prompt_version(cls, v: str) -> str:
+        """只接受 v 前缀的小写版本号（如 v2、v3）。"""
+        version = v.strip().lower()
+        if not version.startswith("v") or len(version) < 2:
+            msg = f"prompt_version must look like 'v2', got '{v}'"
+            raise ValueError(msg)
+        return version
 
     @field_validator("players")
     @classmethod

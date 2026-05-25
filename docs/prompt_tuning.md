@@ -16,13 +16,23 @@
 | v1_baseline | 2026-05-23 | 重构前项目内原始角色 Prompt | 项目初始实现 | 提供基础角色身份说明和输出格式约束 | 基线版本 |
 | v2_role_strategy | 2026-05-23 | 改写村民、预言家、女巫、狼人、狼王、守卫、猎人 7 个核心角色 Prompt | 评分标准与本项目角色目标 | 完成初始策略化改写，提升角色策略、信息边界意识、发言质量、投票逻辑和技能使用决策 | 已实现，待对局验证 |
 | v2_strategy_module | 2026-05-24 | `src/llm_werewolf/strategy/role_prompts.py` | 工程架构重构计划 | 将角色策略 Prompt 收口到 strategy 策略层，作为角色 Prompt 的唯一主实现 | 已实现 |
-| v2_prompt_manager | 2026-05-24 | `src/llm_werewolf/game_runtime/prompts/manager.py`、`src/llm_werewolf/agent_team/factory.py`、`src/llm_werewolf/agent_team/agentscope_agent.py` | 工程架构重构计划 | AgentScope 角色绑定统一通过 `PromptManager` 构建系统 prompt，避免 factory/agent 分散拼接角色 Prompt | 已实现，20 项相关测试通过 |
+| v2_prompt_manager | 2026-05-24 | `PromptManager` 统一构建 | 工程架构重构计划 | 已实现 |
+| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py` | 提示词版本与变量设计 | 已实现（agent.base + 7 角色外置） |
+
+## v2 变量化外置（2026-05-25）
+
+- 设计文档：[吕祎晗-提示词版本与变量设计.md](./吕祎晗-提示词版本与变量设计.md)
+- 变量 id 示例：`v2.agent.base`、`v2.role.wolf`
+- 正文路径：`src/llm_werewolf/strategy/prompts/v2/text/`、`roles/*.yaml`
+- 代码只通过 `PromptRegistry` / `PromptManager(prompt_version="v2")` 引用，**改 Prompt 优先改外置文件**
+- YAML 可选 `prompt_version: v2`（`PlayersConfig`），贯通运行时与 PostGame
+- `GamePrompts` / `PlanStrategies` 仍暂留 `role_prompts.py`（Phase 2 迁为 `v2.phase.*` / `v2.plan.*`）
 
 ## v2_role_strategy 改动说明
 
 本次 v2 Prompt 改写将原本较短的身份描述升级为“角色策略卡”。这是一次基于评分标准和角色设计目标的初始策略化改写，尚未基于真实对局 bad case 完成闭环调优。
 
-当前角色策略卡的权威位置为 `src/llm_werewolf/strategy/role_prompts.py`，旧 Prompt 入口已删除，不再保留兼容导出。
+当前角色策略卡的权威位置为 `src/llm_werewolf/strategy/prompts/v2/`（经 `prompt_registry.py` 加载）；`role_prompts.py` 保留薄封装与 `GamePrompts` / `PlanStrategies`。
 
 当前 AgentScope 运行主线不再直接拼接 `RolePrompts.BASE_PROMPT`。角色名映射、plan 解析和最终系统 prompt 构建统一由 `src/llm_werewolf/game_runtime/prompts/manager.py` 中的 `PromptManager` 提供；`agent_team/factory.py` 与 `agent_team/agentscope_agent.py` 只调用该入口。为避免运行时初始化阶段循环导入，`PromptManager` 对 `strategy.role_prompts` 使用懒加载。
 
@@ -46,6 +56,20 @@
 | 狼王 | 承担更高风险，提前准备死亡技能的高价值目标。 |
 | 守卫 | 保护疑似关键神职或强势好人，同时隐藏守护路径。 |
 | 猎人 | 避免过早暴露身份，临死开枪时基于证据而非情绪。 |
+
+## 赛后 PostGame 闭环（v2+）
+
+对局结束后由 `evaluation/post_game/` 自动运行（`interface/finalize_run.py` 触发），**不修改运行时 Prompt**，仅产出 JSON/Markdown：
+
+| 产物 | 说明 |
+| --- | --- |
+| `vote_swing_report.md` / `vote_swing_summary.json` | 投票意向摇摆统计 |
+| `camp_persuasion_report.md` / `camp_persuasion_summary.json` | **阵营匹配**后的正向说服评分 |
+| `post_game_analysis.json` / `post_game_report.md` | LLM 复盘（有 API 时） |
+| `prompt_proposals.json` | Prompt 补丁提案（`apply_policy: json_only_no_runtime_replace`） |
+| `post_game_manifest.json` | 本局赛后流水线索引 |
+
+运行时仅使用 **v2+**（`strategy/role_prompts.py`）。提案合并与 `prompt_comparison` 文档待后续手工/脚本接入。
 
 ## 后续验证计划
 

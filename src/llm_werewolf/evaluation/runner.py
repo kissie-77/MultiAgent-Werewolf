@@ -136,9 +136,13 @@ class EvaluationRunner:
             records = engine.game_state.vote_intention_tracker.export_records()
             recorder.record_vote_intentions(records)
             if records:
-                from llm_werewolf.evaluation.vote_swing_analysis import write_persuasion_artifacts
+                from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
 
-                write_persuasion_artifacts(game_dir)
+                run_post_game_pipeline_sync(
+                    game_dir,
+                    engine=engine,
+                    skip_llm=True,
+                )
         checks = self._run_checkers(events, observations_by_player, engine)
         recorder.finalize_checks(checks)
 

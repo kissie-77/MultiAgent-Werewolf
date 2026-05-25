@@ -2,10 +2,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from llm_werewolf.interface.cli import _run_main, _find_single_human_player
 from llm_werewolf.agent_team.base import DemoAgent, HumanAgent
 from llm_werewolf.game_runtime.player import Player
 from llm_werewolf.game_runtime.roles.villager import Villager
-from llm_werewolf.interface.cli import _find_single_human_player, _run_main
 
 
 def _player(player_id: str, name: str, agent):
@@ -37,14 +37,24 @@ def test_find_single_human_player_rejects_multiple_humans() -> None:
         _find_single_human_player(game_state)
 
 
-def test_run_main_exposes_raw_agent_output_flag(monkeypatch) -> None:
+def test_run_main_exposes_raw_agent_output_num_players_and_sheriff_flags(monkeypatch) -> None:
     captured = {}
 
-    async def fake_main(config, *, participation, rules, show_agent_raw):
+    async def fake_main(
+        config,
+        *,
+        participation,
+        rules,
+        show_agent_raw,
+        num_players,
+        enable_sheriff,
+    ) -> None:
         captured["config"] = config
         captured["participation"] = participation
         captured["rules"] = rules
         captured["show_agent_raw"] = show_agent_raw
+        captured["num_players"] = num_players
+        captured["enable_sheriff"] = enable_sheriff
 
     monkeypatch.setattr("llm_werewolf.interface.cli.main", fake_main)
 
@@ -53,6 +63,8 @@ def test_run_main_exposes_raw_agent_output_flag(monkeypatch) -> None:
         participation="human_mixed",
         rules="badge_flow",
         show_agent_raw=True,
+        num_players=9,
+        enable_sheriff=True,
     )
 
     assert captured == {
@@ -60,4 +72,6 @@ def test_run_main_exposes_raw_agent_output_flag(monkeypatch) -> None:
         "participation": "human_mixed",
         "rules": "badge_flow",
         "show_agent_raw": True,
+        "num_players": 9,
+        "enable_sheriff": True,
     }

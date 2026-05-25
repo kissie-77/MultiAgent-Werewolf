@@ -1,27 +1,12 @@
 language: en-US
+agent_backend: agentscope
+default_plan: default
 
-players:
-  - name: Player1
+player_roster:
+  count: 12
+  mode: all_agent
+  llm_template:
+    name_prefix: Player
     model: YOUR_MODEL_NAME
     base_url: YOUR_API_BASE_URL
-    api_key_env: YOUR_API_KEY
-  - name: Player2
-    model: YOUR_MODEL_NAME
-    base_url: YOUR_API_BASE_URL
-    api_key_env: YOUR_API_KEY
-  - name: Player3
-    model: YOUR_MODEL_NAME
-    base_url: YOUR_API_BASE_URL
-    api_key_env: YOUR_API_KEY
-  - name: Player4
-    model: YOUR_MODEL_NAME
-    base_url: YOUR_API_BASE_URL
-    api_key_env: YOUR_API_KEY
-  - name: Player5
-    model: YOUR_MODEL_NAME
-    base_url: YOUR_API_BASE_URL
-    api_key_env: YOUR_API_KEY
-  - name: Player6
-    model: YOUR_MODEL_NAME
-    base_url: YOUR_API_BASE_URL
-    api_key_env: YOUR_API_KEY
+    api_key_env: YOUR_API_KEY_ENV

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
     ): GameMode(
         participation="all_agent",
         rules="badge_flow",
-        config_path=Path("configs/llm-12p-agentscope.yaml"),
+        config_path=Path("configs/llm-12p-deepseek.yaml"),
         description="12 人 AgentScope 对局：主展示路线，包含警长/警徽相关流程。",
     ),
     (

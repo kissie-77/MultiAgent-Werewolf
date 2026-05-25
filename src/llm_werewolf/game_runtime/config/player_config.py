@@ -1,4 +1,6 @@
-from pydantic import Field, BaseModel, computed_field, field_validator
+from typing import Literal
+
+from pydantic import Field, BaseModel, computed_field, field_validator, model_validator
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
@@ -50,6 +52,82 @@ class PlayerConfig(BaseModel):
         return v
 
 
+class PlayerTemplateConfig(BaseModel):
+    """Reusable player settings for generated rosters."""
+
+    name_prefix: str = Field(
+        default="Player",
+        description="Prefix used when generating player display names.",
+    )
+    model: str = Field(
+        ...,
+        title="Model Name",
+        description="The model name used by generated LLM players.",
+        examples=["gpt-5", "deepseek-v4-flash", "demo"],
+    )
+    base_url: str | None = Field(
+        default=None,
+        title="API Base URL",
+        description="API base URL (required for LLM models).",
+        examples=["https://api.openai.com/v1", "https://api.deepseek.com/v1"],
+    )
+    api_key_env: str | None = Field(
+        default=None,
+        title="API Key Environment Variable",
+        description="Environment variable name containing the API key.",
+        examples=["OPENAI_API_KEY", "DEEPSEEK_API_KEY"],
+    )
+    reasoning_effort: ReasoningEffort | None = Field(
+        default=None, title="Reasoning Effort", description="Reasoning effort level for LLM"
+    )
+    plan: str | None = Field(
+        default=None,
+        description="Plan strategy name (default, complicated, bold, ...) for AgentScope prompts",
+    )
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, v: str | None, info: ValidationInfo) -> str | None:
+        model = info.data.get("model", "")
+        if model not in {"human", "demo"} and not v:
+            msg = f"base_url is required for LLM model '{model}'"
+            raise ValueError(msg)
+        return v
+
+
+class PlayerRosterConfig(BaseModel):
+    """Generated roster settings for variable-size games."""
+
+    count: int = Field(
+        default=12,
+        ge=6,
+        le=20,
+        description="Number of seats to generate for the game.",
+    )
+    mode: Literal["all_agent", "human_mixed"] = Field(
+        default="all_agent",
+        description="Roster participation mode.",
+    )
+    human: PlayerConfig | None = Field(
+        default=None,
+        description="Optional human player config for human_mixed mode.",
+    )
+    llm_template: PlayerTemplateConfig = Field(
+        ...,
+        description="Template used to generate LLM player configs.",
+    )
+
+    @model_validator(mode="after")
+    def validate_human_config(self) -> "PlayerRosterConfig":
+        if self.mode == "all_agent" and self.human is not None:
+            msg = "human is only valid when player_roster.mode is 'human_mixed'"
+            raise ValueError(msg)
+        if self.human is not None and self.human.model != "human":
+            msg = "player_roster.human must use model 'human'"
+            raise ValueError(msg)
+        return self
+
+
 class PlayersConfig(BaseModel):
     """包含所有玩家及可选游戏设置的根配置。"""
 
@@ -67,12 +145,16 @@ class PlayersConfig(BaseModel):
         default="default",
         description="Default plan strategy for AgentScope RolePrompts / PlanStrategies",
     )
-    players: list[PlayerConfig] = Field(
-        ...,
+    players: list[PlayerConfig] | None = Field(
+        default=None,
         title="Player List",
         description="List of player configs, you should define it under ./configs/<name>.yaml",
         min_length=6,
         max_length=20,
+    )
+    player_roster: PlayerRosterConfig | None = Field(
+        default=None,
+        description="Template-based roster config for variable-size games.",
     )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -92,11 +174,24 @@ class PlayersConfig(BaseModel):
 
     @field_validator("players")
     @classmethod
-    def validate_player_names_unique(cls, v: list[PlayerConfig]) -> list[PlayerConfig]:
+    def validate_player_names_unique(
+        cls, v: list[PlayerConfig] | None
+    ) -> list[PlayerConfig] | None:
         """校验所有玩家名称唯一。"""
+        if v is None:
+            return v
         names = [p.name for p in v]
         if len(names) != len(set(names)):
             duplicates = {name for name in names if names.count(name) > 1}
             msg = f"Duplicate player names found: {duplicates}"
             raise ValueError(msg)
         return v
+
+    @model_validator(mode="after")
+    def validate_roster_source(self) -> "PlayersConfig":
+        has_players = self.players is not None
+        has_roster = self.player_roster is not None
+        if has_players == has_roster:
+            msg = "Provide either players or player_roster, but not both"
+            raise ValueError(msg)
+        return self

@@ -36,40 +36,58 @@ cp configs/example.yaml configs/my_game.yaml
 ```yaml
 language: en-US
 
-players:
-  - name: Player1
+player_roster:
+  count: 12
+  mode: all_agent
+  llm_template:
+    name_prefix: Player
     model: your-model-name        # 如 qwen3.5-plus, deepseek-chat, gpt-4o 等
     base_url: https://your-api-url/v1
-    api_key_env: YOUR_API_KEY     # 你的 API 密钥
-  # ... 6-20 个玩家
+    api_key_env: YOUR_API_KEY_ENV # 保存 API Key 的环境变量名
+  # count 支持 6-20；也可以用 CLI --num_players 覆盖
 ```
 
 支持任何兼容 OpenAI Chat Completions 格式的 API（DeepSeek、SiliconFlow、小米、通义千问等）。
 
-### 运行游戏
+### Shell / CLI 运行方式
 
-```bash
-# 控制台模式（纯文本日志，推荐开发测试用）
-uv run python -m llm_werewolf.interface.cli --config configs/my_game.yaml
+Shell/CLI 模式会在终端里输出完整游戏进程，适合开发、调试和后台观察 Agent 原始动作。人机对战时，真人玩家也在同一个 shell 里输入。
 
-# TUI 模式（交互式终端界面）
-uv run werewolf-tui configs/my_game.yaml
+#### Demo 对局（不需要 API）
 
-# Demo 模式（不需要 API，用随机 Agent 测试）
-uv run werewolf configs/demo.yaml
+```powershell
+uv run python -m llm_werewolf.interface.cli --config configs/demo.yaml
 ```
 
-### DeepSeek 人机对战（1 名人类 + 11 名 LLM）
+也可以使用脚本别名：
 
-在 PowerShell 中进入项目目录，并把 DeepSeek API Key 只设置到当前终端环境变量中：
+```powershell
+uv run werewolf --config configs/demo.yaml
+```
+
+#### DeepSeek 纯 LLM 对局
 
 ```powershell
 cd D:\AI_werewolf\MultiAgent-Werewolf-add-skill-files-20260525
 $env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
-uv run python -m llm_werewolf.interface.cli --participation=human_mixed --rules=badge_flow --show_agent_raw=True
+uv run python -m llm_werewolf.interface.cli --participation=all_agent --rules=badge_flow --num_players=12 --enable_sheriff=True --show_agent_raw=True
 ```
 
-运行过程中，人类玩家只需要两类输入：
+也可以显式指定配置文件：
+
+```powershell
+uv run python -m llm_werewolf.interface.cli --config configs/llm-12p-deepseek.yaml --num_players=9 --enable_sheriff=False
+```
+
+#### DeepSeek 人机对战
+
+```powershell
+cd D:\AI_werewolf\MultiAgent-Werewolf-add-skill-files-20260525
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+uv run python -m llm_werewolf.interface.cli --participation=human_mixed --rules=badge_flow --num_players=9 --enable_sheriff=True --show_agent_raw=True
+```
+
+Shell 人机对战中，真人玩家只需要两类输入：
 
 - 技能、目标、投票：输入数字，例如 `1`
 - 白天发言：输入纯文字，例如 `我先听大家发言，暂时观察站边变化。`
@@ -80,23 +98,96 @@ uv run python -m llm_werewolf.interface.cli --participation=human_mixed --rules=
 Remove-Item Env:DEEPSEEK_API_KEY
 ```
 
-### LLM 间对战（全自动）
+#### 豆包 / 火山方舟纯 LLM 对局
 
-LLM 间对战不需要人类输入，设置好 API Key 后直接运行 DeepSeek 全 LLM 配置：
+项目已提供旧式固定人数豆包配置：
+
+- `configs/llm-6p-doubao.yaml`
+- `configs/llm-9p-doubao.yaml`
+
+运行 6 人豆包对局：
 
 ```powershell
-cd D:\AI_werewolf\MultiAgent-Werewolf-add-skill-files-20260525
+$env:ARK_API_KEY="你的火山方舟 API Key"
+uv run python -m llm_werewolf.interface.cli --config configs/llm-6p-doubao.yaml
+```
+
+运行 9 人豆包对局：
+
+```powershell
+$env:ARK_API_KEY="你的火山方舟 API Key"
+uv run python -m llm_werewolf.interface.cli --config configs/llm-9p-doubao.yaml
+```
+
+豆包配置目前仍是固定 `players:` 写法，不建议搭配 `--num_players` 使用；如需自由人数，后续应迁移为 `player_roster` 模板配置。
+
+### TUI 运行方式
+
+TUI 模式会打开交互式终端界面。当前设计是默认先进入设置页；命令行参数只作为设置页默认值，不会直接绕过确认开局。
+
+#### TUI Demo 对局（不需要 API）
+
+```powershell
+uv run python -m llm_werewolf.interface.tui --config configs/demo.yaml
+```
+
+也可以使用脚本别名：
+
+```powershell
+uv run werewolf-tui --config configs/demo.yaml
+```
+
+#### TUI DeepSeek 纯 LLM 对局
+
+```powershell
 $env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
-uv run python -m llm_werewolf.interface.cli --config configs/llm-12p-deepseek.yaml --show_agent_raw=True
+uv run python -m llm_werewolf.interface.tui --participation=all_agent --rules=badge_flow --num_players=12 --enable_sheriff=True --show_agent_raw=True
 ```
 
-也可以直接指定配置文件运行：
+进入 TUI 设置页后确认模式、人数、警徽流和原始输出选项，再开始游戏。
+
+#### TUI DeepSeek 人机对战
 
 ```powershell
-uv run python -m llm_werewolf.interface.cli --config configs/llm-12p-deepseek.yaml
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+uv run python -m llm_werewolf.interface.tui --participation=human_mixed --rules=badge_flow --num_players=9 --enable_sheriff=True --show_agent_raw=True
 ```
 
-其中 `--show_agent_raw=True` 会显示 AgentScope 原始输出，包括每个 Agent 的 thinking、动作选择和发言内容；去掉该参数则只显示整理后的游戏事件。
+TUI 人机对战中，真人玩家在游戏页底部输入栏操作：
+
+- 技能、目标、投票：输入数字并回车
+- 白天发言：输入纯文字并回车
+
+例如女巫阶段会显示 `女巫行动：1=使用解药，2=使用毒药，3=不行动`，直接输入对应数字即可。
+
+#### TUI 豆包对局
+
+```powershell
+$env:ARK_API_KEY="你的火山方舟 API Key"
+uv run python -m llm_werewolf.interface.tui --config configs/llm-6p-doubao.yaml
+```
+
+或：
+
+```powershell
+$env:ARK_API_KEY="你的火山方舟 API Key"
+uv run python -m llm_werewolf.interface.tui --config configs/llm-9p-doubao.yaml
+```
+
+### 开局参数说明
+
+常用参数在 Shell/CLI 和 TUI 中都可使用：
+
+- `--participation=all_agent`：纯 LLM 对局。
+- `--participation=human_mixed`：1 名真人 + 多名 LLM。
+- `--rules=badge_flow`：使用带警徽流的推荐规则入口。
+- `--num_players=<6-20>`：覆盖 `player_roster.count`，动态选择对局人数。
+- `--enable_sheriff=True`：启用警长/警徽流。
+- `--enable_sheriff=False`：跳过警长选举。
+- `--show_agent_raw=True`：显示 AgentScope 原始输出，包括 Agent thinking、动作选择和发言内容，适合后台观察。
+- `--config configs/xxx.yaml`：直接使用指定配置文件。
+
+DeepSeek 的人机配置和全 LLM 配置都使用 `player_roster` 模板，因此支持 `--num_players`。旧式 `players:` 明细配置仍然可用，但不能用 `--num_players` 临时改人数；需要改成 `player_roster` 才支持动态人数。
 
 ## 项目架构
 

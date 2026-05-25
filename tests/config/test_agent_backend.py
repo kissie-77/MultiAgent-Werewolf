@@ -31,3 +31,8 @@ def test_accepts_agentscope_backend_value() -> None:
         players=_six_demo_players(),
     )
     assert cfg.use_agentscope_backend is True
+
+
+def test_requires_players_or_player_roster() -> None:
+    with pytest.raises(ValueError, match="players or player_roster"):
+        PlayersConfig(language="zh-CN")

@@ -9,8 +9,8 @@ def test_explicit_config_overrides_mode() -> None:
     assert resolve_config_path("configs/custom.yaml") == Path("configs/custom.yaml")
 
 
-def test_default_mode_resolves_main_agentscope_config() -> None:
-    assert resolve_config_path() == Path("configs/llm-12p-agentscope.yaml")
+def test_default_mode_resolves_deepseek_config() -> None:
+    assert resolve_config_path() == Path("configs/llm-12p-deepseek.yaml")
 
 
 def test_list_modes_contains_basic_badge_and_extended() -> None:

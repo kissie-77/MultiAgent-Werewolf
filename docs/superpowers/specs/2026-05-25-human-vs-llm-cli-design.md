@@ -14,6 +14,21 @@
 
 本设计只覆盖 CLI/shell 中的单名人类玩家 vs 多个 LLM 玩家。
 
+## 问题归因修正
+
+原项目不是完全没有 human 功能。它的 `model: human` 会创建 `HumanAgent`，CLI 白天发言也会遍历存活玩家并直接调用 `player.agent.get_response(...)`。因此原项目在同步 CLI 流程里，真人至少能被叫到发言。
+
+但原项目的 human 只是半成品：
+
+- 终端输入直接暴露完整 prompt。
+- 技能和投票没有真人专用菜单、校验和重试。
+- 输入解析失败时可能走随机兜底。
+- TUI 后台自动跑游戏，没有真正的人类输入控件。
+
+当前项目在此基础上引入了新的 AgentScope 迁移回归：圆桌发言改由 `InformationHub.run_roundtable()` 和 MsgHub 驱动，但该流程先筛选 `agentscope_agent`，`HumanAgent` 没有 ReAct/AgentScope 实例，所以公共圆桌发言可能被跳过。
+
+因此用户体感上的“像 demo 接管”不应解释为 human 自动变成 demo，而应解释为：human 输入链路不完整，部分阶段被跳过，部分阶段非法输入后被随机兜底。
+
 ## 目标
 
 - 人类玩家技能、投票、二选一决策只输入数字。

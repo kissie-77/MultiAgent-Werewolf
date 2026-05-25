@@ -296,6 +296,10 @@ class InformationHub:
         ]
 
         async def _run(hub: MsgHub | None) -> None:
+            public_transcript: list[str] = []
+            opening_text = opening_announcement.strip()
+            if opening_text:
+                public_transcript.append(opening_text)
             if opening_announcement:
                 if hub is not None:
                     await self._broadcast_moderator(
@@ -352,6 +356,12 @@ class InformationHub:
                     if human_input_provider is None:
                         msg = "HumanInputProvider is required for human roundtable speech"
                         raise RuntimeError(msg)
+                    if public_transcript:
+                        context = "\n\n".join([
+                            context,
+                            "【本轮已公开发言】",
+                            "\n".join(public_transcript),
+                        ])
                     decision = await human_input_provider.speak(
                         context=context,
                         instruction=instruction,
@@ -377,17 +387,18 @@ class InformationHub:
 
                 react_self = self._react_agent(speaker)
                 routed: RoutedMessage | None = None
+                speech_text = decision.public_speech.strip()
 
                 if react_self and decision.private_thought:
                     await self._deliver_private(
                         react_self, speaker.name, decision.private_thought
                     )
 
-                if hub is not None and decision.public_speech.strip():
+                if hub is not None and speech_text:
                     routed = await self._broadcast_public(
                         hub,
                         speaker,
-                        decision.public_speech.strip(),
+                        speech_text,
                         channel,
                         phase,
                         round_number,
@@ -405,8 +416,10 @@ class InformationHub:
                 if on_speech:
                     on_speech(speaker, decision, routed)
 
+                if speech_text:
+                    public_transcript.append(f"{speaker.name}: {speech_text}")
+
                 if vote_intention_tracker is not None and react_audience_players:
-                    speech_text = decision.public_speech.strip()
                     after_intentions = await self._collect_vote_intentions(
                         react_audience_players,
                         anchor=VoteIntentionAnchor.AFTER_SPEECH,

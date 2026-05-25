@@ -17,9 +17,19 @@ class FakeSpeechProvider:
         )
 
 
-def _human_player() -> Player:
-    agent = HumanAgent(name="Human", model="human")
-    return Player("player_1", "Human", Villager, agent=agent, ai_model="human")
+class CapturingSpeechProvider:
+    def __init__(self, decisions: list[SpeechDecision]) -> None:
+        self.decisions = decisions
+        self.contexts: list[str] = []
+
+    async def speak(self, **kwargs):
+        self.contexts.append(kwargs["context"])
+        return self.decisions.pop(0)
+
+
+def _human_player(player_id: str = "player_1", name: str = "Human") -> Player:
+    agent = HumanAgent(name=name, model="human")
+    return Player(player_id, name, Villager, agent=agent, ai_model="human")
 
 
 async def test_roundtable_calls_human_speaker_even_without_react_agents() -> None:
@@ -46,6 +56,49 @@ async def test_roundtable_calls_human_speaker_even_without_react_agents() -> Non
 
     assert routed == []
     assert speeches == [(player, "我是人类玩家的公开发言", None)]
+
+
+async def test_human_roundtable_context_includes_prior_public_speech_only() -> None:
+    first = _human_player("player_1", "Human1")
+    second = _human_player("player_2", "Human2")
+    provider = CapturingSpeechProvider(
+        [
+            SpeechDecision.model_construct(
+                public_speech="我是第一段公开发言",
+                private_thought="只能自己知道的内心",
+            ),
+            SpeechDecision.model_construct(
+                public_speech="我是第二段公开发言",
+                private_thought=None,
+            ),
+        ]
+    )
+    hub = InformationHub()
+    hub.set_context_provider(
+        build_observation=lambda _player: "filtered observation",
+        get_alive_players=lambda: [first, second],
+    )
+
+    routed = await hub.run_roundtable(
+        [first, second],
+        channel=VisibilityChannel.PUBLIC,
+        context_builder=lambda speaker: f"context for {speaker.name}",
+        instruction="请发言",
+        phase="day_discussion",
+        round_number=1,
+        opening_announcement="主持人开场说明",
+        human_input_provider=provider,
+    )
+
+    assert routed == []
+    assert len(provider.contexts) == 2
+    assert "【本轮已公开发言】" in provider.contexts[0]
+    assert "主持人开场说明" in provider.contexts[0]
+    assert "Human1: 我是第一段公开发言" not in provider.contexts[0]
+    assert "【本轮已公开发言】" in provider.contexts[1]
+    assert "主持人开场说明" in provider.contexts[1]
+    assert "Human1: 我是第一段公开发言" in provider.contexts[1]
+    assert "只能自己知道的内心" not in provider.contexts[1]
 
 
 async def test_phase_interaction_passes_human_provider_to_roundtable_hub() -> None:

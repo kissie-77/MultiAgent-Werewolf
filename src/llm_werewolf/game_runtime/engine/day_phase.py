@@ -105,6 +105,12 @@ class DayPhaseMixin:
             _routed: object,
         ) -> None:
             self._log_public_speech(speaker, decision)
+            if speaker.agent and getattr(speaker.agent, "memory_manager", None):
+                speaker.agent.memory_manager.add_public_speech(
+                    speaker.name,
+                    decision.public_speech,
+                    self.game_state.round_number,
+                )
             messages.append(
                 self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech)
             )

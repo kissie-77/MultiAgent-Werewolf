@@ -97,9 +97,26 @@ class InformationHub:
             decision_context = actor.agent.get_decision_context()
             if decision_context:
                 parts.append(decision_context)
+            memory_manager = getattr(actor.agent, "memory_manager", None)
+            if memory_manager:
+                for event in self._recent_visible_events(actor):
+                    memory_manager.add_event(event)
+                memory_context = memory_manager.get_context_for_decision()
+                if memory_context:
+                    parts.append(memory_context)
         if additional_context:
             parts.append(additional_context)
         return "\n\n".join(parts)
+
+    def _recent_visible_events(self, actor: PlayerProtocol) -> list[Any]:
+        """提取当前玩家最近可见的事件，供记忆模块筛选关键事件。"""
+        game_state = getattr(actor, "game_state", None)
+        event_logger = getattr(game_state, "event_logger", None) if game_state else None
+        if event_logger is None:
+            return []
+        current_round = getattr(game_state, "round_number", 0)
+        since_round = current_round - 1 if current_round > 1 else None
+        return event_logger.get_events_for_player(actor.player_id, since_round)
 
     async def _deliver_private(
         self,

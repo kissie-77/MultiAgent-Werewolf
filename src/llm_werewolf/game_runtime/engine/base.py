@@ -186,6 +186,12 @@ class GameEngineBase:
             if self.game_state:
                 self.game_state.set_phase(GamePhase.ENDED)
                 self.game_state.winner = result.winner_camp
+                winning_ids = set(result.winner_ids)
+                for player in self.game_state.players:
+                    agent = player.agent
+                    memory_manager = getattr(agent, "memory_manager", None) if agent else None
+                    if memory_manager:
+                        memory_manager.on_game_end(player.player_id in winning_ids)
 
             self._log_event(
                 EventType.GAME_ENDED,
@@ -224,6 +230,17 @@ class GameEngineBase:
             message,
             data=record.to_dict(),
         )
+
+    def _on_round_end(self, round_number: int) -> None:
+        """在白天投票结束并进入下一夜前沉淀各 Agent 的工作记忆。"""
+        if not self.game_state:
+            return
+
+        for player in self.game_state.players:
+            agent = player.agent
+            memory_manager = getattr(agent, "memory_manager", None) if agent else None
+            if memory_manager:
+                memory_manager.on_round_end(round_number)
 
     def _log_event(
         self,
@@ -404,6 +421,7 @@ class GameEngineBase:
             if self.check_victory():
                 break
 
+            self._on_round_end(self.game_state.round_number)
             self.game_state.next_phase()  # 进入下一 NIGHT
 
         if self.game_state.winner:
@@ -442,6 +460,7 @@ class GameEngineBase:
         elif current_phase == GamePhase.DAY_VOTING:
             phase_messages = await self.run_voting_phase()
             if not self.check_victory():
+                self._on_round_end(self.game_state.round_number)
                 self.game_state.next_phase()
 
         return phase_messages

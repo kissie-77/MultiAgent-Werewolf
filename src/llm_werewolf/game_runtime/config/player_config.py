@@ -2,6 +2,8 @@ from pydantic import Field, BaseModel, computed_field, field_validator
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
+from llm_werewolf.agent_team.memory.config import MemoryConfig
+
 
 class PlayerConfig(BaseModel):
     """单个玩家的游戏配置。
@@ -66,6 +68,10 @@ class PlayersConfig(BaseModel):
     default_plan: str = Field(
         default="default",
         description="Default plan strategy for AgentScope RolePrompts / PlanStrategies",
+    )
+    memory: MemoryConfig = Field(
+        default_factory=MemoryConfig,
+        description="Memory framework configuration.",
     )
     players: list[PlayerConfig] = Field(
         ...,

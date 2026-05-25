@@ -15,6 +15,8 @@ from agentscope.memory import InMemoryMemory
 from agentscope.model import OpenAIChatModel
 from agentscope.tool import Toolkit
 
+from llm_werewolf.agent_team.memory import MemoryManager
+from llm_werewolf.agent_team.memory.config import MemoryConfig
 from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
@@ -96,6 +98,7 @@ def configure_agents_for_players(
     players: list[Player],
     *,
     default_plan: str = "default",
+    memory_config: MemoryConfig | None = None,
 ) -> None:
     """角色分配后，为每个 AgentScope Agent 配置系统 prompt。"""
     for player in players:
@@ -109,6 +112,16 @@ def configure_agents_for_players(
         bind_prompt = getattr(agent, "bind_role_prompt", None)
         if callable(bind_prompt):
             bind_prompt(role_name, seat, plan_text)
+            if hasattr(agent, "memory_manager"):
+                agent.memory_manager = MemoryManager(
+                    event_logger=player.game_state.event_logger if player.game_state else None,
+                    role=PromptManager.get_prompt_role_key(role_name),
+                    player_id=player.player_id,
+                    plan_name=plan_name,
+                    config=memory_config,
+                ) if player.game_state else None
+                if agent.memory_manager:
+                    agent.memory_manager.on_game_start(agent.memory_manager.role)
             continue
 
         configure_role = getattr(agent, "configure_role", None)
@@ -120,3 +133,13 @@ def configure_agents_for_players(
             game_role_name=role_name,
             plan_text=plan_text,
         )
+        if hasattr(agent, "memory_manager"):
+            agent.memory_manager = MemoryManager(
+                event_logger=player.game_state.event_logger if player.game_state else None,
+                role=PromptManager.get_prompt_role_key(role_name),
+                player_id=player.player_id,
+                plan_name=plan_name,
+                config=memory_config,
+            ) if player.game_state else None
+            if agent.memory_manager:
+                agent.memory_manager.on_game_start(agent.memory_manager.role)

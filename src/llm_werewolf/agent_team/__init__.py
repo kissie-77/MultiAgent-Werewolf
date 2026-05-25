@@ -5,7 +5,12 @@ __all__ = [
     "BaseAgent",
     "DemoAgent",
     "HumanAgent",
+    "MemoryConfig",
+    "MemoryManager",
+    "ProceduralMemory",
     "PromptAgentMixin",
+    "SemanticMemory",
+    "WorkingMemory",
     "configure_agents_for_players",
     "create_react_agent",
     "create_agent",
@@ -21,6 +26,16 @@ def __getattr__(name: str):
         from llm_werewolf.agent_team import base
 
         return getattr(base, name)
+    if name in {
+        "MemoryConfig",
+        "MemoryManager",
+        "ProceduralMemory",
+        "SemanticMemory",
+        "WorkingMemory",
+    }:
+        from llm_werewolf.agent_team import memory
+
+        return getattr(memory, name)
     if name == "PromptAgentMixin":
         from llm_werewolf.agent_team.mixin import PromptAgentMixin
 

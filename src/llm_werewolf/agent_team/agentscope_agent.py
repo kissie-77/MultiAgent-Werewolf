@@ -44,6 +44,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     uses_structured_output: bool = Field(default=True, exclude=True)
     decision_history: list[str] = Field(default=[])
     chat_history: list[dict] = Field(default=[])
+    memory_manager: Any = Field(default=None, exclude=True)
 
     def __init__(
         self,
@@ -430,6 +431,12 @@ class AgentScopeWerewolfAgent(BaseAgent):
             decision: 决策的安全摘要。
         """
         self.decision_history.append(decision)
+        if self.memory_manager:
+            self.memory_manager.working.add_dynamic(
+                decision,
+                tag="decision",
+                round_number=self.memory_manager.working.current_round,
+            )
 
     def get_decision_context(self) -> str:
         """获取格式化的决策历史作为上下文。

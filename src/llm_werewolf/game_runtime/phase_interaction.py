@@ -248,4 +248,5 @@ class PhaseInteraction:
             on_speech=on_speech,
             vote_intention_tracker=vote_intention_tracker,
             on_vote_intention_record=on_vote_intention_record,
+            human_input_provider=self._human_input_provider,
         )

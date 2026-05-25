@@ -23,6 +23,7 @@ from llm_werewolf.agent_team.visibility import (
     RoutedMessage,
     VisibilityChannel,
 )
+from llm_werewolf.interface.human_input import HumanInputProvider, is_human_agent
 from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.strategy.phase_outputs import ActionPhase
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
@@ -71,17 +72,16 @@ class InformationHub:
         audience: list[PlayerProtocol] | None = None,
         actor: PlayerProtocol | None = None,
     ) -> list[PlayerProtocol]:
-        """解析 MsgHub 参与者；受众仅由引擎规则选定。"""
+        """解析本通道的真实受众；MsgHub 参与者稍后再按 ReAct 能力过滤。"""
         if self._get_alive_players is None:
             return []
         alive = self._get_alive_players()
-        routed = MessageRouter.resolve_audience_players(
+        return MessageRouter.resolve_audience_players(
             channel,
             alive,
             custom_audience=audience,
             actor=actor,
         )
-        return [p for p in routed if self._react_agent(p) is not None]
 
     def _merge_private_context(
         self,
@@ -219,6 +219,8 @@ class InformationHub:
         for observer in observers:
             if not observer.is_alive() or observer.agent is None:
                 continue
+            if is_human_agent(observer.agent):
+                continue
             alive = self._get_alive_players() if self._get_alive_players else []
             possible_targets = [
                 p for p in alive if p.player_id != observer.player_id
@@ -281,33 +283,33 @@ class InformationHub:
         vote_intention_tracker: VoteIntentionTracker | None = None,
         on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
         | None = None,
+        human_input_provider: HumanInputProvider | None = None,
     ) -> list[RoutedMessage]:
         """顺序讨论；MsgHub 受众仅听到公开发言行。"""
         routed_messages: list[RoutedMessage] = []
         audience_players = self._resolve_audience(channel, audience=audience)
-        react_agents = [a for a in (self._react_agent(p) for p in audience_players) if a]
+        react_audience_players = [
+            p for p in audience_players if self._react_agent(p) is not None
+        ]
+        react_agents = [
+            a for a in (self._react_agent(p) for p in react_audience_players) if a
+        ]
 
-        if not react_agents:
-            return routed_messages
-
-        async with MsgHub(
-            participants=react_agents,
-            enable_auto_broadcast=False,
-            name=f"roundtable-{channel.value}-r{round_number}",
-        ) as hub:
+        async def _run(hub: MsgHub | None) -> None:
             if opening_announcement:
-                await self._broadcast_moderator(
-                    hub,
-                    opening_announcement,
-                    channel=channel,
-                    phase=phase,
-                    round_number=round_number,
-                )
+                if hub is not None:
+                    await self._broadcast_moderator(
+                        hub,
+                        opening_announcement,
+                        channel=channel,
+                        phase=phase,
+                        round_number=round_number,
+                    )
 
             prior_intentions: dict[str, VoteIntentionEntry] = {}
-            if vote_intention_tracker is not None:
+            if vote_intention_tracker is not None and react_audience_players:
                 prior_intentions = await self._collect_vote_intentions(
-                    audience_players,
+                    react_audience_players,
                     anchor=VoteIntentionAnchor.INITIAL,
                     context_builder=context_builder,
                     phase=phase,
@@ -346,21 +348,32 @@ class InformationHub:
                     continue
 
                 context = context_builder(speaker)
-                context = "\n\n".join([
-                    context,
-                    EngineContexts.hub_roundtable_memory_notice(channel.value),
-                ])
-                from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
+                if is_human_agent(speaker.agent):
+                    if human_input_provider is None:
+                        msg = "HumanInputProvider is required for human roundtable speech"
+                        raise RuntimeError(msg)
+                    decision = await human_input_provider.speak(
+                        context=context,
+                        instruction=instruction,
+                        phase=phase,
+                        round_number=round_number,
+                    )
+                else:
+                    llm_context = "\n\n".join([
+                        context,
+                        EngineContexts.hub_roundtable_memory_notice(channel.value),
+                    ])
+                    from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
 
-                rt_phase = resolve_roundtable_phase(
-                    channel=channel.value, phase=phase
-                )
-                decision = await WerewolfAdapterBridge.request_speech(
-                    speaker.agent,
-                    context,
-                    instruction,
-                    roundtable_phase=rt_phase,
-                )
+                    rt_phase = resolve_roundtable_phase(
+                        channel=channel.value, phase=phase
+                    )
+                    decision = await WerewolfAdapterBridge.request_speech(
+                        speaker.agent,
+                        llm_context,
+                        instruction,
+                        roundtable_phase=rt_phase,
+                    )
 
                 react_self = self._react_agent(speaker)
                 routed: RoutedMessage | None = None
@@ -370,7 +383,7 @@ class InformationHub:
                         react_self, speaker.name, decision.private_thought
                     )
 
-                if decision.public_speech.strip():
+                if hub is not None and decision.public_speech.strip():
                     routed = await self._broadcast_public(
                         hub,
                         speaker,
@@ -392,10 +405,10 @@ class InformationHub:
                 if on_speech:
                     on_speech(speaker, decision, routed)
 
-                if vote_intention_tracker is not None:
+                if vote_intention_tracker is not None and react_audience_players:
                     speech_text = decision.public_speech.strip()
                     after_intentions = await self._collect_vote_intentions(
-                        audience_players,
+                        react_audience_players,
                         anchor=VoteIntentionAnchor.AFTER_SPEECH,
                         context_builder=context_builder,
                         phase=phase,
@@ -425,6 +438,16 @@ class InformationHub:
                     prior_intentions = after_intentions
                     if on_vote_intention_record:
                         on_vote_intention_record(record)
+
+        if react_agents:
+            async with MsgHub(
+                participants=react_agents,
+                enable_auto_broadcast=False,
+                name=f"roundtable-{channel.value}-r{round_number}",
+            ) as hub:
+                await _run(hub)
+        else:
+            await _run(None)
 
         return routed_messages
 

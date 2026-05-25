@@ -44,6 +44,15 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
         config_path=Path("configs/agentscope.yaml"),
         description="扩展人数 AgentScope 对局：用于角色扩展验证。",
     ),
+    (
+        "human_mixed",
+        "badge_flow",
+    ): GameMode(
+        participation="human_mixed",
+        rules="badge_flow",
+        config_path=Path("configs/human-mixed-deepseek.yaml"),
+        description="12-player CLI game with one human player and DeepSeek LLM players.",
+    ),
 }
 
 

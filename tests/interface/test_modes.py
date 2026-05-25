@@ -21,3 +21,9 @@ def test_list_modes_contains_basic_badge_and_extended() -> None:
 def test_unknown_mode_raises() -> None:
     with pytest.raises(ValueError, match="Unsupported mode"):
         resolve_config_path(participation="human_mixed", rules="basic")
+
+
+def test_human_mixed_badge_flow_resolves_deepseek_config() -> None:
+    assert resolve_config_path(participation="human_mixed", rules="badge_flow") == Path(
+        "configs/human-mixed-deepseek.yaml"
+    )

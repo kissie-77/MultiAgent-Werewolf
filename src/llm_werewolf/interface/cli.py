@@ -16,10 +16,23 @@ from llm_werewolf.interface.bootstrap import (
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.interface.human_input import ShellHumanInputProvider, is_human_agent
 from llm_werewolf.interface.modes import resolve_config_path
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 console = Console()
+
+
+def _find_single_human_player(game_state):
+    human_players = [
+        player
+        for player in game_state.players
+        if player.agent is not None and is_human_agent(player.agent)
+    ]
+    if len(human_players) != 1:
+        msg = "human_mixed CLI mode requires exactly one human player"
+        raise ValueError(msg)
+    return human_players[0]
 
 
 async def main(
@@ -52,6 +65,14 @@ async def main(
 
     engine.setup_game(players=players, roles=roles)
     wire_agentscope_after_setup(engine, players_config)
+
+    if participation == "human_mixed":
+        human_player = _find_single_human_player(engine.game_state)
+        engine.phase_interaction.set_human_input_provider(ShellHumanInputProvider())
+        engine.on_event = lambda event: presenter.present_event(
+            event,
+            viewer_id=human_player.player_id,
+        )
 
     logfire.info("game_created", config_path=str(config_path), num_players=num_players)
 

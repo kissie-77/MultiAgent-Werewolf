@@ -9,23 +9,37 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 
-from llm_werewolf.interface.bootstrap import (
-    prepare_game_roster,
-    wire_agentscope_after_setup,
-)
 from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.interface.modes import resolve_config_path
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.interface.modes import resolve_config_path
+from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscope_after_setup
 from llm_werewolf.ui.console_presenter import ConsolePresenter
+from llm_werewolf.interface.human_input import ShellHumanInputProvider, is_human_agent
+from llm_werewolf.interface.player_roster import resolve_participation
 
 console = Console()
+
+
+def _find_single_human_player(game_state):
+    human_players = [
+        player
+        for player in game_state.players
+        if player.agent is not None and is_human_agent(player.agent)
+    ]
+    if len(human_players) != 1:
+        msg = "human_mixed CLI mode requires exactly one human player"
+        raise ValueError(msg)
+    return human_players[0]
 
 
 async def main(
     config: str | None = None,
     participation: str = "all_agent",
     rules: str = "badge_flow",
+    show_agent_raw: bool = False,
+    num_players: int | None = None,
+    enable_sheriff: bool | None = None,
 ) -> None:
     """在控制台模式下运行狼人杀游戏（自动进行）。
 
@@ -33,6 +47,9 @@ async def main(
         config: YAML 配置文件路径；提供后优先于模式选择。
         participation: 参与方式，例如 all_agent。
         rules: 规则模式，例如 basic、badge_flow、extended_roles。
+        show_agent_raw: 是否显示 AgentScope 原始输出（thinking、动作、发言）。
+        num_players: 可选玩家人数覆盖值；仅支持 player_roster 配置。
+        enable_sheriff: 是否启用警长/警徽流；不传则使用 GameConfig 默认值。
     """
     config_path = resolve_config_path(
         config,
@@ -40,9 +57,17 @@ async def main(
         rules=rules,
     )
     players_config = load_config(config_path=config_path)
+    effective_participation = resolve_participation(
+        players_config,
+        requested_participation=participation,
+    )
 
-    num_players = len(players_config.players)
-    players, roles, game_config = prepare_game_roster(players_config)
+    players, roles, game_config = prepare_game_roster(
+        players_config,
+        num_players=num_players,
+        enable_sheriff=enable_sheriff,
+    )
+    resolved_num_players = game_config.num_players
 
     locale = Locale(players_config.language)
     engine = GameEngine(game_config, language=players_config.language)
@@ -51,14 +76,28 @@ async def main(
     engine.on_event = presenter.present_event
 
     engine.setup_game(players=players, roles=roles)
-    wire_agentscope_after_setup(engine, players_config)
+    wire_agentscope_after_setup(
+        engine,
+        players_config,
+        show_agent_raw=show_agent_raw,
+    )
 
-    logfire.info("game_created", config_path=str(config_path), num_players=num_players)
+    if effective_participation == "human_mixed":
+        human_player = _find_single_human_player(engine.game_state)
+        engine.phase_interaction.set_human_input_provider(ShellHumanInputProvider())
+        engine.on_event = lambda event: presenter.present_event(
+            event,
+            viewer_id=human_player.player_id,
+        )
+
+    logfire.info("game_created", config_path=str(config_path), num_players=resolved_num_players)
 
     console.print(
         f"[green]{locale.get('config_loaded', config_path=config_path.resolve())}[/green]"
     )
-    console.print(f"[cyan]{locale.get('player_count_info', num_players=num_players)}[/cyan]")
+    console.print(
+        f"[cyan]{locale.get('player_count_info', num_players=resolved_num_players)}[/cyan]"
+    )
     console.print(f"[cyan]{locale.get('interface_mode')}[/cyan]")
 
     try:
@@ -109,7 +148,7 @@ async def main(
             "game_execution_error",
             error=str(exc),
             config_path=str(config_path),
-            num_players=num_players,
+            num_players=resolved_num_players,
         )
         if players_config.language == "zh-TW":
             console.print(f"[red]執行遊戲時發生錯誤: {exc}[/red]")
@@ -124,13 +163,25 @@ def _run_main(
     config: str | None = None,
     participation: str = "all_agent",
     rules: str = "badge_flow",
+    show_agent_raw: bool = False,
+    num_players: int | None = None,
+    enable_sheriff: bool | None = None,
 ) -> None:
     """同步包装器，用于运行异步 main 函数。"""
-    asyncio.run(main(config, participation=participation, rules=rules))
+    asyncio.run(
+        main(
+            config,
+            participation=participation,
+            rules=rules,
+            show_agent_raw=show_agent_raw,
+            num_players=num_players,
+            enable_sheriff=enable_sheriff,
+        )
+    )
 
 
 def entry() -> None:
-    """werewolf 控制台命令的入口点。"""
+    """Werewolf 控制台命令的入口点。"""
     fire.Fire(_run_main)
 
 

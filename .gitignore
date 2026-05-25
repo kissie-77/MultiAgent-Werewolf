@@ -228,7 +228,10 @@ configs/test_real_llm.yaml
 configs/human_game.yaml
 
 # Local development files
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/commands/
+.codex/current-task
 .kiro/
 .env.llmwerewolf
 *.pptx

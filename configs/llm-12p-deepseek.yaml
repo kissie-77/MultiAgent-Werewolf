@@ -1,54 +1,13 @@
-# 12-player standard board — DeepSeek OpenAI-compatible API
+# DeepSeek all-agent roster. Override count with CLI --num_players when needed.
 language: zh-CN
 agent_backend: agentscope
 default_plan: default
 
-players:
-  - name: Player1
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player2
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player3
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player4
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player5
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player6
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player7
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player8
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player9
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player10
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player11
-    model: deepseek-v4-flash
-    base_url: https://api.deepseek.com/v1
-    api_key_env: DEEPSEEK_API_KEY
-  - name: Player12
+player_roster:
+  count: 12
+  mode: all_agent
+  llm_template:
+    name_prefix: Player
     model: deepseek-v4-flash
     base_url: https://api.deepseek.com/v1
     api_key_env: DEEPSEEK_API_KEY

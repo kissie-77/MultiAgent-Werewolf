@@ -25,14 +25,15 @@ class ChatPanel(RichLog):
         self._vote_buffer: dict[str, list[str]] = {}  # 目标名 -> [投票者]
         self._last_phase = ""
 
-    def add_event(self, event: Event) -> None:
+    def add_event(self, event: Event, *, viewer_id: str | None = None) -> None:
         """向聊天历史添加事件。
 
         Args:
             event: 要添加的事件。
+            viewer_id: 若指定，则过滤为该玩家可见的事件。
         """
         self.events.append(event)
-        self.display_event(event)
+        self.display_event(event, viewer_id=viewer_id)
 
     def _is_night_action_event(self, event_type: EventType) -> bool:
         """判断事件类型是否为应缓冲的夜间行动。

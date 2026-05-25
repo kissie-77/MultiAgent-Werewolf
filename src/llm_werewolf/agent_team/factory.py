@@ -53,6 +53,7 @@ def create_react_agent(
     *,
     agent_name: str,
     sys_prompt: str,
+    show_console_output: bool = False,
 ) -> ReActAgent:
     """创建接入 OpenAI 兼容端点的 AgentScope ReActAgent。"""
     api_key = None
@@ -81,7 +82,7 @@ def create_react_agent(
         generate_kwargs=generate_kwargs,
     )
 
-    return ReActAgent(
+    agent = ReActAgent(
         name=agent_name,
         sys_prompt=sys_prompt,
         model=model,
@@ -90,12 +91,19 @@ def create_react_agent(
         memory=InMemoryMemory(),
         print_hint_msg=False,
     )
+    set_console_output_enabled = getattr(agent, "set_console_output_enabled", None)
+    if callable(set_console_output_enabled):
+        set_console_output_enabled(show_console_output)
+    else:
+        agent._disable_console_output = not show_console_output  # noqa: SLF001
+    return agent
 
 
 def configure_agents_for_players(
     players: list[Player],
     *,
     default_plan: str = "default",
+    show_agent_raw: bool = False,
 ) -> None:
     """角色分配后，为每个 AgentScope Agent 配置系统 prompt。"""
     for player in players:
@@ -108,6 +116,7 @@ def configure_agents_for_players(
 
         bind_prompt = getattr(agent, "bind_role_prompt", None)
         if callable(bind_prompt):
+            setattr(agent, "show_agent_raw", show_agent_raw)
             bind_prompt(role_name, seat, plan_text)
             continue
 
@@ -115,6 +124,7 @@ def configure_agents_for_players(
         if not callable(configure_role):
             continue
 
+        setattr(agent, "show_agent_raw", show_agent_raw)
         configure_role(
             seat_number=seat,
             game_role_name=role_name,

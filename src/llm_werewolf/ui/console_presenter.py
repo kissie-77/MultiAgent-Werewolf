@@ -160,6 +160,8 @@ class ConsolePresenter:
         if viewer_id is not None and not event.is_visible_to(viewer_id):
             return
         if viewer_id is not None and self._is_night_action_event(event.event_type):
+            style = self._get_event_style(event.event_type)
+            console.print(event.message, style=style)
             return
 
         # 处理阶段切换

@@ -1,0 +1,16 @@
+# DeepSeek human-vs-LLM roster. Override count with CLI --num_players when needed.
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+
+player_roster:
+  count: 12
+  mode: human_mixed
+  human:
+    name: HumanPlayer
+    model: human
+  llm_template:
+    name_prefix: Player
+    model: deepseek-v4-flash
+    base_url: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY

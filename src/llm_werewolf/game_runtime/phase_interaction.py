@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable
 
 from llm_werewolf.agent_team.information_hub import InformationHub
 from llm_werewolf.agent_team.visibility import VisibilityChannel
+from llm_werewolf.interface.human_input import HumanInputProvider, is_human_agent
 from llm_werewolf.strategy.decisions import SpeechDecision, WitchNightDecision
 from llm_werewolf.strategy.vote_intention import SpeechVoteIntentionRecord, VoteIntentionTracker
 from llm_werewolf.strategy.phase_outputs import ActionPhase
@@ -18,12 +19,26 @@ if TYPE_CHECKING:
 class PhaseInteraction:
     """面向引擎与角色的 LLM 决策 API。须显式注入 hub。"""
 
-    def __init__(self, hub: InformationHub) -> None:
+    def __init__(
+        self,
+        hub: InformationHub,
+        human_input_provider: HumanInputProvider | None = None,
+    ) -> None:
         self._hub = hub
+        self._human_input_provider = human_input_provider
 
     @property
     def hub(self) -> InformationHub:
         return self._hub
+
+    def set_human_input_provider(self, provider: HumanInputProvider) -> None:
+        self._human_input_provider = provider
+
+    def _require_human_input_provider(self) -> HumanInputProvider:
+        if self._human_input_provider is None:
+            msg = "HumanInputProvider is required for human-controlled players"
+            raise RuntimeError(msg)
+        return self._human_input_provider
 
     async def request_seat_choice(
         self,
@@ -39,6 +54,16 @@ class PhaseInteraction:
         phase: str | None = None,
         action_phase: ActionPhase | None = None,
     ) -> PlayerProtocol | None:
+        if is_human_agent(agent):
+            provider = self._require_human_input_provider()
+            return await provider.choose_seat(
+                role_name=role_name,
+                action_description=action_description,
+                possible_targets=possible_targets,
+                allow_skip=allow_skip,
+                context=additional_context,
+            )
+
         return await self._hub.request_private_seat_choice(
             actor,
             agent,
@@ -66,6 +91,16 @@ class PhaseInteraction:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> WitchNightDecision:
+        if is_human_agent(agent):
+            provider = self._require_human_input_provider()
+            return await provider.choose_witch_action(
+                role_name=role_name,
+                can_see_victim=can_see_victim,
+                victim_line=victim_line,
+                poison_targets=poison_targets,
+                context=additional_context,
+            )
+
         return await self._hub.request_private_witch_night(
             actor,
             agent,
@@ -88,6 +123,14 @@ class PhaseInteraction:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> bool:
+        if is_human_agent(agent):
+            provider = self._require_human_input_provider()
+            return await provider.choose_yes_no(
+                role_name=role_name,
+                question=question,
+                context=context,
+            )
+
         return await self._hub.request_private_yes_no(
             actor, agent, role_name, question, context, round_number, phase
         )
@@ -104,6 +147,16 @@ class PhaseInteraction:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> list[PlayerProtocol] | None:
+        if is_human_agent(agent):
+            provider = self._require_human_input_provider()
+            return await provider.choose_multi_targets(
+                role_name=role_name,
+                action_description=action_description,
+                possible_targets=possible_targets,
+                num_targets=num_targets,
+                context=additional_context,
+            )
+
         return await self._hub.request_private_multi_target(
             actor,
             agent,
@@ -128,6 +181,15 @@ class PhaseInteraction:
         round_number: int = 0,
         audience: list[PlayerProtocol] | None = None,
     ) -> SpeechDecision:
+        if is_human_agent(agent):
+            provider = self._require_human_input_provider()
+            return await provider.speak(
+                context=context,
+                instruction=instruction,
+                phase=phase,
+                round_number=round_number,
+            )
+
         return await self._hub.collect_speech(
             actor,
             context,
@@ -186,4 +248,5 @@ class PhaseInteraction:
             on_speech=on_speech,
             vote_intention_tracker=vote_intention_tracker,
             on_vote_intention_record=on_vote_intention_record,
+            human_input_provider=self._human_input_provider,
         )

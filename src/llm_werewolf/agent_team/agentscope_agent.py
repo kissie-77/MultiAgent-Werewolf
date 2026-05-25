@@ -42,6 +42,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     agentscope_agent: Any = Field(default=None, exclude=True)
     player_config: Any = Field(default=None, exclude=True)
     uses_structured_output: bool = Field(default=True, exclude=True)
+    show_agent_raw: bool = Field(default=False, exclude=True)
     decision_history: list[str] = Field(default=[])
     chat_history: list[dict] = Field(default=[])
 
@@ -104,6 +105,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 self.player_config,
                 agent_name=self.name,
                 sys_prompt=sys_prompt,
+                show_console_output=self.show_agent_raw,
             )
 
         self.decision_history = []

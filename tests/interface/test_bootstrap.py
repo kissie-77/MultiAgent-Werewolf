@@ -28,7 +28,11 @@ def test_wire_agentscope_calls_bind_after_setup() -> None:
 
     with patch("llm_werewolf.interface.bootstrap.bind_agentscope_roles") as mock_bind:
         wire_agentscope_after_setup(engine, cfg)
-        mock_bind.assert_called_once_with(engine.game_state, default_plan="default")
+        mock_bind.assert_called_once_with(
+            engine.game_state,
+            default_plan="default",
+            show_agent_raw=False,
+        )
 
 
 def test_wire_agentscope_backend_is_the_only_llm_backend() -> None:
@@ -38,4 +42,22 @@ def test_wire_agentscope_backend_is_the_only_llm_backend() -> None:
 
     with patch("llm_werewolf.interface.bootstrap.bind_agentscope_roles") as mock_bind:
         wire_agentscope_after_setup(engine, cfg)
-        mock_bind.assert_called_once_with(engine.game_state, default_plan="default")
+        mock_bind.assert_called_once_with(
+            engine.game_state,
+            default_plan="default",
+            show_agent_raw=False,
+        )
+
+
+def test_wire_agentscope_passes_raw_output_flag() -> None:
+    cfg = PlayersConfig(language="zh-CN", players=_six_demo_players())
+    engine = MagicMock()
+    engine.game_state = MagicMock()
+
+    with patch("llm_werewolf.interface.bootstrap.bind_agentscope_roles") as mock_bind:
+        wire_agentscope_after_setup(engine, cfg, show_agent_raw=True)
+        mock_bind.assert_called_once_with(
+            engine.game_state,
+            default_plan="default",
+            show_agent_raw=True,
+        )

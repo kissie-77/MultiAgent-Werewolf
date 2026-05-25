@@ -28,11 +28,16 @@ def bind_agentscope_roles(
     game_state: GameState | None,
     *,
     default_plan: str = "default",
+    show_agent_raw: bool = False,
 ) -> None:
     """角色分配完成后，为各玩家配置 AgentScope 系统 prompt。"""
     if game_state is None:
         return
-    configure_agents_for_players(game_state.players, default_plan=default_plan)
+    configure_agents_for_players(
+        game_state.players,
+        default_plan=default_plan,
+        show_agent_raw=show_agent_raw,
+    )
 
 
 def create_players_from_config(
@@ -54,11 +59,17 @@ def create_players_from_config(
 def wire_agentscope_after_setup(
     engine: GameEngine,
     players_config: PlayersConfig,
+    *,
+    show_agent_raw: bool = False,
 ) -> None:
     """在 ``GameEngine.setup_game`` 之后绑定策略 Prompt 并创建 ReAct Agent。"""
     if not players_config.use_agentscope_backend:
         return
-    bind_agentscope_roles(engine.game_state, default_plan=players_config.default_plan)
+    bind_agentscope_roles(
+        engine.game_state,
+        default_plan=players_config.default_plan,
+        show_agent_raw=show_agent_raw,
+    )
 
 
 def prepare_game_roster(

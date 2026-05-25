@@ -39,6 +39,7 @@ async def main(
     config: str | None = None,
     participation: str = "all_agent",
     rules: str = "badge_flow",
+    show_agent_raw: bool = False,
 ) -> None:
     """在控制台模式下运行狼人杀游戏（自动进行）。
 
@@ -46,6 +47,7 @@ async def main(
         config: YAML 配置文件路径；提供后优先于模式选择。
         participation: 参与方式，例如 all_agent。
         rules: 规则模式，例如 basic、badge_flow、extended_roles。
+        show_agent_raw: 是否显示 AgentScope 原始输出（thinking、动作、发言）。
     """
     config_path = resolve_config_path(
         config,
@@ -64,7 +66,11 @@ async def main(
     engine.on_event = presenter.present_event
 
     engine.setup_game(players=players, roles=roles)
-    wire_agentscope_after_setup(engine, players_config)
+    wire_agentscope_after_setup(
+        engine,
+        players_config,
+        show_agent_raw=show_agent_raw,
+    )
 
     if participation == "human_mixed":
         human_player = _find_single_human_player(engine.game_state)
@@ -145,9 +151,17 @@ def _run_main(
     config: str | None = None,
     participation: str = "all_agent",
     rules: str = "badge_flow",
+    show_agent_raw: bool = False,
 ) -> None:
     """同步包装器，用于运行异步 main 函数。"""
-    asyncio.run(main(config, participation=participation, rules=rules))
+    asyncio.run(
+        main(
+            config,
+            participation=participation,
+            rules=rules,
+            show_agent_raw=show_agent_raw,
+        )
+    )
 
 
 def entry() -> None:

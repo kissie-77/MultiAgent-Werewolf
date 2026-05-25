@@ -59,6 +59,45 @@ uv run werewolf-tui configs/my_game.yaml
 uv run werewolf configs/demo.yaml
 ```
 
+### DeepSeek 人机对战（1 名人类 + 11 名 LLM）
+
+在 PowerShell 中进入项目目录，并把 DeepSeek API Key 只设置到当前终端环境变量中：
+
+```powershell
+cd D:\AI_werewolf\MultiAgent-Werewolf-add-skill-files-20260525
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+uv run python -m llm_werewolf.interface.cli --participation=human_mixed --rules=badge_flow --show_agent_raw=True
+```
+
+运行过程中，人类玩家只需要两类输入：
+
+- 技能、目标、投票：输入数字，例如 `1`
+- 白天发言：输入纯文字，例如 `我先听大家发言，暂时观察站边变化。`
+
+如需中止对局，按 `Ctrl+C`。对局结束或不再需要时，可以清掉当前终端中的 Key：
+
+```powershell
+Remove-Item Env:DEEPSEEK_API_KEY
+```
+
+### LLM 间对战（全自动）
+
+LLM 间对战不需要人类输入，设置好 API Key 后直接运行 DeepSeek 全 LLM 配置：
+
+```powershell
+cd D:\AI_werewolf\MultiAgent-Werewolf-add-skill-files-20260525
+$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+uv run python -m llm_werewolf.interface.cli --config configs/llm-12p-deepseek.yaml --show_agent_raw=True
+```
+
+也可以直接指定配置文件运行：
+
+```powershell
+uv run python -m llm_werewolf.interface.cli --config configs/llm-12p-deepseek.yaml
+```
+
+其中 `--show_agent_raw=True` 会显示 AgentScope 原始输出，包括每个 Agent 的 thinking、动作选择和发言内容；去掉该参数则只显示整理后的游戏事件。
+
 ## 项目架构
 
 ```

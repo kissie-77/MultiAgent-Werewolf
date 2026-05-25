@@ -101,6 +101,28 @@ class InformationHub:
             parts.append(additional_context)
         return "\n\n".join(parts)
 
+    @staticmethod
+    def _with_public_transcript(
+        context: str,
+        public_transcript: list[str] | None,
+    ) -> str:
+        lines = [
+            line.strip()
+            for line in (public_transcript or [])
+            if line and line.strip()
+        ]
+        if not lines:
+            return context
+        return "\n\n".join(
+            part
+            for part in [
+                context,
+                "【本轮已公开发言】",
+                "\n".join(lines),
+            ]
+            if part
+        )
+
     async def _deliver_private(
         self,
         react_agent: Any,
@@ -212,6 +234,7 @@ class InformationHub:
         phase: str,
         round_number: int,
         last_speaker: PlayerProtocol | None = None,
+        public_transcript: list[str] | None = None,
     ) -> dict[str, VoteIntentionEntry]:
         """每位存活听众须经 LLM 输出投票意向（私密）。"""
         intentions: dict[str, VoteIntentionEntry] = {}
@@ -225,8 +248,12 @@ class InformationHub:
             possible_targets = [
                 p for p in alive if p.player_id != observer.player_id
             ]
-            extra_parts = [
+            context = self._with_public_transcript(
                 context_builder(observer),
+                public_transcript,
+            )
+            extra_parts = [
+                context,
                 EngineContexts.hub_decision_memory_notice(),
             ]
             if anchor == VoteIntentionAnchor.INITIAL:
@@ -318,6 +345,7 @@ class InformationHub:
                     context_builder=context_builder,
                     phase=phase,
                     round_number=round_number,
+                    public_transcript=public_transcript,
                 )
                 vote_intention_tracker.add_snapshot(
                     VoteIntentionSnapshot(
@@ -356,12 +384,7 @@ class InformationHub:
                     if human_input_provider is None:
                         msg = "HumanInputProvider is required for human roundtable speech"
                         raise RuntimeError(msg)
-                    if public_transcript:
-                        context = "\n\n".join([
-                            context,
-                            "【本轮已公开发言】",
-                            "\n".join(public_transcript),
-                        ])
+                    context = self._with_public_transcript(context, public_transcript)
                     decision = await human_input_provider.speak(
                         context=context,
                         instruction=instruction,
@@ -369,6 +392,7 @@ class InformationHub:
                         round_number=round_number,
                     )
                 else:
+                    context = self._with_public_transcript(context, public_transcript)
                     llm_context = "\n\n".join([
                         context,
                         EngineContexts.hub_roundtable_memory_notice(channel.value),
@@ -427,6 +451,7 @@ class InformationHub:
                         phase=phase,
                         round_number=round_number,
                         last_speaker=speaker,
+                        public_transcript=public_transcript,
                     )
                     vote_intention_tracker.add_snapshot(
                         VoteIntentionSnapshot(

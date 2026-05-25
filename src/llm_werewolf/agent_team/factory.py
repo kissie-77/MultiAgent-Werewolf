@@ -81,7 +81,7 @@ def create_react_agent(
         generate_kwargs=generate_kwargs,
     )
 
-    return ReActAgent(
+    agent = ReActAgent(
         name=agent_name,
         sys_prompt=sys_prompt,
         model=model,
@@ -90,6 +90,12 @@ def create_react_agent(
         memory=InMemoryMemory(),
         print_hint_msg=False,
     )
+    set_console_output_enabled = getattr(agent, "set_console_output_enabled", None)
+    if callable(set_console_output_enabled):
+        set_console_output_enabled(False)
+    else:
+        agent._disable_console_output = True  # noqa: SLF001
+    return agent
 
 
 def configure_agents_for_players(

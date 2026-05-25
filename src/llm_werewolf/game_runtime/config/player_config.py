@@ -2,7 +2,7 @@ from pydantic import Field, BaseModel, computed_field, field_validator
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
-from llm_werewolf.agent_team.memory.config import MemoryConfig
+from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
 
 
 class PlayerConfig(BaseModel):

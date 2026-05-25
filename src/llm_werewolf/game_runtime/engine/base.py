@@ -81,6 +81,7 @@ class GameEngineBase:
 
         self.game_state.information_hub = self.information_hub
         self.game_state.phase_interaction = self.phase_interaction
+        self.game_state.event_logger = self.event_logger
 
         track_intentions = True if self.config is None else self.config.track_vote_intentions
         if self.config is not None:

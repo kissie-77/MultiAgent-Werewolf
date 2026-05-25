@@ -16,8 +16,7 @@ from agentscope.model import OpenAIChatModel
 from agentscope.tool import Toolkit
 
 from llm_werewolf.agent_team.memory import MemoryManager
-from llm_werewolf.agent_team.memory.config import MemoryConfig
-from llm_werewolf.game_runtime.config import PlayerConfig
+from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 if TYPE_CHECKING:
@@ -94,6 +93,32 @@ def create_react_agent(
     )
 
 
+def _build_memory_manager(
+    player: Player,
+    role_name: str,
+    plan_name: str,
+    memory_config: MemoryConfig | None,
+) -> MemoryManager | None:
+    """按玩家当前运行时上下文构建记忆管理器。"""
+    game_state = player.game_state
+    if game_state is None:
+        return None
+
+    event_logger = getattr(game_state, "event_logger", None)
+    if event_logger is None:
+        return None
+
+    manager = MemoryManager(
+        event_logger=event_logger,
+        role=PromptManager.get_prompt_role_key(role_name),
+        player_id=player.player_id,
+        plan_name=plan_name,
+        config=memory_config,
+    )
+    manager.on_game_start(manager.role)
+    return manager
+
+
 def configure_agents_for_players(
     players: list[Player],
     *,
@@ -113,15 +138,12 @@ def configure_agents_for_players(
         if callable(bind_prompt):
             bind_prompt(role_name, seat, plan_text)
             if hasattr(agent, "memory_manager"):
-                agent.memory_manager = MemoryManager(
-                    event_logger=player.game_state.event_logger if player.game_state else None,
-                    role=PromptManager.get_prompt_role_key(role_name),
-                    player_id=player.player_id,
-                    plan_name=plan_name,
-                    config=memory_config,
-                ) if player.game_state else None
-                if agent.memory_manager:
-                    agent.memory_manager.on_game_start(agent.memory_manager.role)
+                agent.memory_manager = _build_memory_manager(
+                    player,
+                    role_name,
+                    plan_name,
+                    memory_config,
+                )
             continue
 
         configure_role = getattr(agent, "configure_role", None)
@@ -134,12 +156,9 @@ def configure_agents_for_players(
             plan_text=plan_text,
         )
         if hasattr(agent, "memory_manager"):
-            agent.memory_manager = MemoryManager(
-                event_logger=player.game_state.event_logger if player.game_state else None,
-                role=PromptManager.get_prompt_role_key(role_name),
-                player_id=player.player_id,
-                plan_name=plan_name,
-                config=memory_config,
-            ) if player.game_state else None
-            if agent.memory_manager:
-                agent.memory_manager.on_game_start(agent.memory_manager.role)
+            agent.memory_manager = _build_memory_manager(
+                player,
+                role_name,
+                plan_name,
+                memory_config,
+            )

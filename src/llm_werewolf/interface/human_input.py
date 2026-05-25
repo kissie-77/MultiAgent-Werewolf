@@ -78,6 +78,11 @@ class ShellHumanInputProvider:
             for player in possible_targets
             if (seat := WerewolfAdapterBridge.get_player_seat(player)) is not None
         }
+        if not target_by_seat:
+            if allow_skip:
+                return None
+            msg = "No selectable targets with resolvable seats."
+            raise ValueError(msg)
 
         self._write("")
         self._write(f"[{role_name}] {context}")
@@ -176,6 +181,18 @@ class ShellHumanInputProvider:
         num_targets: int,
         context: str,
     ) -> list[PlayerProtocol]:
+        target_by_seat = {
+            seat: player
+            for player in possible_targets
+            if (seat := WerewolfAdapterBridge.get_player_seat(player)) is not None
+        }
+        if len(target_by_seat) < num_targets:
+            msg = (
+                f"Cannot select {num_targets} distinct targets from "
+                f"{len(target_by_seat)} selectable targets."
+            )
+            raise ValueError(msg)
+
         selected: list[PlayerProtocol] = []
         remaining = list(possible_targets)
 

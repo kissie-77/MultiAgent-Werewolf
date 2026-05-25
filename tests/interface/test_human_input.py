@@ -1,3 +1,5 @@
+import pytest
+
 from llm_werewolf.game_runtime.player import Player
 from llm_werewolf.game_runtime.roles.villager import Villager
 from llm_werewolf.interface.human_input import ShellHumanInputProvider, is_human_agent
@@ -42,6 +44,33 @@ async def test_choose_seat_returns_none_when_skip_allowed() -> None:
         role_name="Villager",
         action_description="投票",
         possible_targets=_players()[1:],
+        allow_skip=True,
+        context="白天投票。",
+    )
+
+    assert selected is None
+
+
+async def test_choose_seat_raises_when_no_targets_without_skip() -> None:
+    provider = _provider_with_answers("1")
+
+    with pytest.raises(ValueError, match="No selectable targets"):
+        await provider.choose_seat(
+            role_name="Villager",
+            action_description="投票",
+            possible_targets=[],
+            allow_skip=False,
+            context="白天投票。",
+        )
+
+
+async def test_choose_seat_returns_none_when_no_targets_with_skip() -> None:
+    provider = _provider_with_answers("1")
+
+    selected = await provider.choose_seat(
+        role_name="Villager",
+        action_description="投票",
+        possible_targets=[],
         allow_skip=True,
         context="白天投票。",
     )
@@ -104,6 +133,19 @@ async def test_choose_multi_targets_collects_distinct_targets() -> None:
     )
 
     assert [player.player_id for player in selected] == ["player_2", "player_3"]
+
+
+async def test_choose_multi_targets_raises_when_insufficient_targets() -> None:
+    provider = _provider_with_answers("1")
+
+    with pytest.raises(ValueError, match="Cannot select 2 distinct targets"):
+        await provider.choose_multi_targets(
+            role_name="Cupid",
+            action_description="选择两名玩家结为情侣",
+            possible_targets=_players()[:1],
+            num_targets=2,
+            context="首夜行动。",
+        )
 
 
 def test_is_human_agent_checks_model_name() -> None:

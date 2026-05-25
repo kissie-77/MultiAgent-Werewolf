@@ -188,6 +188,14 @@ CLI 在 `setup_game()` 后定位唯一 human player：
 - `ConsolePresenter` 在 human viewer 下过滤不可见事件，但展示本人可见私密结果。
 - `resolve_config_path(participation="human_mixed", rules="badge_flow")` 返回新配置。
 
+端到端交互测试可增加一类 Codex subagent 人类玩家 smoke：
+
+- 主进程启动 human_mixed CLI 对局。
+- Codex subagent 按预设“人类玩家脚本”读取 shell 提示，并输入数字或纯文字。
+- 脚本覆盖至少一次夜间技能、一次白天发言、一次投票。
+- 测试日志断言真人输入进入事件流，且没有出现 `[[...]]`、JSON 或随机代打提示。
+- 该测试作为慢速 smoke，不替代确定性的 provider 单元测试。
+
 ## 验收标准
 
 - 启动 human_mixed CLI 后，人类玩家技能和投票只需输入数字。
@@ -204,4 +212,4 @@ CLI 在 `setup_game()` 后定位唯一 human player：
 4. 调整 CLI human_mixed 模式和 viewer 过滤。
 5. 修正 `ConsolePresenter` human viewer 的私密事件展示。
 6. 新增 human-mixed DeepSeek 配置和模式测试。
-7. 运行聚焦测试，再做一次 CLI smoke 验证。
+7. 运行聚焦测试，再让 Codex subagent 扮演人类玩家做一次 CLI smoke 验证。

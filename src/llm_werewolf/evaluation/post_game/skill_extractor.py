@@ -49,6 +49,7 @@ def _skill_from_persuasion(
     if speech.matched_round_elimination:
         title = f"第{speech.round_number}轮说服并命中放逐"
 
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return {
         "skill_id": skill_id,
         "prompt_role_key": role_key,
@@ -59,6 +60,11 @@ def _skill_from_persuasion(
         "camp": candidate.camp,
         "source_run": str(ctx.run_dir),
         "status": "draft",
+        "weight": 1.0,
+        "win_count": 0,
+        "use_count": 0,
+        "created_at": now_iso,
+        "updated_at": now_iso,
         "quality_gate": {
             "passed": True,
             "rule_id": candidate.rule.rule_id,
@@ -116,6 +122,7 @@ def _skill_from_night_action(
     }
     title = title_map.get(etype, f"第{rnd}轮夜间决策")
 
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return {
         "skill_id": skill_id,
         "prompt_role_key": role_key,
@@ -126,6 +133,11 @@ def _skill_from_night_action(
         "camp": candidate.camp,
         "source_run": str(ctx.run_dir),
         "status": "draft",
+        "weight": 1.0,
+        "win_count": 0,
+        "use_count": 0,
+        "created_at": now_iso,
+        "updated_at": now_iso,
         "quality_gate": {
             "passed": True,
             "rule_id": candidate.rule.rule_id,

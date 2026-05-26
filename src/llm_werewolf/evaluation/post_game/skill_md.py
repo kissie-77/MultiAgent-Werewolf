@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -11,6 +12,7 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     evidence = skill.get("evidence") or {}
     quality = skill.get("quality_gate") or {}
 
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     frontmatter = {
         "skill_id": skill.get("skill_id", ""),
         "prompt_role_key": skill.get("prompt_role_key", ""),
@@ -19,6 +21,11 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
         "source_player_id": skill.get("source_player_id", ""),
         "camp": skill.get("camp", ""),
         "quality_passed": quality.get("passed", False),
+        "weight": skill.get("weight", 1.0),
+        "win_count": skill.get("win_count", 0),
+        "use_count": skill.get("use_count", 0),
+        "created_at": skill.get("created_at", now_iso),
+        "updated_at": skill.get("updated_at", now_iso),
     }
     lines = ["---"]
     for key, value in frontmatter.items():

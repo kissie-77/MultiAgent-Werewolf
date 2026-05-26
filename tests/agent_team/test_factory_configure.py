@@ -27,8 +27,7 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
 
     with patch("llm_werewolf.agent_team.factory.create_react_agent") as mock_create:
         mock_create.return_value = MagicMock(name="ReActAgent")
-        player.game_state = MagicMock(event_logger=EventLogger())
-        configure_agents_for_players([player], default_plan="default")
+        configure_agents_for_players([player], default_plan="default", event_logger=EventLogger())
 
     mock_create.assert_called_once()
     assert agent.game_role_name == "Seer"
@@ -45,9 +44,8 @@ def test_configure_agents_skips_agents_without_configure_role() -> None:
 
     agent = DemoAgent(name="P1")
     player = Player("player_1", "P1", Seer, agent=agent, ai_model="demo")
-    player.game_state = MagicMock(event_logger=EventLogger())
 
-    configure_agents_for_players([player], default_plan="default")
+    configure_agents_for_players([player], default_plan="default", event_logger=EventLogger())
     assert not hasattr(agent, "agentscope_agent") or agent.agentscope_agent is None  # noqa: SLF001
 
 

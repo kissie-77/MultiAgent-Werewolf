@@ -254,3 +254,87 @@ def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
     section = format_role_skills_section("wolf")
     assert "对局经验 Skill" in section
     assert "首夜" in section
+
+
+def test_skill_loader_sorts_by_weight_descending(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team import skill_loader
+
+    root = tmp_path / "skills"
+    wolf_dir = root / "wolf"
+    wolf_dir.mkdir(parents=True)
+
+    (wolf_dir / "low.md").write_text(
+        "---\nskill_id: low\nprompt_role_key: wolf\nstatus: draft\nweight: 0.5\n---\n\n# 低权重\n",
+        encoding="utf-8",
+    )
+    (wolf_dir / "high.md").write_text(
+        "---\nskill_id: high\nprompt_role_key: wolf\nstatus: draft\nweight: 2.0\n---\n\n# 高权重\n",
+        encoding="utf-8",
+    )
+    (wolf_dir / "mid.md").write_text(
+        "---\nskill_id: mid\nprompt_role_key: wolf\nstatus: draft\nweight: 1.0\n---\n\n# 中权重\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    items = load_role_skills("wolf", max_skills=10)
+    assert len(items) == 3
+    assert items[0]["skill_id"] == "high"
+    assert items[1]["skill_id"] == "mid"
+    assert items[2]["skill_id"] == "low"
+
+
+def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team import skill_loader
+
+    root = tmp_path / "skills"
+    wolf_dir = root / "wolf"
+    wolf_dir.mkdir(parents=True)
+
+    (wolf_dir / "no_weight.md").write_text(
+        "---\nskill_id: no_weight\nprompt_role_key: wolf\nstatus: draft\n---\n\n# 无权重\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    items = load_role_skills("wolf")
+    assert len(items) == 1
+    assert items[0]["weight"] == 1.0
+
+
+def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
+
+    root = tmp_path / "skills"
+    wolf_dir = root / "wolf"
+    wolf_dir.mkdir(parents=True)
+    skill_path = wolf_dir / "wolf_demo.md"
+    skill_path.write_text(
+        "---\n"
+        "skill_id: wolf_demo\n"
+        "prompt_role_key: wolf\n"
+        "status: draft\n"
+        "weight: 1.0\n"
+        "win_count: 0\n"
+        "use_count: 0\n"
+        "---\n\n"
+        "# Demo\n\n## 何时使用\n首夜优先统一刀口\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    memory = SemanticMemory()
+    memory.update_after_game("wolf", won=True, used_card_ids=["wolf_demo"])
+
+    text = skill_path.read_text(encoding="utf-8")
+    assert "weight: 1.10" in text
+    assert "win_count: 1" in text
+    assert "use_count: 1" in text
+    assert "updated_at:" in text

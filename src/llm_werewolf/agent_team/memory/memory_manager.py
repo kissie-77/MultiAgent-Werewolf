@@ -1,4 +1,4 @@
-"""统一管理工作记忆、情景记忆、语义记忆与程序记忆。"""
+"""Coordinates working, episodic, semantic, and procedural memory."""
 
 from __future__ import annotations
 
@@ -7,13 +7,14 @@ from typing import Any
 from llm_werewolf.agent_team.memory.base import SemanticBackend
 from llm_werewolf.agent_team.memory.config import MemoryConfig
 from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory, _KEY_EVENT_TYPES
+from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
 from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
-from llm_werewolf.agent_team.memory.semantic_memory import InMemoryBackend, SemanticMemory
+from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
 from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
 
 
 class MemoryManager:
-    """记忆统一调度器。"""
+    """Unified lifecycle manager for all memory layers."""
 
     def __init__(
         self,
@@ -23,30 +24,18 @@ class MemoryManager:
         plan_name: str = "default",
         config: MemoryConfig | None = None,
         semantic_backend: SemanticBackend | None = None,
+        compressor: object | None = None,
     ):
         self.config = config or MemoryConfig()
         self.player_id = player_id
         self.role = role
         self.plan_name = plan_name
-
-        self._reme_backend = None
-        compressor = None
-
-        if semantic_backend is not None:
-            pass
-        elif self.config.reme_enabled:
-            from llm_werewolf.agent_team.memory.reme_backend import LLMCompressor, ReMeSemanticBackend
-
-            self._reme_backend = ReMeSemanticBackend(self.config)
-            semantic_backend = self._reme_backend
-            if self.config.reme_compress_working_memory:
-                compressor = LLMCompressor(self.config)
-        else:
-            semantic_backend = InMemoryBackend()
+        self._llm_compressor = compressor
 
         self.working = WorkingMemory(
             max_rounds=self.config.working_max_rounds,
             max_dynamic_items=self.config.working_max_dynamic_items,
+            max_persistent_chars=self.config.working_max_persistent_chars,
             compressor=compressor,
         )
         self.episodic = EpisodicMemory(event_logger)
@@ -55,12 +44,11 @@ class MemoryManager:
         self._used_card_ids: list[str] = []
 
     async def aclose(self) -> None:
-        """释放 ReMe 等异步资源。"""
-        if self._reme_backend is not None:
-            await self._reme_backend.aclose()
+        """Compatibility hook for optional async resources."""
+        return None
 
     def on_game_start(self, role: str) -> None:
-        """开局注入跨局经验。"""
+        """Inject role skills and procedural summaries at game start."""
         self.role = role
         self._used_card_ids = []
         if not self.config.enabled or not self.config.enable_semantic_memory:
@@ -72,14 +60,14 @@ class MemoryManager:
         self.working.add_persistent(f"[程序记忆] {plan_summary}", tag="procedural")
 
     def on_round_end(self, round_number: int) -> None:
-        """轮结束时压缩工作记忆。"""
+        """Compress working memory at round end."""
         del round_number
         if not self.config.enabled or not self.config.enable_working_memory:
             return
         self.working.end_round()
 
     def on_game_end(self, won: bool) -> None:
-        """局结束时回写经验卡片权重，并预留情景到语义的提炼口。"""
+        """Update used skill weights and optionally extract new candidates."""
         if self.config.enabled and self.config.enable_semantic_memory and self._used_card_ids:
             self.semantic.update_after_game(self.role, won, self._used_card_ids)
         if self.config.extract_semantic_on_game_end:
@@ -87,7 +75,7 @@ class MemoryManager:
                 self.semantic.add_or_merge_card(self.role, candidate)
 
     def get_context_for_decision(self) -> str:
-        """输出注入私有决策 prompt 的记忆上下文。"""
+        """Return memory context for private decision prompts."""
         if not self.config.enabled:
             return ""
         parts: list[str] = []
@@ -102,7 +90,7 @@ class MemoryManager:
         return "\n\n".join(parts)
 
     def add_public_speech(self, speaker_name: str, speech: str, round_number: int) -> None:
-        """记录本轮公开发言。"""
+        """Record public speech into working memory."""
         if not self.config.enabled or not self.config.enable_working_memory:
             return
         self.working.add_dynamic(
@@ -112,7 +100,7 @@ class MemoryManager:
         )
 
     def add_event(self, event: Any) -> None:
-        """记录当前玩家可见的关键事件。"""
+        """Record visible key events into working memory."""
         if not self.config.enabled or not self.config.enable_working_memory:
             return
         event_type = getattr(event, "event_type", None)
@@ -126,10 +114,49 @@ class MemoryManager:
             )
 
     def extract_semantic_candidates(self, won: bool) -> list[str]:
-        """从情景记忆提炼可沉淀为语义记忆的候选策略。"""
+        """Rule-based extraction of semantic skill candidates from episodic memory."""
         if not self.player_id or not self.config.enable_episodic_memory:
             return []
         report = self.episodic.export_episode_report(self.player_id)
+        if self.config.enable_llm_semantic_extraction:
+            llm_candidates = self._extract_semantic_candidates_with_llm(report, won)
+            if llm_candidates:
+                return llm_candidates[: self.config.semantic_top_k]
+        return self._extract_semantic_candidates_by_rules(report, won)
+
+    def _semantic_llm(self):
+        if self._llm_compressor is not None:
+            return self._llm_compressor
+        return LLMCompressor(
+            api_key=self.config.working_compression_api_key,
+            base_url=self.config.working_compression_base_url,
+            model=self.config.working_compression_model,
+            timeout=self.config.working_compression_timeout,
+        )
+
+    def _extract_semantic_candidates_with_llm(self, report: dict, won: bool) -> list[str]:
+        lines = [
+            "请从以下狼人杀对局记录中提炼 1-3 条可复用的策略经验。",
+            "每条不超过 50 字，只输出策略经验列表，不要写流水账。",
+            f"本局结果：{'胜利' if won else '失败'}",
+        ]
+        for episode in report.get("episodes", []):
+            messages = episode.get("key_event_messages", []) + episode.get("decision_event_messages", [])
+            if messages:
+                lines.append(f"第{episode.get('round_number')}轮：" + "；".join(messages[:4]))
+        compressor = self._semantic_llm()
+        try:
+            response = compressor._call_llm_text("\n".join(lines), max_tokens=300)
+        except Exception:
+            response = ""
+        candidates = []
+        for raw_line in response.splitlines():
+            line = raw_line.strip().lstrip("-*0123456789.、) ")
+            if line:
+                candidates.append(line[:80])
+        return self.semantic.deduplicate_candidates(candidates)
+
+    def _extract_semantic_candidates_by_rules(self, report: dict, won: bool) -> list[str]:
         candidates: list[str] = []
         for episode in report["episodes"]:
             round_number = episode["round_number"]
@@ -144,7 +171,6 @@ class MemoryManager:
                 candidates.append(
                     f"决策经验：第{round_number}轮重点关注" + "；".join(decision_messages[:2])
                 )
-
             if won and key_messages:
                 candidates.append(
                     f"胜利经验：第{round_number}轮保留对"

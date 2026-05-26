@@ -1,4 +1,4 @@
-"""情景记忆：基于 EventLogger 的结构化查询。"""
+"""情景记忆：基于 EventLogger 的全局事件存储与结构化查询。"""
 
 from __future__ import annotations
 
@@ -35,10 +35,46 @@ class EpisodeRecord:
 
 
 class EpisodicMemory:
-    """封装 EventLogger，提供记忆视角的时间线与导出能力。"""
+    """封装 EventLogger，底层以全量事件存储，查询接口支持过滤。"""
 
     def __init__(self, event_logger: EventLogger):
         self._logger = event_logger
+
+    # ── 全局查询（不过滤玩家可见性） ──
+
+    def get_all_events(
+        self,
+        *,
+        since_round: int | None = None,
+        event_types: set[EventType] | None = None,
+    ) -> list[Event]:
+        """获取全量事件，支持按轮次和事件类型过滤。"""
+        events = list(self._logger.events)
+        if since_round is not None:
+            events = [e for e in events if e.round_number >= since_round]
+        if event_types is not None:
+            events = [e for e in events if e.event_type in event_types]
+        return events
+
+    def get_round_events(self, round_number: int) -> list[Event]:
+        """获取指定轮次的所有事件。"""
+        return [e for e in self._logger.events if e.round_number == round_number]
+
+    def get_global_key_events(self) -> list[Event]:
+        """返回全局关键决策和结果事件。"""
+        return [e for e in self._logger.events if e.event_type in _KEY_EVENT_TYPES]
+
+    def get_thought_events(
+        self,
+        player_id: str | None = None,
+    ) -> list[Event]:
+        """获取心理记录事件（AGENT_THOUGHT），仅用于复盘/教练。"""
+        events = [e for e in self._logger.events if e.event_type == EventType.AGENT_THOUGHT]
+        if player_id is not None:
+            events = [e for e in events if e.data.get("player_id") == player_id]
+        return events
+
+    # ── 玩家视角查询（过滤可见性） ──
 
     def get_player_timeline(
         self,
@@ -49,9 +85,11 @@ class EpisodicMemory:
         return self._logger.get_events_for_player(player_id, since_round)
 
     def get_key_events(self, player_id: str) -> list[Event]:
-        """返回关键决策和结果事件。"""
+        """返回某玩家可见的关键决策和结果事件。"""
         all_events = self._logger.get_events_for_player(player_id)
         return [event for event in all_events if event.event_type in _KEY_EVENT_TYPES]
+
+    # ── 摘要与导出 ──
 
     def summarize_round(self, player_id: str, round_number: int) -> str:
         """按玩家视角生成单轮规则式摘要。"""

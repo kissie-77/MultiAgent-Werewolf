@@ -218,6 +218,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 /data/
+.reme/
 
 # Local-only: serialized AgentScope API calls (see docs/LOCAL_ONLY-serial-agent-calls.md)
 runs/

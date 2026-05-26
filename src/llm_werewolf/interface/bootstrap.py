@@ -34,11 +34,13 @@ def bind_agentscope_roles(
     """角色分配完成后，为各玩家配置 AgentScope 系统 prompt。"""
     if game_state is None:
         return
+    event_logger = getattr(game_state, "event_logger", None)
     configure_agents_for_players(
         game_state.players,
         default_plan=default_plan,
         memory_config=memory_config,
         prompt_version=prompt_version,
+        event_logger=event_logger,
     )
 
 

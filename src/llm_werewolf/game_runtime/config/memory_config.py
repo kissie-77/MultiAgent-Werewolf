@@ -1,36 +1,60 @@
-"""记忆框架配置。"""
+"""Memory framework configuration."""
 
 from pydantic import BaseModel, Field
 
 
 class MemoryConfig(BaseModel):
-    """统一控制记忆框架行为的配置。"""
+    """Central switches for the agent memory framework."""
 
-    enabled: bool = Field(default=True, description="是否启用记忆框架。")
-    enable_working_memory: bool = Field(default=True, description="是否启用工作记忆。")
-    enable_episodic_memory: bool = Field(default=True, description="是否启用情景记忆。")
-    enable_semantic_memory: bool = Field(default=True, description="是否启用语义记忆。")
-    working_max_rounds: int = Field(default=5, ge=1, description="工作记忆保留的历史轮数。")
+    enabled: bool = Field(default=True, description="Enable the memory framework.")
+    enable_working_memory: bool = Field(default=True, description="Enable working memory.")
+    enable_episodic_memory: bool = Field(default=True, description="Enable episodic memory.")
+    enable_semantic_memory: bool = Field(default=True, description="Enable semantic memory.")
+    working_max_rounds: int = Field(
+        default=5,
+        ge=1,
+        description="Number of historical round summaries kept in working memory.",
+    )
     working_max_dynamic_items: int = Field(
         default=20,
         ge=1,
-        description="每轮动态记忆最多保留条数。",
+        description="Maximum dynamic memory items retained per round.",
     )
-    semantic_top_k: int = Field(default=3, ge=0, description="每局注入的跨局经验卡片数量。")
+    working_max_persistent_chars: int = Field(
+        default=4000,
+        ge=100,
+        description="Maximum total characters in persistent memory zone.",
+    )
+    semantic_top_k: int = Field(
+        default=3,
+        ge=0,
+        description="Number of role skill cards injected at game start.",
+    )
     extract_semantic_on_game_end: bool = Field(
         default=False,
-        description="局结束时是否启用情景到语义的提炼接口。",
+        description="Extract semantic skill candidates from episodic memory at game end.",
     )
-
-    # ── ReMe 集成 ──────────────────────────────────────────────
-    reme_enabled: bool = Field(default=True, description="是否启用 ReMe 向量存储后端。")
-    reme_llm_base_url: str = Field(default="", description="ReMe LLM 的 OpenAI 兼容端点。")
-    reme_llm_api_key: str = Field(default="", description="ReMe LLM 的 API Key。")
-    reme_embedding_base_url: str = Field(default="", description="ReMe Embedding 的 OpenAI 兼容端点。")
-    reme_embedding_api_key: str = Field(default="", description="ReMe Embedding 的 API Key。")
-    reme_embedding_model: str = Field(default="BAAI/bge-m3", description="ReMe Embedding 模型名称。")
-    reme_working_dir: str = Field(default=".reme", description="ReMe 本地数据存储目录。")
-    reme_compress_working_memory: bool = Field(
+    enable_llm_working_compression: bool = Field(
+        default=True,
+        description="Use LLM for working memory compression. Falls back to rule-based if unavailable.",
+    )
+    working_compression_base_url: str = Field(
+        default="",
+        description="OpenAI-compatible base URL for working memory LLM compression.",
+    )
+    working_compression_api_key: str = Field(
+        default="",
+        description="API key for working memory LLM compression.",
+    )
+    working_compression_model: str = Field(
+        default="default",
+        description="Model name for working memory LLM compression.",
+    )
+    working_compression_timeout: float = Field(
+        default=30.0,
+        description="Timeout in seconds for LLM compression API calls.",
+    )
+    enable_llm_semantic_extraction: bool = Field(
         default=False,
-        description="是否用 LLM 语义压缩替代工作记忆的规则式压缩。",
+        description="Use LLM to extract semantic skill candidates before rule fallback.",
     )

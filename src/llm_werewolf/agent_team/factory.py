@@ -106,30 +106,44 @@ def create_react_agent(
     )
 
 
+def _build_compressor(config: MemoryConfig, player_config: PlayerConfig | None = None):
+    """为工作记忆构建 LLM 压缩器，配置不足时返回 None。"""
+    if not config.enable_llm_working_compression:
+        return None
+
+    api_key = config.working_compression_api_key
+    base_url = config.working_compression_base_url
+    if not api_key and player_config and player_config.api_key_env:
+        api_key = os.getenv(player_config.api_key_env, "")
+    if not base_url and player_config and player_config.base_url:
+        base_url = player_config.base_url
+    if not api_key or not base_url:
+        return None
+
+    from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
+
+    return LLMCompressor(
+        api_key=api_key,
+        base_url=base_url,
+        model=config.working_compression_model,
+        timeout=config.working_compression_timeout,
+    )
+
+
 def _build_memory_manager(
     player: Player,
     role_name: str,
     plan_name: str,
     memory_config: MemoryConfig | None,
+    event_logger=None,
 ) -> MemoryManager | None:
     """按玩家当前运行时上下文构建记忆管理器。"""
-    game_state = player.game_state
-    if game_state is None:
-        return None
-
-    event_logger = getattr(game_state, "event_logger", None)
     if event_logger is None:
         return None
 
     config = memory_config or MemoryConfig()
-    if config.reme_enabled and not config.reme_llm_api_key:
-        config = config.model_copy(update={
-            "reme_llm_api_key": os.getenv("REME_LLM_API_KEY", ""),
-            "reme_llm_base_url": os.getenv("REME_LLM_BASE_URL", ""),
-            "reme_embedding_api_key": os.getenv("REME_EMBEDDING_API_KEY", ""),
-            "reme_embedding_base_url": os.getenv("REME_EMBEDDING_BASE_URL", ""),
-            "reme_embedding_model": os.getenv("REME_EMBEDDING_MODEL", config.reme_embedding_model),
-        })
+    player_config = getattr(player.agent, "player_config", None)
+    compressor = _build_compressor(config, player_config)
 
     manager = MemoryManager(
         event_logger=event_logger,
@@ -137,6 +151,7 @@ def _build_memory_manager(
         player_id=player.player_id,
         plan_name=plan_name,
         config=config,
+        compressor=compressor,
     )
     manager.on_game_start(manager.role)
     return manager
@@ -148,6 +163,7 @@ def configure_agents_for_players(
     default_plan: str = "default",
     memory_config: MemoryConfig | None = None,
     prompt_version: str = "v2",
+    event_logger=None,
 ) -> None:
     """角色分配后，为每个 AgentScope Agent 配置系统 prompt。"""
     for player in players:
@@ -167,6 +183,7 @@ def configure_agents_for_players(
                     role_name,
                     plan_name,
                     memory_config,
+                    event_logger=event_logger,
                 )
             continue
 
@@ -186,4 +203,5 @@ def configure_agents_for_players(
                 role_name,
                 plan_name,
                 memory_config,
+                event_logger=event_logger,
             )

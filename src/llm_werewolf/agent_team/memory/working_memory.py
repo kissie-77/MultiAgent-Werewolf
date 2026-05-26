@@ -23,12 +23,14 @@ class WorkingMemory:
         self,
         max_rounds: int = 5,
         max_dynamic_items: int = 20,
+        max_persistent_chars: int = 4000,
         compressor: object | None = None,
     ):
         self._persistent: list[MemoryItem] = []
         self._dynamic: list[MemoryItem] = []
         self._summaries: deque[str] = deque(maxlen=max_rounds)
         self._max_dynamic = max_dynamic_items
+        self._max_persistent_chars = max_persistent_chars
         self._current_round = 0
         self._compressor = compressor
 
@@ -38,7 +40,7 @@ class WorkingMemory:
         return self._current_round
 
     def add_persistent(self, content: str, tag: str = "identity", priority: int = 3) -> None:
-        """添加常驻记忆。"""
+        """添加常驻记忆。超出字符限制时截断低优先级条目。"""
         if not content.strip():
             return
         self._persistent.append(
@@ -49,6 +51,16 @@ class WorkingMemory:
                 priority=priority,
             )
         )
+        self._trim_persistent()
+
+    def _trim_persistent(self) -> None:
+        """确保常驻区总字符数不超过限制。"""
+        total = sum(len(item.content) for item in self._persistent)
+        while total > self._max_persistent_chars and len(self._persistent) > 1:
+            # 找 priority 最低且最早（round_number 最小）的条目
+            weakest = min(self._persistent, key=lambda x: (x.priority, x.round_number))
+            self._persistent.remove(weakest)
+            total -= len(weakest.content)
 
     def add_dynamic(
         self,
@@ -68,7 +80,10 @@ class WorkingMemory:
         )
         self._dynamic.append(item)
         if len(self._dynamic) > self._max_dynamic:
-            self._dynamic = self._dynamic[-self._max_dynamic :]
+            # priority 高的优先保留；同 priority 保留最新的（后加入的）
+            indexed = list(enumerate(self._dynamic))
+            indexed.sort(key=lambda t: (t[1].priority, t[0]), reverse=True)
+            self._dynamic = [item for _, item in indexed[: self._max_dynamic]]
 
     def end_round(self) -> str:
         """轮结束时压缩动态记忆并清空当前轮缓存。"""

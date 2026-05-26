@@ -11,7 +11,7 @@ def test_memory_manager_injects_semantic_and_working_context():
         role="villager",
         player_id="p1",
         plan_name="bold",
-        config=MemoryConfig(reme_enabled=False),
+        config=MemoryConfig(),
         semantic_backend=InMemoryBackend(),
     )
     manager.semantic.add_card("villager", "白天优先核对发言与投票是否一致")
@@ -32,7 +32,7 @@ def test_memory_manager_updates_card_weight_after_game():
         EventLogger(),
         role="wolf",
         player_id="p2",
-        config=MemoryConfig(reme_enabled=False),
+        config=MemoryConfig(),
         semantic_backend=InMemoryBackend(),
     )
     card = manager.semantic.add_card("wolf", "优先处理发言清晰的强神")
@@ -53,7 +53,7 @@ def test_memory_manager_respects_memory_config_and_collects_runtime_inputs():
         logger,
         role="villager",
         player_id="player_1",
-        config=MemoryConfig(reme_enabled=False, working_max_rounds=2, working_max_dynamic_items=3),
+        config=MemoryConfig(working_max_rounds=2, working_max_dynamic_items=3),
         semantic_backend=InMemoryBackend(),
     )
 
@@ -92,7 +92,7 @@ def test_memory_manager_extracts_semantic_candidates_by_outcome():
         logger,
         role="villager",
         player_id="player_2",
-        config=MemoryConfig(reme_enabled=False, semantic_top_k=5),
+        config=MemoryConfig(semantic_top_k=5),
         semantic_backend=InMemoryBackend(),
     )
 
@@ -108,7 +108,7 @@ def test_semantic_memory_merges_similar_cards():
         EventLogger(),
         role="villager",
         player_id="player_3",
-        config=MemoryConfig(reme_enabled=False),
+        config=MemoryConfig(),
         semantic_backend=InMemoryBackend(),
     )
 
@@ -141,7 +141,7 @@ def test_memory_manager_extracts_and_persists_semantic_candidates_on_game_end():
         logger,
         role="villager",
         player_id="player_3",
-        config=MemoryConfig(reme_enabled=False, extract_semantic_on_game_end=True, semantic_top_k=5),
+        config=MemoryConfig(extract_semantic_on_game_end=True, semantic_top_k=5),
         semantic_backend=InMemoryBackend(),
     )
 

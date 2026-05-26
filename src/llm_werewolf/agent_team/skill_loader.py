@@ -27,7 +27,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     return meta, body
 
 
-def _load_skill_file(path: Path) -> dict[str, str] | None:
+def _load_skill_file(path: Path) -> dict[str, str | float] | None:
     if not path.is_file() or path.suffix.lower() != ".md":
         return None
     text = path.read_text(encoding="utf-8")
@@ -35,9 +35,14 @@ def _load_skill_file(path: Path) -> dict[str, str] | None:
     status = meta.get("status", "draft")
     if status == "skipped":
         return None
+    try:
+        weight = float(meta.get("weight", 1.0))
+    except (ValueError, TypeError):
+        weight = 1.0
     return {
         "skill_id": meta.get("skill_id", path.stem),
         "status": status,
+        "weight": weight,
         "body": body,
         "path": str(path),
     }
@@ -56,9 +61,9 @@ def load_role_skills(
     *,
     include_draft: bool = True,
     max_skills: int = 5,
-) -> list[dict[str, str]]:
-    """加载某身份目录下的 Skill MD（默认含 draft）。"""
-    loaded: list[dict[str, str]] = []
+) -> list[dict[str, str | float]]:
+    """加载某身份目录下的 Skill MD（默认含 draft），按 weight 降序。"""
+    loaded: list[dict[str, str | float]] = []
     for path in list_role_skill_files(prompt_role_key):
         item = _load_skill_file(path)
         if item is None:
@@ -66,9 +71,8 @@ def load_role_skills(
         if not include_draft and item["status"] == "draft":
             continue
         loaded.append(item)
-        if len(loaded) >= max_skills:
-            break
-    return loaded
+    loaded.sort(key=lambda s: s.get("weight", 1.0), reverse=True)
+    return loaded[:max_skills]
 
 
 def format_role_skills_section(

@@ -135,3 +135,5 @@ class EventType(str, Enum):
 
     MESSAGE = "message"
     ERROR = "error"
+
+    AGENT_THOUGHT = "agent_thought"

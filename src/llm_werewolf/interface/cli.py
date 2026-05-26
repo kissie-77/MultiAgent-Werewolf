@@ -26,6 +26,9 @@ async def main(
     config: str | None = None,
     participation: str = "all_agent",
     rules: str = "badge_flow",
+    players: int | None = None,
+    human_seat: str | None = None,
+    badge_flow: bool = False,
 ) -> None:
     """在控制台模式下运行狼人杀游戏（自动进行）。
 
@@ -33,6 +36,9 @@ async def main(
         config: YAML 配置文件路径；提供后优先于模式选择。
         participation: 参与方式，例如 all_agent。
         rules: 规则模式，例如 basic、badge_flow、extended_roles。
+        players: 覆盖总座位数（含人类座位），范围 6-20；缺省沿用 YAML 名单。
+        human_seat: 人类玩家的 1-based 座位号，可用逗号分隔多个（如 "1,3"）；缺省为纯 Agent 局。
+        badge_flow: 是否开启警长 / 警徽流（首夜后的警长选举）；缺省关闭，行为与现状一致。
     """
     config_path = resolve_config_path(
         config,
@@ -41,8 +47,23 @@ async def main(
     )
     players_config = load_config(config_path=config_path)
 
+    try:
+        if players is not None:
+            from llm_werewolf.interface.player_count import resize_players_config
+
+            players_config = resize_players_config(players_config, int(players))
+        if human_seat is not None:
+            from llm_werewolf.interface.cli_overrides import apply_human_seats, parse_seat_list
+
+            players_config = apply_human_seats(players_config, parse_seat_list(human_seat))
+    except (ValueError, TypeError) as exc:
+        console.print(f"[red]参数错误: {exc}[/red]")
+        return
+
     num_players = len(players_config.players)
-    players, roles, game_config = prepare_game_roster(players_config)
+    agents, roles, game_config = prepare_game_roster(players_config)
+    if badge_flow:
+        game_config = game_config.model_copy(update={"enable_sheriff": True})
 
     locale = Locale(players_config.language)
     engine = GameEngine(game_config, language=players_config.language)
@@ -50,7 +71,7 @@ async def main(
     presenter = ConsolePresenter(locale)
     engine.on_event = presenter.present_event
 
-    engine.setup_game(players=players, roles=roles)
+    engine.setup_game(players=agents, roles=roles)
     wire_agentscope_after_setup(engine, players_config)
 
     logfire.info("game_created", config_path=str(config_path), num_players=num_players)
@@ -127,9 +148,21 @@ def _run_main(
     config: str | None = None,
     participation: str = "all_agent",
     rules: str = "badge_flow",
+    players: int | None = None,
+    human_seat: str | None = None,
+    badge_flow: bool = False,
 ) -> None:
     """同步包装器，用于运行异步 main 函数。"""
-    asyncio.run(main(config, participation=participation, rules=rules))
+    asyncio.run(
+        main(
+            config,
+            participation=participation,
+            rules=rules,
+            players=players,
+            human_seat=human_seat,
+            badge_flow=badge_flow,
+        )
+    )
 
 
 def entry() -> None:

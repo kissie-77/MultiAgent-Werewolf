@@ -102,7 +102,10 @@ def create_agent(
     model = config.model.lower()
 
     if model == "human":
-        return HumanAgent(name=config.name, model="human")
+        # 路由到交互式人类 Agent（保留下方旧 HumanAgent 类以兼容历史引用）。
+        from llm_werewolf.agent_team.human_interactive_agent import HumanInteractiveAgent
+
+        return HumanInteractiveAgent(name=config.name, model="human")
 
     if model == "demo":
         return DemoAgent(name=config.name, model="demo")

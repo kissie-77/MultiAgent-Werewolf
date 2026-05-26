@@ -117,8 +117,9 @@ async def run(config_path: Path, run_dir: Path) -> None:
 
 def main() -> None:
     config = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("configs/llm-9p-doubao.yaml")
+    run_label = sys.argv[2] if len(sys.argv) > 2 else config.stem.replace("llm-", "")
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_dir = Path("runs") / f"doubao-9p-{ts}"
+    run_dir = Path("runs") / f"{run_label}-{ts}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     log_path = run_dir / "game_log.txt"

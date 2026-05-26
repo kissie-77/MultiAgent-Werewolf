@@ -35,9 +35,26 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
         lines.append(str(skill["rationale"]))
         lines.append("")
 
-    if card.get("when_to_use"):
-        lines.append("## 何时使用")
-        lines.append(str(card["when_to_use"]))
+    if card.get("background"):
+        lines.append("## 局面背景")
+        lines.append(str(card["background"]))
+        lines.append("")
+
+    scenario = card.get("applicable_scenario") or card.get("when_to_use")
+    if scenario:
+        lines.append("## 适用场景")
+        lines.append(str(scenario))
+        lines.append("")
+
+    citations = skill.get("citations") or []
+    if citations:
+        lines.append("## 引用来源")
+        for ref in citations:
+            label = ref.get("label") or ref.get("type") or "引用"
+            path = ref.get("path", "")
+            lines.append(f"- **{label}**：`{path}`")
+            if ref.get("quote"):
+                lines.append(f"  > {ref['quote'][:200]}")
         lines.append("")
 
     if card.get("public_behavior"):

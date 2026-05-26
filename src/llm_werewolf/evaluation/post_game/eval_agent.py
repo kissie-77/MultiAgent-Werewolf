@@ -1,4 +1,4 @@
-"""PostGame 评测分析师：经 AgentScope ReActAgent 调用（禁止 AsyncOpenAI 旁路）。"""
+"""PostGame 评测分析师：按维度隔离上下文，禁止喂全局 god 日志。"""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ from llm_werewolf.strategy.evaluation_outputs import ReplayAnalysisDecision
 
 EVAL_ANALYST_SYSTEM_PROMPT = (
     "你是一名狼人杀对局赛后评测分析师。"
-    "根据提供的结构化摘要与日志视图，用中文做客观复盘。"
-    "不要编造未出现在输入中的私密身份或夜间行动。"
+    "你只能根据用户提供的「分维度材料」和「MVP 规则分」进行复盘；"
+    "不得引用材料中未出现的夜间私密信息、未列出的发言或臆造身份。"
     "输出须符合调用方要求的 JSON 字段。"
 )
 
@@ -65,45 +65,84 @@ def _parse_json_response(text: str) -> dict[str, Any]:
     return json.loads(cleaned)
 
 
+def _read_context_file(run_dir: Path, rel_path: str, *, max_chars: int = 5000) -> str:
+    path = run_dir / rel_path
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8")[:max_chars]
+
+
 def build_replay_prompt(
     ctx: RunContext,
-    camp_report: CampPersuasionReport,
     *,
-    public_digest: str = "",
-    swing_digest: str = "",
+    mvp_payload: dict[str, Any] | None = None,
+    dimension_context_paths: dict[str, str] | None = None,
 ) -> str:
-    top = sorted(
-        camp_report.speeches,
-        key=lambda s: s.camp_aligned_score,
-        reverse=True,
-    )[:5]
-    top_lines = []
-    for speech in top:
-        if speech.camp_aligned_score <= 0:
-            continue
-        top_lines.append(
-            f"- {speech.speaker_name}({speech.speaker_camp}) R{speech.round_number}: "
-            f"score={speech.camp_aligned_score}, speech={speech.public_speech[:120]!r}"
-        )
+    """构建复盘 prompt：MVP 结果 + 各维度隔离上下文（无 god_timeline / 全量 events）。"""
+    mvp_payload = mvp_payload or {}
+    paths = dimension_context_paths or mvp_payload.get("dimension_context_paths") or {}
 
     sections = [
-        "请根据以下对局摘要写简短复盘，并给出 Prompt 改进建议要点。",
+        "请基于下列「分维度材料」撰写赛后复盘。",
+        "规则：每个维度只能使用该维度区块内的记录；不要合并推断未提供的私密夜间信息。",
         "",
         f"胜负阵营: {ctx.winner_camp}",
-        f"运行时 Prompt 版本: {ctx.prompt_version}",
-        f"玩家人数: {len(ctx.roster)}",
+        f"Prompt 版本: {ctx.prompt_version}",
         f"结果说明: {ctx.game_result_text or '（无）'}",
         "",
-        "阵营匹配的高影响发言:",
-        "\n".join(top_lines) if top_lines else "（无正向摇摆）",
+        "## MVP 规则评分（已计算，请据此选金句与策略亮点，勿改分）",
+        "",
     ]
-    if public_digest:
-        sections.extend(["", "## 公开事件摘要", public_digest[:6000]])
-    if swing_digest:
-        sections.extend(["", "## 投票意向摇摆摘要", swing_digest[:4000]])
+
+    mvp = mvp_payload.get("mvp")
+    if mvp:
+        sections.append(
+            f"全场 MVP: {mvp.get('player_name')} ({mvp.get('role_name')}, "
+            f"camp={mvp.get('camp')}, score={mvp.get('mvp_total')})"
+        )
+    for row in (mvp_payload.get("players") or [])[:5]:
+        sections.append(
+            f"- #{row.get('rank')} {row.get('player_name')}: total={row.get('mvp_total')} "
+            f"raw={row.get('breakdown_raw')}"
+        )
+    golden: list[dict[str, Any]] = []
+    if mvp and mvp.get("player_id"):
+        for p in mvp_payload.get("players") or []:
+            if p.get("player_id") == mvp.get("player_id"):
+                golden = list(p.get("golden_speech_candidates") or [])
+                break
+    if golden:
+        sections.extend(["", "### MVP 候选金句/片段", ""])
+        for g in golden[:5]:
+            sections.append(
+                f"- [{g.get('kind')}] R{g.get('round_number')}: {g.get('excerpt', '')[:200]}"
+            )
+
+    dim_titles = {
+        "persuasion": "公开说服（仅白天公开记录）",
+        "wolf_night": "狼队夜间讨论（仅 wolf_team 频道）",
+        "strategy": "角色策略执行（仅技能与票型事件）",
+        "outcome": "结果贡献（仅投票/出局/刀口/胜负）",
+    }
+    for dim, title in dim_titles.items():
+        rel = paths.get(dim)
+        if not rel:
+            continue
+        body = _read_context_file(ctx.run_dir, rel)
+        if not body.strip():
+            continue
+        sections.extend(["", f"## 维度：{title}", f"（来源 `{rel}`）", "", body])
+
+    dq = mvp_payload.get("data_quality") or {}
     sections.extend([
         "",
+        "## 数据质量",
+        f"- 公开投票意向: {dq.get('has_vote_intentions')}",
+        f"- 狼队频道: {dq.get('has_wolf_team_channel')}",
+        f"- 置信度: {dq.get('confidence')}",
+        "",
         "请以 JSON 回复，字段: summary_zh (string), prompt_suggestions (string[]), risks (string[])",
+        "summary_zh 须点明 MVP 为何是此人（可败方），并引用上述维度中的具体轮次。",
     ])
     return "\n".join(sections)
 
@@ -113,15 +152,18 @@ async def run_eval_replay(
     camp_report: CampPersuasionReport,
     *,
     config_path: Path | None = None,
+    mvp_payload: dict[str, Any] | None = None,
+    dimension_context_paths: dict[str, str] | None = None,
     public_digest: str = "",
     swing_digest: str = "",
 ) -> dict[str, Any]:
-    """经 AgentScope 执行 LLM 复盘；失败时返回降级 dict。"""
+    """经 AgentScope 执行 LLM 复盘；输入为分维度上下文 + MVP 分（忽略 public_digest 若已提供 MVP）。"""
+    del camp_report, public_digest, swing_digest  # 保留参数兼容；不再使用全量 digest
+
     prompt = build_replay_prompt(
         ctx,
-        camp_report,
-        public_digest=public_digest,
-        swing_digest=swing_digest,
+        mvp_payload=mvp_payload,
+        dimension_context_paths=dimension_context_paths,
     )
     analyst_config = _load_analyst_config(config_path)
 
@@ -158,6 +200,7 @@ async def run_eval_replay(
                 return {
                     "mode": "llm",
                     "backend": "agentscope",
+                    "input_policy": "dimension_scoped_contexts_only",
                     **parsed.model_dump(),
                 }
 
@@ -170,6 +213,7 @@ async def run_eval_replay(
         return {
             "mode": "llm",
             "backend": "agentscope",
+            "input_policy": "dimension_scoped_contexts_only",
             **parsed.model_dump(),
         }
     except json.JSONDecodeError as exc:

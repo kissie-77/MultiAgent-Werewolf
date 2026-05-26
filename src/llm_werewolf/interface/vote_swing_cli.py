@@ -4,7 +4,7 @@ from pathlib import Path
 
 import fire
 
-from llm_werewolf.evaluation.vote_swing_analysis import (
+from llm_werewolf.evaluation.post_game.vote_swing_analysis import (
     analyze_path,
     format_markdown_report,
     write_persuasion_artifacts,

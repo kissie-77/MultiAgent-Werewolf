@@ -3,8 +3,8 @@ from pathlib import Path
 
 import fire
 
-from llm_werewolf.evaluation.runner import EvaluationRunner
-from llm_werewolf.evaluation.scenarios import get_scenario
+from llm_werewolf.evaluation.correctness.runner import EvaluationRunner
+from llm_werewolf.evaluation.correctness.scenarios import get_scenario
 
 
 def main(

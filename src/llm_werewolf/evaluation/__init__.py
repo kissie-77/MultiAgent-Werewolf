@@ -1,20 +1,28 @@
-"""狼人杀离线正确性评测模块。
+"""狼人杀评测包：正确性离线评测 + 赛后分析。
 
-这个包只负责“测游戏系统是否正确”，不负责真实模型强弱评测。
-它通过 runner 批量跑局，通过 recorder 保留证据，通过 checkers 发现问题，
-最后由 metrics/reporter 聚合成机器可读和人类可读的报告。
+- ``evaluation.correctness`` — ``werewolf-eval`` 批量跑局与 checker
+- ``evaluation.post_game`` — 对局结束后的说服分析、打分、Prompt 提案与 Skill 草案
 """
 
-from llm_werewolf.evaluation.models import (
+from llm_werewolf.evaluation.correctness import (
     CheckResult,
     CheckSeverity,
+    EvaluationRunner,
+    EvaluationScenario,
     EvaluationSummary,
     GameRunResult,
+    get_scenario,
 )
+from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
 
 __all__ = [
     "CheckResult",
     "CheckSeverity",
+    "EvaluationRunner",
+    "EvaluationScenario",
     "EvaluationSummary",
     "GameRunResult",
+    "PostGameResult",
+    "get_scenario",
+    "run_post_game_pipeline",
 ]

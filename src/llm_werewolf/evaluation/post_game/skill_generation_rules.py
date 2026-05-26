@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport, CampSpeechInfluence
+from llm_werewolf.evaluation.post_game.mvp_sources import GoldenQuote, iter_golden_quotes, iter_wolf_night_plans
 from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
@@ -20,7 +21,12 @@ NIGHT_ACTION_EVENT_TYPES = frozenset({
     "werewolf_killed",
 })
 
-SkillSourceKind = Literal["persuasion_speech", "night_action"]
+SkillSourceKind = Literal[
+    "persuasion_speech",
+    "night_action",
+    "mvp_golden_quote",
+    "wolf_night_plan",
+]
 
 
 @dataclass(frozen=True)
@@ -46,6 +52,7 @@ class SkillGenerationCandidate:
     rank_score: int = 0
     speech: CampSpeechInfluence | None = None
     night_event: dict[str, Any] | None = field(default=None, repr=False)
+    mvp_quote: GoldenQuote | None = None
 
 
 def _role_key_for_player(ctx: RunContext, player_id: str) -> str:
@@ -115,6 +122,60 @@ def evaluate_night_action_event(
     )
 
 
+def evaluate_mvp_golden_quote(quote: GoldenQuote) -> GenerationRuleResult:
+    """MVP 金句：有实质摘录且维度得分>0，或为本场 MVP 玩家条目。"""
+    text = (quote.excerpt or "").strip()
+    if len(text) < MIN_PUBLIC_SPEECH_LEN:
+        return GenerationRuleResult(
+            passed=False,
+            rule_id="mvp_golden_quote",
+            reason="insufficient_material: excerpt too short",
+        )
+    if quote.score > 0 or quote.is_overall_mvp:
+        return GenerationRuleResult(
+            passed=True,
+            rule_id="mvp_golden_quote",
+            reason="mvp golden quote with positive dimension score or overall mvp",
+        )
+    return GenerationRuleResult(
+        passed=False,
+        rule_id="mvp_golden_quote",
+        reason="insufficient_mvp_score",
+    )
+
+
+def evaluate_wolf_night_plan(quote: GoldenQuote) -> GenerationRuleResult:
+    text = (quote.excerpt or "").strip()
+    if len(text) < MIN_PUBLIC_SPEECH_LEN:
+        return GenerationRuleResult(
+            passed=False,
+            rule_id="wolf_night_plan",
+            reason="insufficient_material: wolf night speech too short",
+        )
+    if quote.score >= 12.0:
+        return GenerationRuleResult(
+            passed=True,
+            rule_id="wolf_night_plan",
+            reason="wolf_night speech_total meets mvp threshold",
+        )
+    return GenerationRuleResult(
+        passed=False,
+        rule_id="wolf_night_plan",
+        reason="insufficient_wolf_night_score",
+    )
+
+
+def _mvp_quote_rank_score(quote: GoldenQuote) -> int:
+    base = int(quote.score * 2)
+    if quote.is_overall_mvp:
+        base += 30
+    if quote.extra.get("matched_elimination"):
+        base += 15
+    if quote.extra.get("kill_match_bonus"):
+        base += 15
+    return base
+
+
 def _speech_rank_score(speech: CampSpeechInfluence) -> int:
     score = speech.camp_aligned_score
     if speech.matched_round_elimination:
@@ -136,10 +197,13 @@ def _night_rank_score(event: dict[str, Any]) -> int:
 def collect_skill_generation_candidates(
     ctx: RunContext,
     camp_report: CampPersuasionReport,
+    *,
+    mvp_payload: dict[str, Any] | None = None,
 ) -> list[SkillGenerationCandidate]:
     """按生成规则收集候选；未通过规则的 identity 不会出现在列表中。"""
     candidates: list[SkillGenerationCandidate] = []
     seen_speech: set[tuple[str, int]] = set()
+    seen_mvp_keys: set[tuple[str, int, str]] = set()
 
     for speech in camp_report.speeches:
         key = (speech.speaker_id, speech.round_number)
@@ -196,6 +260,62 @@ def collect_skill_generation_candidates(
             )
         )
 
+    for quote in iter_golden_quotes(mvp_payload, ctx):
+        dedupe = (quote.player_id, quote.round_number, quote.kind)
+        if dedupe in seen_mvp_keys:
+            continue
+        rule = evaluate_mvp_golden_quote(quote)
+        if not rule.passed:
+            continue
+        seen_mvp_keys.add(dedupe)
+        if (quote.player_id, quote.round_number) in seen_speech and quote.kind == "public_persuasion":
+            for c in candidates:
+                if (
+                    c.source_kind == "persuasion_speech"
+                    and c.player_id == quote.player_id
+                    and c.speech
+                    and c.speech.round_number == quote.round_number
+                ):
+                    c.mvp_quote = quote
+                    c.rank_score = max(c.rank_score, _mvp_quote_rank_score(quote))
+                    break
+            continue
+        candidates.append(
+            SkillGenerationCandidate(
+                source_kind="mvp_golden_quote",
+                prompt_role_key=quote.prompt_role_key,
+                player_id=quote.player_id,
+                player_name=quote.player_name,
+                game_role_name=quote.role_name,
+                camp=quote.camp,
+                rule=rule,
+                rank_score=_mvp_quote_rank_score(quote),
+                mvp_quote=quote,
+            )
+        )
+
+    for quote in iter_wolf_night_plans(mvp_payload, ctx):
+        dedupe = (quote.player_id, quote.round_number, "wolf_night_plan")
+        if dedupe in seen_mvp_keys:
+            continue
+        rule = evaluate_wolf_night_plan(quote)
+        if not rule.passed:
+            continue
+        seen_mvp_keys.add(dedupe)
+        candidates.append(
+            SkillGenerationCandidate(
+                source_kind="wolf_night_plan",
+                prompt_role_key=quote.prompt_role_key,
+                player_id=quote.player_id,
+                player_name=quote.player_name,
+                game_role_name=quote.role_name,
+                camp=quote.camp,
+                rule=rule,
+                rank_score=_mvp_quote_rank_score(quote),
+                mvp_quote=quote,
+            )
+        )
+
     candidates.sort(key=lambda c: c.rank_score, reverse=True)
     return candidates
 
@@ -212,6 +332,12 @@ def generation_rules_summary() -> dict[str, Any]:
         "night_action": {
             "event_types": sorted(NIGHT_ACTION_EVENT_TYPES),
             "requires": "actor in roster AND non-empty target_id",
+        },
+        "mvp_golden_quote": {
+            "requires": "excerpt length >= min AND (score > 0 OR overall mvp player)",
+        },
+        "wolf_night_plan": {
+            "requires": "speech_total >= 12 from mvp wolf_night_analysis",
         },
         "no_placeholder": "identities without passing material are omitted from skills[]",
     }

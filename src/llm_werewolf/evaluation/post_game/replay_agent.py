@@ -19,14 +19,18 @@ async def run_llm_replay(
     camp_report: CampPersuasionReport,
     *,
     config_path: Path | None = None,
+    mvp_payload: dict[str, Any] | None = None,
+    dimension_context_paths: dict[str, str] | None = None,
     public_digest: str = "",
     swing_digest: str = "",
 ) -> dict[str, Any]:
-    """兼容旧接口；内部走 AgentScope eval_agent。"""
+    """兼容旧接口；内部走 AgentScope eval_agent（分维度上下文）。"""
     return await run_eval_replay(
         ctx,
         camp_report,
         config_path=config_path,
+        mvp_payload=mvp_payload,
+        dimension_context_paths=dimension_context_paths,
         public_digest=public_digest,
         swing_digest=swing_digest,
     )

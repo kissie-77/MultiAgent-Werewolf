@@ -12,7 +12,7 @@ from llm_werewolf.evaluation.post_game.run_context import (
     is_camp_aligned_vote_target,
     target_id_to_camp,
 )
-from llm_werewolf.evaluation.vote_swing_analysis import (
+from llm_werewolf.evaluation.post_game.vote_swing_analysis import (
     VoteSwingReport,
     analyze_path,
     format_markdown_report,

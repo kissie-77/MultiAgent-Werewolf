@@ -1,0 +1,58 @@
+# 各身份在 MVP 合成中的维度权重（含 benefit 时其余维度同比缩放至合计 1.0）
+# persuasion | strategy | outcome | wolf_night | benefit(收益分 v2)
+
+villager:
+  persuasion: 0.42
+  strategy: 0.18
+  outcome: 0.28
+  wolf_night: 0.0
+  benefit: 0.08
+
+wolf:
+  persuasion: 0.28
+  strategy: 0.18
+  outcome: 0.23
+  wolf_night: 0.23
+  benefit: 0.08
+
+wolf_king:
+  persuasion: 0.26
+  strategy: 0.20
+  outcome: 0.23
+  wolf_night: 0.23
+  benefit: 0.08
+
+prophet:
+  persuasion: 0.20
+  strategy: 0.45
+  outcome: 0.23
+  wolf_night: 0.0
+  benefit: 0.08
+
+witch:
+  persuasion: 0.16
+  strategy: 0.49
+  outcome: 0.23
+  wolf_night: 0.0
+  benefit: 0.08
+
+guard:
+  persuasion: 0.20
+  strategy: 0.40
+  outcome: 0.28
+  wolf_night: 0.0
+  benefit: 0.08
+
+hunter:
+  persuasion: 0.28
+  strategy: 0.28
+  outcome: 0.32
+  wolf_night: 0.0
+  benefit: 0.08
+
+default:
+  persuasion: 0.38
+  strategy: 0.23
+  outcome: 0.28
+  wolf_night: 0.0
+  benefit: 0.08

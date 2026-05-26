@@ -78,10 +78,15 @@ async def main(
             prompt_version=players_config.prompt_version,
         )
         if post.error:
-            console.print(f"[yellow]赛后分析部分失败: {post.error}[/yellow]")
+            console.print(f"[yellow]赛后分析部分步骤失败: {post.error}[/yellow]")
+            failed_steps = [s for s in post.steps if s.get("status") == "failed"]
+            if failed_steps:
+                console.print(
+                    f"[dim]失败步骤: {', '.join(s['step_id'] for s in failed_steps[:5])}[/dim]"
+                )
         console.print(
             f"[dim]赛后产物已写入 {run_dir.resolve()} "
-            f"({', '.join(post.artifacts[:4])}…)[/dim]"
+            f"（含 game_quality_report.md、mvp_scores.json）[/dim]"
         )
 
         if engine.game_state:

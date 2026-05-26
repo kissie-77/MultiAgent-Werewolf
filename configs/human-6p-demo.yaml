@@ -1,0 +1,27 @@
+# 6 人离线人机对战 demo —— 1 名人类 + 5 名 demo 机器人（无需任何 API Key）
+# 用法（二选一）：
+#   uv run llm-werewolf --config configs/human-6p-demo.yaml
+#   python -m llm_werewolf.interface.cli --config configs/human-6p-demo.yaml
+# 可叠加命令行参数：
+#   --badge_flow        开启警长 / 警徽流（首夜后警长选举）
+#   --players N         覆盖总座位数(含人类)，范围 6-20（如 --players 9）
+# 也可对任意配置临时指定人类座位（与真·LLM 对手对战，体验最完整）：
+#   uv run llm-werewolf --config configs/llm-6p-deepseek.yaml --human_seat 1
+# 注：demo 机器人发言为占位文本；与真实 LLM 对手对战时对话更有意义。
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+
+players:
+  - name: 你
+    model: human
+  - name: 机器人2
+    model: demo
+  - name: 机器人3
+    model: demo
+  - name: 机器人4
+    model: demo
+  - name: 机器人5
+    model: demo
+  - name: 机器人6
+    model: demo

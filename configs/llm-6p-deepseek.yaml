@@ -1,0 +1,33 @@
+# 6 人局 — DeepSeek OpenAI 兼容接口（快速验证用）
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+
+ds_model: &ds_model deepseek-v4-flash
+ds_base: &ds_base https://api.deepseek.com/v1
+
+players:
+  - name: Player1
+    model: *ds_model
+    base_url: *ds_base
+    api_key_env: DEEPSEEK_API_KEY
+  - name: Player2
+    model: *ds_model
+    base_url: *ds_base
+    api_key_env: DEEPSEEK_API_KEY
+  - name: Player3
+    model: *ds_model
+    base_url: *ds_base
+    api_key_env: DEEPSEEK_API_KEY
+  - name: Player4
+    model: *ds_model
+    base_url: *ds_base
+    api_key_env: DEEPSEEK_API_KEY
+  - name: Player5
+    model: *ds_model
+    base_url: *ds_base
+    api_key_env: DEEPSEEK_API_KEY
+  - name: Player6
+    model: *ds_model
+    base_url: *ds_base
+    api_key_env: DEEPSEEK_API_KEY

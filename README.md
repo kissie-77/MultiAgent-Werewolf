@@ -67,6 +67,33 @@ uv run werewolf-tui configs/my_game.yaml
 uv run werewolf configs/demo.yaml
 ```
 
+### 对局模式（命令行参数）
+
+`llm-werewolf` 与 `werewolf-tui` 支持以下可选参数（缺省时行为与原来完全一致）：
+
+| 参数 | 作用 | 默认 |
+|------|------|------|
+| `--human_seat 1`（或 `1,3`） | 指定 1-based 座位为**人类玩家**（可多座位） | 无（纯 Agent 局） |
+| `--players N` | 覆盖**总座位数（含人类）**，范围 6–20 | 沿用 YAML 名单 |
+| `--badge_flow` / `--nobadge_flow` | 开 / 关**警长·警徽流** | 关 |
+
+```bash
+# 纯 LLM 对战
+uv run llm-werewolf --config configs/llm-6p-deepseek.yaml
+
+# 人机对战：你坐 1 号，其余 5 个 AI 当对手
+uv run llm-werewolf --config configs/llm-6p-deepseek.yaml --human_seat 1
+
+# 离线人机对战（无需 API Key，对手为 demo 机器人）；并开警徽流、扩到 9 人
+uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
+```
+
+人类玩家只需输入：**选人/投票→座位号**，**是否→`1`/`0`**，**发言→中文**，**女巫→`救` 或 `毒 3`**。
+
+> Windows 本机运行前请前置 `PYTHONUTF8=1 PYTHONIOENCODING=utf-8`（GBK 控制台渲染 emoji 的兼容问题）。
+> API Key 仅 LLM 玩家需要（写入 `.env`）；`human` / `demo` 座位无需 Key。详见
+> [docs/人机对战与命令行模式.md](docs/人机对战与命令行模式.md)。
+
 ## 项目架构
 
 ```
@@ -88,6 +115,7 @@ src/llm_werewolf/
 - [x] Demo 模式验证
 - [x] AgentScope 接入（ReAct + agent_team + InformationHub）
 - [x] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
+- [x] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/人机对战与命令行模式.md](docs/人机对战与命令行模式.md)）
 - [ ] 结构化日志（JSON 事件流）
 - [ ] Web 前端观战 UI
 - [x] 评测与复盘（vote intention / swing 分析）

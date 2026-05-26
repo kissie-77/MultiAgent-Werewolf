@@ -287,7 +287,13 @@ class InformationHub:
         audience_players = self._resolve_audience(channel, audience=audience)
         react_agents = [a for a in (self._react_agent(p) for p in audience_players) if a]
 
-        if not react_agents:
+        # 无 ReAct 听众时通常提前返回（如纯 demo 局，行为保持不变）；
+        # 但若存在人类发言者（人机局），仍需进入发言轮次让人类发言并被记录到日志，
+        # 此时 MsgHub 参与者可能为空——enable_auto_broadcast=False 下空参与者是安全的。
+        has_human_speaker = any(
+            getattr(s.agent, "model", "") == "human" for s in speakers if s.agent
+        )
+        if not react_agents and not has_human_speaker:
             return routed_messages
 
         async with MsgHub(

@@ -159,6 +159,15 @@ ENV/
 env.bak/
 venv.bak/
 
+# Local secrets / scratch (never upload)
+API.txt
+_play/
+
+# GitNexus code-intelligence artifacts (local tooling, not project source)
+AGENTS.md
+CLAUDE.md
+.claude/
+
 # Spyder project settings
 .spyderproject
 .spyproject

@@ -58,28 +58,25 @@ class PromptManager:
         return PromptManager.GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
 
     @staticmethod
-    def get_role_strategy_config(prompt_role_key: str) -> dict[str, str]:
+    def get_role_strategy_config(
+        prompt_role_key: str,
+        prompt_version: str = "v2",
+    ) -> dict[str, str]:
         """返回角色策略 prompt 配置。"""
-        from llm_werewolf.strategy.role_prompts import RolePrompts
+        from llm_werewolf.strategy.prompt_registry import get_registry
 
-        return PromptManager.get_role_strategy_configs().get(
+        return get_registry(prompt_version).role_card_by_prompt_key(
             prompt_role_key,
-            RolePrompts.VILLAGER,
+            version=prompt_version,
         )
 
     @staticmethod
-    def get_role_strategy_configs() -> dict[str, dict[str, str]]:
+    def get_role_strategy_configs(prompt_version: str = "v2") -> dict[str, dict[str, str]]:
         """返回所有角色策略 prompt 配置。"""
-        from llm_werewolf.strategy.role_prompts import RolePrompts
-
+        keys = ("villager", "prophet", "witch", "wolf", "wolf_king", "guard", "hunter")
         return {
-            "villager": RolePrompts.VILLAGER,
-            "prophet": RolePrompts.PROPHET,
-            "witch": RolePrompts.WITCH,
-            "wolf": RolePrompts.WOLF,
-            "wolf_king": RolePrompts.WOLF_KING,
-            "guard": RolePrompts.GUARD,
-            "hunter": RolePrompts.HUNTER,
+            key: PromptManager.get_role_strategy_config(key, prompt_version=prompt_version)
+            for key in keys
         }
 
     @staticmethod
@@ -95,12 +92,15 @@ class PromptManager:
         seat_number: int,
         prompt_role_key: str,
         plan_text: str,
+        prompt_version: str = "v2",
     ) -> str:
         """根据角色策略键构建 AgentScope 系统 prompt。"""
-        from llm_werewolf.strategy.role_prompts import RolePrompts
+        from llm_werewolf.strategy.prompt_registry import get_registry
 
-        role_config = PromptManager.get_role_strategy_config(prompt_role_key)
-        return RolePrompts.BASE_PROMPT.format(
+        registry = get_registry(prompt_version)
+        role_config = registry.role_card_by_prompt_key(prompt_role_key, version=prompt_version)
+        return registry.resolve(
+            f"{prompt_version}.agent.base",
             number=seat_number,
             role_name=role_config["role_name"],
             role_instruction=role_config["role_instruction"],
@@ -113,6 +113,7 @@ class PromptManager:
         seat_number: int,
         game_role_name: str,
         plan_text: str,
+        prompt_version: str = "v2",
     ) -> str:
         """根据运行时角色名构建 AgentScope 系统 prompt。"""
         prompt_role_key = PromptManager.get_prompt_role_key(game_role_name)
@@ -120,6 +121,7 @@ class PromptManager:
             seat_number,
             prompt_role_key,
             plan_text,
+            prompt_version=prompt_version,
         )
 
     @staticmethod

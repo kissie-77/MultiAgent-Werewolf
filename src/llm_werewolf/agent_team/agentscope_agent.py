@@ -1,4 +1,4 @@
-﻿"""AgentScope Agent 适配器，用于 LLMWerewolf 集成。
+"""AgentScope Agent 适配器，用于 LLMWerewolf 集成。
 
 本模块封装 AgentScope 的 AgentBase，
 使其符合 LLMWerewolf 的 AgentProtocol 接口。
@@ -37,6 +37,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     number: int = Field(default=1)
     plan: str = Field(default="自由发挥")
     plan_name: str = Field(default="default")
+    prompt_version: str = Field(default="v2")
     game_role_name: str = Field(default="")
     language: str = Field(default="zh-TW")
     agentscope_agent: Any = Field(default=None, exclude=True)
@@ -57,6 +58,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         language: str = "zh-TW",
         agentscope_agent: Any = None,
         player_config: Any = None,
+        prompt_version: str = "v2",
     ):
         """初始化狼人杀 Agent。
 
@@ -76,6 +78,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.number = number
         self.plan = plan
         self.plan_name = plan_name
+        self.prompt_version = prompt_version
         self.game_role_name = ""
         self.language = language
         self.player_config = player_config
@@ -90,16 +93,25 @@ class AgentScopeWerewolfAgent(BaseAgent):
         seat_number: int,
         game_role_name: str,
         plan_text: str,
+        *,
+        prompt_version: str | None = None,
     ) -> None:
         """引擎分配角色后应用角色专属系统 prompt。"""
         from llm_werewolf.agent_team.factory import GAME_ROLE_TO_PROMPT_KEY, build_system_prompt, create_react_agent
 
+        if prompt_version is not None:
+            self.prompt_version = prompt_version
         self.number = seat_number
         self.game_role_name = game_role_name
         self.role = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
         self.plan = plan_text
 
-        sys_prompt = build_system_prompt(seat_number, game_role_name, plan_text)
+        sys_prompt = build_system_prompt(
+            seat_number,
+            game_role_name,
+            plan_text,
+            prompt_version=self.prompt_version,
+        )
         if self.player_config is not None:
             self.agentscope_agent = create_react_agent(
                 self.player_config,
@@ -117,6 +129,8 @@ class AgentScopeWerewolfAgent(BaseAgent):
         role_name: str,
         seat_number: int,
         plan: str | None = None,
+        *,
+        prompt_version: str | None = None,
     ) -> None:
         """协作者 API：在 ``setup_game`` 之后绑定引擎分配的角色。"""
         plan_text = plan if plan is not None else self.plan
@@ -124,28 +138,41 @@ class AgentScopeWerewolfAgent(BaseAgent):
             seat_number=seat_number,
             game_role_name=role_name,
             plan_text=plan_text,
+            prompt_version=prompt_version or self.prompt_version,
         )
 
     def _init_system_prompt(self) -> None:
         """根据角色配置初始化本地对话历史镜像。"""
+        from llm_werewolf.agent_team.factory import build_system_prompt
+
         if self.game_role_name:
-            sys_prompt = PromptManager.build_role_strategy_prompt(
+            sys_prompt = build_system_prompt(
                 self.number,
                 self.game_role_name,
                 self.plan,
+                prompt_version=self.prompt_version,
             )
         else:
             sys_prompt = PromptManager.build_prompt_key_strategy_prompt(
                 self.number,
                 self.role,
                 self.plan,
+                prompt_version=self.prompt_version,
             )
+            from llm_werewolf.agent_team.skill_loader import load_role_skills_text
+
+            skills = load_role_skills_text(self.role)
+            if skills:
+                sys_prompt = f"{sys_prompt}\n\n{skills}"
 
         self.chat_history = [{"role": "system", "content": sys_prompt}]
 
     def _get_role_config(self) -> dict:
         """获取角色配置。"""
-        return PromptManager.get_role_strategy_config(self.role)
+        return PromptManager.get_role_strategy_config(
+            self.role,
+            prompt_version=self.prompt_version,
+        )
 
     @property
     def role_name(self) -> str:
@@ -357,22 +384,80 @@ class AgentScopeWerewolfAgent(BaseAgent):
             return random.choice(["[[0]]", "[[1]]"])
 
         if self._message_expects_seat_only(message):
-            seat = self._pick_seat_from_message(message) or random.randint(1, 12)
+            seat = self._pick_seat_from_message(message)
+            if seat is None:
+                # 使用当前玩家座位号作为参考
+                seat = max(1, min(self.number, 12))
+            # 确保座位号在有效范围内
+            seat = max(1, min(seat, 12))
             lowered = message.lower()
             if "only the number" in lowered or "responding with only the number" in lowered:
                 return str(seat)
             return f"[[{seat}]]"
 
+        # 狼队夜间私聊：用协调话术
         if self._is_werewolf_private_chat(message):
             return self._werewolf_team_fallback_speech(message)
 
-        speeches = [
-            "[[我觉得场上信息还不多，先听大家后面的发言再判断。]]",
-            "[[我暂时没明确狼坑，但会重点看发言前后矛盾的人。]]",
-            "[[建议大家多盘逻辑，别被带节奏。]]",
-            f"[[我会结合票型和发言继续观察，先重点看可疑位置。]]",
-            "[[目前我没有铁狼，先观察投票和站队情况。]]",
-        ]
+        # 白天讨论发言：按角色生成有博弈性的推理发言
+        role_key = self.role
+        return self._generate_role_specific_fallback(role_key, message)
+
+    def _generate_role_specific_fallback(self, role_key: str, message: str) -> str:
+        """按角色生成有博弈性的白天讨论兜底发言。"""
+        import random
+
+        # 不再使用具体座位号，避免引用不存在的玩家
+        # 判断游戏阶段（早期/中期）
+        is_early = "第 1 轮" in message or "第 2 轮" in message or "round 1" in message.lower()
+
+        fallbacks = {
+            "villager": [
+                "我觉得目前场上信息还不多，需要多听几轮发言才能判断。先观察大家的投票倾向和站队情况，重点关注那些发言模糊、回避关键问题的人。",
+                "我暂时没找到铁狼，但会重点关注发言前后矛盾的人，以及投票时突然改变立场的玩家。建议大家多盘逻辑，别被带节奏。",
+                "目前场上还没有明确的狼坑，但我会注意谁在无理由攻击好人，谁在刻意保护某些位置。我会结合票型和发言继续观察。",
+                "现在局势还不明朗，我不急着站队。先听后面的发言，再根据投票结果做判断。我倾向于从发言最模糊的人开始排查。",
+                "我会仔细听每个人的发言，看谁的逻辑站不住脚，谁的投票和发言不一致。好人要团结，别被狼人分化。",
+            ],
+            "prophet": [
+                "我昨晚验了一个人，信息对我很重要，暂时不急着跳。但我会根据发言和投票来引导好人阵营的方向，建议大家多关注那些带节奏的人。",
+                "我觉得场上需要有人站出来带队，我会重点关注那些发言有影响力的人。建议大家多盘逻辑，别被表面现象迷惑。",
+                "我暂时不暴露身份，但我会通过逻辑分析来推动好人阵营的判断。重点关注那些回避查验话题、或者急于跳身份的人。",
+                "我认为现在最重要的是找出狼人的刀法和策略。我会从发言逻辑和投票倾向入手，建议大家不要急于站队，多听几轮再做判断。",
+            ],
+            "witch": [
+                "我手里有药，但不会轻易使用。首夜的情况需要谨慎判断，我会重点关注那些可能是自刀的狼人，以及发言明显有问题的人。",
+                "我的解药和毒药都很关键，不能浪费。我会根据场上的死亡情况和发言来判断用药时机。建议大家多提供有用信息，帮助我做出正确决策。",
+                "我觉得女巫的用药时机很关键，不能盲目。我会重点关注那些可能是狼刀目标的人，以及发言中暴露狼人身份的人。毒药会留给高置信目标。",
+                "现在局势还不明朗，我的药要留给最关键的时刻。我会仔细分析每个玩家的发言和投票，确保用药收益最大化。",
+            ],
+            "wolf": [
+                "我觉得前面有人的发言有些问题，逻辑上站不住脚。建议大家重点关注这个位置，我也怀疑他可能是狼人。",
+                "目前场上信息不多，但我感觉有几个人的发言方向很奇怪。我会继续观察，重点关注那些带节奏和回避问题的人。",
+                "我认为现在需要有人站出来分析局势，不能被动等待。我会从发言逻辑入手，找出那些可能是狼人的人。建议大家多盘逻辑。",
+                "我觉得场上的局势有些混乱，需要理清思路。我会重点关注那些发言前后不一致的人，以及投票时突然改变立场的玩家。",
+            ],
+            "wolf_king": [
+                "我觉得前面有人的表现值得关注，发言中有不少漏洞。建议大家多分析这个位置，我也怀疑他可能是关键角色。",
+                "现在局势还不明朗，但我会主动出击，找出那些可能是狼人的人。重点关注发言模糊和投票异常的玩家。",
+                "我认为需要有人带头分析局势，不能被动等待。我会从发言和投票两个维度入手，找出狼人的蛛丝马迹。",
+                "我觉得场上有几个位置很可疑，但需要更多证据。我会继续观察，重点关注那些带节奏和回避关键问题的人。",
+            ],
+            "guard": [
+                "我觉得需要保护那些发言有影响力的人，可能是神职位置。我会根据发言和投票来判断守护目标，确保好人阵营的关键角色存活。",
+                "现在局势还不明朗，但我会重点关注那些可能是狼人刀口目标的人。建议大家多提供有用信息，帮助我做出正确判断。",
+                "我认为守护的时机很关键，不能盲目。我会从发言逻辑和投票倾向入手，找出那些可能是好人阵营核心的人物。",
+                "我会仔细分析每个玩家的发言，判断谁可能是神职、谁可能是狼人。守护选择要服务于好人阵营的整体利益。",
+            ],
+            "hunter": [
+                "我暂时不暴露身份，但我会重点关注那些可能是狼人的位置。如果我被击杀，我会带走可疑的玩家。",
+                "现在局势还不明朗，但我会保持警惕。重点关注那些发言有问题、投票异常的人，确保我临死时能带走真正的狼人。",
+                "我认为猎人要隐藏好身份，同时积极分析局势。我会从发言和投票两个维度入手，找出狼人的蛛丝马迹，确保技能收益最大化。",
+                "我觉得场上有几个位置很可疑，但需要更多证据。我会继续观察，确保临死开枪时能准确带走狼人，不带走好人。",
+            ],
+        }
+
+        speeches = fallbacks.get(role_key, fallbacks["villager"])
         return random.choice(speeches)
 
     @staticmethod
@@ -391,24 +476,31 @@ class AgentScopeWerewolfAgent(BaseAgent):
     def _is_werewolf_private_chat(message: str) -> bool:
         """狼队夜间私聊 prompt 返回 True。"""
         lowered = message.lower()
-        markers = (
-            "fellow werewolves",
+        # 只匹配明确的狼人夜间行动关键词，避免误判白天讨论
+        werewolf_action_markers = (
+            "狼人请睁眼",
+            "今晚你要刀谁",
+            "选择击杀目标",
             "werewolf team discussion",
             "coordinating with these werewolves",
             "working with these werewolves",
             "discuss with your fellow werewolves",
-            ", a werewolf.",
             "all werewolves will vote",
-            "狼人请睁眼",
-            "你的另外三个队友",
         )
-        return any(marker in lowered or marker in message for marker in markers)
+        return any(marker in lowered or marker in message for marker in werewolf_action_markers)
 
     def _werewolf_team_fallback_speech(self, message: str) -> str:
         """狼队私聊用的简短协调话术，避免公开身份式表达。"""
         import random
 
-        seat = self._pick_seat_from_message(message) or random.randint(1, 12)
+        # 从消息中获取座位号，限制在合理范围内（1-12）
+        seat = self._pick_seat_from_message(message)
+        if seat is None:
+            # 使用当前玩家座位号作为参考，避免引用不存在的玩家
+            seat = max(1, min(self.number, 12))
+        # 确保座位号在有效范围内
+        seat = max(1, min(seat, 12))
+        
         english = sum(1 for char in message if ord(char) < 128) / max(len(message), 1) > 0.6
         if english:
             options = [

@@ -40,13 +40,26 @@ def build_system_prompt(
     seat_number: int,
     game_role_name: str,
     plan_text: str,
+    *,
+    prompt_version: str = "v2",
+    include_role_skills: bool = True,
 ) -> str:
     """为已知角色的就座玩家构建系统 prompt。"""
-    return PromptManager.build_role_strategy_prompt(
+    base = PromptManager.build_role_strategy_prompt(
         seat_number,
         game_role_name,
         plan_text,
+        prompt_version=prompt_version,
     )
+    if not include_role_skills:
+        return base
+    prompt_key = PromptManager.get_prompt_role_key(game_role_name)
+    from llm_werewolf.agent_team.skill_loader import load_role_skills_text
+
+    skills = load_role_skills_text(prompt_key)
+    if skills:
+        return f"{base}\n\n{skills}"
+    return base
 
 
 def create_react_agent(
@@ -134,6 +147,7 @@ def configure_agents_for_players(
     *,
     default_plan: str = "default",
     memory_config: MemoryConfig | None = None,
+    prompt_version: str = "v2",
 ) -> None:
     """角色分配后，为每个 AgentScope Agent 配置系统 prompt。"""
     for player in players:
@@ -146,7 +160,7 @@ def configure_agents_for_players(
 
         bind_prompt = getattr(agent, "bind_role_prompt", None)
         if callable(bind_prompt):
-            bind_prompt(role_name, seat, plan_text)
+            bind_prompt(role_name, seat, plan_text, prompt_version=prompt_version)
             if hasattr(agent, "memory_manager"):
                 agent.memory_manager = _build_memory_manager(
                     player,
@@ -164,6 +178,7 @@ def configure_agents_for_players(
             seat_number=seat,
             game_role_name=role_name,
             plan_text=plan_text,
+            prompt_version=prompt_version,
         )
         if hasattr(agent, "memory_manager"):
             agent.memory_manager = _build_memory_manager(

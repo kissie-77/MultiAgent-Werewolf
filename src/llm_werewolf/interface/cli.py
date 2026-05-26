@@ -65,21 +65,24 @@ async def main(
         result = await engine.play_game()
         console.print(f"\n{result}")
 
-        if engine.game_state and engine.game_state.vote_intention_tracker is not None:
-            from datetime import datetime
+        from datetime import datetime
 
-            from llm_werewolf.evaluation.vote_swing_analysis import write_persuasion_artifacts
+        from llm_werewolf.interface.finalize_run import finalize_run
 
-            run_dir = Path("runs") / datetime.now().strftime("%Y%m%d-%H%M%S")
-            run_dir.mkdir(parents=True, exist_ok=True)
-            engine.game_state.vote_intention_tracker.save_jsonl(
-                run_dir / "vote_intentions.jsonl"
-            )
-            write_persuasion_artifacts(run_dir)
-            console.print(
-                f"[dim]投票意向复盘已写入 {run_dir.resolve()} "
-                "(vote_intentions.jsonl / vote_swing_report.md)[/dim]"
-            )
+        run_dir = Path("runs") / datetime.now().strftime("%Y%m%d-%H%M%S")
+        post = await finalize_run(
+            engine,
+            run_dir,
+            game_result_text=result,
+            config_path=config_path,
+            prompt_version=players_config.prompt_version,
+        )
+        if post.error:
+            console.print(f"[yellow]赛后分析部分失败: {post.error}[/yellow]")
+        console.print(
+            f"[dim]赛后产物已写入 {run_dir.resolve()} "
+            f"({', '.join(post.artifacts[:4])}…)[/dim]"
+        )
 
         if engine.game_state:
             alive = engine.game_state.get_alive_players()

@@ -1,4 +1,4 @@
-﻿"""游戏引擎的投票阶段逻辑。"""
+"""游戏引擎的投票阶段逻辑。"""
 
 import asyncio
 from collections.abc import Callable
@@ -254,7 +254,7 @@ class VotingPhaseMixin:
             pk_candidates = [
                 self.game_state.get_player(cid) for cid in tie_candidates if self.game_state.get_player(cid)
             ]
-            await self._conduct_pk_speeches(pk_candidates, messages)
+            await self._conduct_voting_pk_speeches(pk_candidates, messages)
 
             # 清空投票记录，重新投票
             self.game_state.votes.clear()
@@ -316,7 +316,7 @@ class VotingPhaseMixin:
         )
         return f"{obs}\n\n{base}\n{self.locale.get('pk_opponents', opponents=others)}"
 
-    async def _conduct_pk_speeches(
+    async def _conduct_voting_pk_speeches(
         self, pk_candidates: list[PlayerProtocol], messages: list[str]
     ) -> None:
         """执行 PK 发言阶段（仅 PK 候选人发言，全员旁听）。"""

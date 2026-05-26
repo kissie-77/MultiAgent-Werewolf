@@ -31,3 +31,26 @@ def test_accepts_agentscope_backend_value() -> None:
         players=_six_demo_players(),
     )
     assert cfg.use_agentscope_backend is True
+
+
+def test_prompt_version_defaults_to_v2() -> None:
+    cfg = PlayersConfig(language="zh-CN", players=_six_demo_players())
+    assert cfg.prompt_version == "v2"
+
+
+def test_prompt_version_normalizes_case() -> None:
+    cfg = PlayersConfig(
+        language="zh-CN",
+        prompt_version="V2",
+        players=_six_demo_players(),
+    )
+    assert cfg.prompt_version == "v2"
+
+
+def test_rejects_invalid_prompt_version() -> None:
+    with pytest.raises(ValueError, match="prompt_version must look like"):
+        PlayersConfig(
+            language="zh-CN",
+            prompt_version="2",
+            players=_six_demo_players(),
+        )

@@ -1,0 +1,38 @@
+variables:
+  v2.agent.base:
+    kind: template
+    file: text/agent_base.md
+    format_keys:
+      - number
+      - role_name
+      - role_instruction
+      - suggestion
+      - plan
+
+  v2.role.villager:
+    kind: role_card
+    file: roles/villager.yaml
+
+  v2.role.prophet:
+    kind: role_card
+    file: roles/prophet.yaml
+
+  v2.role.witch:
+    kind: role_card
+    file: roles/witch.yaml
+
+  v2.role.wolf:
+    kind: role_card
+    file: roles/wolf.yaml
+
+  v2.role.wolf_king:
+    kind: role_card
+    file: roles/wolf_king.yaml
+
+  v2.role.guard:
+    kind: role_card
+    file: roles/guard.yaml
+
+  v2.role.hunter:
+    kind: role_card
+    file: roles/hunter.yaml

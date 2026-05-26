@@ -2,7 +2,7 @@
 # API Key 放在 .env 的 ARK_API_KEY，勿写入本文件
 language: zh-CN
 agent_backend: agentscope
-default_plan: default
+default_plan: complicated
 
 # 推理接入点 ID（控制台 EP）
 doubao_ep: &doubao_ep ep-20260514115354-k4jz4

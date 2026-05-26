@@ -181,13 +181,6 @@ main = "python -m llm_werewolf.interface.cli"
 # Run game in TUI mode (interactive)
 tui = "python -m llm_werewolf.interface.tui"
 
-# Documentation
-docs_gen = "make gen-docs"
-docs_deploy = "mkdocs gh-deploy --force --clean"
-docs_run = "mkdocs serve"
-gen = ["docs_gen", "docs_deploy"]
-docs = ["docs_gen", "docs_run"]
-
 # https://docs.astral.sh/uv/reference/settings
 [tool.uv]
 managed = true

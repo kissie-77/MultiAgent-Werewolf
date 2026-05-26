@@ -1,5 +1,5 @@
 # 6 人 LLM 对局（省 token，适合首次真实 API 联调）
-# 使用前：复制 .env.example 为 .env，填入 OPENAI_API_KEY
+# 使用前：cp .env.example .env，填入 OPENAI_API_KEY
 language: zh-CN
 
 players:

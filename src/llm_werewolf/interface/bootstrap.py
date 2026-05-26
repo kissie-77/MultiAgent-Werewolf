@@ -29,6 +29,7 @@ def bind_agentscope_roles(
     *,
     default_plan: str = "default",
     memory_config=None,
+    prompt_version: str = "v2",
 ) -> None:
     """角色分配完成后，为各玩家配置 AgentScope 系统 prompt。"""
     if game_state is None:
@@ -37,6 +38,7 @@ def bind_agentscope_roles(
         game_state.players,
         default_plan=default_plan,
         memory_config=memory_config,
+        prompt_version=prompt_version,
     )
 
 
@@ -51,6 +53,7 @@ def create_players_from_config(
             language=players_config.language,
             use_agentscope=use_agentscope,
             default_plan=players_config.default_plan,
+            prompt_version=players_config.prompt_version,
         )
         for player_cfg in players_config.players
     ]
@@ -67,6 +70,7 @@ def wire_agentscope_after_setup(
         engine.game_state,
         default_plan=players_config.default_plan,
         memory_config=players_config.memory,
+        prompt_version=players_config.prompt_version,
     )
 
 

@@ -96,6 +96,7 @@ def create_agent(
     language: str = "zh-CN",
     use_agentscope: bool = True,
     default_plan: str = "default",
+    prompt_version: str = "v2",
 ) -> BaseAgent:
     """根据玩家配置创建 Agent。"""
     model = config.model.lower()
@@ -119,4 +120,5 @@ def create_agent(
         language=language,
         plan_name=plan_name,
         player_config=config,
+        prompt_version=prompt_version,
     )

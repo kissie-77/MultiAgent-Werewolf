@@ -9,7 +9,7 @@ class PromptBadCaseChecker:
     """自动发现 Prompt 调优用的候选 bad case。
 
     这一版只做可复现的规则检查，不声称判断“最优博弈”。它的目标是把
-    明显可定位的问题先从对局日志里捞出来，供 prompt_tuning 复盘使用。
+    明显可定位的问题先从对局日志里捞出来，供赛后复盘与提案使用。
     """
 
     _generic_speech_markers = {

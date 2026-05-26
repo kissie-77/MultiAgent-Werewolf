@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from llm_werewolf.agent_team.memory.base import SemanticBackend
 from llm_werewolf.agent_team.memory.config import MemoryConfig
 from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory, _KEY_EVENT_TYPES
 from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
-from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
+from llm_werewolf.agent_team.memory.semantic_memory import InMemoryBackend, SemanticMemory
 from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
 
 
@@ -24,21 +23,41 @@ class MemoryManager:
         plan_name: str = "default",
         config: MemoryConfig | None = None,
         semantic_backend: SemanticBackend | None = None,
-        data_dir: Path | None = None,
     ):
         self.config = config or MemoryConfig()
         self.player_id = player_id
         self.role = role
         self.plan_name = plan_name
+
+        self._reme_backend = None
+        compressor = None
+
+        if semantic_backend is not None:
+            pass
+        elif self.config.reme_enabled:
+            from llm_werewolf.agent_team.memory.reme_backend import LLMCompressor, ReMeSemanticBackend
+
+            self._reme_backend = ReMeSemanticBackend(self.config)
+            semantic_backend = self._reme_backend
+            if self.config.reme_compress_working_memory:
+                compressor = LLMCompressor(self.config)
+        else:
+            semantic_backend = InMemoryBackend()
+
         self.working = WorkingMemory(
             max_rounds=self.config.working_max_rounds,
             max_dynamic_items=self.config.working_max_dynamic_items,
+            compressor=compressor,
         )
         self.episodic = EpisodicMemory(event_logger)
         self.procedural = ProceduralMemory()
-        semantic_data_dir = data_dir or Path(self.config.semantic_data_dir)
-        self.semantic = SemanticMemory(backend=semantic_backend, data_dir=semantic_data_dir)
+        self.semantic = SemanticMemory(backend=semantic_backend)
         self._used_card_ids: list[str] = []
+
+    async def aclose(self) -> None:
+        """释放 ReMe 等异步资源。"""
+        if self._reme_backend is not None:
+            await self._reme_backend.aclose()
 
     def on_game_start(self, role: str) -> None:
         """开局注入跨局经验。"""

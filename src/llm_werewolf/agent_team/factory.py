@@ -108,12 +108,22 @@ def _build_memory_manager(
     if event_logger is None:
         return None
 
+    config = memory_config or MemoryConfig()
+    if config.reme_enabled and not config.reme_llm_api_key:
+        config = config.model_copy(update={
+            "reme_llm_api_key": os.getenv("REME_LLM_API_KEY", ""),
+            "reme_llm_base_url": os.getenv("REME_LLM_BASE_URL", ""),
+            "reme_embedding_api_key": os.getenv("REME_EMBEDDING_API_KEY", ""),
+            "reme_embedding_base_url": os.getenv("REME_EMBEDDING_BASE_URL", ""),
+            "reme_embedding_model": os.getenv("REME_EMBEDDING_MODEL", config.reme_embedding_model),
+        })
+
     manager = MemoryManager(
         event_logger=event_logger,
         role=PromptManager.get_prompt_role_key(role_name),
         player_id=player.player_id,
         plan_name=plan_name,
-        config=memory_config,
+        config=config,
     )
     manager.on_game_start(manager.role)
     return manager

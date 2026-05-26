@@ -5,16 +5,19 @@ from llm_werewolf.agent_team.memory.config import MemoryConfig
 from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory
 from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
 from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
-from llm_werewolf.agent_team.memory.semantic_memory import JSONFileBackend, SemanticMemory, StrategyCard
+from llm_werewolf.agent_team.memory.reme_backend import LLMCompressor, ReMeSemanticBackend
+from llm_werewolf.agent_team.memory.semantic_memory import InMemoryBackend, SemanticMemory, StrategyCard
 from llm_werewolf.agent_team.memory.working_memory import MemoryItem, WorkingMemory
 
 __all__ = [
     "EpisodicMemory",
-    "JSONFileBackend",
+    "InMemoryBackend",
+    "LLMCompressor",
     "MemoryConfig",
     "MemoryItem",
     "MemoryManager",
     "ProceduralMemory",
+    "ReMeSemanticBackend",
     "SemanticBackend",
     "SemanticMemory",
     "StrategyCard",

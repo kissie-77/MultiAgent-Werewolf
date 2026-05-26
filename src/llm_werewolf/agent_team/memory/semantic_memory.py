@@ -1,13 +1,11 @@
-"""语义记忆：跨局策略卡片与默认 JSON 后端。"""
+"""语义记忆：跨局策略卡片管理。"""
 
 from __future__ import annotations
 
-import json
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from pathlib import Path
 from difflib import SequenceMatcher
 
 from llm_werewolf.agent_team.memory.base import SemanticBackend
@@ -27,44 +25,31 @@ class StrategyCard:
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
-class JSONFileBackend:
-    """默认 JSON 文件后端。"""
+class InMemoryBackend:
+    """纯内存后端，用于测试。"""
 
-    def __init__(self, data_dir: Path):
-        self._dir = data_dir
-        self._dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self) -> None:
         self._cards: dict[str, StrategyCard] = {}
-        self._load()
-
-    def _load(self) -> None:
-        for file_path in self._dir.glob("*.json"):
-            data = json.loads(file_path.read_text(encoding="utf-8"))
-            self._cards[data["id"]] = StrategyCard(**data)
 
     def store(self, card_id: str, data: dict) -> None:
-        card = StrategyCard(**data)
-        self._cards[card_id] = card
-        file_path = self._dir / f"{card_id}.json"
-        file_path.write_text(
-            json.dumps(asdict(card), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        self._cards[card_id] = StrategyCard(**data)
 
     def retrieve(self, role: str, limit: int) -> list[dict]:
-        matched = [card for card in self._cards.values() if card.role == role]
-        matched.sort(key=lambda card: card.weight, reverse=True)
-        return [asdict(card) for card in matched[:limit]]
+        matched = [c for c in self._cards.values() if c.role == role]
+        matched.sort(key=lambda c: c.weight, reverse=True)
+        return [asdict(c) for c in matched[:limit]]
+
+    def update_weight(self, card_id: str, delta: float) -> None:
+        card = self._cards.get(card_id)
+        if card is not None:
+            card.weight += delta
 
 
 class SemanticMemory:
     """跨局策略卡片管理器。"""
 
-    def __init__(
-        self,
-        backend: SemanticBackend | None = None,
-        data_dir: Path | None = None,
-    ):
-        self._backend = backend or JSONFileBackend(data_dir or Path("data/semantic_cards"))
+    def __init__(self, backend: SemanticBackend) -> None:
+        self._backend = backend
 
     def retrieve_for_role(self, role: str, top_k: int = 3) -> list[StrategyCard]:
         raw_cards = self._backend.retrieve(role, top_k)

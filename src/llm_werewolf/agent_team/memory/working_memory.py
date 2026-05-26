@@ -19,12 +19,18 @@ class MemoryItem:
 class WorkingMemory:
     """当前回合推理所需的活跃信息，带简单滑动窗口。"""
 
-    def __init__(self, max_rounds: int = 5, max_dynamic_items: int = 20):
+    def __init__(
+        self,
+        max_rounds: int = 5,
+        max_dynamic_items: int = 20,
+        compressor: object | None = None,
+    ):
         self._persistent: list[MemoryItem] = []
         self._dynamic: list[MemoryItem] = []
         self._summaries: deque[str] = deque(maxlen=max_rounds)
         self._max_dynamic = max_dynamic_items
         self._current_round = 0
+        self._compressor = compressor
 
     @property
     def current_round(self) -> int:
@@ -95,10 +101,17 @@ class WorkingMemory:
         self._current_round = 0
 
     def _compress_dynamic(self) -> str:
-        """用规则式摘要压缩当前轮动态信息。"""
+        """压缩当前轮动态信息。有 LLM 压缩器时用语义压缩，否则用规则式摘要。"""
         round_label = self._current_round + 1
         if not self._dynamic:
             return f"第{round_label}轮：无重要事件"
+
+        if self._compressor is not None:
+            try:
+                compressed = self._compressor.compress(self._dynamic)
+                return f"第{round_label}轮：{compressed}"
+            except Exception:
+                pass
 
         decisions = [item for item in self._dynamic if item.tag == "decision"]
         speeches = [item for item in self._dynamic if item.tag == "speech"]

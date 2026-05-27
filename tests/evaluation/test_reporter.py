@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.evaluation.metrics import build_summary
-from llm_werewolf.evaluation.models import CheckResult, GameRunResult
-from llm_werewolf.evaluation.reporter import EvaluationReporter
+from llm_werewolf.evaluation.core.metrics import build_summary
+from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
+from llm_werewolf.evaluation.core.reporter import EvaluationReporter
 
 
 def test_build_summary_counts_rates_and_checker_failures() -> None:

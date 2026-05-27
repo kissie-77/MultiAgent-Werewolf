@@ -3,7 +3,7 @@
 import pytest
 from pydantic import BaseModel
 
-from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
+from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
 
 @pytest.fixture
@@ -105,7 +105,7 @@ async def test_call_agentscope_agent_sanitizes_response_before_extract(monkeypat
         return response_msg
 
     monkeypatch.setattr(
-        "llm_werewolf.agent_team.agentscope_agent.run_serial_agent_call",
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call",
         fake_serial_call,
     )
 
@@ -133,7 +133,7 @@ async def test_get_structured_response_sanitizes_thinking_blocks(monkeypatch) ->
         return response
 
     monkeypatch.setattr(
-        "llm_werewolf.agent_team.agentscope_agent.run_serial_agent_call",
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call",
         fake_serial_call,
     )
 

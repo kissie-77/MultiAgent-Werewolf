@@ -2,7 +2,7 @@
 
 from llm_werewolf.game_runtime.roles.catalog import get_catalog, get_definition, get_definition_by_role_class
 from llm_werewolf.game_runtime.roles.loader import role_class_from_definition
-from llm_werewolf.game_runtime.role_registry import get_role_map, get_werewolf_roles, create_roles
+from llm_werewolf.game_runtime.registries.role_registry import get_role_map, get_werewolf_roles, create_roles
 from llm_werewolf.game_runtime.roles import Seer, Werewolf
 from llm_werewolf.game_runtime.types.enums import Camp, VictoryGoal
 

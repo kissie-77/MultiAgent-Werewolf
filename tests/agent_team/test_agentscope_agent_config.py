@@ -2,7 +2,7 @@
 
 import pytest
 
-from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
+from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
 
 def test_agentscope_agent_configure_role() -> None:

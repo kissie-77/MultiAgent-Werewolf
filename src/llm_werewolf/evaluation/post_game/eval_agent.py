@@ -9,8 +9,8 @@ from typing import Any
 
 from agentscope.message import Msg as AgentScopeMsg
 
-from llm_werewolf.agent_team.factory import create_react_agent
-from llm_werewolf.agent_team.serial_calls import run_serial_agent_call
+from llm_werewolf.agent_team.agents.factory import create_react_agent
+from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.game_runtime.config import PlayerConfig

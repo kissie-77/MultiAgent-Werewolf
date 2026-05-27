@@ -131,7 +131,7 @@ def test_working_memory_uses_compressor_on_end_round() -> None:
 
 def test_memory_manager_receives_compressor() -> None:
     from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
-    from llm_werewolf.game_runtime.events import EventLogger
+    from llm_werewolf.game_runtime.events.events import EventLogger
 
     mock_compressor = MagicMock()
     manager = MemoryManager(

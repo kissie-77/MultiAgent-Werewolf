@@ -1,9 +1,9 @@
 ﻿from collections.abc import Callable
 
-from llm_werewolf.game_runtime.action_registry import get_action_priority
+from llm_werewolf.game_runtime.registries.action_registry import get_action_priority
 from llm_werewolf.game_runtime.types import EventType
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.game_state import GameState
+from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.actions.base import Action
 from llm_werewolf.game_runtime.actions.villager import (
     CupidLinkAction,

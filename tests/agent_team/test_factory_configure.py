@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
-from llm_werewolf.agent_team.factory import (
+from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
+from llm_werewolf.agent_team.agents.factory import (
     _build_compressor,
     _disable_agentscope_console_output,
     _register_no_thinking_print_hook,
@@ -15,8 +15,8 @@ from llm_werewolf.agent_team.factory import (
     configure_agents_for_players,
 )
 from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
-from llm_werewolf.game_runtime.events import EventLogger
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.game_runtime.events.events import EventLogger
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles.villager import Seer
 
 
@@ -35,7 +35,7 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
     )
     player = Player("player_3", "P1", Seer, agent=agent, ai_model="gpt-test")
 
-    with patch("llm_werewolf.agent_team.factory.create_react_agent") as mock_create:
+    with patch("llm_werewolf.agent_team.agents.factory.create_react_agent") as mock_create:
         mock_create.return_value = MagicMock(name="ReActAgent")
         configure_agents_for_players([player], default_plan="default", event_logger=EventLogger())
 
@@ -50,7 +50,7 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
 
 
 def test_configure_agents_skips_agents_without_configure_role() -> None:
-    from llm_werewolf.agent_team.base import DemoAgent
+    from llm_werewolf.agent_team.agents.base import DemoAgent
 
     agent = DemoAgent(name="P1")
     player = Player("player_1", "P1", Seer, agent=agent, ai_model="demo")
@@ -60,7 +60,7 @@ def test_configure_agents_skips_agents_without_configure_role() -> None:
 
 
 def test_agent_uses_structured_output_requires_react_backend() -> None:
-    from llm_werewolf.agent_team.structured_invoke import agent_uses_structured_output
+    from llm_werewolf.agent_team.invocation.structured_invoke import agent_uses_structured_output
 
     agent = AgentScopeWerewolfAgent(name="P1")
     assert agent_uses_structured_output(agent) is False

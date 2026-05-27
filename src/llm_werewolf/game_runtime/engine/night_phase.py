@@ -4,16 +4,15 @@ import random
 from typing import TYPE_CHECKING
 from collections.abc import Callable
 
-from llm_werewolf.agent_team.message_router import MessageRouter
-from llm_werewolf.agent_team.visibility import VisibilityChannel
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
 from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.types import Camp, EventType, GamePhase, PlayerProtocol
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.game_state import GameState
+from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.night_scheduler import NightSkillScheduler
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
-from llm_werewolf.game_runtime.role_night_plans import offer_blood_moon_transform
+from llm_werewolf.game_runtime.registries.role_night_plans import offer_blood_moon_transform
 from llm_werewolf.game_runtime.roles.werewolf import BloodMoonApostle
 
 if TYPE_CHECKING:
@@ -77,7 +76,7 @@ class NightPhaseMixin:
             if participates_in_wolf_team(p)
         ]
         self._log_event(
-            MessageRouter.event_type_for_channel(VisibilityChannel.WOLF_TEAM),
+            event_type_for_channel(VisibilityChannel.WOLF_TEAM),
             self.locale.get(
                 "werewolf_discussion", player=speaker.name, speech=decision.public_speech
             ),

@@ -5,8 +5,8 @@ from rich.text import Text
 from textual.widgets import RichLog
 
 from llm_werewolf.game_runtime.types import EventType
-from llm_werewolf.game_runtime.events import Event
-from llm_werewolf.game_runtime.event_formatter import EventFormatter
+from llm_werewolf.game_runtime.events.events import Event
+from llm_werewolf.game_runtime.events.event_formatter import EventFormatter
 
 
 class ChatPanel(RichLog):

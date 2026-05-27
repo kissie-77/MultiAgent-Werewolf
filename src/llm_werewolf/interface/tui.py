@@ -6,6 +6,7 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 load_project_dotenv()
 
 from llm_werewolf.interface.bootstrap import (
+    create_information_hub,
     prepare_game_roster,
     wire_agentscope_after_setup,
 )
@@ -58,7 +59,11 @@ def main(
     if badge_flow:
         game_config = game_config.model_copy(update={"enable_sheriff": True})
 
-    engine = GameEngine(game_config, language=players_config.language)
+    engine = GameEngine(
+        game_config,
+        language=players_config.language,
+        information_hub=create_information_hub(),
+    )
     engine.setup_game(players=agents, roles=roles)
     wire_agentscope_after_setup(engine, players_config)
 

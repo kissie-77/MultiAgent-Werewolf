@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel
 
 from llm_werewolf.strategy.role_prompts import GamePrompts, ROLE_SEAT_ACTION
-from llm_werewolf.agent_team.structured_invoke import (
+from llm_werewolf.agent_team.invocation.structured_invoke import (
     agent_uses_structured_output,
     coerce_speech,
     invoke_structured,
@@ -38,6 +38,10 @@ from llm_werewolf.strategy.decisions import (
 )
 from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
 from llm_werewolf.strategy.phase_outputs import ActionPhase, RoundtablePhase, action_phase_instruction
+from llm_werewolf.game_runtime.seat import (
+    get_player_seat,
+    resolve_player_by_seat,
+)
 from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
@@ -54,11 +58,7 @@ class WerewolfAdapterBridge:
     @staticmethod
     def get_player_seat(player: PlayerProtocol) -> int | None:
         """返回玩家稳定的 1 基座位号。"""
-        for value in (player.player_id, player.name):
-            match = re.search(r"(\d+)$", str(value))
-            if match:
-                return int(match.group(1))
-        return None
+        return get_player_seat(player)
 
     @staticmethod
     def resolve_player_by_seat(
@@ -66,10 +66,7 @@ class WerewolfAdapterBridge:
         candidates: list[PlayerProtocol],
     ) -> PlayerProtocol | None:
         """在候选列表中按座位号匹配玩家。"""
-        for player in candidates:
-            if WerewolfAdapterBridge.get_player_seat(player) == seat:
-                return player
-        return None
+        return resolve_player_by_seat(seat, candidates)
 
     # ------------------------------------------------------------------
     # 解析（文本 / 结构化 → 引擎语义）

@@ -1,4 +1,4 @@
-from llm_werewolf.game_runtime.events import EventLogger
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import EventType, GamePhase
 from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory
 

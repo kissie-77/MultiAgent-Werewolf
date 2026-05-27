@@ -7,7 +7,7 @@ from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuas
 from llm_werewolf.evaluation.post_game.prompt_proposal import build_prompt_proposals
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
 from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
-from llm_werewolf.evaluation.vote_swing_analysis import _records_from_events
+from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
 
 def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:

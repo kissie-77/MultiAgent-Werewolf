@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from llm_werewolf.agent_team import skill_loader
+from llm_werewolf.agent_team.skill_support import skill_loader
 from llm_werewolf.agent_team.memory.base import SemanticBackend
 from llm_werewolf.agent_team.memory.semantic_matching import (
     deduplicate_candidates as deduplicate_candidate_texts,
@@ -17,7 +17,7 @@ from llm_werewolf.agent_team.memory.semantic_matching import (
     normalize_content,
     similarity,
 )
-from llm_werewolf.agent_team.skill_markdown import (
+from llm_werewolf.agent_team.skill_support.skill_markdown import (
     ensure_description_format,
     extract_description,
     extract_when_to_use,

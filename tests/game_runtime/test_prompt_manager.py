@@ -1,4 +1,4 @@
-﻿from llm_werewolf.agent_team.factory import build_system_prompt, resolve_plan_text
+from llm_werewolf.agent_team.agents.factory import build_system_prompt, resolve_plan_text
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 

@@ -10,6 +10,7 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 load_project_dotenv()
 
 from llm_werewolf.interface.bootstrap import (
+    create_information_hub,
     prepare_game_roster,
     wire_agentscope_after_setup,
 )
@@ -17,6 +18,7 @@ from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.interface.modes import resolve_config_path
+from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 console = Console()
@@ -66,7 +68,11 @@ async def main(
         game_config = game_config.model_copy(update={"enable_sheriff": True})
 
     locale = Locale(players_config.language)
-    engine = GameEngine(game_config, language=players_config.language)
+    engine = GameEngine(
+        game_config,
+        language=players_config.language,
+        information_hub=create_information_hub(),
+    )
 
     presenter = ConsolePresenter(locale)
     engine.on_event = presenter.present_event
@@ -90,7 +96,7 @@ async def main(
 
         from llm_werewolf.interface.finalize_run import finalize_run
 
-        run_dir = Path("runs") / datetime.now().strftime("%Y%m%d-%H%M%S")
+        run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
         post = await finalize_run(
             engine,
             run_dir,

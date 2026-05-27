@@ -2,7 +2,7 @@
 
 import json
 
-from llm_werewolf.evaluation.vote_swing_analysis import (
+from llm_werewolf.evaluation.core.vote_swing_analysis import (
     analyze_speech_records,
     format_markdown_report,
     load_speech_records,

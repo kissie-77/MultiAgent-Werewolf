@@ -143,7 +143,7 @@ class Role(ABC):
         interaction = getattr(game_state, "phase_interaction", None)
         if interaction is None:
             return []
-        from llm_werewolf.game_runtime.role_night_plans import dispatch_night_plan
+        from llm_werewolf.game_runtime.registries.role_night_plans import dispatch_night_plan
 
         return await dispatch_night_plan(self, game_state, interaction)
 

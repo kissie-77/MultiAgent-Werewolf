@@ -41,7 +41,7 @@ source_run: runs/doubao-9p-xxx
 
 ```bash
 .venv/bin/python -c "
-from llm_werewolf.evaluation.post_game.reference_skills import sync_agent_skill_library
+from llm_werewolf.evaluation.post_game.skill_generation.reference_skills import sync_agent_skill_library
 sync_agent_skill_library()  # 默认用 runs/ 下最佳本地对局
 "
 ```

@@ -2,27 +2,140 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Protocol
 
-from llm_werewolf.agent_team.information_hub import InformationHub
-from llm_werewolf.agent_team.visibility import VisibilityChannel
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
 from llm_werewolf.strategy.decisions import SpeechDecision, WitchNightDecision
 from llm_werewolf.strategy.vote_intention import SpeechVoteIntentionRecord, VoteIntentionTracker
 from llm_werewolf.strategy.phase_outputs import ActionPhase
 from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
-    from llm_werewolf.agent_team.visibility import RoutedMessage
+    from llm_werewolf.game_runtime.events.visibility import RoutedMessage
+
+
+class PhaseInteractionHub(Protocol):
+    """Runtime-facing contract implemented by the agent communication hub."""
+
+    def set_context_provider(
+        self,
+        *,
+        build_observation: Callable[[PlayerProtocol], str],
+        get_alive_players: Callable[[], list[PlayerProtocol]],
+    ) -> None:
+        ...
+
+    async def request_private_seat_choice(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        action_description: str,
+        possible_targets: list[PlayerProtocol],
+        allow_skip: bool = False,
+        additional_context: str = "",
+        fallback_random: bool = True,
+        round_number: int | None = None,
+        phase: str | None = None,
+        action_phase: ActionPhase | None = None,
+    ) -> PlayerProtocol | None:
+        ...
+
+    async def request_private_witch_night(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        *,
+        can_see_victim: bool,
+        victim_line: str,
+        poison_targets: list[PlayerProtocol],
+        additional_context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> WitchNightDecision:
+        ...
+
+    async def request_private_yes_no(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        question: str,
+        context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> bool:
+        ...
+
+    async def request_private_multi_target(
+        self,
+        actor: PlayerProtocol,
+        agent: AgentProtocol,
+        role_name: str,
+        action_description: str,
+        possible_targets: list[PlayerProtocol],
+        num_targets: int,
+        additional_context: str = "",
+        round_number: int | None = None,
+        phase: str | None = None,
+    ) -> list[PlayerProtocol] | None:
+        ...
+
+    async def collect_speech(
+        self,
+        speaker: PlayerProtocol,
+        context: str,
+        *,
+        channel: VisibilityChannel,
+        instruction: str = "",
+        phase: str = "",
+        round_number: int = 0,
+        audience: list[PlayerProtocol] | None = None,
+    ) -> SpeechDecision:
+        ...
+
+    async def announce(
+        self,
+        content: str,
+        *,
+        channel: VisibilityChannel = VisibilityChannel.PUBLIC,
+        audience: list[PlayerProtocol] | None = None,
+        phase: str = "",
+        round_number: int = 0,
+    ) -> None:
+        ...
+
+    async def run_roundtable(
+        self,
+        speakers: list[PlayerProtocol],
+        *,
+        channel: VisibilityChannel,
+        context_builder: Callable[[PlayerProtocol], str],
+        instruction: str,
+        phase: str,
+        round_number: int,
+        audience: list[PlayerProtocol] | None = None,
+        opening_announcement: str = "",
+        on_speech: Callable[
+            [PlayerProtocol, SpeechDecision, RoutedMessage | None], None
+        ]
+        | None = None,
+        vote_intention_tracker: VoteIntentionTracker | None = None,
+        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
+        | None = None,
+    ) -> list[RoutedMessage]:
+        ...
 
 
 class PhaseInteraction:
     """面向引擎与角色的 LLM 决策 API。须显式注入 hub。"""
 
-    def __init__(self, hub: InformationHub) -> None:
+    def __init__(self, hub: PhaseInteractionHub) -> None:
         self._hub = hub
 
     @property
-    def hub(self) -> InformationHub:
+    def hub(self) -> PhaseInteractionHub:
         return self._hub
 
     async def request_seat_choice(

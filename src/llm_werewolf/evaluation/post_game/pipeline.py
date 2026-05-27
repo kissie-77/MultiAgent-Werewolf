@@ -14,10 +14,10 @@ from llm_werewolf.evaluation.post_game.camp_persuasion import (
 from llm_werewolf.evaluation.post_game.prompt_proposal import write_prompt_proposals
 from llm_werewolf.evaluation.post_game.replay_agent import run_llm_replay, write_post_game_analysis
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
-from llm_werewolf.evaluation.post_game.skill_extractor import write_role_skills_artifacts
+from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import write_role_skills_artifacts
 from llm_werewolf.evaluation.scoring.benefit import write_benefit_scores
 from llm_werewolf.evaluation.scoring.intention import build_intention_scores, write_intention_scores
-from llm_werewolf.evaluation.vote_swing_analysis import write_persuasion_artifacts
+from llm_werewolf.evaluation.core.vote_swing_analysis import write_persuasion_artifacts
 
 
 @dataclass

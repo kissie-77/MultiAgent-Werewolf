@@ -6,19 +6,18 @@ from rich.console import Console
 
 from llm_werewolf.game_runtime.types import Event, EventType, GamePhase, RoleProtocol, AgentProtocol
 from llm_werewolf.game_runtime.config import GameConfig
-from llm_werewolf.game_runtime.events import EventLogger
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.observation import ObservationBuilder
-from llm_werewolf.agent_team.information_hub import InformationHub
-from llm_werewolf.game_runtime.event_visibility import HUB_DIALOGUE_EVENT_TYPES, resolve_visible_to
-from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+from llm_werewolf.game_runtime.events.event_visibility import HUB_DIALOGUE_EVENT_TYPES, resolve_visible_to
+from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction, PhaseInteractionHub
 from llm_werewolf.game_runtime.types import Camp
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.victory import VictoryChecker
-from llm_werewolf.game_runtime.game_state import GameState
-from llm_werewolf.game_runtime.serialization import load_game_state, save_game_state
-from llm_werewolf.game_runtime.event_formatter import EventFormatter
+from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.state.serialization import load_game_state, save_game_state
+from llm_werewolf.game_runtime.events.event_formatter import EventFormatter
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,12 +28,18 @@ console = Console()
 class GameEngineBase:
     """游戏引擎基类，提供核心功能。"""
 
-    def __init__(self, config: GameConfig | None = None, language: str = "en-US") -> None:
+    def __init__(
+        self,
+        config: GameConfig | None = None,
+        language: str = "en-US",
+        information_hub: PhaseInteractionHub | None = None,
+    ) -> None:
         """初始化游戏引擎。
 
         Args:
             config: 游戏配置。
             language: 本地化语言代码（en-US、zh-TW、zh-CN）。
+            information_hub: 运行时交互 Hub，由装配层负责注入具体实现。
         """
         self.config = config
         self.game_state: GameState | None = None
@@ -44,7 +49,7 @@ class GameEngineBase:
         self.observation_builder = ObservationBuilder()
         self._last_phase: GamePhase | None = None  # 跟踪阶段变化以输出分隔符
 
-        self.information_hub = InformationHub()
+        self.information_hub = information_hub
         self.phase_interaction = PhaseInteraction(self.information_hub)
 
         self.on_event: Callable[[Event], None] = self._default_print_event
@@ -98,14 +103,15 @@ class GameEngineBase:
             self.game_state.vote_intention_tracker = VoteIntentionTracker()
 
         self.victory_checker = VictoryChecker(self.game_state)
-        self.information_hub.set_context_provider(
-            build_observation=lambda player: self.build_player_observation(
-                player, for_agent_decision=True
-            ),
-            get_alive_players=lambda: self.game_state.get_alive_players()
-            if self.game_state
-            else [],
-        )
+        if self.information_hub is not None:
+            self.information_hub.set_context_provider(
+                build_observation=lambda player: self.build_player_observation(
+                    player, for_agent_decision=True
+                ),
+                get_alive_players=lambda: self.game_state.get_alive_players()
+                if self.game_state
+                else [],
+            )
 
     @staticmethod
     def _attach_agent_to_player(

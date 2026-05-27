@@ -68,7 +68,7 @@ def test_intention_scores_swing_to_final_vote(tmp_path: Path) -> None:
         "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
         encoding="utf-8",
     )
-    from llm_werewolf.evaluation.vote_swing_analysis import _records_from_events
+    from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(

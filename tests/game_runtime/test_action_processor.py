@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 from llm_werewolf.game_runtime.actions.villager import GuardProtectAction, SeerCheckAction, WitchSaveAction
 from llm_werewolf.game_runtime.actions.werewolf import NightmareWolfBlockAction, WerewolfVoteAction
 from llm_werewolf.game_runtime.engine.action_processor import ActionProcessorMixin
-from llm_werewolf.game_runtime.game_state import GameState
+from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles import Guard, NightmareWolf, Seer, Villager, Werewolf, Witch
 from llm_werewolf.game_runtime.types import ActionPriority
 

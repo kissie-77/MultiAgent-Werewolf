@@ -5,17 +5,20 @@ from pathlib import Path
 
 from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
-from llm_werewolf.evaluation.post_game.skill_extractor import (
+from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     build_role_skills,
     write_role_skills_artifacts,
 )
-from llm_werewolf.evaluation.post_game.skill_generation_rules import (
+from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     evaluate_persuasion_speech,
     collect_skill_generation_candidates,
 )
-from llm_werewolf.evaluation.post_game.skill_md import render_skill_markdown
+from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampSpeechInfluence
-from llm_werewolf.agent_team.skill_loader import format_role_skills_section, load_role_skills
+from llm_werewolf.agent_team.skill_support.skill_loader import (
+    format_role_skills_section,
+    load_role_skills,
+)
 
 
 def _fixture_events() -> list[dict]:
@@ -86,7 +89,7 @@ def test_render_skill_markdown_has_frontmatter() -> None:
         "skill_id": "wolf_test",
         "prompt_role_key": "wolf",
         "status": "draft",
-        "source_run": "runs/test",
+        "source_run": "artifacts/runs/test",
         "skill_card": {
             "title_zh": "测试 Skill",
             "when_to_use": "白天",
@@ -143,7 +146,7 @@ def test_write_role_skills_only_generates_passed_candidates(tmp_path: Path) -> N
         "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
         encoding="utf-8",
     )
-    from llm_werewolf.evaluation.vote_swing_analysis import _records_from_events
+    from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
@@ -174,7 +177,7 @@ def test_build_role_skills_no_placeholder_for_all_roles(tmp_path: Path) -> None:
         "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
         encoding="utf-8",
     )
-    from llm_werewolf.evaluation.vote_swing_analysis import _records_from_events
+    from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
@@ -370,7 +373,7 @@ def test_reference_skills_from_local_run(tmp_path: Path) -> None:
         "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
         encoding="utf-8",
     )
-    from llm_werewolf.evaluation.post_game.reference_skills import build_reference_skills
+    from llm_werewolf.evaluation.post_game.skill_generation.reference_skills import build_reference_skills
 
     skills = build_reference_skills(tmp_path)
     roles = {s["prompt_role_key"] for s in skills}
@@ -384,7 +387,7 @@ def test_reference_skills_from_local_run(tmp_path: Path) -> None:
 
 
 def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
     wolf_dir = root / "wolf"
@@ -407,7 +410,7 @@ def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_skill_loader_sorts_by_weight_descending(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
     wolf_dir = root / "wolf"
@@ -437,7 +440,7 @@ def test_skill_loader_sorts_by_weight_descending(tmp_path: Path, monkeypatch) ->
 
 
 def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
     wolf_dir = root / "wolf"
@@ -457,7 +460,7 @@ def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> Non
 
 
 def test_skill_loader_strips_legacy_description_line_from_prompt_body(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
     prophet_dir = root / "prophet"
@@ -484,7 +487,7 @@ def test_skill_loader_strips_legacy_description_line_from_prompt_body(tmp_path: 
 
 
 def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
     from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
 
     root = tmp_path / "skills"

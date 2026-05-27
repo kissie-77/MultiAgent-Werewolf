@@ -1,7 +1,7 @@
 ﻿"""MessageAdapter 的测试。"""
 
 import pytest
-from llm_werewolf.agent_team.message import MessageAdapter, Msg
+from llm_werewolf.agent_team.communication.message import MessageAdapter, Msg
 
 
 class TestMsg:

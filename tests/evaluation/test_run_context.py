@@ -35,7 +35,7 @@ def test_roster_from_role_acting_events() -> None:
 
 
 def test_load_run_context_doubao_run_roster() -> None:
-    run_dir = Path("runs/doubao-9p-20260525-170043")
+    run_dir = Path("artifacts/runs/doubao-9p-20260525-170043")
     if not (run_dir / "events.jsonl").is_file():
         return
     ctx = load_run_context(run_dir)

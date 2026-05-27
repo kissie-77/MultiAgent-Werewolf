@@ -1,4 +1,4 @@
-from llm_werewolf.evaluation.models import (
+from llm_werewolf.evaluation.core.models import (
     CheckResult,
     CheckSeverity,
     EvaluationSummary,

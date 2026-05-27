@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from llm_werewolf.game_runtime.events import EventLogger
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import Event, EventType
 
 _KEY_EVENT_TYPES = {

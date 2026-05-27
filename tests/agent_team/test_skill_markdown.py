@@ -1,4 +1,4 @@
-from llm_werewolf.agent_team.skill_markdown import (
+from llm_werewolf.agent_team.skill_support.skill_markdown import (
     ensure_description_format,
     extract_description,
     parse_frontmatter,

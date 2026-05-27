@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any, Type, TypeVar
+import re
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 from llm_werewolf.strategy.decisions import (
-    GENERATE_RESPONSE_INSTRUCTION,
-    SeatChoiceDecision,
     SpeechDecision,
-    YesNoDecision,
     normalize_speech_decision,
+    generate_response_instruction,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,10 +45,111 @@ def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:
     return metadata if metadata else None
 
 
+def _strip_json_fence(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("```") and stripped.endswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 3:
+            return "\n".join(lines[1:-1]).strip()
+    return stripped
+
+
+def _iter_balanced_json_objects(text: str) -> list[str]:
+    """提取文本中的平衡 JSON 对象，保留字符串内部花括号。"""
+    objects: list[str] = []
+    start: int | None = None
+    depth = 0
+    in_string = False
+    escape = False
+    for index, char in enumerate(text):
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char == "}" and depth:
+            depth -= 1
+            if depth == 0 and start is not None:
+                objects.append(text[start : index + 1])
+                start = None
+    return objects
+
+
+def _unwrap_tool_payload(data: dict[str, Any]) -> dict[str, Any]:
+    """兼容模型把 generate_response 工具调用包装进 content JSON 的形态。"""
+    for key in ("structured_output", "input", "arguments", "kwargs"):
+        value = data.get(key)
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(decoded, dict):
+                return decoded
+    return data
+
+
+def _parse_legacy_scalar_text(text: str, model: type[T]) -> T | None:
+    """兼容旧提示下模型返回 [[seat]] / YES / NO 的非发言决策。"""
+    stripped = text.strip()
+    seat_match = re.fullmatch(r"(?:\[\[\s*)?(\d+)(?:\s*\]\])?", stripped)
+    if seat_match and model.__name__ in {"SeatChoiceDecision", "VoteIntentionDecision"}:
+        return model.model_validate({"seat": int(seat_match.group(1)), "reason": None})
+
+    if model.__name__ == "YesNoDecision":
+        upper = stripped.upper()
+        if upper in {"YES", "NO"}:
+            return model.model_validate({"choice": upper == "YES", "reason": None})
+        if seat_match and seat_match.group(1) in {"0", "1"}:
+            return model.model_validate(
+                {"choice": seat_match.group(1) == "1", "reason": None}
+            )
+    return None
+
+
+def parse_structured_from_text(text: str, model: type[T]) -> T | None:
+    """从模型纯文本 content 中恢复结构化决策。"""
+    if not text or not text.strip():
+        return None
+
+    legacy = _parse_legacy_scalar_text(text, model)
+    if legacy is not None:
+        return legacy
+
+    candidates = [_strip_json_fence(text)]
+    candidates.extend(_iter_balanced_json_objects(text))
+    parsed: T | None = None
+    for candidate in candidates:
+        try:
+            data = json.loads(_strip_json_fence(candidate))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        data = _unwrap_tool_payload(data)
+        try:
+            parsed = model.model_validate(data)
+        except ValidationError:
+            continue
+    return parsed
+
+
 async def invoke_structured(
     agent: Any,
     prompt: str,
-    model: Type[T],
+    model: type[T],
     *,
     retries: int = 2,
 ) -> T | None:
@@ -58,8 +159,8 @@ async def invoke_structured(
         return None
 
     full_prompt = prompt
-    if GENERATE_RESPONSE_INSTRUCTION not in prompt:
-        full_prompt = f"{prompt}\n\n{GENERATE_RESPONSE_INSTRUCTION}"
+    if "generate_response" not in prompt:
+        full_prompt = f"{prompt}\n\n{generate_response_instruction(model.__name__)}"
 
     last_error: Exception | None = None
     for attempt in range(retries):
@@ -98,6 +199,13 @@ async def invoke_structured(
             getattr(agent, "name", "?"),
             model.__name__,
             last_error,
+        )
+    else:
+        logger.warning(
+            "structured_invoke_returned_none agent=%s model=%s attempts=%s",
+            getattr(agent, "name", "?"),
+            model.__name__,
+            retries,
         )
     return None
 

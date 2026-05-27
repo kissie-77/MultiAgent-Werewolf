@@ -3,6 +3,7 @@
 本模块封装 AgentScope 的 AgentBase，
 使其符合 LLMWerewolf 的 AgentProtocol 接口。
 """
+import logging
 import re
 import asyncio
 from typing import Any, Optional, Type
@@ -19,10 +20,25 @@ from llm_werewolf.strategy.decisions import (
     extract_public_text,
     is_valid_public_speech,
 )
-from llm_werewolf.agent_team.structured_invoke import unwrap_structured_metadata
+from llm_werewolf.agent_team.structured_invoke import (
+    parse_structured_from_text,
+    unwrap_structured_metadata,
+)
 from llm_werewolf.agent_team.message import MessageAdapter, Msg
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.agent_team.serial_calls import run_serial_agent_call
+
+logger = logging.getLogger(__name__)
+
+
+def _structured_tool_choice_unsupported(exc: Exception) -> bool:
+    """Return True when a provider rejects forced structured tool choice."""
+    text = str(exc).lower()
+    return "tool_choice" in text and (
+        "does not support" in text
+        or "not support" in text
+        or "unsupported" in text
+    )
 
 
 class AgentScopeWerewolfAgent(BaseAgent):
@@ -274,6 +290,36 @@ class AgentScopeWerewolfAgent(BaseAgent):
         input_msg = AgentScopeMsg(name="Moderator", content=message, role="user")
         last_error: Exception | None = None
 
+        def parse_text_decision(text: str) -> BaseModel | None:
+            if not text.strip():
+                return None
+            if structured_model is SpeechDecision:
+                self.chat_history.append(
+                    {"role": "assistant", "content": text}
+                )
+                from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
+
+                return WerewolfAdapterBridge.parse_speech(text)
+            recovered = parse_structured_from_text(text, structured_model)
+            if recovered is not None:
+                self.chat_history.append(
+                    {
+                        "role": "assistant",
+                        "content": recovered.model_dump_json(),
+                    }
+                )
+                return recovered
+            self.chat_history.append(
+                {"role": "assistant", "content": text}
+            )
+            logger.warning(
+                "structured_text_recovery_failed agent=%s model=%s text=%s",
+                self.name,
+                structured_model.__name__,
+                text[:200],
+            )
+            return None
+
         for attempt in range(3):
             try:
                 response_msg = await run_serial_agent_call(
@@ -319,14 +365,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
                             {"role": "assistant", "content": decision.model_dump_json()}
                         )
                         return decision
-                if text.strip():
-                    self.chat_history.append(
-                        {"role": "assistant", "content": text}
-                    )
-                    if structured_model is SpeechDecision:
-                        from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-
-                        return WerewolfAdapterBridge.parse_speech(text)
+                decision = parse_text_decision(text)
+                if decision is not None:
+                    return decision
                 return None
             except RateLimitError as exc:
                 last_error = exc
@@ -334,6 +375,19 @@ class AgentScopeWerewolfAgent(BaseAgent):
                     await asyncio.sleep(2**attempt)
             except Exception as exc:
                 last_error = exc
+                if _structured_tool_choice_unsupported(exc):
+                    try:
+                        response_msg = await run_serial_agent_call(
+                            lambda: self.agentscope_agent(input_msg)
+                        )
+                        text = self._extract_agentscope_text(response_msg)
+                        decision = parse_text_decision(text)
+                        if decision is not None:
+                            return decision
+                        return None
+                    except Exception as plain_exc:
+                        last_error = plain_exc
+                        break
                 if "429" in str(exc) and attempt < 2:
                     await asyncio.sleep(2**attempt)
                     continue
@@ -500,7 +554,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
             seat = max(1, min(self.number, 12))
         # 确保座位号在有效范围内
         seat = max(1, min(seat, 12))
-        
+
         english = sum(1 for char in message if ord(char) < 128) / max(len(message), 1) > 0.6
         if english:
             options = [
@@ -558,7 +612,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
     @staticmethod
     def _message_expects_seat_only(message: str) -> bool:
-        """prompt 要求座位号/投票而非发言时返回 True。"""
+        """Prompt 要求座位号/投票而非发言时返回 True。"""
         from llm_werewolf.strategy.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
 
         if ROUNDTABLE_SPEECH_ONLY_MARKER in message:

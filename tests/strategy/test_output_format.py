@@ -1,18 +1,21 @@
 ﻿"""发言与仅座位 [[...]] 解析的测试。"""
 
-from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 import pytest
 
+from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.strategy.decisions import (
     SPEECH_PUBLIC_MIN_CHARS,
+    SpeechDecision,
     extract_public_text,
-    is_valid_public_speech,
-    looks_like_kill_or_vote_format,
     looks_like_seat_only,
-    metadata_looks_like_wrong_schema_for_speech,
+    is_valid_public_speech,
     normalize_speech_decision,
     speech_schema_instruction,
-    SpeechDecision,
+    looks_like_kill_or_vote_format,
+    seat_choice_schema_instruction,
+    witch_night_schema_instruction,
+    vote_intention_schema_instruction,
+    metadata_looks_like_wrong_schema_for_speech,
 )
 from llm_werewolf.strategy.phase_outputs import (
     ROUNDTABLE_SPEECH_ONLY_MARKER,
@@ -58,6 +61,18 @@ def test_speech_schema_instruction_mentions_fields() -> None:
     assert "public_speech" in text
     assert "private_thought" in text
     assert str(SPEECH_PUBLIC_MIN_CHARS) in text
+
+
+def test_non_speech_schema_instructions_do_not_claim_speech_schema() -> None:
+    texts = [
+        vote_intention_schema_instruction(),
+        seat_choice_schema_instruction(),
+        witch_night_schema_instruction(can_see_victim=True),
+    ]
+
+    for text in texts:
+        assert "字段严格遵守 SpeechDecision Schema" not in text
+        assert "public_speech / private_thought" not in text
 
 
 def test_speech_decision_rejects_short_public_speech() -> None:

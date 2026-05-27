@@ -21,7 +21,6 @@ from llm_werewolf.agent_team.structured_invoke import (
     invoke_structured,
 )
 from llm_werewolf.strategy.decisions import (
-    GENERATE_RESPONSE_INSTRUCTION,
     MultiSeatChoiceDecision,
     SeatChoiceDecision,
     SpeechDecision,
@@ -29,6 +28,7 @@ from llm_werewolf.strategy.decisions import (
     WitchNightDecision,
     YesNoDecision,
     extract_public_text,
+    generate_response_instruction,
     is_valid_public_speech,
     normalize_speech_decision,
     seat_choice_schema_instruction,
@@ -224,7 +224,7 @@ class WerewolfAdapterBridge:
             prompt_parts.extend([
                 "",
                 "请调用 generate_response：choice=true 表示是，false 表示否。",
-                GENERATE_RESPONSE_INSTRUCTION,
+                generate_response_instruction("YesNoDecision"),
             ])
         else:
             prompt_parts.extend([
@@ -273,7 +273,7 @@ class WerewolfAdapterBridge:
             prompt_parts.extend([
                 "",
                 f"请调用 generate_response，在 seats 字段填写 {num_targets} 个互不重复的全局座位号。",
-                GENERATE_RESPONSE_INSTRUCTION,
+                generate_response_instruction("MultiSeatChoiceDecision"),
             ])
         else:
             prompt_parts.extend([

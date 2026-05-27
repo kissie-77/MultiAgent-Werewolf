@@ -19,11 +19,31 @@ _SEAT_ONLY_PATTERN = re.compile(r"^\d{1,2}$")
 # 解析失败时产生的占位字符串 — 不得视为真实发言。
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 
-GENERATE_RESPONSE_INSTRUCTION = (
-    "【输出方式】你必须调用 generate_response 工具提交 JSON，字段严格遵守 SpeechDecision Schema。"
-    "禁止用 [[数字]]、[[...]] 或裸文本代替 structured 字段。"
-    "【信息隔离】由系统决定谁能听到你的发言，你只需填写 public_speech / private_thought，"
-    "不要指定听众或可见范围。"
+
+def generate_response_instruction(
+    schema_name: str,
+    *,
+    information_isolation: bool = False,
+) -> str:
+    """返回与具体结构化 Schema 绑定的 generate_response 约束。"""
+    parts = [
+        (
+            "【输出方式】你必须调用 generate_response 工具提交 JSON，"
+            f"字段严格遵守 {schema_name} Schema。"
+        ),
+        "禁止用 [[数字]]、[[...]] 或裸文本代替 structured 字段。",
+    ]
+    if information_isolation:
+        parts.append(
+            "【信息隔离】由系统决定谁能听到你的发言，你只需填写 "
+            "public_speech / private_thought，不要指定听众或可见范围。"
+        )
+    return "".join(parts)
+
+
+GENERATE_RESPONSE_INSTRUCTION = generate_response_instruction(
+    "SpeechDecision",
+    information_isolation=True,
 )
 
 
@@ -142,7 +162,7 @@ def vote_intention_schema_instruction() -> str:
         "  尚无明确意向或观望则 seat=0（无投票意向）。",
         "- reason (string, 可选): 私人推理，不广播。",
         "这是投票意向采集，不是正式投票；禁止 SpeechDecision、禁止长段公开发言。",
-        GENERATE_RESPONSE_INSTRUCTION,
+        generate_response_instruction("VoteIntentionDecision"),
     ])
 
 
@@ -156,7 +176,7 @@ def seat_choice_schema_instruction(*, allow_skip: bool = False) -> str:
         f"  {skip_line}",
         "- reason (string, 可选): 私人推理，不广播。",
         "禁止 SpeechDecision、禁止 [[...]] 长段发言、禁止 public_speech 字段。",
-        GENERATE_RESPONSE_INSTRUCTION,
+        generate_response_instruction("SeatChoiceDecision"),
     ])
 
 
@@ -175,7 +195,7 @@ def witch_night_schema_instruction(*, can_see_victim: bool) -> str:
         f"- {victim_line}",
         "- reason (string, 可选): 私人推理。",
         "禁止 SpeechDecision。",
-        GENERATE_RESPONSE_INSTRUCTION,
+        generate_response_instruction("WitchNightDecision"),
     ])
 
 

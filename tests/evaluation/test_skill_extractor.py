@@ -233,6 +233,156 @@ def test_night_action_generates_skill(tmp_path: Path) -> None:
     assert payload["skills"][0]["prompt_role_key"] == "prophet"
 
 
+def test_night_action_dedupes_same_role_event_type(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "seer_checked",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_3", "target_id": "player_5", "result": "villager"},
+        },
+        {
+            "event_type": "seer_checked",
+            "round_number": 2,
+            "phase": "night",
+            "data": {"player_id": "player_3", "target_id": "player_1", "result": "werewolf"},
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 2,
+            "phase": "ended",
+            "data": {"winner_camp": "villager", "winner_ids": []},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    ctx = load_run_context(tmp_path)
+    from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry
+
+    ctx.roster["player_3"] = PlayerRosterEntry(
+        player_id="player_3",
+        player_name="预言家",
+        role_name="Seer",
+        camp="villager",
+    )
+    camp = build_camp_persuasion_report(ctx)
+    payload = build_role_skills(ctx, camp)
+    assert payload["skill_count"] == 1
+    assert payload["skills"][0]["evidence"]["target_id"] == "player_1"
+
+
+def test_skill_card_has_role_strategy_content(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "seer_checked",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_3", "target_id": "player_5", "result": "werewolf"},
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 1,
+            "phase": "ended",
+            "data": {"winner_camp": "villager", "winner_ids": []},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    ctx = load_run_context(tmp_path)
+    from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry
+
+    ctx.roster["player_3"] = PlayerRosterEntry(
+        player_id="player_3",
+        player_name="预言家",
+        role_name="Seer",
+        camp="villager",
+    )
+    camp = build_camp_persuasion_report(ctx)
+    payload = build_role_skills(ctx, camp)
+    card = payload["skills"][0]["skill_card"]
+    assert len(card["public_behavior"]) > 40
+    assert "①" in card["public_behavior"]
+    assert "避免" in card["avoid"] or "①" in card["avoid"]
+    md = render_skill_markdown(payload["skills"][0])
+    assert "## 本局决策" in md
+
+
+def test_reference_skills_from_local_run(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "player_eliminated",
+            "round_number": 1,
+            "phase": "day_voting",
+            "data": {"player_id": "player_6", "role": "Seer"},
+        },
+        {
+            "event_type": "player_eliminated",
+            "round_number": 1,
+            "phase": "day_voting",
+            "data": {"player_id": "player_12", "role": "WolfKing"},
+        },
+        {
+            "event_type": "player_eliminated",
+            "round_number": 1,
+            "phase": "day_voting",
+            "data": {"player_id": "player_4", "role": "Guard"},
+        },
+        {
+            "event_type": "seer_checked",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_6", "target_id": "player_12", "result": "werewolf"},
+        },
+        {
+            "event_type": "guard_protected",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_4", "target_id": "player_6"},
+        },
+        {
+            "event_type": "werewolf_killed",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"target_id": "player_4"},
+        },
+        {
+            "event_type": "player_discussion",
+            "round_number": 1,
+            "phase": "night",
+            "data": {
+                "player_id": "player_1",
+                "speech": "首夜建议刀四号，偏神职位。",
+                "role": "Werewolf",
+            },
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 1,
+            "phase": "ended",
+            "data": {"winner_camp": "werewolf", "winner_ids": []},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    from llm_werewolf.evaluation.post_game.reference_skills import build_reference_skills
+
+    skills = build_reference_skills(tmp_path)
+    roles = {s["prompt_role_key"] for s in skills}
+    assert "prophet" in roles
+    assert "guard" in roles
+    assert "wolf" in roles
+    prophet = next(s for s in skills if s["prompt_role_key"] == "prophet")
+    assert "狼人" in prophet["skill_card"]["public_behavior"]
+    assert prophet["status"] == "active"
+    assert all(len(s["skill_card"]["public_behavior"]) > 40 for s in skills)
+
+
 def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
     from llm_werewolf.agent_team import skill_loader
 

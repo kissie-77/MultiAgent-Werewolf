@@ -10,6 +10,10 @@ from typing import Any
 
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 from llm_werewolf.evaluation.post_game.run_context import RunContext
+from llm_werewolf.evaluation.post_game.skill_card_builder import (
+    build_night_action_skill_card,
+    build_persuasion_skill_card,
+)
 from llm_werewolf.evaluation.post_game.skill_generation_rules import (
     SkillGenerationCandidate,
     collect_skill_generation_candidates,
@@ -45,9 +49,7 @@ def _skill_from_persuasion(
     assert speech is not None
     role_key = candidate.prompt_role_key
     skill_id = _slug(f"{role_key}_r{speech.round_number}_{speech.speaker_id}_{rank}")
-    title = f"第{speech.round_number}轮阵营正向说服"
-    if speech.matched_round_elimination:
-        title = f"第{speech.round_number}轮说服并命中放逐"
+    card = build_persuasion_skill_card(role_key=role_key, speech=speech, ctx=ctx)
 
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return {
@@ -71,13 +73,10 @@ def _skill_from_persuasion(
             "reason": candidate.rule.reason,
         },
         "skill_card": {
-            "title_zh": title,
-            "when_to_use": "白天讨论阶段，需要根据当前可见信息推动同阵营票型一致时",
-            "public_behavior": (
-                "给出明确票型倾向，并用可见信息解释理由；"
-                "参考本局摘录中的表述方式。"
-            ),
-            "avoid": "空泛重复身份、无票型倾向、越界引用未公开信息",
+            "title_zh": card.title_zh,
+            "when_to_use": card.when_to_use,
+            "public_behavior": card.public_behavior,
+            "avoid": card.avoid,
         },
         "evidence": {
             "round_number": speech.round_number,
@@ -112,15 +111,8 @@ def _skill_from_night_action(
     rnd = int(event.get("round_number", 0))
     role_key = candidate.prompt_role_key
     skill_id = _slug(f"{role_key}_night_r{rnd}_{candidate.player_id}_{rank}")
-
-    title_map = {
-        "seer_checked": "预言家有效查验决策",
-        "witch_saved": "女巫解药使用决策",
-        "witch_poisoned": "女巫毒药使用决策",
-        "guard_protected": "守卫守护决策",
-        "werewolf_killed": "狼队刀口决策",
-    }
-    title = title_map.get(etype, f"第{rnd}轮夜间决策")
+    card = build_night_action_skill_card(role_key=role_key, event=event, ctx=ctx)
+    check_result = data.get("result")
 
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return {
@@ -144,22 +136,24 @@ def _skill_from_night_action(
             "reason": candidate.rule.reason,
         },
         "skill_card": {
-            "title_zh": title,
-            "when_to_use": f"第{rnd}轮夜间，面临同类技能抉择且信息边界与当时一致时",
-            "public_behavior": "在合法目标集合内做出与阵营收益一致的单一目标选择",
-            "avoid": "无效目标、重复无收益操作、泄露不应公开的信息",
+            "title_zh": card.title_zh,
+            "when_to_use": card.when_to_use,
+            "public_behavior": card.public_behavior,
+            "avoid": card.avoid,
         },
         "evidence": {
             "event_type": etype,
             "round_number": rnd,
             "phase": event.get("phase"),
             "target_id": data.get("target_id"),
+            "check_result": check_result,
             "event_message_excerpt": str(event.get("message", ""))[:200],
             "scores": {"intention": None, "benefit": None},
         },
         "rationale": (
             f"[生成规则: {candidate.rule.rule_id}] "
-            f"第{rnd}轮 {etype}，目标 {data.get('target_id', '?')}。"
+            f"第{rnd}轮 {etype}，目标 {data.get('target_id', '?')}"
+            + (f"，结果 {check_result}。" if check_result else "。")
         ),
     }
 

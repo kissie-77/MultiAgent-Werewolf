@@ -235,6 +235,11 @@ runs/
 # PostGame 同步写入的 Skill 草稿 MD（库目录结构见 skills/README.md）
 src/llm_werewolf/agent_team/skills/**/*.md
 !src/llm_werewolf/agent_team/skills/README.md
+# 联调参考 Skill（reference_skills.sync_agent_skill_library 写入，可提交）
+!src/llm_werewolf/agent_team/skills/**/wolf_r*.md
+!src/llm_werewolf/agent_team/skills/**/prophet_night_r*.md
+!src/llm_werewolf/agent_team/skills/**/guard_night_r*.md
+!src/llm_werewolf/agent_team/skills/**/villager_r*.md
 
 # Real API config files (keep example.yaml only)
 configs/xiaomi.yaml

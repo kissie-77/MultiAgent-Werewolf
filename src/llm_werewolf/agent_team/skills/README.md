@@ -34,8 +34,19 @@ source_run: runs/doubao-9p-xxx
 ```
 
 - `status: draft` — PostGame 自动写入，Agent 默认会加载参考
-- `status: active` — 人工审核后可改，表示可长期复用
+- `status: active` — 人工/参考集审核后可复用（`reference_skills.sync_agent_skill_library` 写入）
 - `status: skipped` — 不会写入 MD 文件
+
+## 参考 Skill 同步（联调 / API 不可用时）
+
+```bash
+.venv/bin/python -c "
+from llm_werewolf.evaluation.post_game.reference_skills import sync_agent_skill_library
+sync_agent_skill_library()  # 默认用 runs/ 下最佳本地对局
+"
+```
+
+会从 `events.jsonl` 提取真实夜间决策，并补全狼队协商、白天归票等策略卡片；同步前会**删除**各身份目录下旧的重复 MD。
 
 ## 生成来源
 

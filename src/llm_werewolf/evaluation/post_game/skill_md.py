@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from llm_werewolf.evaluation.post_game.skill_card_builder import _result_zh
+
 
 def render_skill_markdown(skill: dict[str, Any]) -> str:
     """将 role_skills.json 中的单条 skill 渲染为 Markdown 文件正文。"""
@@ -61,6 +63,16 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     if excerpt:
         lines.append("## 本局发言摘录")
         lines.append(f"> {excerpt}")
+        lines.append("")
+
+    if evidence.get("target_id") or evidence.get("check_result"):
+        lines.append("## 本局决策")
+        if evidence.get("target_id"):
+            lines.append(f"- 目标：{evidence['target_id']}")
+        if evidence.get("check_result") is not None:
+            lines.append(f"- 查验/结果：{_result_zh(evidence['check_result'])}")
+        if evidence.get("event_type"):
+            lines.append(f"- 事件：{evidence['event_type']}")
         lines.append("")
 
     scores = evidence.get("scores")

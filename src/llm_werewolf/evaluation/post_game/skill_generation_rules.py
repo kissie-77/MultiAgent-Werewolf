@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport, CampSpeechInfluence
 from llm_werewolf.evaluation.post_game.run_context import RunContext
+from llm_werewolf.evaluation.post_game.skill_card_builder import dedupe_skill_candidates
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 MIN_PUBLIC_SPEECH_LEN = 8
@@ -124,13 +125,19 @@ def _speech_rank_score(speech: CampSpeechInfluence) -> int:
 
 def _night_rank_score(event: dict[str, Any]) -> int:
     etype = str(event.get("event_type", ""))
+    data = event.get("data") or {}
     if etype == "werewolf_killed":
-        return 15
-    if etype in {"witch_saved", "witch_poisoned"}:
-        return 12
-    if etype == "seer_checked":
-        return 10
-    return 8
+        base = 15
+    elif etype in {"witch_saved", "witch_poisoned"}:
+        base = 12
+    elif etype == "seer_checked":
+        base = 10
+    else:
+        base = 8
+    result = str(data.get("result") or "").lower()
+    if result in {"werewolf", "wolf"}:
+        base += 6
+    return base
 
 
 def collect_skill_generation_candidates(
@@ -197,7 +204,7 @@ def collect_skill_generation_candidates(
         )
 
     candidates.sort(key=lambda c: c.rank_score, reverse=True)
-    return candidates
+    return dedupe_skill_candidates(candidates)
 
 
 def generation_rules_summary() -> dict[str, Any]:
@@ -214,4 +221,5 @@ def generation_rules_summary() -> dict[str, Any]:
             "requires": "actor in roster AND non-empty target_id",
         },
         "no_placeholder": "identities without passing material are omitted from skills[]",
+        "dedupe": "per role: max 1 persuasion + 1 night event type; max 2 skills per role per run",
     }

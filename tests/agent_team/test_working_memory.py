@@ -1,6 +1,11 @@
 from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
 
 
+class FailingCompressor:
+    def compress(self, items):
+        raise RuntimeError("compression service unavailable")
+
+
 def test_working_memory_tracks_dynamic_and_summaries():
     memory = WorkingMemory(max_rounds=3, max_dynamic_items=5)
 
@@ -61,3 +66,15 @@ def test_persistent_area_keeps_at_least_one():
     memory.add_persistent("超出限制的长内容非常多", tag="identity", priority=3)
 
     assert len(memory._persistent) == 1
+
+
+def test_working_memory_falls_back_when_compressor_raises():
+    memory = WorkingMemory(compressor=FailingCompressor())
+    memory.add_dynamic("我投了3号", tag="decision")
+    memory.add_dynamic("听到2号强跳预言家", tag="speech")
+
+    summary = memory.end_round()
+
+    assert "做了1个决策" in summary
+    assert "听到1段发言" in summary
+    assert "【历史回顾】" in memory.get_context()

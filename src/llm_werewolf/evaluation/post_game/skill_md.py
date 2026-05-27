@@ -35,6 +35,10 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
             lines.append(f"{key}: {value}")
     lines.extend(["---", ""])
 
+    if card.get("when_to_use"):
+        lines.append(f"描述：{card['when_to_use']}")
+        lines.append("")
+
     title = card.get("title_zh") or skill.get("skill_id") or "未命名 Skill"
     lines.append(f"# {title}")
     lines.append("")

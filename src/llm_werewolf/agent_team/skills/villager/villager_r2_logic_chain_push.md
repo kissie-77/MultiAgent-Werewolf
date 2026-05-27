@@ -5,11 +5,11 @@ status: active
 source_run: runs/12p-doubao-20260526-143527
 camp: villager
 quality_passed: True
-weight: 1.0
+weight: 0.80
 win_count: 0
-use_count: 0
+use_count: 4
 created_at: 2026-05-27T10:56:53+00:00
-updated_at: 2026-05-27T10:56:53+00:00
+updated_at: 2026-05-27T12:45:13+00:00
 ---
 
 # 第2轮平民逻辑归票

@@ -54,51 +54,43 @@ class MemoryManager:
         self.role = role
         self._used_card_ids = []
         self._seen_event_keys = set()
-        if not self.config.enabled or not self.config.enable_working_memory:
+        if not self._prompt_context_enabled():
             return
-        if self.config.enable_semantic_memory:
-            for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
-                description = card.description or self.semantic._extract_description(card.content)
-                self.working.add_persistent(f"[经验] {description}", tag="semantic")
-                self._used_card_ids.append(card.id)
+        if self._semantic_enabled():
+            self._inject_semantic_context(role)
         plan_summary = self.procedural.build_plan_summary(self.plan_name, role)
         self.working.add_persistent(f"[程序记忆] {plan_summary}", tag="procedural")
 
     def on_round_end(self, round_number: int) -> None:
         """Compress working memory at round end."""
         del round_number
-        if not self.config.enabled or not self.config.enable_working_memory:
+        if not self._prompt_context_enabled():
             return
         self.working.end_round()
 
     def on_game_end(self, won: bool) -> None:
         """Update used skill weights and optionally extract new candidates."""
-        if self.config.enabled and self.config.enable_semantic_memory and self._used_card_ids:
+        if self._semantic_enabled() and self._used_card_ids:
             self.semantic.update_after_game(self.role, won, self._used_card_ids)
-        if (
-            self.config.enabled
-            and self.config.enable_semantic_memory
-            and self.config.extract_semantic_on_game_end
-        ):
+        if self._semantic_enabled() and self.config.extract_semantic_on_game_end:
             for candidate in self.extract_semantic_candidates(won):
                 self.semantic.add_or_merge_card(self.role, candidate)
-        if self.config.enabled and self.config.enable_semantic_memory:
+        if self._semantic_enabled():
             self.semantic.decay_all(self.role, self._max_cards_for_role(self.role))
 
     def get_context_for_decision(self) -> str:
         """Return memory context for private decision prompts."""
-        if not self.config.enabled:
+        if not self._prompt_context_enabled():
             return ""
         parts: list[str] = []
-        if self.config.enable_working_memory:
-            working_context = self.working.get_context()
-            if working_context:
-                parts.append(working_context)
+        working_context = self.working.get_context()
+        if working_context:
+            parts.append(working_context)
         return "\n\n".join(parts)
 
     def add_public_speech(self, speaker_name: str, speech: str, round_number: int) -> None:
         """Record public speech into working memory."""
-        if not self.config.enabled or not self.config.enable_working_memory:
+        if not self._prompt_context_enabled():
             return
         self.working.add_dynamic(
             f"{speaker_name}发言：{speech}",
@@ -108,7 +100,7 @@ class MemoryManager:
 
     def add_decision(self, decision: str) -> None:
         """Record the agent's own decision into working memory."""
-        if not self.config.enabled or not self.config.enable_working_memory:
+        if not self._prompt_context_enabled():
             return
         self.working.add_dynamic(
             decision,
@@ -118,7 +110,7 @@ class MemoryManager:
 
     def add_event(self, event: Any) -> None:
         """Record visible key events into working memory."""
-        if not self.config.enabled or not self.config.enable_working_memory:
+        if not self._prompt_context_enabled():
             return
         event_type = getattr(event, "event_type", None)
         message = getattr(event, "message", "")
@@ -136,7 +128,7 @@ class MemoryManager:
 
     def extract_semantic_candidates(self, won: bool) -> list[str]:
         """Rule-based extraction of semantic skill candidates from episodic memory."""
-        if not self.player_id or not self.config.enable_episodic_memory:
+        if not self.player_id or not self._episodic_enabled():
             return []
         report = self.episodic.export_episode_report(self.player_id)
         if self.config.enable_llm_semantic_extraction:
@@ -144,6 +136,22 @@ class MemoryManager:
             if llm_candidates:
                 return llm_candidates[: self.config.semantic_top_k]
         return self._extract_semantic_candidates_by_rules(report, won)
+
+    def _prompt_context_enabled(self) -> bool:
+        """Whether any memory text may be injected into decision prompts."""
+        return self.config.enabled and self.config.enable_working_memory
+
+    def _semantic_enabled(self) -> bool:
+        return self.config.enabled and self.config.enable_semantic_memory
+
+    def _episodic_enabled(self) -> bool:
+        return self.config.enabled and self.config.enable_episodic_memory
+
+    def _inject_semantic_context(self, role: str) -> None:
+        for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
+            description = card.description or self.semantic._extract_description(card.content)
+            self.working.add_persistent(f"[经验] {description}", tag="semantic")
+            self._used_card_ids.append(card.id)
 
     def _semantic_llm(self):
         if self._llm_compressor is not None:
@@ -170,7 +178,7 @@ class MemoryManager:
         else:
             data_key = repr(data)
         visible_to = getattr(event, "visible_to", None)
-        visible_key = tuple(visible_to) if visible_to else ()
+        visible_key = tuple(sorted(str(player_id) for player_id in visible_to)) if visible_to else ()
         return (
             str(getattr(event, "event_type", "")),
             getattr(event, "round_number", None),

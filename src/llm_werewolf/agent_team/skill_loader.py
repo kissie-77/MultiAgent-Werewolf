@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from functools import lru_cache
 from pathlib import Path
 
+from llm_werewolf.agent_team.skill_markdown import (
+    parse_frontmatter,
+    strip_legacy_description_line,
+)
+
 _SKILLS_DIR_NAME = "skills"
-_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def agent_skills_root() -> Path:
@@ -15,16 +18,12 @@ def agent_skills_root() -> Path:
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
-    match = _FRONTMATTER_RE.match(text)
-    if not match:
-        return {}, text.strip()
-    meta: dict[str, str] = {}
-    for line in match.group(1).splitlines():
-        if ":" in line:
-            key, _, value = line.partition(":")
-            meta[key.strip()] = value.strip()
-    body = text[match.end() :].strip()
-    return meta, body
+    return parse_frontmatter(text)
+
+
+def _strip_legacy_description_line(body: str) -> str:
+    """兼容旧写入格式：标准 Skill MD 已用“何时使用”承载触发描述。"""
+    return strip_legacy_description_line(body)
 
 
 def _load_skill_file(path: Path) -> dict[str, str | float] | None:
@@ -32,6 +31,7 @@ def _load_skill_file(path: Path) -> dict[str, str | float] | None:
         return None
     text = path.read_text(encoding="utf-8")
     meta, body = _parse_frontmatter(text)
+    body = _strip_legacy_description_line(body)
     status = meta.get("status", "draft")
     if status == "skipped":
         return None

@@ -4,18 +4,27 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from difflib import SequenceMatcher
 from pathlib import Path
 
 from llm_werewolf.agent_team import skill_loader
 from llm_werewolf.agent_team.memory.base import SemanticBackend
-
-_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-_DESCRIPTION_PREFIXES = ("描述：", "描述:", "description:", "Description:")
-_DESCRIPTION_SUFFIX = "的情况下，使用该 skill"
+from llm_werewolf.agent_team.memory.semantic_matching import (
+    deduplicate_candidates as deduplicate_candidate_texts,
+    merge_card_contents,
+    merge_reflections as merge_reflection_texts,
+    normalize_content,
+    similarity,
+)
+from llm_werewolf.agent_team.skill_markdown import (
+    ensure_description_format,
+    extract_description,
+    extract_when_to_use,
+    read_skill_markdown,
+    render_frontmatter_markdown,
+    split_description_line,
+)
 
 
 @dataclass
@@ -209,16 +218,7 @@ class SemanticMemory:
 
     @staticmethod
     def _read_skill_file(path: Path) -> tuple[dict[str, str], str]:
-        text = path.read_text(encoding="utf-8")
-        match = _FRONTMATTER_RE.match(text)
-        if not match:
-            return {}, text.strip()
-        meta: dict[str, str] = {}
-        for line in match.group(1).splitlines():
-            if ":" in line:
-                key, _, value = line.partition(":")
-                meta[key.strip()] = value.strip()
-        return meta, text[match.end() :].strip()
+        return read_skill_markdown(path)
 
     @staticmethod
     def _render_skill_file(card: StrategyCard, existing_meta: dict[str, str] | None = None) -> str:
@@ -233,15 +233,11 @@ class SemanticMemory:
             "created_at": meta.get("created_at") or card.created_at or SemanticMemory._now(),
             "updated_at": card.updated_at or SemanticMemory._now(),
         })
-        lines = ["---"]
-        for key, value in meta.items():
-            if value != "":
-                lines.append(f"{key}: {value}")
-        lines.extend(["---", ""])
-        if card.description:
-            lines.extend([f"描述：{card.description}", ""])
-        lines.extend([card.content.strip(), ""])
-        return "\n".join(lines)
+        body_parts: list[str] = []
+        if card.description and not SemanticMemory._extract_when_to_use(card.content):
+            body_parts.extend([f"描述：{card.description}", ""])
+        body_parts.append(card.content.strip())
+        return render_frontmatter_markdown(meta, "\n".join(body_parts))
 
     def _write_skill_card(self, card: StrategyCard) -> StrategyCard:
         path = Path(card.path) if card.path else self._skill_path(card)
@@ -279,52 +275,28 @@ class SemanticMemory:
 
     @staticmethod
     def _normalize_content(content: str) -> str:
-        return " ".join(content.strip().split())
+        return normalize_content(content)
 
     @classmethod
     def _similarity(cls, left: str, right: str) -> float:
-        return SequenceMatcher(
-            None,
-            cls._normalize_content(left),
-            cls._normalize_content(right),
-        ).ratio()
+        return similarity(left, right)
 
     @staticmethod
     def _split_description_line(content: str) -> tuple[str, str]:
-        lines = content.strip().splitlines()
-        if not lines:
-            return "", ""
-        first = lines[0].strip()
-        for prefix in _DESCRIPTION_PREFIXES:
-            if first.startswith(prefix):
-                description = first[len(prefix) :].strip()
-                return SemanticMemory._ensure_description_format(description), "\n".join(lines[1:]).strip()
-        return "", content.strip()
+        return split_description_line(content)
 
     @classmethod
     def _extract_description(cls, content: str) -> str:
-        description, body = cls._split_description_line(content)
-        if description:
-            return description
-        source = body or content
-        match = re.search(r"[。！？!?；;]", source)
-        if match:
-            candidate = source[: match.start()].strip()
-        else:
-            candidate = source.strip()[:30]
-        return cls._ensure_description_format(candidate)
+        return extract_description(content)
+
+    @staticmethod
+    def _extract_when_to_use(content: str) -> str:
+        """Extract the first useful line from a Skill markdown '何时使用' section."""
+        return extract_when_to_use(content)
 
     @staticmethod
     def _ensure_description_format(text: str) -> str:
-        normalized = " ".join(text.strip().split())
-        if not normalized:
-            return f"通用对局经验{_DESCRIPTION_SUFFIX}"
-        if normalized.endswith(_DESCRIPTION_SUFFIX):
-            return normalized
-        normalized = normalized.rstrip("。.!！")
-        if normalized.endswith("的情况下"):
-            return f"{normalized}，使用该 skill"
-        return f"{normalized}{_DESCRIPTION_SUFFIX}"
+        return ensure_description_format(text)
 
     def _call_llm(self, prompt: str, max_tokens: int = 10) -> str:
         if self._compressor is None:
@@ -353,7 +325,10 @@ class SemanticMemory:
                 response = self._call_llm(prompt, max_tokens=10).strip()
                 if response == "无":
                     return None
-                idx = int(response) - 1
+                match = re.search(r"\d+", response)
+                if match is None:
+                    return self._find_similar_by_sequence_matcher(description, existing_cards, threshold)
+                idx = int(match.group(0)) - 1
                 if 0 <= idx < len(existing_cards):
                     return existing_cards[idx]
             except (Exception, ValueError):
@@ -378,38 +353,12 @@ class SemanticMemory:
 
     @classmethod
     def _merge_card_contents(cls, base: str, incoming: str) -> str:
-        if cls._normalize_content(base) == cls._normalize_content(incoming):
-            return base
-        if incoming in base:
-            return base
-        return f"{base}\n\n{incoming}"
+        return merge_card_contents(base, incoming)
 
     @staticmethod
     def deduplicate_candidates(candidates: list[str]) -> list[str]:
-        seen: set[str] = set()
-        deduped: list[str] = []
-        for candidate in candidates:
-            normalized = SemanticMemory._normalize_content(candidate)
-            if not normalized or normalized in seen:
-                continue
-            seen.add(normalized)
-            deduped.append(candidate.strip())
-        return deduped
+        return deduplicate_candidate_texts(candidates)
 
     @staticmethod
     def merge_reflections(candidates: list[str]) -> list[str]:
-        grouped: dict[str, list[str]] = defaultdict(list)
-        for candidate in candidates:
-            prefix = candidate.split("：", 1)[0] if "：" in candidate else candidate
-            grouped[prefix].append(candidate)
-
-        merged: list[str] = []
-        for prefix, items in grouped.items():
-            if len(items) == 1:
-                merged.append(items[0])
-                continue
-            suffixes = []
-            for item in items:
-                suffixes.append(item.split("：", 1)[1] if "：" in item else item)
-            merged.append(f"{prefix}：" + "；".join(dict.fromkeys(suffixes)))
-        return merged
+        return merge_reflection_texts(candidates)

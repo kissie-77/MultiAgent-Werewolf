@@ -456,6 +456,33 @@ def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> Non
     assert items[0]["weight"] == 1.0
 
 
+def test_skill_loader_strips_legacy_description_line_from_prompt_body(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team import skill_loader
+
+    root = tmp_path / "skills"
+    prophet_dir = root / "prophet"
+    prophet_dir.mkdir(parents=True)
+    (prophet_dir / "prophet_demo.md").write_text(
+        "---\nskill_id: prophet_demo\nprompt_role_key: prophet\nstatus: draft\n---\n\n"
+        "描述：# 预言家有效查验决策 ## 提取依据 噪声的情况下，使用该 skill\n\n"
+        "# 预言家有效查验决策\n\n"
+        "## 何时使用\n"
+        "第1轮夜间，面临同类技能抉择且信息边界与当时一致时\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    items = load_role_skills("prophet")
+    section = format_role_skills_section("prophet")
+
+    assert len(items) == 1
+    assert not str(items[0]["body"]).startswith("描述：")
+    assert "描述：# 预言家有效查验决策" not in section
+    assert "## 何时使用" in section
+
+
 def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypatch) -> None:
     from llm_werewolf.agent_team import skill_loader
     from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory

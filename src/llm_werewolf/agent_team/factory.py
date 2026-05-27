@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from types import MethodType
 
 from llm_werewolf.game_runtime.env import load_project_dotenv
 
@@ -24,6 +25,100 @@ if TYPE_CHECKING:
 
 GAME_ROLE_TO_PROMPT_KEY = PromptManager.GAME_ROLE_TO_PROMPT_KEY
 PROMPT_KEY_TO_ROLE_CONFIG = PromptManager.get_role_strategy_configs()
+
+
+def _strip_thinking_from_content(content: Any) -> Any:
+    """Remove AgentScope thinking blocks while preserving other multimodal blocks."""
+    if not isinstance(content, list):
+        return content
+    return [
+        block
+        for block in content
+        if not (isinstance(block, dict) and block.get("type") == "thinking")
+    ]
+
+
+def _strip_thinking_from_msg_payload(payload: Any) -> Any:
+    """Sanitize Msg or list[Msg] payloads by removing thinking blocks in-place."""
+    if isinstance(payload, list):
+        return [_strip_thinking_from_msg_payload(item) for item in payload]
+    content = getattr(payload, "content", None)
+    sanitized = _strip_thinking_from_content(content)
+    if sanitized is not content:
+        payload.content = sanitized
+    return payload
+
+
+def _wrap_memory_add_without_thinking(agent: ReActAgent) -> ReActAgent:
+    """Ensure AgentScope memory never stores thinking blocks."""
+    memory = getattr(agent, "memory", None)
+    if memory is None or not hasattr(memory, "add"):
+        return agent
+    if getattr(memory, "_llm_werewolf_strip_thinking_wrapped", False):
+        return agent
+
+    original_add = memory.add
+
+    async def _sanitized_add(self, msg: Any = None, *args: Any, **kwargs: Any) -> Any:
+        sanitized_msg = _strip_thinking_from_msg_payload(msg)
+        return await original_add(sanitized_msg, *args, **kwargs)
+
+    memory.add = MethodType(_sanitized_add, memory)
+    setattr(memory, "_llm_werewolf_strip_thinking_wrapped", True)
+    return agent
+
+
+def _register_no_thinking_print_hook(agent: ReActAgent) -> ReActAgent:
+    """Prevent AgentScope console printing from exposing reasoning blocks."""
+
+    def _pre_print(_self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        msg = kwargs.get("msg")
+        if msg is None:
+            return kwargs
+        content = getattr(msg, "content", None)
+        sanitized = _strip_thinking_from_content(content)
+        if sanitized is content:
+            return kwargs
+        msg.content = sanitized
+        kwargs["msg"] = msg
+        return kwargs
+
+    agent.register_instance_hook("pre_print", "strip_thinking_blocks", _pre_print)
+    return _wrap_memory_add_without_thinking(agent)
+
+
+def _register_structured_tool_reply_completion_hook(agent: ReActAgent) -> ReActAgent:
+    """Avoid an extra free-text turn after a structured generate_response call."""
+
+    def _post_reasoning(self, _kwargs: dict[str, Any], msg: Any) -> Any:
+        if getattr(self, "_required_structured_model", None) is None:
+            return None
+        if msg is None or not hasattr(msg, "get_content_blocks"):
+            return None
+        finish_name = getattr(self, "finish_function_name", "generate_response")
+        tool_blocks = msg.get_content_blocks("tool_use")
+        if not any(block.get("name") == finish_name for block in tool_blocks):
+            return None
+        if msg.get_content_blocks("text"):
+            return None
+        if not isinstance(getattr(msg, "content", None), list):
+            return None
+        msg.content.append({"type": "text", "text": "Structured response submitted."})
+        return msg
+
+    agent.register_instance_hook(
+        "post_reasoning",
+        "complete_structured_generate_response_reply",
+        _post_reasoning,
+    )
+    return agent
+
+
+def _disable_agentscope_console_output(agent: ReActAgent) -> ReActAgent:
+    """Let the game engine own user-facing logs instead of AgentScope internals."""
+    if hasattr(agent, "_disable_console_output"):
+        agent._disable_console_output = True
+    return agent
 
 
 def player_id_to_seat(player_id: str) -> int:
@@ -95,7 +190,7 @@ def create_react_agent(
         generate_kwargs=generate_kwargs,
     )
 
-    return ReActAgent(
+    agent = ReActAgent(
         name=agent_name,
         sys_prompt=sys_prompt,
         model=model,
@@ -104,6 +199,9 @@ def create_react_agent(
         memory=InMemoryMemory(),
         print_hint_msg=False,
     )
+    agent = _register_no_thinking_print_hook(agent)
+    agent = _register_structured_tool_reply_completion_hook(agent)
+    return _disable_agentscope_console_output(agent)
 
 
 def _build_compressor(config: MemoryConfig, player_config: PlayerConfig | None = None):

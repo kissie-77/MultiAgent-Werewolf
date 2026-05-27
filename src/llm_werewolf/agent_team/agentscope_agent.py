@@ -3,6 +3,10 @@
 本模块封装 AgentScope 的 AgentBase，
 使其符合 LLMWerewolf 的 AgentProtocol 接口。
 """
+
+import logging
+
+logging.getLogger("agentscope.formatter").setLevel(logging.ERROR)
 import re
 import asyncio
 from typing import Any, Optional, Type
@@ -221,6 +225,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 response_msg = await run_serial_agent_call(
                     lambda: self.agentscope_agent(input_msg)
                 )
+                response_msg = self._sanitize_agentscope_response_msg(response_msg)
                 response_text = self._extract_agentscope_text(response_msg)
                 if not response_text:
                     response_text = self._generate_fallback_response(message, "空内容")
@@ -282,6 +287,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                         structured_model=structured_model,
                     )
                 )
+                response_msg = self._sanitize_agentscope_response_msg(response_msg)
                 text = self._extract_agentscope_text(response_msg)
                 metadata = unwrap_structured_metadata(
                     getattr(response_msg, "metadata", None)
@@ -346,6 +352,21 @@ class AgentScopeWerewolfAgent(BaseAgent):
         return None
 
     @staticmethod
+    def _sanitize_agentscope_response_msg(response_msg: Any) -> Any:
+        """Strip thinking blocks from AgentScope content before any logging/broadcast reuse."""
+        content = getattr(response_msg, "content", None)
+        if not isinstance(content, list):
+            return response_msg
+
+        sanitized: list[Any] = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "thinking":
+                continue
+            sanitized.append(block)
+        response_msg.content = sanitized
+        return response_msg
+
+    @staticmethod
     def _extract_agentscope_text(response_msg: Any) -> str:
         """将 AgentScope Msg / 原始响应规范为纯文本。"""
         if hasattr(response_msg, "get_text_content"):
@@ -358,7 +379,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 texts: list[str] = []
                 for block in content:
                     if isinstance(block, dict):
-                        if block.get("type") == "text":
+                        block_type = block.get("type", "")
+                        if block_type == "thinking":
+                            continue
+                        if block_type == "text":
                             texts.append(block.get("text", ""))
                         elif "text" in block:
                             texts.append(block["text"])

@@ -92,7 +92,7 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
 
 > Windows 本机运行前请前置 `PYTHONUTF8=1 PYTHONIOENCODING=utf-8`（GBK 控制台渲染 emoji 的兼容问题）。
 > API Key 仅 LLM 玩家需要（写入 `.env`）；`human` / `demo` 座位无需 Key。详见
-> [docs/人机对战与命令行模式.md](docs/人机对战与命令行模式.md)。
+> [docs/reports/人机对战与命令行模式.md](docs/reports/人机对战与命令行模式.md)。
 
 ## 项目架构
 
@@ -115,7 +115,7 @@ src/llm_werewolf/
 - [x] Demo 模式验证
 - [x] AgentScope 接入（ReAct + agent_team + InformationHub）
 - [x] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
-- [x] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/人机对战与命令行模式.md](docs/人机对战与命令行模式.md)）
+- [x] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/reports/人机对战与命令行模式.md](docs/reports/人机对战与命令行模式.md)）
 - [ ] 结构化日志（JSON 事件流）
 - [ ] Web 前端观战 UI
 - [x] 评测与复盘（vote intention / swing 分析）
@@ -136,9 +136,22 @@ src/llm_werewolf/
 
 MIT
 
+## 仓库说明
+
+- `src/`：项目源码，按六大板块组织
+- `tests/`：自动化测试
+- `configs/`：对局与模型配置
+- `scripts/`：辅助脚本
+- `docs/`：设计、记录、评测与归档文档，目录说明见 [docs/README.md](docs/README.md)
+- `artifacts/`：本地运行产物与数据目录，不纳入版本管理
+- `artifacts/runs/`：单局对战与赛后分析产物
+- `artifacts/data/`：本地数据目录
+- `.tmp/`：本地临时文件目录，不纳入版本管理
+- `.venv/`、`.uv-cache/`、`.pytest_cache/`、`.agents/`、`.claude/`：本地开发/工具环境目录
+
 ## Conventions
 
 - **Commit**: Use [Conventional Commits](https://www.conventionalcommits.org/) format. See [docs/archive/workflow.md](docs/archive/workflow.md).
 - **ADR**: For cross-module/interface/performance decisions, write a 5-minute ADR. See [docs/archive/adr/](docs/archive/adr/).
-- **Architecture**: See [docs/工程架构重构计划.md](docs/工程架构重构计划.md).
+- **Architecture**: See [docs/architecture/工程架构重构计划.md](docs/architecture/工程架构重构计划.md).
 - **Roadmap**: See [docs/archive/roadmap.md](docs/archive/roadmap.md).

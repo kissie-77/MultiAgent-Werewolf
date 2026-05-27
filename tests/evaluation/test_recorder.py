@@ -2,12 +2,12 @@
 from pathlib import Path
 
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.agent_team.base import DemoAgent
+from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.config import create_game_config_from_player_count
-from llm_werewolf.game_runtime.role_registry import create_roles
+from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.game_runtime.types import Event, EventType
-from llm_werewolf.evaluation.models import CheckResult
-from llm_werewolf.evaluation.recorder import EvaluationRecorder
+from llm_werewolf.evaluation.core.models import CheckResult
+from llm_werewolf.evaluation.core.recorder import EvaluationRecorder
 
 
 def _read_jsonl(path: Path) -> list[dict]:

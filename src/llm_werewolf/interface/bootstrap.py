@@ -4,24 +4,31 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from llm_werewolf.agent_team.factory import configure_agents_for_players
-from llm_werewolf.agent_team.base import create_agent
+from llm_werewolf.agent_team.agents.factory import configure_agents_for_players
+from llm_werewolf.agent_team.agents.base import create_agent
+from llm_werewolf.agent_team.communication.information_hub import InformationHub
 from llm_werewolf.game_runtime.config import PlayersConfig, create_game_config_from_player_count
-from llm_werewolf.game_runtime.role_registry import create_roles
+from llm_werewolf.game_runtime.registries.role_registry import create_roles
 
 if TYPE_CHECKING:
-    from llm_werewolf.agent_team.base import BaseAgent
+    from llm_werewolf.agent_team.agents.base import BaseAgent
     from llm_werewolf.game_runtime import GameEngine
     from llm_werewolf.game_runtime.config import GameConfig
-    from llm_werewolf.game_runtime.game_state import GameState
+    from llm_werewolf.game_runtime.state.game_state import GameState
     from llm_werewolf.game_runtime.types import AgentProtocol, RoleProtocol
 
 __all__ = [
     "bind_agentscope_roles",
+    "create_information_hub",
     "create_players_from_config",
     "prepare_game_roster",
     "wire_agentscope_after_setup",
 ]
+
+
+def create_information_hub() -> InformationHub:
+    """创建运行时 Agent 通信 Hub。"""
+    return InformationHub()
 
 
 def bind_agentscope_roles(

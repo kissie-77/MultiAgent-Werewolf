@@ -1,7 +1,7 @@
 ﻿"""game_runtime/events.py 模块的测试。"""
 
 from llm_werewolf.game_runtime.types import Event, EventType
-from llm_werewolf.game_runtime.events import EventLogger
+from llm_werewolf.game_runtime.events.events import EventLogger
 
 
 class TestEventLogger:

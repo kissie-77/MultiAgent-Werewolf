@@ -5,11 +5,11 @@ status: active
 source_run: runs/12p-doubao-20260526-143527
 camp: werewolf
 quality_passed: True
-weight: 1.3
-win_count: 0
-use_count: 0
+weight: 1.60
+win_count: 3
+use_count: 3
 created_at: 2026-05-27T10:56:53+00:00
-updated_at: 2026-05-27T10:56:53+00:00
+updated_at: 2026-05-27T12:45:13+00:00
 ---
 
 # 第1轮狼队夜间刀口协商

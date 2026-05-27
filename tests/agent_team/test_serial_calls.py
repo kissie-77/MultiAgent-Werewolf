@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from llm_werewolf.agent_team.serial_calls import run_serial_agent_call
+from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
 
 
 @pytest.mark.asyncio

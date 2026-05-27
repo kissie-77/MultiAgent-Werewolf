@@ -1,6 +1,6 @@
 ﻿"""game_runtime/event_visibility.py 的测试。"""
 
-from llm_werewolf.game_runtime.event_visibility import resolve_visible_to
+from llm_werewolf.game_runtime.events.event_visibility import resolve_visible_to
 from llm_werewolf.game_runtime.types import EventType
 
 

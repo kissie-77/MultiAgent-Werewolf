@@ -1,6 +1,6 @@
 ﻿"""generate_response 元数据解包与结构化检测的测试。"""
 
-from llm_werewolf.agent_team.structured_invoke import (
+from llm_werewolf.agent_team.invocation.structured_invoke import (
     agent_uses_structured_output,
     unwrap_structured_metadata,
 )

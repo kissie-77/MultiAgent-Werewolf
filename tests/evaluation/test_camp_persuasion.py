@@ -6,7 +6,7 @@ from llm_werewolf.evaluation.post_game.run_context import (
     RunContext,
     is_camp_aligned_vote_target,
 )
-from llm_werewolf.evaluation.vote_swing_analysis import analyze_speech_records
+from llm_werewolf.evaluation.core.vote_swing_analysis import analyze_speech_records
 from llm_werewolf.game_runtime.types.enums import Camp
 
 

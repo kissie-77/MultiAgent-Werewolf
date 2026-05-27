@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from llm_werewolf.evaluation.checkers import PromptBadCaseChecker
+from llm_werewolf.evaluation.core.checkers import PromptBadCaseChecker
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport, CampSpeechInfluence
 from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.game_runtime.prompts.manager import PromptManager

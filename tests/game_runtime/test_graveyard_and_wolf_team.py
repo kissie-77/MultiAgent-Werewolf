@@ -1,12 +1,12 @@
 ﻿"""participates_in_wolf_team 与 graveyard_checked 测试。"""
 
 from llm_werewolf.game_runtime.actions.villager import GraveyardKeeperCheckAction
-from llm_werewolf.game_runtime.game_state import GameState
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles import GraveyardKeeper, Seer, Villager, Werewolf
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.roles.werewolf import BloodMoonApostle
-from llm_werewolf.game_runtime.serialization import restore_game_state, serialize_game_state
+from llm_werewolf.game_runtime.state.serialization import restore_game_state, serialize_game_state
 
 
 def test_untransformed_blood_moon_excluded_from_wolf_team() -> None:

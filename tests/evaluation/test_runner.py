@@ -1,8 +1,8 @@
 import asyncio
 from pathlib import Path
 
-from llm_werewolf.evaluation.runner import EvaluationRunner
-from llm_werewolf.evaluation.scenarios import smoke_6p_basic
+from llm_werewolf.evaluation.core.runner import EvaluationRunner
+from llm_werewolf.evaluation.core.scenarios import smoke_6p_basic
 
 
 def test_runner_writes_artifacts_for_smoke_scenario(tmp_path: Path) -> None:

@@ -7,9 +7,18 @@ class MemoryConfig(BaseModel):
     """Central switches for the agent memory framework."""
 
     enabled: bool = Field(default=True, description="Enable the memory framework.")
-    enable_working_memory: bool = Field(default=True, description="Enable working memory.")
+    enable_working_memory: bool = Field(
+        default=True,
+        description=(
+            "Enable prompt-scoped working memory. When disabled, semantic and procedural "
+            "memory are not injected into decision prompts."
+        ),
+    )
     enable_episodic_memory: bool = Field(default=True, description="Enable episodic memory.")
-    enable_semantic_memory: bool = Field(default=True, description="Enable semantic memory.")
+    enable_semantic_memory: bool = Field(
+        default=True,
+        description="Enable semantic skill retrieval, weight updates, and cross-game extraction.",
+    )
     working_max_rounds: int = Field(
         default=5,
         ge=1,

@@ -2,8 +2,8 @@
 
 from llm_werewolf.game_runtime.actions.villager import SeerCheckAction, WitchPoisonAction, WitchSaveAction
 from llm_werewolf.game_runtime.actions.werewolf import WhiteWolfKillAction, WerewolfVoteAction
-from llm_werewolf.game_runtime.game_state import GameState
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles import Seer, Villager, Werewolf, Witch
 from llm_werewolf.game_runtime.roles.werewolf import HiddenWolf, WhiteWolf
 from llm_werewolf.game_runtime.roles.names import seer_apparent_camp

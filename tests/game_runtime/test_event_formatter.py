@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from llm_werewolf.game_runtime.types import Event, EventType
-from llm_werewolf.game_runtime.event_formatter import EventFormatter
+from llm_werewolf.game_runtime.events.event_formatter import EventFormatter
 
 
 def test_format_event_with_timestamp() -> None:

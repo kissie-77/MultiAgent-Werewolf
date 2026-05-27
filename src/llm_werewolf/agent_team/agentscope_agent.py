@@ -524,11 +524,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         """
         self.decision_history.append(decision)
         if self.memory_manager:
-            self.memory_manager.working.add_dynamic(
-                decision,
-                tag="decision",
-                round_number=self.memory_manager.working.current_round,
-            )
+            self.memory_manager.add_decision(decision)
 
     def get_decision_context(self) -> str:
         """获取格式化的决策历史作为上下文。

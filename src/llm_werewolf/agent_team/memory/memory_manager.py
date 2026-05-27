@@ -11,6 +11,7 @@ from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
 from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
 from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
 from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
+from llm_werewolf.game_runtime.roles.registry import get_werewolf_roles
 
 
 class MemoryManager:
@@ -40,8 +41,9 @@ class MemoryManager:
         )
         self.episodic = EpisodicMemory(event_logger)
         self.procedural = ProceduralMemory()
-        self.semantic = SemanticMemory(backend=semantic_backend)
+        self.semantic = SemanticMemory(backend=semantic_backend, compressor=compressor)
         self._used_card_ids: list[str] = []
+        self._seen_event_keys: set[tuple[object, ...]] = set()
 
     async def aclose(self) -> None:
         """Compatibility hook for optional async resources."""
@@ -51,11 +53,14 @@ class MemoryManager:
         """Inject role skills and procedural summaries at game start."""
         self.role = role
         self._used_card_ids = []
-        if not self.config.enabled or not self.config.enable_semantic_memory:
+        self._seen_event_keys = set()
+        if not self.config.enabled or not self.config.enable_working_memory:
             return
-        for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
-            self.working.add_persistent(f"[经验] {card.content}", tag="semantic")
-            self._used_card_ids.append(card.id)
+        if self.config.enable_semantic_memory:
+            for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
+                description = card.description or self.semantic._extract_description(card.content)
+                self.working.add_persistent(f"[经验] {description}", tag="semantic")
+                self._used_card_ids.append(card.id)
         plan_summary = self.procedural.build_plan_summary(self.plan_name, role)
         self.working.add_persistent(f"[程序记忆] {plan_summary}", tag="procedural")
 
@@ -70,9 +75,15 @@ class MemoryManager:
         """Update used skill weights and optionally extract new candidates."""
         if self.config.enabled and self.config.enable_semantic_memory and self._used_card_ids:
             self.semantic.update_after_game(self.role, won, self._used_card_ids)
-        if self.config.extract_semantic_on_game_end:
+        if (
+            self.config.enabled
+            and self.config.enable_semantic_memory
+            and self.config.extract_semantic_on_game_end
+        ):
             for candidate in self.extract_semantic_candidates(won):
                 self.semantic.add_or_merge_card(self.role, candidate)
+        if self.config.enabled and self.config.enable_semantic_memory:
+            self.semantic.decay_all(self.role, self._max_cards_for_role(self.role))
 
     def get_context_for_decision(self) -> str:
         """Return memory context for private decision prompts."""
@@ -83,10 +94,6 @@ class MemoryManager:
             working_context = self.working.get_context()
             if working_context:
                 parts.append(working_context)
-        if self.config.enable_semantic_memory:
-            semantic_context = self.semantic.format_for_prompt(self.role)
-            if semantic_context:
-                parts.append(semantic_context)
         return "\n\n".join(parts)
 
     def add_public_speech(self, speaker_name: str, speech: str, round_number: int) -> None:
@@ -99,6 +106,16 @@ class MemoryManager:
             round_number=round_number,
         )
 
+    def add_decision(self, decision: str) -> None:
+        """Record the agent's own decision into working memory."""
+        if not self.config.enabled or not self.config.enable_working_memory:
+            return
+        self.working.add_dynamic(
+            decision,
+            tag="decision",
+            round_number=self.working.current_round,
+        )
+
     def add_event(self, event: Any) -> None:
         """Record visible key events into working memory."""
         if not self.config.enabled or not self.config.enable_working_memory:
@@ -106,6 +123,10 @@ class MemoryManager:
         event_type = getattr(event, "event_type", None)
         message = getattr(event, "message", "")
         if event_type in _KEY_EVENT_TYPES and message:
+            event_key = self._event_key(event)
+            if event_key in self._seen_event_keys:
+                return
+            self._seen_event_keys.add(event_key)
             self.working.add_dynamic(
                 message,
                 tag="event",
@@ -127,11 +148,36 @@ class MemoryManager:
     def _semantic_llm(self):
         if self._llm_compressor is not None:
             return self._llm_compressor
+        if not self.config.working_compression_api_key or not self.config.working_compression_base_url:
+            return None
         return LLMCompressor(
             api_key=self.config.working_compression_api_key,
             base_url=self.config.working_compression_base_url,
             model=self.config.working_compression_model,
             timeout=self.config.working_compression_timeout,
+        )
+
+    def _max_cards_for_role(self, role: str) -> int:
+        if role in get_werewolf_roles() or role in {"wolf", "werewolf", "wolf_king"}:
+            return self.config.semantic_max_cards_wolf
+        return self.config.semantic_max_cards_good
+
+    @staticmethod
+    def _event_key(event: Any) -> tuple[object, ...]:
+        data = getattr(event, "data", {})
+        if isinstance(data, dict):
+            data_key: object = tuple(sorted((str(key), repr(value)) for key, value in data.items()))
+        else:
+            data_key = repr(data)
+        visible_to = getattr(event, "visible_to", None)
+        visible_key = tuple(visible_to) if visible_to else ()
+        return (
+            str(getattr(event, "event_type", "")),
+            getattr(event, "round_number", None),
+            str(getattr(event, "phase", "")),
+            getattr(event, "message", ""),
+            data_key,
+            visible_key,
         )
 
     def _extract_semantic_candidates_with_llm(self, report: dict, won: bool) -> list[str]:
@@ -145,6 +191,8 @@ class MemoryManager:
             if messages:
                 lines.append(f"第{episode.get('round_number')}轮：" + "；".join(messages[:4]))
         compressor = self._semantic_llm()
+        if compressor is None:
+            return []
         try:
             response = compressor._call_llm_text("\n".join(lines), max_tokens=300)
         except Exception:

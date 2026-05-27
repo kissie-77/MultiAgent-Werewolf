@@ -30,6 +30,16 @@ class MemoryConfig(BaseModel):
         ge=0,
         description="Number of role skill cards injected at game start.",
     )
+    semantic_max_cards_good: int = Field(
+        default=8,
+        ge=1,
+        description="Maximum semantic cards retained for non-werewolf roles.",
+    )
+    semantic_max_cards_wolf: int = Field(
+        default=10,
+        ge=1,
+        description="Maximum semantic cards retained for werewolf roles.",
+    )
     extract_semantic_on_game_end: bool = Field(
         default=False,
         description="Extract semantic skill candidates from episodic memory at game end.",

@@ -1,5 +1,6 @@
 """LLMCompressor 工作记忆语义压缩测试。"""
 
+import logging
 from unittest.mock import MagicMock, patch
 
 from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
@@ -60,6 +61,29 @@ def test_compress_fallback_on_llm_exception() -> None:
         result = compressor.compress(_sample_items())
 
     assert "做了1个决策" in result
+
+
+def test_compress_logs_first_failure_once_without_traceback(caplog) -> None:
+    compressor = LLMCompressor(
+        api_key="test-key",
+        base_url="https://api.example.com/v1",
+    )
+
+    with (
+        caplog.at_level(logging.DEBUG, logger="llm_werewolf.agent_team.memory.llm_compressor"),
+        patch("llm_werewolf.agent_team.memory.llm_compressor.httpx.post", side_effect=Exception("timeout")),
+    ):
+        first = compressor.compress(_sample_items())
+        second = compressor.compress(_sample_items())
+
+    warning_records = [
+        record for record in caplog.records if record.levelno == logging.WARNING
+    ]
+    assert "做了1个决策" in first
+    assert "做了1个决策" in second
+    assert len(warning_records) == 1
+    assert warning_records[0].exc_info is None
+    assert not any(record.exc_info for record in caplog.records)
 
 
 def test_compress_empty_items() -> None:

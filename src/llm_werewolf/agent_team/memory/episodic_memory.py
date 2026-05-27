@@ -115,6 +115,7 @@ class EpisodicMemory:
             event.message
             for event in events
             if event.event_type in {EventType.VOTE_CAST, EventType.SHERIFF_VOTE_CAST}
+            and event.data.get("voter_id") == player_id
         ]
         return EpisodeRecord(
             player_id=player_id,

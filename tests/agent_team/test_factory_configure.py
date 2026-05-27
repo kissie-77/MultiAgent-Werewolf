@@ -3,8 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
-from llm_werewolf.agent_team.factory import configure_agents_for_players
-from llm_werewolf.game_runtime.config import PlayerConfig
+from llm_werewolf.agent_team.factory import _build_compressor, configure_agents_for_players
+from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
 from llm_werewolf.game_runtime.events import EventLogger
 from llm_werewolf.game_runtime.player import Player
 from llm_werewolf.game_runtime.roles.villager import Seer
@@ -57,3 +57,39 @@ def test_agent_uses_structured_output_requires_react_backend() -> None:
 
     agent.agentscope_agent = MagicMock()
     assert agent_uses_structured_output(agent) is True
+
+
+def test_build_compressor_does_not_inherit_player_base_url(monkeypatch) -> None:
+    monkeypatch.setenv("PLAYER_API_KEY", "test-key")
+    player_config = PlayerConfig(
+        name="P1",
+        model="gpt-test",
+        base_url="https://token-plan-sgp.xiaomimimo.com/anthropic",
+        api_key_env="PLAYER_API_KEY",
+    )
+    memory_config = MemoryConfig(working_compression_base_url="")
+
+    compressor = _build_compressor(memory_config, player_config)
+
+    assert compressor is None
+
+
+def test_build_compressor_reuses_player_api_key_with_explicit_memory_base_url(monkeypatch) -> None:
+    monkeypatch.setenv("PLAYER_API_KEY", "test-key")
+    player_config = PlayerConfig(
+        name="P1",
+        model="gpt-test",
+        base_url="https://token-plan-sgp.xiaomimimo.com/anthropic",
+        api_key_env="PLAYER_API_KEY",
+    )
+    memory_config = MemoryConfig(
+        working_compression_base_url="https://token-plan-sgp.xiaomimimo.com/v1",
+        working_compression_model="mimo-v2.5-pro",
+    )
+
+    compressor = _build_compressor(memory_config, player_config)
+
+    assert compressor is not None
+    assert compressor._api_key == "test-key"
+    assert compressor._base_url == "https://token-plan-sgp.xiaomimimo.com/v1"
+    assert compressor._model == "mimo-v2.5-pro"

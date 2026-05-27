@@ -115,8 +115,6 @@ def _build_compressor(config: MemoryConfig, player_config: PlayerConfig | None =
     base_url = config.working_compression_base_url
     if not api_key and player_config and player_config.api_key_env:
         api_key = os.getenv(player_config.api_key_env, "")
-    if not base_url and player_config and player_config.base_url:
-        base_url = player_config.base_url
     if not api_key or not base_url:
         return None
 

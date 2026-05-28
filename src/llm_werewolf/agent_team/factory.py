@@ -15,6 +15,7 @@ from agentscope.memory import InMemoryMemory
 from agentscope.model import OpenAIChatModel
 from agentscope.tool import Toolkit
 
+from llm_werewolf.agent_team.fast_react_agent import FastReActAgent
 from llm_werewolf.agent_team.memory import MemoryManager
 from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
@@ -95,7 +96,7 @@ def create_react_agent(
         generate_kwargs=generate_kwargs,
     )
 
-    return ReActAgent(
+    return FastReActAgent(
         name=agent_name,
         sys_prompt=sys_prompt,
         model=model,

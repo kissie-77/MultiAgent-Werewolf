@@ -3,6 +3,7 @@
 language: zh-CN
 agent_backend: agentscope
 default_plan: default
+vote_intention_concurrency: 6
 
 doubao_ep: &doubao_ep ep-20260514115354-k4jz4
 doubao_base: &doubao_base https://ark.cn-beijing.volces.com/api/v3

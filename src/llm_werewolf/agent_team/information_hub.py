@@ -12,6 +12,8 @@ LLM 决策 prompt 不包含这些事件，发言从 MsgHub / ReAct 记忆读取�
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import TYPE_CHECKING, Any, Callable
 
 from agentscope.message import Msg as AgentScopeMsg
@@ -19,6 +21,7 @@ from agentscope.pipeline import MsgHub
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.agent_team.message_router import MessageRouter
+from llm_werewolf.agent_team.serial_calls import allow_parallel_agent_calls
 from llm_werewolf.agent_team.visibility import (
     RoutedMessage,
     VisibilityChannel,
@@ -40,12 +43,16 @@ if TYPE_CHECKING:
     from llm_werewolf.game_runtime.player import Player
 
 
+logger = logging.getLogger(__name__)
+
+
 class InformationHub:
     """经 MsgHub 按通道可见性路由全部 Agent 流量。"""
 
     def __init__(self) -> None:
         self._build_observation: Callable[[PlayerProtocol], str] | None = None
         self._get_alive_players: Callable[[], list[PlayerProtocol]] | None = None
+        self._vote_intention_concurrency = 1
 
     def set_context_provider(
         self,
@@ -56,6 +63,10 @@ class InformationHub:
         """接入引擎观测构建器（由 GameEngine.setup_game 调用）。"""
         self._build_observation = build_observation
         self._get_alive_players = get_alive_players
+
+    def configure_vote_intention_concurrency(self, concurrency: int) -> None:
+        """Set bounded fan-out for vote-intention collection."""
+        self._vote_intention_concurrency = max(1, int(concurrency))
 
     @staticmethod
     def _react_agent(player: PlayerProtocol) -> Any | None:
@@ -231,12 +242,13 @@ class InformationHub:
         last_speaker: PlayerProtocol | None = None,
     ) -> dict[str, VoteIntentionEntry]:
         """每位存活听众须经 LLM 输出投票意向（私密）。"""
-        intentions: dict[str, VoteIntentionEntry] = {}
         last_name = last_speaker.name if last_speaker else None
+        alive = self._get_alive_players() if self._get_alive_players else []
+        jobs: list[tuple[PlayerProtocol, list[PlayerProtocol], str]] = []
+
         for observer in observers:
             if not observer.is_alive() or observer.agent is None:
                 continue
-            alive = self._get_alive_players() if self._get_alive_players else []
             possible_targets = [
                 p for p in alive if p.player_id != observer.player_id
             ]
@@ -251,6 +263,19 @@ class InformationHub:
                     f"【投票意向】请根据刚听完的 {last_name} 的发言更新意向。"
                 )
             extra = "\n\n".join(part for part in extra_parts if part)
+            jobs.append((observer, possible_targets, extra))
+
+        if not jobs:
+            return {}
+
+        semaphore = asyncio.Semaphore(self._vote_intention_concurrency)
+        bypass_global_lock = self._vote_intention_concurrency > 1
+
+        async def _collect_one(
+            observer: PlayerProtocol,
+            possible_targets: list[PlayerProtocol],
+            extra: str,
+        ) -> tuple[str, VoteIntentionEntry]:
 
             async def _call(
                 obs: PlayerProtocol = observer,
@@ -269,15 +294,44 @@ class InformationHub:
                     phase=phase,
                 )
 
-            entry = await self._run_private_session(
-                observer,
-                VisibilityChannel.PRIVATE,
-                phase,
-                round_number,
-                extra,
-                _call,
-            )
-            intentions[observer.player_id] = entry
+            async with semaphore:
+                if bypass_global_lock:
+                    with allow_parallel_agent_calls():
+                        entry = await self._run_private_session(
+                            observer,
+                            VisibilityChannel.PRIVATE,
+                            phase,
+                            round_number,
+                            extra,
+                            _call,
+                        )
+                else:
+                    entry = await self._run_private_session(
+                        observer,
+                        VisibilityChannel.PRIVATE,
+                        phase,
+                        round_number,
+                        extra,
+                        _call,
+                    )
+            return observer.player_id, entry
+
+        results = await asyncio.gather(
+            *(_collect_one(observer, targets, extra) for observer, targets, extra in jobs),
+            return_exceptions=True,
+        )
+        intentions: dict[str, VoteIntentionEntry] = {}
+        for (observer, _targets, _extra), result in zip(jobs, results, strict=False):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "vote_intention failed player_id=%s player_name=%s: %s",
+                    observer.player_id,
+                    observer.name,
+                    result,
+                )
+                continue
+            player_id, entry = result
+            intentions[player_id] = entry
         return intentions
 
     async def run_roundtable(

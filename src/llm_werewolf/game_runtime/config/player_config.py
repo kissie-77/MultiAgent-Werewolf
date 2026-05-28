@@ -78,6 +78,15 @@ class PlayersConfig(BaseModel):
         description="Prompt registry version (e.g. v2). Maps to strategy/prompts/<version>/",
         examples=["v2", "v3"],
     )
+    vote_intention_concurrency: int = Field(
+        default=1,
+        ge=1,
+        le=20,
+        description=(
+            "Maximum concurrent LLM calls for vote-intention fan-out. "
+            "Set to the player count for fastest batches if the provider allows it."
+        ),
+    )
     players: list[PlayerConfig] = Field(
         ...,
         title="Player List",

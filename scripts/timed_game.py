@@ -211,6 +211,7 @@ async def run_timed_game(
     label: str,
     seed: int | None,
     setup_only: bool = False,
+    max_seconds: float | None = None,
 ) -> dict[str, Any]:
     """以计时器包裹运行一整局（跳过控制台展示与赛后分析，隔离对局墙钟）。
 
@@ -260,14 +261,52 @@ async def run_timed_game(
 
     timer.install_http()
     timer.start()
+    timed_out = False
     try:
-        result = await engine.play_game()
+        if max_seconds:
+            result = await asyncio.wait_for(engine.play_game(), timeout=max_seconds)
+        else:
+            result = await engine.play_game()
+    except (asyncio.TimeoutError, TimeoutError):
+        # 兜底：单次调用无超时（报告 ⑤），整局加一个总预算防止无人值守时挂死。
+        timed_out = True
+        result = f"<TIMED_OUT after {max_seconds}s>"
     finally:
         timer.stop()
 
+    timer.meta["timed_out"] = timed_out
     timer.meta["result"] = result if isinstance(result, str) else str(result)
     report = timer.dump(out_path)
+
+    # 同时落一份事件流转写，供质量评审 agent 对比两臂的发言 / 投票 / 死亡 / 胜负。
+    _dump_transcript(engine, Path(out_path).with_suffix(".events.jsonl"))
     return report
+
+
+def _event_to_dict(event: Any) -> dict[str, Any]:
+    """与 finalize_run._event_to_dict 一致的事件序列化。"""
+    phase = getattr(event, "phase", None)
+    etype = getattr(event, "event_type", None)
+    ts = getattr(event, "timestamp", None)
+    return {
+        "event_type": getattr(etype, "value", str(etype)),
+        "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else None,
+        "round_number": getattr(event, "round_number", None),
+        "phase": getattr(phase, "value", str(phase)),
+        "message": getattr(event, "message", None),
+        "data": getattr(event, "data", None),
+        "visible_to": getattr(event, "visible_to", None),
+    }
+
+
+def _dump_transcript(engine: Any, path: Path) -> None:
+    logger = getattr(engine, "event_logger", None)
+    if logger is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        for event in getattr(logger, "events", []):
+            fh.write(json.dumps(_event_to_dict(event), ensure_ascii=False) + "\n")
 
 
 def main() -> None:
@@ -286,6 +325,12 @@ def main() -> None:
         action="store_true",
         help="Validate config/roster/agent wiring offline; no game, no API calls.",
     )
+    parser.add_argument(
+        "--max-seconds",
+        type=float,
+        default=None,
+        help="Overall per-game wall-clock budget; game is cancelled if exceeded.",
+    )
     args = parser.parse_args()
     report = asyncio.run(
         run_timed_game(
@@ -294,6 +339,7 @@ def main() -> None:
             label=args.label,
             seed=args.seed,
             setup_only=args.setup_only,
+            max_seconds=args.max_seconds,
         )
     )
     if report.get("setup_only"):

@@ -8,6 +8,7 @@ from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.game_runtime.types import Event, EventType
 from llm_werewolf.evaluation.core.models import CheckResult
 from llm_werewolf.evaluation.core.recorder import EvaluationRecorder
+from llm_werewolf.interface.bootstrap import create_information_hub
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -16,7 +17,7 @@ def _read_jsonl(path: Path) -> list[dict]:
 
 def _build_engine() -> GameEngine:
     config = create_game_config_from_player_count(6)
-    engine = GameEngine(config)
+    engine = GameEngine(config, information_hub=create_information_hub())
     players = [DemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)]
     roles = create_roles(config.role_names)
     engine.setup_game(players=players, roles=roles)

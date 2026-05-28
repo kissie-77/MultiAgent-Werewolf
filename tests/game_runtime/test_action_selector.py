@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from llm_werewolf.game_runtime.action_selector import ActionSelector
-from llm_werewolf.agent_team.base import DemoAgent
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.agent_team.agents.base import DemoAgent
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles import Villager
 
 
@@ -68,7 +68,7 @@ async def test_get_target_from_agent_uses_agent_response(two_players: list[Playe
     agent = DemoAgent(name="Bot", model="demo")
 
     with patch(
-        "llm_werewolf.agent_team.base.DemoAgent.get_response",
+        "llm_werewolf.agent_team.agents.base.DemoAgent.get_response",
         new_callable=AsyncMock,
         return_value="2",
     ):
@@ -86,7 +86,7 @@ async def test_get_target_from_agent_random_fallback(two_players: list[Player]) 
     agent = DemoAgent(name="Bot", model="demo")
 
     with patch(
-        "llm_werewolf.agent_team.base.DemoAgent.get_response",
+        "llm_werewolf.agent_team.agents.base.DemoAgent.get_response",
         new_callable=AsyncMock,
         return_value="not a number",
     ):
@@ -104,7 +104,7 @@ async def test_ask_yes_no() -> None:
     agent = DemoAgent(name="Bot", model="demo")
 
     with patch(
-        "llm_werewolf.agent_team.base.DemoAgent.get_response",
+        "llm_werewolf.agent_team.agents.base.DemoAgent.get_response",
         new_callable=AsyncMock,
         return_value="yes",
     ):

@@ -5,14 +5,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from llm_werewolf.game_runtime.role_night_plans import dispatch_night_plan
-from llm_werewolf.game_runtime.role_registry import get_werewolf_roles
+from llm_werewolf.game_runtime.registries.role_night_plans import dispatch_night_plan
+from llm_werewolf.game_runtime.registries.role_registry import get_werewolf_roles
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.types import EventType
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.actions.base import Action
-    from llm_werewolf.game_runtime.game_state import GameState
+    from llm_werewolf.game_runtime.state.game_state import GameState
     from llm_werewolf.game_runtime.types import PlayerProtocol
 
 # 在狼刀目标确定前行动的角色（固定顺序）。

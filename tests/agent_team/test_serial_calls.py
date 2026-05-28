@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from llm_werewolf.agent_team.serial_calls import run_serial_agent_call
+from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,7 @@ async def test_run_serial_agent_call_serializes_concurrent_calls_by_default() ->
 
 @pytest.mark.asyncio
 async def test_allow_parallel_agent_calls_bypasses_lock_in_current_task_context() -> None:
-    from llm_werewolf.agent_team.serial_calls import allow_parallel_agent_calls
+    from llm_werewolf.agent_team.invocation.serial_calls import allow_parallel_agent_calls
 
     active = 0
     max_active = 0

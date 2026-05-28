@@ -5,17 +5,20 @@ from pathlib import Path
 
 from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
-from llm_werewolf.evaluation.post_game.skill_extractor import (
+from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     build_role_skills,
     write_role_skills_artifacts,
 )
-from llm_werewolf.evaluation.post_game.skill_generation_rules import (
+from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     evaluate_persuasion_speech,
     collect_skill_generation_candidates,
 )
-from llm_werewolf.evaluation.post_game.skill_md import render_skill_markdown
+from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampSpeechInfluence
-from llm_werewolf.agent_team.skill_loader import format_role_skills_section, load_role_skills
+from llm_werewolf.agent_team.skill_support.skill_loader import (
+    format_role_skills_section,
+    load_role_skills,
+)
 
 
 def _fixture_events() -> list[dict]:
@@ -86,7 +89,7 @@ def test_render_skill_markdown_has_frontmatter() -> None:
         "skill_id": "wolf_test",
         "prompt_role_key": "wolf",
         "status": "draft",
-        "source_run": "runs/test",
+        "source_run": "artifacts/runs/test",
         "skill_card": {
             "title_zh": "测试 Skill",
             "when_to_use": "白天",
@@ -143,7 +146,7 @@ def test_write_role_skills_only_generates_passed_candidates(tmp_path: Path) -> N
         "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
         encoding="utf-8",
     )
-    from llm_werewolf.evaluation.vote_swing_analysis import _records_from_events
+    from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
@@ -174,7 +177,7 @@ def test_build_role_skills_no_placeholder_for_all_roles(tmp_path: Path) -> None:
         "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
         encoding="utf-8",
     )
-    from llm_werewolf.evaluation.vote_swing_analysis import _records_from_events
+    from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
@@ -233,8 +236,158 @@ def test_night_action_generates_skill(tmp_path: Path) -> None:
     assert payload["skills"][0]["prompt_role_key"] == "prophet"
 
 
+def test_night_action_dedupes_same_role_event_type(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "seer_checked",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_3", "target_id": "player_5", "result": "villager"},
+        },
+        {
+            "event_type": "seer_checked",
+            "round_number": 2,
+            "phase": "night",
+            "data": {"player_id": "player_3", "target_id": "player_1", "result": "werewolf"},
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 2,
+            "phase": "ended",
+            "data": {"winner_camp": "villager", "winner_ids": []},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    ctx = load_run_context(tmp_path)
+    from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry
+
+    ctx.roster["player_3"] = PlayerRosterEntry(
+        player_id="player_3",
+        player_name="预言家",
+        role_name="Seer",
+        camp="villager",
+    )
+    camp = build_camp_persuasion_report(ctx)
+    payload = build_role_skills(ctx, camp)
+    assert payload["skill_count"] == 1
+    assert payload["skills"][0]["evidence"]["target_id"] == "player_1"
+
+
+def test_skill_card_has_role_strategy_content(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "seer_checked",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_3", "target_id": "player_5", "result": "werewolf"},
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 1,
+            "phase": "ended",
+            "data": {"winner_camp": "villager", "winner_ids": []},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    ctx = load_run_context(tmp_path)
+    from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry
+
+    ctx.roster["player_3"] = PlayerRosterEntry(
+        player_id="player_3",
+        player_name="预言家",
+        role_name="Seer",
+        camp="villager",
+    )
+    camp = build_camp_persuasion_report(ctx)
+    payload = build_role_skills(ctx, camp)
+    card = payload["skills"][0]["skill_card"]
+    assert len(card["public_behavior"]) > 40
+    assert "①" in card["public_behavior"]
+    assert "避免" in card["avoid"] or "①" in card["avoid"]
+    md = render_skill_markdown(payload["skills"][0])
+    assert "## 本局决策" in md
+
+
+def test_reference_skills_from_local_run(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "player_eliminated",
+            "round_number": 1,
+            "phase": "day_voting",
+            "data": {"player_id": "player_6", "role": "Seer"},
+        },
+        {
+            "event_type": "player_eliminated",
+            "round_number": 1,
+            "phase": "day_voting",
+            "data": {"player_id": "player_12", "role": "WolfKing"},
+        },
+        {
+            "event_type": "player_eliminated",
+            "round_number": 1,
+            "phase": "day_voting",
+            "data": {"player_id": "player_4", "role": "Guard"},
+        },
+        {
+            "event_type": "seer_checked",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_6", "target_id": "player_12", "result": "werewolf"},
+        },
+        {
+            "event_type": "guard_protected",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_4", "target_id": "player_6"},
+        },
+        {
+            "event_type": "werewolf_killed",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"target_id": "player_4"},
+        },
+        {
+            "event_type": "player_discussion",
+            "round_number": 1,
+            "phase": "night",
+            "data": {
+                "player_id": "player_1",
+                "speech": "首夜建议刀四号，偏神职位。",
+                "role": "Werewolf",
+            },
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 1,
+            "phase": "ended",
+            "data": {"winner_camp": "werewolf", "winner_ids": []},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    from llm_werewolf.evaluation.post_game.skill_generation.reference_skills import build_reference_skills
+
+    skills = build_reference_skills(tmp_path)
+    roles = {s["prompt_role_key"] for s in skills}
+    assert "prophet" in roles
+    assert "guard" in roles
+    assert "wolf" in roles
+    prophet = next(s for s in skills if s["prompt_role_key"] == "prophet")
+    assert "狼人" in prophet["skill_card"]["public_behavior"]
+    assert prophet["status"] == "active"
+    assert all(len(s["skill_card"]["public_behavior"]) > 40 for s in skills)
+
+
 def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
     wolf_dir = root / "wolf"
@@ -257,7 +410,7 @@ def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_skill_loader_sorts_by_weight_descending(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
     wolf_dir = root / "wolf"
@@ -287,7 +440,7 @@ def test_skill_loader_sorts_by_weight_descending(tmp_path: Path, monkeypatch) ->
 
 
 def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
     wolf_dir = root / "wolf"
@@ -306,8 +459,35 @@ def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> Non
     assert items[0]["weight"] == 1.0
 
 
+def test_skill_loader_strips_legacy_description_line_from_prompt_body(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team.skill_support import skill_loader
+
+    root = tmp_path / "skills"
+    prophet_dir = root / "prophet"
+    prophet_dir.mkdir(parents=True)
+    (prophet_dir / "prophet_demo.md").write_text(
+        "---\nskill_id: prophet_demo\nprompt_role_key: prophet\nstatus: draft\n---\n\n"
+        "描述：# 预言家有效查验决策 ## 提取依据 噪声的情况下，使用该 skill\n\n"
+        "# 预言家有效查验决策\n\n"
+        "## 何时使用\n"
+        "第1轮夜间，面临同类技能抉择且信息边界与当时一致时\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    items = load_role_skills("prophet")
+    section = format_role_skills_section("prophet")
+
+    assert len(items) == 1
+    assert not str(items[0]["body"]).startswith("描述：")
+    assert "描述：# 预言家有效查验决策" not in section
+    assert "## 何时使用" in section
+
+
 def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.agent_team import skill_loader
+    from llm_werewolf.agent_team.skill_support import skill_loader
     from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
 
     root = tmp_path / "skills"

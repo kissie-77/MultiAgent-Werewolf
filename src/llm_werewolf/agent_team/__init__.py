@@ -19,11 +19,11 @@ __all__ = [
 
 def __getattr__(name: str):
     if name == "AgentScopeWerewolfAgent":
-        from llm_werewolf.agent_team.agentscope_agent import AgentScopeWerewolfAgent
+        from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
         return AgentScopeWerewolfAgent
     if name in {"BaseAgent", "DemoAgent", "HumanAgent", "create_agent"}:
-        from llm_werewolf.agent_team import base
+        from llm_werewolf.agent_team.agents import base
 
         return getattr(base, name)
     if name in {
@@ -37,11 +37,11 @@ def __getattr__(name: str):
 
         return getattr(memory, name)
     if name == "PromptAgentMixin":
-        from llm_werewolf.agent_team.mixin import PromptAgentMixin
+        from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
 
         return PromptAgentMixin
     if name in {"configure_agents_for_players", "create_react_agent"}:
-        from llm_werewolf.agent_team import factory
+        from llm_werewolf.agent_team.agents import factory
 
         return getattr(factory, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

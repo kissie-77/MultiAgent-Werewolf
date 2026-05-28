@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from llm_werewolf.game_runtime.events import EventLogger
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import Event, EventType
 
 _KEY_EVENT_TYPES = {
@@ -115,6 +115,7 @@ class EpisodicMemory:
             event.message
             for event in events
             if event.event_type in {EventType.VOTE_CAST, EventType.SHERIFF_VOTE_CAST}
+            and event.data.get("voter_id") == player_id
         ]
         return EpisodeRecord(
             player_id=player_id,

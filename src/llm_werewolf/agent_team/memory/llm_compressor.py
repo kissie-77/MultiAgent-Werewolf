@@ -41,6 +41,7 @@ class LLMCompressor:
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
+        self._warned_failure = False
 
     def compress(self, items: list[MemoryItem]) -> str:
         if not items:
@@ -49,8 +50,14 @@ class LLMCompressor:
             return self._fallback_compress(items)
         try:
             return self._call_llm(items)
-        except Exception:
-            logger.warning("LLM compression failed, using fallback", exc_info=True)
+        except Exception as exc:
+            if not self._warned_failure:
+                logger.warning(
+                    "LLM compression failed, using fallback: %s: %s",
+                    type(exc).__name__,
+                    exc,
+                )
+                self._warned_failure = True
             return self._fallback_compress(items)
 
     def _call_llm(self, items: list[MemoryItem]) -> str:

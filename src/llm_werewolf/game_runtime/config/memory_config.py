@@ -7,9 +7,18 @@ class MemoryConfig(BaseModel):
     """Central switches for the agent memory framework."""
 
     enabled: bool = Field(default=True, description="Enable the memory framework.")
-    enable_working_memory: bool = Field(default=True, description="Enable working memory.")
+    enable_working_memory: bool = Field(
+        default=True,
+        description=(
+            "Enable prompt-scoped working memory. When disabled, semantic and procedural "
+            "memory are not injected into decision prompts."
+        ),
+    )
     enable_episodic_memory: bool = Field(default=True, description="Enable episodic memory.")
-    enable_semantic_memory: bool = Field(default=True, description="Enable semantic memory.")
+    enable_semantic_memory: bool = Field(
+        default=True,
+        description="Enable semantic skill retrieval, weight updates, and cross-game extraction.",
+    )
     working_max_rounds: int = Field(
         default=5,
         ge=1,
@@ -29,6 +38,16 @@ class MemoryConfig(BaseModel):
         default=3,
         ge=0,
         description="Number of role skill cards injected at game start.",
+    )
+    semantic_max_cards_good: int = Field(
+        default=8,
+        ge=1,
+        description="Maximum semantic cards retained for non-werewolf roles.",
+    )
+    semantic_max_cards_wolf: int = Field(
+        default=10,
+        ge=1,
+        description="Maximum semantic cards retained for werewolf roles.",
     )
     extract_semantic_on_game_end: bool = Field(
         default=False,

@@ -1,7 +1,7 @@
 ﻿"""遗留路径：解析位于 WerewolfAdapterBridge（ActionSelector 已移除）。"""
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles import Villager, Werewolf
 
 

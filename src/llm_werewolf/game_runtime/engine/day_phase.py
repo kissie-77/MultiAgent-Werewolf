@@ -2,12 +2,11 @@
 
 from collections.abc import Callable
 
-from llm_werewolf.agent_team.message_router import MessageRouter
-from llm_werewolf.agent_team.visibility import VisibilityChannel
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
 from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.game_state import GameState
+from llm_werewolf.game_runtime.state.game_state import GameState
 
 
 class DayPhaseMixin:
@@ -52,7 +51,7 @@ class DayPhaseMixin:
         if not self.game_state:
             return
         self._log_event(
-            MessageRouter.event_type_for_channel(VisibilityChannel.PUBLIC),
+            event_type_for_channel(VisibilityChannel.PUBLIC),
             self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech),
             data={
                 "player_id": speaker.player_id,

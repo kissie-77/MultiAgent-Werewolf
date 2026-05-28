@@ -28,6 +28,7 @@ from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscop
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 
@@ -118,7 +119,7 @@ async def run(config_path: Path, run_dir: Path) -> None:
 def main() -> None:
     config = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("configs/llm-9p-doubao.yaml")
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_dir = Path("runs") / f"doubao-9p-{ts}"
+    run_dir = RUNS_DIR / f"doubao-9p-{ts}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     log_path = run_dir / "game_log.txt"

@@ -3,12 +3,13 @@ from pathlib import Path
 
 import fire
 
-from llm_werewolf.evaluation.runner import EvaluationRunner
-from llm_werewolf.evaluation.scenarios import get_scenario
+from llm_werewolf.evaluation.core.runner import EvaluationRunner
+from llm_werewolf.evaluation.core.scenarios import get_scenario
+from llm_werewolf.paths import EVAL_RUNS_DIR
 
 
 def main(
-    output_dir: str = "eval_runs",
+    output_dir: str = str(EVAL_RUNS_DIR),
     scenario: str = "smoke_6p_basic",
     games: int = 10,
     timeout_seconds: float = 30.0,

@@ -1,4 +1,4 @@
-from llm_werewolf.agent_team.factory import create_react_agent, player_id_to_seat
+from llm_werewolf.agent_team.agents.factory import create_react_agent, player_id_to_seat
 
 
 def test_factory_exports_react_agent_builder() -> None:

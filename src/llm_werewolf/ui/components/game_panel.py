@@ -7,7 +7,7 @@ from rich.table import Table
 from rich.console import Console
 from textual.widgets import Static
 
-from llm_werewolf.game_runtime.game_state import GameState
+from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.types import Camp
 
 

@@ -1,8 +1,8 @@
 ﻿from unittest.mock import AsyncMock, MagicMock, patch
 
-from llm_werewolf.agent_team.base import DemoAgent
+from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.roles import Camp, Seer, Guard, Witch, Villager, Werewolf
-from llm_werewolf.game_runtime.player import Player
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.actions import (
     SeerCheckAction,
     WitchSaveAction,
@@ -10,7 +10,7 @@ from llm_werewolf.game_runtime.actions import (
     GuardProtectAction,
     WerewolfVoteAction,
 )
-from llm_werewolf.game_runtime.game_state import GameState
+from llm_werewolf.game_runtime.state.game_state import GameState
 
 
 def test_villager_role() -> None:
@@ -72,7 +72,7 @@ async def test_werewolf_get_night_actions() -> None:
     game_state = GameState(players)
     game_state.phase_interaction = MagicMock()
     with patch(
-        "llm_werewolf.game_runtime.role_night_plans.dispatch_night_plan",
+        "llm_werewolf.game_runtime.registries.role_night_plans.dispatch_night_plan",
         new_callable=AsyncMock,
         return_value=[WerewolfVoteAction(werewolf_player, villager_player, game_state)],
     ) as plan_mock:
@@ -93,7 +93,7 @@ async def test_seer_get_night_actions() -> None:
     game_state = GameState(players)
     game_state.phase_interaction = MagicMock()
     with patch(
-        "llm_werewolf.game_runtime.role_night_plans.dispatch_night_plan",
+        "llm_werewolf.game_runtime.registries.role_night_plans.dispatch_night_plan",
         new_callable=AsyncMock,
         return_value=[SeerCheckAction(seer_player, villager_player, game_state)],
     ):
@@ -115,7 +115,7 @@ async def test_witch_get_night_actions_save() -> None:
     game_state.phase_interaction = MagicMock()
 
     with patch(
-        "llm_werewolf.game_runtime.role_night_plans.dispatch_night_plan",
+        "llm_werewolf.game_runtime.registries.role_night_plans.dispatch_night_plan",
         new_callable=AsyncMock,
         return_value=[WitchSaveAction(witch_player, villager_player, game_state)],
     ):
@@ -137,7 +137,7 @@ async def test_witch_get_night_actions_poison() -> None:
     with (
         patch("random.choice", return_value=villager_player),
         patch(
-            "llm_werewolf.game_runtime.role_night_plans.dispatch_night_plan",
+            "llm_werewolf.game_runtime.registries.role_night_plans.dispatch_night_plan",
             new_callable=AsyncMock,
             return_value=[WitchPoisonAction(witch_player, villager_player, game_state)],
         ),
@@ -159,7 +159,7 @@ async def test_guard_get_night_actions() -> None:
     game_state = GameState(players)
     game_state.phase_interaction = MagicMock()
     with patch(
-        "llm_werewolf.game_runtime.role_night_plans.dispatch_night_plan",
+        "llm_werewolf.game_runtime.registries.role_night_plans.dispatch_night_plan",
         new_callable=AsyncMock,
         return_value=[GuardProtectAction(guard_player, villager_player, game_state)],
     ):

@@ -6,6 +6,7 @@ from llm_werewolf.agent_team.base import DemoAgent
 from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
 from llm_werewolf.interface.bootstrap import (
     create_players_from_config,
+    prepare_game_roster,
     wire_agentscope_after_setup,
 )
 
@@ -56,3 +57,15 @@ def test_players_config_has_default_memory_config() -> None:
 
     assert cfg.memory.enabled is True
     assert cfg.memory.semantic_top_k == 3
+
+
+def test_prepare_game_roster_copies_vote_intention_concurrency() -> None:
+    cfg = PlayersConfig(
+        language="zh-CN",
+        vote_intention_concurrency=6,
+        players=_six_demo_players(),
+    )
+
+    _, _, game_config = prepare_game_roster(cfg)
+
+    assert game_config.vote_intention_concurrency == 6

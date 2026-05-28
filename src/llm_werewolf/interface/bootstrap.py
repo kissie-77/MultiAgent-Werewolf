@@ -81,6 +81,11 @@ def prepare_game_roster(
 ) -> tuple[list[AgentProtocol], list[RoleProtocol], GameConfig]:
     """单局对局的玩家列表、洗牌后的角色实例与板子配置。"""
     game_config = create_game_config_from_player_count(len(players_config.players))
+    game_config = game_config.model_copy(
+        update={
+            "vote_intention_concurrency": players_config.vote_intention_concurrency,
+        },
+    )
     players = create_players_from_config(players_config)
     roles = create_roles(role_names=game_config.role_names)
     return players, roles, game_config

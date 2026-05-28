@@ -54,3 +54,19 @@ def test_rejects_invalid_prompt_version() -> None:
             prompt_version="2",
             players=_six_demo_players(),
         )
+
+
+def test_vote_intention_concurrency_defaults_to_serial_on_players_config() -> None:
+    cfg = PlayersConfig(language="zh-CN", players=_six_demo_players())
+
+    assert cfg.vote_intention_concurrency == 1
+
+
+def test_vote_intention_concurrency_accepts_parallel_value() -> None:
+    cfg = PlayersConfig(
+        language="zh-CN",
+        vote_intention_concurrency=6,
+        players=_six_demo_players(),
+    )
+
+    assert cfg.vote_intention_concurrency == 6

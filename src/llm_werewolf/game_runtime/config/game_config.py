@@ -50,6 +50,15 @@ class GameConfig(BaseModel):
             "for replay and persuasion analysis."
         ),
     )
+    vote_intention_concurrency: int = Field(
+        default=1,
+        ge=1,
+        le=20,
+        description=(
+            "Maximum concurrent LLM calls when collecting vote intentions. "
+            "1 preserves the historical fully-serialized behavior."
+        ),
+    )
 
     @field_validator("role_names")
     @classmethod

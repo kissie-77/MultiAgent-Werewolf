@@ -1,8 +1,8 @@
 """Shared serial gate for AgentScope model calls.
 
-The default implementation is intentionally small: it protects providers that
-rate-limit concurrent requests while keeping the call site independent from any
-local-only helper file.
+The default implementation protects providers that rate-limit concurrent
+requests. Independent fan-out phases can opt out with a context-local switch
+instead of removing the global lock for every call site.
 """
 
 from __future__ import annotations
@@ -11,11 +11,18 @@ import asyncio
 import inspect
 import os
 from collections.abc import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
+from collections.abc import Iterator
 from typing import TypeVar
 
 T = TypeVar("T")
 
 _AGENT_CALL_LOCK = asyncio.Lock()
+_SERIALIZE_AGENT_CALLS: ContextVar[bool] = ContextVar(
+    "SERIALIZE_AGENT_CALLS",
+    default=True,
+)
 
 
 def _delay_seconds() -> float:
@@ -26,12 +33,30 @@ def _delay_seconds() -> float:
         return 0.0
 
 
+@contextmanager
+def allow_parallel_agent_calls() -> Iterator[None]:
+    """Disable the global AgentScope call lock for the current async context."""
+    token = _SERIALIZE_AGENT_CALLS.set(False)
+    try:
+        yield
+    finally:
+        _SERIALIZE_AGENT_CALLS.reset(token)
+
+
+async def _execute_agent_call(call: Callable[[], T]) -> T:
+    result = call()
+    if inspect.isawaitable(result):
+        result = await result
+    return result
+
+
 async def run_serial_agent_call(call: Callable[[], T]) -> T:
-    """Run one AgentScope call at a time, with optional post-call delay."""
+    """Run one AgentScope call at a time unless the current context opts out."""
+    if not _SERIALIZE_AGENT_CALLS.get():
+        return await _execute_agent_call(call)
+
     async with _AGENT_CALL_LOCK:
-        result = call()
-        if inspect.isawaitable(result):
-            result = await result
+        result = await _execute_agent_call(call)
         delay = _delay_seconds()
         if delay:
             await asyncio.sleep(delay)

@@ -2,6 +2,7 @@
 language: zh-CN
 agent_backend: agentscope
 default_plan: default
+vote_intention_concurrency: 6
 
 ds_model: &ds_model deepseek-v4-flash
 ds_base: &ds_base https://api.deepseek.com/v1

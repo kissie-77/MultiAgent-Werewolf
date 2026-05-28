@@ -236,3 +236,18 @@ def test_villager_count() -> None:
         special_roles = sum(1 for role in config.role_names if role != "Villager")
         assert villager_count + special_roles == num_players
         assert villager_count >= 0
+
+
+def test_vote_intention_concurrency_defaults_to_serial() -> None:
+    config = create_game_config_from_player_count(6)
+
+    assert config.vote_intention_concurrency == 1
+
+
+def test_vote_intention_concurrency_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        GameConfig(
+            num_players=6,
+            role_names=["Werewolf", "Werewolf", "Seer", "Witch", "Villager", "Villager"],
+            vote_intention_concurrency=0,
+        )

@@ -9,30 +9,14 @@ from typing import Any
 
 from llm_werewolf.evaluation.core.checkers import PromptBadCaseChecker
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport, CampSpeechInfluence
+from llm_werewolf.evaluation.post_game.event_adapter import events_from_dicts
 from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.game_runtime.types import Event
-from llm_werewolf.game_runtime.types.enums import EventType, GamePhase
 
 
 def _events_from_dicts(rows: list[dict[str, Any]]) -> list[Event]:
-    events: list[Event] = []
-    for raw in rows:
-        try:
-            phase_raw = str(raw.get("phase", "setup"))
-            events.append(
-                Event(
-                    event_type=EventType(raw["event_type"]),
-                    message=str(raw.get("message", "")),
-                    round_number=int(raw.get("round_number", 0)),
-                    phase=GamePhase(phase_raw),
-                    data=raw.get("data") or {},
-                    visible_to=raw.get("visible_to"),
-                )
-            )
-        except (ValueError, KeyError):
-            continue
-    return events
+    return events_from_dicts(rows)
 
 
 def _role_key_for_speaker(ctx: RunContext, speaker_id: str) -> str:

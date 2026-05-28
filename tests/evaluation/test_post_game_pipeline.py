@@ -87,6 +87,9 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
 
     result = run_post_game_pipeline_sync(tmp_path, skip_llm=True)
     assert result.error is None
+    assert result.ok
+    assert (tmp_path / "episodic_reports.json").is_file()
+    assert (tmp_path / "coach_summary.json").is_file()
     assert (tmp_path / "prompt_proposals.json").is_file()
 
     payload = json.loads((tmp_path / "prompt_proposals.json").read_text(encoding="utf-8"))

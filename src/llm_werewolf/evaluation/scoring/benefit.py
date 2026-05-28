@@ -28,16 +28,36 @@ def _eliminations(ctx: RunContext) -> list[tuple[int, str, str | None]]:
     return rows
 
 
+def _votes_by_round(events: list[dict]) -> dict[int, dict[str, str]]:
+    """round -> {voter_id: target_id}"""
+    by_round: dict[int, dict[str, str]] = {}
+    for event in events:
+        if event.get("event_type") != "vote_cast":
+            continue
+        rnd = int(event.get("round_number", 0))
+        data = event.get("data") or {}
+        voter = str(data.get("voter_id", ""))
+        target = str(data.get("target_id", ""))
+        if voter and target:
+            by_round.setdefault(rnd, {})[voter] = target
+    return by_round
+
+
 def _elimination_aligned_for_player(
     player_id: str,
     player_camp: str | None,
     eliminations: list[tuple[int, str, str | None]],
+    votes_by_round: dict[int, dict[str, str]],
 ) -> int:
+    """仅当该玩家在同轮投票中投出被放逐的敌对阵营目标时计分（按人归因）。"""
     if not player_camp or player_camp == Camp.NEUTRAL.value:
         return 0
     score = 0
-    for _rnd, _pid, target_camp in eliminations:
+    for rnd, eliminated_id, target_camp in eliminations:
         if not target_camp:
+            continue
+        voter_target = votes_by_round.get(rnd, {}).get(player_id)
+        if voter_target != eliminated_id:
             continue
         if player_camp == Camp.WEREWOLF.value and target_camp == Camp.VILLAGER.value:
             score += 20
@@ -53,25 +73,34 @@ def build_benefit_scores(
     intention_by_player: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     eliminations = _eliminations(ctx)
+    votes_by_round = _votes_by_round(ctx.events)
     winner = ctx.winner_camp
     players: list[PlayerBenefitScore] = []
 
-    persuasion_by_speaker = {
-        s.speaker_id: s.camp_aligned_score for s in camp_report.speeches
-    }
+    persuasion_by_speaker: dict[str, int] = {}
+    for speech in camp_report.speeches:
+        persuasion_by_speaker[speech.speaker_id] = (
+            persuasion_by_speaker.get(speech.speaker_id, 0) + speech.camp_aligned_score
+        )
 
     for pid, entry in ctx.roster.items():
         camp = entry.camp
         game_won = 50 if winner and camp and winner == camp else 0
-        elim_aligned = _elimination_aligned_for_player(pid, camp, eliminations)
+        elim_aligned = _elimination_aligned_for_player(
+            pid,
+            camp,
+            eliminations,
+            votes_by_round,
+        )
         persuasion = persuasion_by_speaker.get(pid, 0)
         intention_part = (intention_by_player or {}).get(pid, 0)
         breakdown = {
             "game_won": game_won,
             "elimination_aligned": elim_aligned,
             "camp_persuasion_sum": persuasion,
+            "intention_sum": intention_part,
         }
-        total = game_won + elim_aligned + persuasion
+        total = game_won + elim_aligned + persuasion + intention_part
         players.append(
             PlayerBenefitScore(
                 player_id=pid,
@@ -91,7 +120,12 @@ def build_benefit_scores(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "run_dir": str(ctx.run_dir),
         "phase": "partial",
-        "implemented_metrics": ["game_won", "elimination_aligned", "camp_persuasion_sum"],
+        "implemented_metrics": [
+            "game_won",
+            "elimination_aligned",
+            "camp_persuasion_sum",
+            "intention_sum",
+        ],
         "players": [p.to_dict() for p in players],
         "note": "Phase1 占位；intention 分见 intention_scores.json",
         "intention_by_player_ref": intention_by_player or {},

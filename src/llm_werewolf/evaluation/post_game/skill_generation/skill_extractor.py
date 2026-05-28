@@ -270,6 +270,11 @@ def write_role_skills_artifacts(
 
     payload = build_role_skills(ctx, camp_report)
     skills = payload["skills"]
+
+    from llm_werewolf.agent_team.skill_support import skill_loader
+
+    skill_loader.list_role_skill_files.cache_clear()
+
     md_files = write_skill_markdown_files(
         skills,
         run_skills_dir=ctx.run_dir / "skills",

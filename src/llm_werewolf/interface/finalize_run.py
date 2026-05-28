@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
+
+logger = logging.getLogger(__name__)
 
 
 def _event_to_dict(event: Any) -> dict:
@@ -49,10 +52,15 @@ async def finalize_run(
     """每局结束后自动调用：持久化产物 + PostGame 流水线。"""
     path = Path(run_dir)
     persist_run_artifacts(engine, path)
-    return await run_post_game_pipeline(
+    result = await run_post_game_pipeline(
         path,
         engine=engine,
         game_result_text=game_result_text,
         config_path=config_path,
         prompt_version=prompt_version,
     )
+    if result.error:
+        logger.error("PostGame pipeline failed for %s: %s", path, result.error)
+    elif result.stage_errors:
+        logger.warning("PostGame completed with stage errors for %s: %s", path, result.stage_errors)
+    return result

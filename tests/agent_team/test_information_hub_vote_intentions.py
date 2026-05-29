@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import pytest
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
+from llm_werewolf.strategy.vote_intention import VoteIntentionEntry, VoteIntentionAnchor
 from llm_werewolf.agent_team.communication.information_hub import InformationHub
-from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
 
 
 class FakeAgent:
@@ -38,8 +38,7 @@ class FakePlayer:
 
 def _players(n: int) -> list[FakePlayer]:
     return [
-        FakePlayer(player_id=f"p{i}", name=f"P{i}", agent=FakeAgent())
-        for i in range(1, n + 1)
+        FakePlayer(player_id=f"p{i}", name=f"P{i}", agent=FakeAgent()) for i in range(1, n + 1)
     ]
 
 
@@ -50,8 +49,7 @@ async def test_collect_vote_intentions_is_serial_by_default(
     hub = InformationHub()
     players = _players(4)
     hub.set_context_provider(
-        build_observation=lambda player: f"obs {player.name}",
-        get_alive_players=lambda: players,
+        build_observation=lambda player: f"obs {player.name}", get_alive_players=lambda: players
     )
     active = 0
     max_active = 0
@@ -83,9 +81,7 @@ async def test_collect_vote_intentions_is_serial_by_default(
         )
 
     monkeypatch.setattr(
-        WerewolfAdapterBridge,
-        "request_vote_intention",
-        staticmethod(fake_request_vote_intention),
+        WerewolfAdapterBridge, "request_vote_intention", staticmethod(fake_request_vote_intention)
     )
 
     result = await hub._collect_vote_intentions(
@@ -108,8 +104,7 @@ async def test_collect_vote_intentions_respects_configured_parallelism(
     hub.configure_vote_intention_concurrency(3)
     players = _players(6)
     hub.set_context_provider(
-        build_observation=lambda player: f"obs {player.name}",
-        get_alive_players=lambda: players,
+        build_observation=lambda player: f"obs {player.name}", get_alive_players=lambda: players
     )
     active = 0
     max_active = 0
@@ -141,9 +136,7 @@ async def test_collect_vote_intentions_respects_configured_parallelism(
         )
 
     monkeypatch.setattr(
-        WerewolfAdapterBridge,
-        "request_vote_intention",
-        staticmethod(fake_request_vote_intention),
+        WerewolfAdapterBridge, "request_vote_intention", staticmethod(fake_request_vote_intention)
     )
 
     result = await hub._collect_vote_intentions(
@@ -161,15 +154,13 @@ async def test_collect_vote_intentions_respects_configured_parallelism(
 
 @pytest.mark.asyncio
 async def test_collect_vote_intentions_skips_failed_observer(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     hub = InformationHub()
     hub.configure_vote_intention_concurrency(3)
     players = _players(3)
     hub.set_context_provider(
-        build_observation=lambda player: f"obs {player.name}",
-        get_alive_players=lambda: players,
+        build_observation=lambda player: f"obs {player.name}", get_alive_players=lambda: players
     )
 
     async def fake_request_vote_intention(
@@ -196,9 +187,7 @@ async def test_collect_vote_intentions_skips_failed_observer(
         )
 
     monkeypatch.setattr(
-        WerewolfAdapterBridge,
-        "request_vote_intention",
-        staticmethod(fake_request_vote_intention),
+        WerewolfAdapterBridge, "request_vote_intention", staticmethod(fake_request_vote_intention)
     )
 
     result = await hub._collect_vote_intentions(

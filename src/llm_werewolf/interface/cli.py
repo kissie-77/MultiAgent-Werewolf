@@ -1,5 +1,4 @@
-﻿import asyncio
-from pathlib import Path
+import asyncio
 
 import fire
 import logfire
@@ -9,16 +8,16 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 
-from llm_werewolf.interface.bootstrap import (
-    create_information_hub,
-    prepare_game_roster,
-    wire_agentscope_after_setup,
-)
+from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.interface.modes import resolve_config_path
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.interface.modes import resolve_config_path
-from llm_werewolf.paths import RUNS_DIR
+from llm_werewolf.interface.bootstrap import (
+    prepare_game_roster,
+    create_information_hub,
+    wire_agentscope_after_setup,
+)
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 console = Console()
@@ -42,11 +41,7 @@ async def main(
         human_seat: 人类玩家的 1-based 座位号，可用逗号分隔多个（如 "1,3"）；缺省为纯 Agent 局。
         badge_flow: 是否开启警长 / 警徽流（首夜后的警长选举）；缺省关闭，行为与现状一致。
     """
-    config_path = resolve_config_path(
-        config,
-        participation=participation,
-        rules=rules,
-    )
+    config_path = resolve_config_path(config, participation=participation, rules=rules)
     players_config = load_config(config_path=config_path)
 
     try:
@@ -55,7 +50,7 @@ async def main(
 
             players_config = resize_players_config(players_config, int(players))
         if human_seat is not None:
-            from llm_werewolf.interface.cli_overrides import apply_human_seats, parse_seat_list
+            from llm_werewolf.interface.cli_overrides import parse_seat_list, apply_human_seats
 
             players_config = apply_human_seats(players_config, parse_seat_list(human_seat))
     except (ValueError, TypeError) as exc:
@@ -69,9 +64,7 @@ async def main(
 
     locale = Locale(players_config.language)
     engine = GameEngine(
-        game_config,
-        language=players_config.language,
-        information_hub=create_information_hub(),
+        game_config, language=players_config.language, information_hub=create_information_hub()
     )
 
     presenter = ConsolePresenter(locale)
@@ -107,8 +100,7 @@ async def main(
         if post.error:
             console.print(f"[yellow]赛后分析部分失败: {post.error}[/yellow]")
         console.print(
-            f"[dim]赛后产物已写入 {run_dir.resolve()} "
-            f"({', '.join(post.artifacts[:4])}…)[/dim]"
+            f"[dim]赛后产物已写入 {run_dir.resolve()} ({', '.join(post.artifacts[:4])}…)[/dim]"
         )
 
         if engine.game_state:
@@ -172,7 +164,7 @@ def _run_main(
 
 
 def entry() -> None:
-    """werewolf 控制台命令的入口点。"""
+    """Werewolf 控制台命令的入口点。"""
     fire.Fire(_run_main)
 
 

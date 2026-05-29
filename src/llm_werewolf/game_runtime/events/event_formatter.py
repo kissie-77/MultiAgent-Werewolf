@@ -1,4 +1,4 @@
-﻿"""在 CLI 与 TUI 间统一事件展示格式。"""
+"""在 CLI 与 TUI 间统一事件展示格式。"""
 
 from typing import ClassVar
 

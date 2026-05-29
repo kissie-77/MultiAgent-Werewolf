@@ -1,9 +1,9 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 import yaml
 
-from llm_werewolf.game_runtime.config import PlayersConfig
 from llm_werewolf.game_runtime.env import load_project_dotenv
+from llm_werewolf.game_runtime.config import PlayersConfig
 
 
 def load_config(config_path: str | Path) -> PlayersConfig:

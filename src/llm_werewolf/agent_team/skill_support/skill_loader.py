@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
 from pathlib import Path
+from functools import lru_cache
 
 from llm_werewolf.agent_team.skill_support.skill_markdown import (
     parse_frontmatter,
@@ -58,10 +58,7 @@ def list_role_skill_files(prompt_role_key: str) -> tuple[Path, ...]:
 
 
 def load_role_skills(
-    prompt_role_key: str,
-    *,
-    include_draft: bool = True,
-    max_skills: int = 5,
+    prompt_role_key: str, *, include_draft: bool = True, max_skills: int = 5
 ) -> list[dict[str, str | float]]:
     """加载某身份目录下的 Skill MD（默认含 draft），按 weight 降序。"""
     loaded: list[dict[str, str | float]] = []
@@ -77,17 +74,10 @@ def load_role_skills(
 
 
 def format_role_skills_section(
-    prompt_role_key: str,
-    *,
-    include_draft: bool = True,
-    max_skills: int = 5,
+    prompt_role_key: str, *, include_draft: bool = True, max_skills: int = 5
 ) -> str:
     """将 Skill 卡片格式化为可追加到系统 Prompt 的文本块。"""
-    skills = load_role_skills(
-        prompt_role_key,
-        include_draft=include_draft,
-        max_skills=max_skills,
-    )
+    skills = load_role_skills(prompt_role_key, include_draft=include_draft, max_skills=max_skills)
     if not skills:
         return ""
     parts = ["【对局经验 Skill 卡片 — 可参考，须符合当前局面与信息边界】"]
@@ -97,14 +87,9 @@ def format_role_skills_section(
 
 
 def load_role_skills_text(
-    prompt_role_key: str,
-    *,
-    include_draft: bool = True,
-    max_skills: int = 5,
+    prompt_role_key: str, *, include_draft: bool = True, max_skills: int = 5
 ) -> str:
     """供 PromptManager / Agent 调用的薄封装。"""
     return format_role_skills_section(
-        prompt_role_key,
-        include_draft=include_draft,
-        max_skills=max_skills,
+        prompt_role_key, include_draft=include_draft, max_skills=max_skills
     )

@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
-from llm_werewolf.evaluation.post_game.run_context import load_run_context
-from llm_werewolf.evaluation.post_game.scoring.mvp import build_mvp_scores
 from llm_werewolf.evaluation.scoring.benefit import build_benefit_scores
 from llm_werewolf.evaluation.scoring.intention import build_intention_scores
+from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.evaluation.post_game.scoring.mvp import build_mvp_scores
+from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 
 
 def _fixture_events() -> list[dict]:
@@ -28,7 +28,7 @@ def _fixture_events() -> list[dict]:
                         "player_name": "A",
                         "from_target_id": None,
                         "to_target_id": "player_5",
-                    },
+                    }
                 ],
                 "swing_count": 1,
             },
@@ -37,10 +37,7 @@ def _fixture_events() -> list[dict]:
             "event_type": "vote_cast",
             "round_number": 1,
             "phase": "day_voting",
-            "data": {
-                "voter_id": "player_1",
-                "target_id": "player_5",
-            },
+            "data": {"voter_id": "player_1", "target_id": "player_5"},
         },
         {
             "event_type": "player_eliminated",
@@ -66,15 +63,13 @@ def _fixture_events() -> list[dict]:
 def test_intention_scores_swing_to_final_vote(tmp_path: Path) -> None:
     events = _fixture_events()
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in records),
-        encoding="utf-8",
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in records), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     camp = build_camp_persuasion_report(ctx)
@@ -89,18 +84,14 @@ def test_intention_scores_swing_to_final_vote(tmp_path: Path) -> None:
 def test_benefit_scores_partial_metrics(tmp_path: Path) -> None:
     events = _fixture_events()
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     camp = build_camp_persuasion_report(ctx)
     intention = build_intention_scores(ctx, camp)
     mvp_payload = build_mvp_scores(ctx, camp, intention_payload=intention)
     benefit = build_benefit_scores(
-        ctx,
-        camp,
-        intention_by_player=intention.get("by_player"),
-        mvp_payload=mvp_payload,
+        ctx, camp, intention_by_player=intention.get("by_player"), mvp_payload=mvp_payload
     )
     assert benefit["schema"] == "benefit_scores_v2"
     assert benefit["phase"] == "mvp_integrated"
@@ -114,8 +105,7 @@ def test_benefit_scores_partial_metrics(tmp_path: Path) -> None:
 def test_benefit_scores_preserves_zero_mvp_total(tmp_path: Path) -> None:
     events = _fixture_events()
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     camp = build_camp_persuasion_report(ctx)
@@ -125,12 +115,7 @@ def test_benefit_scores_preserves_zero_mvp_total(tmp_path: Path) -> None:
             {
                 "player_id": pid,
                 "mvp_total": 0.0,
-                "breakdown_raw": {
-                    "persuasion": 0,
-                    "strategy": 0,
-                    "outcome": 0,
-                    "wolf_night": 0,
-                },
+                "breakdown_raw": {"persuasion": 0, "strategy": 0, "outcome": 0, "wolf_night": 0},
                 "breakdown_norm": {},
                 "rank": idx + 1,
             }

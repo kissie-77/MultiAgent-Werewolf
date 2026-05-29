@@ -1,4 +1,4 @@
-﻿"""由引擎控制的路由：谁能听到什么在此决定，不由 Agent 自行决定。
+"""由引擎控制的路由：谁能听到什么在此决定，不由 Agent 自行决定。
 
 Agent 仅产出发言（public_speech / private_thought）或接收消息；
 Hub 在 ``MessageRouter`` 按游戏规则解析受众后再投递。
@@ -6,13 +6,12 @@ Hub 在 ``MessageRouter`` 按游戏规则解析受众后再投递。
 
 from __future__ import annotations
 
+from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
 from llm_werewolf.game_runtime.events.visibility import (
     RoutedMessage,
     VisibilityChannel,
-    audience_for_channel,
     event_type_for_channel,
 )
-from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
 
 
 class MessageRouter:
@@ -31,15 +30,12 @@ class MessageRouter:
             return [p for p in custom_audience if p.is_alive()]
         if channel == VisibilityChannel.PRIVATE and actor is not None:
             return [actor] if actor.is_alive() else []
-        ids = set(
-            MessageRouter.resolve_audience_player_ids(channel, alive_players)
-        )
+        ids = set(MessageRouter.resolve_audience_player_ids(channel, alive_players))
         return [p for p in alive_players if p.player_id in ids]
 
     @staticmethod
     def resolve_audience_player_ids(
-        channel: VisibilityChannel,
-        alive_players: list[PlayerProtocol],
+        channel: VisibilityChannel, alive_players: list[PlayerProtocol]
     ) -> list[str]:
         if channel == VisibilityChannel.PUBLIC:
             return [p.player_id for p in alive_players if p.is_alive()]
@@ -57,9 +53,7 @@ class MessageRouter:
 
     @staticmethod
     def visible_to_for_routed(
-        routed: RoutedMessage,
-        *,
-        wolf_player_ids: list[str],
+        routed: RoutedMessage, *, wolf_player_ids: list[str]
     ) -> list[str] | None:
         """将已路由的公开发言行映射为 Event.visible_to（None 表示全员可见）。"""
         if routed.channel == VisibilityChannel.PUBLIC:
@@ -74,8 +68,4 @@ class MessageRouter:
     def wolf_player_ids(alive_players: list[PlayerProtocol]) -> list[str]:
         from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 
-        return [
-            p.player_id
-            for p in alive_players
-            if participates_in_wolf_team(p)
-        ]
+        return [p.player_id for p in alive_players if participates_in_wolf_team(p)]

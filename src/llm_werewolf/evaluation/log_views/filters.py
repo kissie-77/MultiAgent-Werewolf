@@ -13,7 +13,7 @@ _JSON_THINKING_RE = re.compile(r'"thinking"\s*:\s*"[^"]*"', re.IGNORECASE)
 
 
 def event_is_visible_to(event: dict[str, Any], player_id: str) -> bool:
-    """dict 形式 event 的 visible_to 判定（与 Event.is_visible_to 一致）。"""
+    """Dict 形式 event 的 visible_to 判定（与 Event.is_visible_to 一致）。"""
     visible_to = event.get("visible_to")
     if visible_to is None:
         return True
@@ -23,10 +23,7 @@ def event_is_visible_to(event: dict[str, Any], player_id: str) -> bool:
 
 
 def filter_events_for_player(
-    events: list[dict[str, Any]],
-    player_id: str,
-    *,
-    since_round: int | None = None,
+    events: list[dict[str, Any]], player_id: str, *, since_round: int | None = None
 ) -> list[dict[str, Any]]:
     filtered = [e for e in events if event_is_visible_to(e, player_id)]
     if since_round is not None:

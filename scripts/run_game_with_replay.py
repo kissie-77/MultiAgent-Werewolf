@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
 import sys
-from datetime import datetime
+import json
+import asyncio
 from pathlib import Path
+from datetime import datetime
 
 # Windows console: avoid GBK emoji crashes when piping output.
 if hasattr(sys.stdout, "reconfigure"):
@@ -24,13 +24,17 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 
-from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
-from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscope_after_setup, create_information_hub
+from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.paths import RUNS_DIR
+from llm_werewolf.interface.bootstrap import (
+    prepare_game_roster,
+    create_information_hub,
+    wire_agentscope_after_setup,
+)
 from llm_werewolf.ui.console_presenter import ConsolePresenter
+from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 
 
 async def run(config_path: Path, run_dir: Path) -> None:
@@ -39,9 +43,7 @@ async def run(config_path: Path, run_dir: Path) -> None:
 
     locale = Locale(players_config.language)
     engine = GameEngine(
-        game_config,
-        language=players_config.language,
-        information_hub=create_information_hub(),
+        game_config, language=players_config.language, information_hub=create_information_hub()
     )
     presenter = ConsolePresenter(locale)
     engine.on_event = presenter.present_event

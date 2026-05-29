@@ -17,9 +17,7 @@ def _sample_items() -> list[MemoryItem]:
 
 def test_compress_uses_llm_when_available() -> None:
     compressor = LLMCompressor(
-        api_key="test-key",
-        base_url="https://api.example.com/v1",
-        model="test-model",
+        api_key="test-key", base_url="https://api.example.com/v1", model="test-model"
     )
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -28,7 +26,9 @@ def test_compress_uses_llm_when_available() -> None:
     }
     mock_response.raise_for_status = MagicMock()
 
-    with patch("llm_werewolf.agent_team.memory.llm_compressor.httpx.post", return_value=mock_response) as mock_post:
+    with patch(
+        "llm_werewolf.agent_team.memory.llm_compressor.httpx.post", return_value=mock_response
+    ) as mock_post:
         result = compressor.compress(_sample_items())
 
     assert "3号指控5号是狼" in result
@@ -52,33 +52,31 @@ def test_compress_fallback_on_missing_base_url() -> None:
 
 
 def test_compress_fallback_on_llm_exception() -> None:
-    compressor = LLMCompressor(
-        api_key="test-key",
-        base_url="https://api.example.com/v1",
-    )
+    compressor = LLMCompressor(api_key="test-key", base_url="https://api.example.com/v1")
 
-    with patch("llm_werewolf.agent_team.memory.llm_compressor.httpx.post", side_effect=Exception("timeout")):
+    with patch(
+        "llm_werewolf.agent_team.memory.llm_compressor.httpx.post",
+        side_effect=Exception("timeout"),
+    ):
         result = compressor.compress(_sample_items())
 
     assert "做了1个决策" in result
 
 
 def test_compress_logs_first_failure_once_without_traceback(caplog) -> None:
-    compressor = LLMCompressor(
-        api_key="test-key",
-        base_url="https://api.example.com/v1",
-    )
+    compressor = LLMCompressor(api_key="test-key", base_url="https://api.example.com/v1")
 
     with (
         caplog.at_level(logging.DEBUG, logger="llm_werewolf.agent_team.memory.llm_compressor"),
-        patch("llm_werewolf.agent_team.memory.llm_compressor.httpx.post", side_effect=Exception("timeout")),
+        patch(
+            "llm_werewolf.agent_team.memory.llm_compressor.httpx.post",
+            side_effect=Exception("timeout"),
+        ),
     ):
         first = compressor.compress(_sample_items())
         second = compressor.compress(_sample_items())
 
-    warning_records = [
-        record for record in caplog.records if record.levelno == logging.WARNING
-    ]
+    warning_records = [record for record in caplog.records if record.levelno == logging.WARNING]
     assert "做了1个决策" in first
     assert "做了1个决策" in second
     assert len(warning_records) == 1
@@ -130,15 +128,12 @@ def test_working_memory_uses_compressor_on_end_round() -> None:
 
 
 def test_memory_manager_receives_compressor() -> None:
-    from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
     from llm_werewolf.game_runtime.events.events import EventLogger
+    from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
 
     mock_compressor = MagicMock()
     manager = MemoryManager(
-        EventLogger(),
-        role="villager",
-        player_id="p1",
-        compressor=mock_compressor,
+        EventLogger(), role="villager", player_id="p1", compressor=mock_compressor
     )
 
     assert manager.working._compressor is mock_compressor

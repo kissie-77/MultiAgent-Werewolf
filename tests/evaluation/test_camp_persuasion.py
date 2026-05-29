@@ -1,13 +1,13 @@
 """阵营匹配说服分析。"""
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
+from llm_werewolf.game_runtime.types.enums import Camp
 from llm_werewolf.evaluation.post_game.run_context import (
-    PlayerRosterEntry,
     RunContext,
+    PlayerRosterEntry,
     is_camp_aligned_vote_target,
 )
 from llm_werewolf.evaluation.core.vote_swing_analysis import analyze_speech_records
-from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 
 
 def test_camp_aligned_target_rules() -> None:
@@ -28,18 +28,18 @@ def test_build_camp_persuasion_scores_aligned_swings() -> None:
             "public_speech": "出五号",
             "before": {},
             "after": {},
-                "swings": [
-                    {
-                        "player_id": "player_3",
-                        "player_name": "好",
-                        "from_target_id": "player_2",
-                        "to_target_id": "player_5",
-                        "from_target_name": "狼",
-                        "to_target_name": "守",
-                    },
-                ],
+            "swings": [
+                {
+                    "player_id": "player_3",
+                    "player_name": "好",
+                    "from_target_id": "player_2",
+                    "to_target_id": "player_5",
+                    "from_target_name": "狼",
+                    "to_target_name": "守",
+                }
+            ],
             "swing_count": 1,
-        },
+        }
     ]
     swing_report = analyze_speech_records(records)
     ctx = RunContext(

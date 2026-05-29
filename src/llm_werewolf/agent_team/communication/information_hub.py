@@ -1,4 +1,4 @@
-﻿"""基于 MsgHub 的 Agent 交互信息隔离。
+"""基于 MsgHub 的 Agent 交互信息隔离。
 
 每次 LLM 调用在面向正确受众的 MsgHub 作用域内执行：
 - PUBLIC：所有存活玩家可听广播（白天讨论、警上发言、旁白）
@@ -12,36 +12,32 @@ LLM 决策 prompt 不包含这些事件，发言从 MsgHub / ReAct 记忆读取�
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable
 
 from agentscope.message import Msg as AgentScopeMsg
 from agentscope.pipeline import MsgHub
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.agent_team.communication.message_router import MessageRouter
-from llm_werewolf.agent_team.invocation.serial_calls import allow_parallel_agent_calls
-from llm_werewolf.game_runtime.events.visibility import (
-    RoutedMessage,
-    VisibilityChannel,
-)
 from llm_werewolf.strategy.decisions import SpeechDecision
-from llm_werewolf.strategy.phase_outputs import ActionPhase
-from llm_werewolf.game_runtime.prompts.actions import EngineContexts
-from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 from llm_werewolf.strategy.vote_intention import (
-    SpeechVoteIntentionRecord,
-    VoteIntentionAnchor,
     VoteIntentionEntry,
-    VoteIntentionSnapshot,
+    VoteIntentionAnchor,
     VoteIntentionTracker,
-    format_intentions_line,
+    VoteIntentionSnapshot,
+    SpeechVoteIntentionRecord,
 )
+from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+from llm_werewolf.game_runtime.events.visibility import RoutedMessage, VisibilityChannel
+from llm_werewolf.agent_team.invocation.serial_calls import allow_parallel_agent_calls
+from llm_werewolf.agent_team.communication.message_router import MessageRouter
 
 if TYPE_CHECKING:
-    from llm_werewolf.game_runtime.state.player import Player
+    from collections.abc import Callable
 
+    from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
+    from llm_werewolf.strategy.phase_outputs import ActionPhase
 
 logger = logging.getLogger(__name__)
 
@@ -87,18 +83,11 @@ class InformationHub:
             return []
         alive = self._get_alive_players()
         routed = MessageRouter.resolve_audience_players(
-            channel,
-            alive,
-            custom_audience=audience,
-            actor=actor,
+            channel, alive, custom_audience=audience, actor=actor
         )
         return [p for p in routed if self._react_agent(p) is not None]
 
-    def _merge_private_context(
-        self,
-        actor: PlayerProtocol,
-        additional_context: str,
-    ) -> str:
+    def _merge_private_context(self, actor: PlayerProtocol, additional_context: str) -> str:
         parts: list[str] = []
         if self._build_observation:
             observation = self._build_observation(actor)
@@ -130,10 +119,7 @@ class InformationHub:
         return event_logger.get_events_for_player(actor.player_id, since_round)
 
     async def _deliver_private(
-        self,
-        react_agent: Any,
-        speaker_name: str,
-        private_thought: str,
+        self, react_agent: Any, speaker_name: str, private_thought: str
     ) -> None:
         if not private_thought.strip():
             return
@@ -160,11 +146,7 @@ class InformationHub:
             name="Moderator",
             content=content.strip(),
             role="user",
-            metadata={
-                "visibility": channel.value,
-                "phase": phase,
-                "round": round_number,
-            },
+            metadata={"visibility": channel.value, "phase": phase, "round": round_number},
         )
         await hub.broadcast(msg)
 
@@ -179,10 +161,7 @@ class InformationHub:
         audience_players: list[PlayerProtocol],
     ) -> RoutedMessage:
         seat = WerewolfAdapterBridge.get_player_seat(speaker) or 0
-        audience = MessageRouter.resolve_audience_player_ids(
-            channel,
-            audience_players,
-        )
+        audience = MessageRouter.resolve_audience_player_ids(channel, audience_players)
         routed = RoutedMessage(
             speaker_seat=seat,
             speaker_player_id=speaker.player_id,
@@ -249,19 +228,12 @@ class InformationHub:
         for observer in observers:
             if not observer.is_alive() or observer.agent is None:
                 continue
-            possible_targets = [
-                p for p in alive if p.player_id != observer.player_id
-            ]
-            extra_parts = [
-                context_builder(observer),
-                EngineContexts.hub_decision_memory_notice(),
-            ]
+            possible_targets = [p for p in alive if p.player_id != observer.player_id]
+            extra_parts = [context_builder(observer), EngineContexts.hub_decision_memory_notice()]
             if anchor == VoteIntentionAnchor.INITIAL:
                 extra_parts.append("【投票意向】讨论开始前的初始意向。")
             else:
-                extra_parts.append(
-                    f"【投票意向】请根据刚听完的 {last_name} 的发言更新意向。"
-                )
+                extra_parts.append(f"【投票意向】请根据刚听完的 {last_name} 的发言更新意向。")
             extra = "\n\n".join(part for part in extra_parts if part)
             jobs.append((observer, possible_targets, extra))
 
@@ -272,9 +244,7 @@ class InformationHub:
         bypass_global_lock = self._vote_intention_concurrency > 1
 
         async def _collect_one(
-            observer: PlayerProtocol,
-            possible_targets: list[PlayerProtocol],
-            extra: str,
+            observer: PlayerProtocol, possible_targets: list[PlayerProtocol], extra: str
         ) -> tuple[str, VoteIntentionEntry]:
 
             async def _call(
@@ -298,21 +268,11 @@ class InformationHub:
                 if bypass_global_lock:
                     with allow_parallel_agent_calls():
                         entry = await self._run_private_session(
-                            observer,
-                            VisibilityChannel.PRIVATE,
-                            phase,
-                            round_number,
-                            extra,
-                            _call,
+                            observer, VisibilityChannel.PRIVATE, phase, round_number, extra, _call
                         )
                 else:
                     entry = await self._run_private_session(
-                        observer,
-                        VisibilityChannel.PRIVATE,
-                        phase,
-                        round_number,
-                        extra,
-                        _call,
+                        observer, VisibilityChannel.PRIVATE, phase, round_number, extra, _call
                     )
             return observer.player_id, entry
 
@@ -345,13 +305,10 @@ class InformationHub:
         round_number: int,
         audience: list[PlayerProtocol] | None = None,
         opening_announcement: str = "",
-        on_speech: Callable[
-            [PlayerProtocol, SpeechDecision, RoutedMessage | None], None
-        ]
+        on_speech: Callable[[PlayerProtocol, SpeechDecision, RoutedMessage | None], None]
         | None = None,
         vote_intention_tracker: VoteIntentionTracker | None = None,
-        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
-        | None = None,
+        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None] | None = None,
     ) -> list[RoutedMessage]:
         """顺序讨论；MsgHub 受众仅听到公开发言行。"""
         routed_messages: list[RoutedMessage] = []
@@ -429,23 +386,16 @@ class InformationHub:
                 ])
                 from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
 
-                rt_phase = resolve_roundtable_phase(
-                    channel=channel.value, phase=phase
-                )
+                rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
                 decision = await WerewolfAdapterBridge.request_speech(
-                    speaker.agent,
-                    context,
-                    instruction,
-                    roundtable_phase=rt_phase,
+                    speaker.agent, context, instruction, roundtable_phase=rt_phase
                 )
 
                 react_self = self._react_agent(speaker)
                 routed: RoutedMessage | None = None
 
                 if react_self and decision.private_thought:
-                    await self._deliver_private(
-                        react_self, speaker.name, decision.private_thought
-                    )
+                    await self._deliver_private(react_self, speaker.name, decision.private_thought)
 
                 if decision.public_speech.strip():
                     routed = await self._broadcast_public(
@@ -564,12 +514,7 @@ class InformationHub:
             )
 
         return await self._run_private_session(
-            actor,
-            VisibilityChannel.PRIVATE,
-            phase or "",
-            round_number or 0,
-            context,
-            _call,
+            actor, VisibilityChannel.PRIVATE, phase or "", round_number or 0, context, _call
         )
 
     async def request_private_witch_night(
@@ -602,12 +547,7 @@ class InformationHub:
             )
 
         return await self._run_private_session(
-            actor,
-            VisibilityChannel.PRIVATE,
-            phase or "",
-            round_number or 0,
-            context,
-            _call,
+            actor, VisibilityChannel.PRIVATE, phase or "", round_number or 0, context, _call
         )
 
     async def request_private_yes_no(
@@ -624,21 +564,11 @@ class InformationHub:
 
         async def _call() -> bool:
             return await WerewolfAdapterBridge.request_yes_no(
-                agent,
-                role_name,
-                question,
-                full_context,
-                round_number,
-                phase,
+                agent, role_name, question, full_context, round_number, phase
             )
 
         return await self._run_private_session(
-            actor,
-            VisibilityChannel.PRIVATE,
-            phase or "",
-            round_number or 0,
-            full_context,
-            _call,
+            actor, VisibilityChannel.PRIVATE, phase or "", round_number or 0, full_context, _call
         )
 
     async def request_private_multi_target(
@@ -668,12 +598,7 @@ class InformationHub:
             )
 
         return await self._run_private_session(
-            actor,
-            VisibilityChannel.PRIVATE,
-            phase or "",
-            round_number or 0,
-            context,
-            _call,
+            actor, VisibilityChannel.PRIVATE, phase or "", round_number or 0, context, _call
         )
 
     async def collect_speech(
@@ -698,10 +623,7 @@ class InformationHub:
 
         rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
         decision = await WerewolfAdapterBridge.request_speech(
-            speaker.agent,
-            context,
-            instruction,
-            roundtable_phase=rt_phase,
+            speaker.agent, context, instruction, roundtable_phase=rt_phase
         )
         react_self = self._react_agent(speaker)
         if not react_self or not react_agents:

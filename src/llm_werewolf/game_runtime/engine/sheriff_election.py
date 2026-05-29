@@ -1,12 +1,12 @@
-﻿"""游戏引擎的警长选举阶段逻辑。"""
+"""游戏引擎的警长选举阶段逻辑。"""
 
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
-from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
+from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
 
 
 class SheriffElectionMixin:
@@ -71,11 +71,7 @@ class SheriffElectionMixin:
             except Exception as exc:
                 self._log_event(
                     EventType.ERROR,
-                    self.locale.get(
-                        "sheriff_candidate_error",
-                        player=player.name,
-                        error=str(exc),
-                    ),
+                    self.locale.get("sheriff_candidate_error", player=player.name, error=str(exc)),
                     data={
                         "player_id": player.player_id,
                         "error": str(exc),
@@ -114,17 +110,11 @@ class SheriffElectionMixin:
         def context_builder(candidate: PlayerProtocol) -> str:
             return self._build_speech_context(candidate, candidates)
 
-        def on_speech(
-            speaker: PlayerProtocol,
-            decision: SpeechDecision,
-            _routed: object,
-        ) -> None:
+        def on_speech(speaker: PlayerProtocol, decision: SpeechDecision, _routed: object) -> None:
             self._log_event(
                 EventType.SHERIFF_CANDIDATE_SPEECH,
                 self.locale.get(
-                    "candidate_speech",
-                    candidate=speaker.name,
-                    speech=decision.public_speech,
+                    "candidate_speech", candidate=speaker.name, speech=decision.public_speech
                 ),
                 data={"player_id": speaker.player_id, "speech": decision.public_speech},
                 visible_to=None,
@@ -212,11 +202,7 @@ class SheriffElectionMixin:
             except Exception as exc:
                 self._log_event(
                     EventType.ERROR,
-                    self.locale.get(
-                        "sheriff_vote_error",
-                        voter=voter.name,
-                        error=str(exc),
-                    ),
+                    self.locale.get("sheriff_vote_error", voter=voter.name, error=str(exc)),
                     data={
                         "voter_id": voter.player_id,
                         "error": str(exc),
@@ -236,8 +222,7 @@ class SheriffElectionMixin:
                 )
             else:
                 self._log_event(
-                    EventType.MESSAGE,
-                    self.locale.get("sheriff_vote_abstained", voter=voter.name),
+                    EventType.MESSAGE, self.locale.get("sheriff_vote_abstained", voter=voter.name)
                 )
 
         return vote_counts
@@ -253,10 +238,7 @@ class SheriffElectionMixin:
         from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 
         return EngineContexts.sheriff_vote_intro(
-            player.name,
-            player.get_role_name(),
-            self.game_state.round_number,
-            candidate_names,
+            player.name, player.get_role_name(), self.game_state.round_number, candidate_names
         ) + self.locale.get("sheriff_vote_note")
 
     async def _resolve_sheriff_result(
@@ -305,9 +287,7 @@ class SheriffElectionMixin:
                 self.locale.get("sheriff_tie_pk", candidates=", ".join(winner_names)),
             )
 
-            pk_candidates = [
-                c for c in all_candidates if c.player_id in winner_ids
-            ]
+            pk_candidates = [c for c in all_candidates if c.player_id in winner_ids]
 
             if len(pk_candidates) >= 2:
                 await self._conduct_pk_speeches(pk_candidates)
@@ -316,10 +296,7 @@ class SheriffElectionMixin:
                 await self._resolve_sheriff_result(vote_counts, pk_candidates)
             else:
                 # 仅 1 名 PK 候选人时的兜底（不应发生）
-                self._log_event(
-                    EventType.MESSAGE,
-                    self.locale.get("sheriff_tie_fallback"),
-                )
+                self._log_event(EventType.MESSAGE, self.locale.get("sheriff_tie_fallback"))
         else:
             # 再次平票：警徽流失
             self._log_event(
@@ -334,8 +311,7 @@ class SheriffElectionMixin:
             return
 
         self._log_event(
-            EventType.MESSAGE,
-            self.locale.get("pk_speeches_start", count=len(candidates)),
+            EventType.MESSAGE, self.locale.get("pk_speeches_start", count=len(candidates))
         )
 
         interaction = self.game_state.require_phase_interaction()
@@ -344,17 +320,11 @@ class SheriffElectionMixin:
         def context_builder(candidate: PlayerProtocol) -> str:
             return self._build_pk_speech_context(candidate, candidates)
 
-        def on_speech(
-            speaker: PlayerProtocol,
-            decision: SpeechDecision,
-            _routed: object,
-        ) -> None:
+        def on_speech(speaker: PlayerProtocol, decision: SpeechDecision, _routed: object) -> None:
             self._log_event(
                 EventType.SHERIFF_CANDIDATE_SPEECH,
                 self.locale.get(
-                    "pk_candidate_speech",
-                    candidate=speaker.name,
-                    speech=decision.public_speech,
+                    "pk_candidate_speech", candidate=speaker.name, speech=decision.public_speech
                 ),
                 data={"player_id": speaker.player_id, "speech": decision.public_speech},
                 visible_to=None,

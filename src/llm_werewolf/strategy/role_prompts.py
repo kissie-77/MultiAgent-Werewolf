@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """狼人杀角色策略提示词。
 
 Prompt v2：角色策略卡 + 多 Agent 行为准则。
@@ -43,36 +42,38 @@ class GamePrompts:
     """游戏流程提示词"""
 
     NIGHT_BEGIN = "天黑请闭眼"
-    
+
     GUARD_ACTION = "守卫请睁眼，今晚你要守谁？回答编号，放在[[]]里"
     GUARD_CLOSE = "守卫请闭眼"
-    
+
     WOLF_OPEN = "狼人请睁眼，今晚你要刀谁？请回答玩家编号，并放在[[]]里"
     WOLF_TEAMMATES = "你的另外三个队友的代号：{teammates}"
     WOLF_RECHOOSE = "你的队友选了{targets}号玩家，请重新选一次，可以重复，你的决定将是最终目标,请回答玩家编号，并放在[[]]里"
     WOLF_RESULT = "狼人最终选择刀{target}号玩家"
     WOLF_CLOSE = "狼人请闭眼"
-    
+
     WITCH_OPEN = "女巫请睁眼"
     WITCH_NO_POTION = "你没有药了"
-    WITCH_ANTIDOTE = "今晚{target}死了，你有一瓶解药，你要使用吗？请在回答中说[[0]]或[[1]]（1代表yes，0代表no）"
+    WITCH_ANTIDOTE = (
+        "今晚{target}死了，你有一瓶解药，你要使用吗？请在回答中说[[0]]或[[1]]（1代表yes，0代表no）"
+    )
     WITCH_POISON = "你有一瓶毒药，今晚你要使用吗？请在回答中说[[0]]或[[1]]（1代表yes，0代表no）"
     WITCH_POISON_TARGET = "你要毒谁？请回答玩家编号，并放在[[]]里"
     WITCH_CLOSE = "女巫请闭眼"
-    
+
     PROPHET_ACTION = "预言家请睁眼，选择你要验的玩家编号，回答编号，放在[[]]里"
     PROPHET_RESULT_GOOD = "他是个好人，预言家请闭眼"
     PROPHET_RESULT_BAD = "他是个坏人，预言家请闭眼"
-    
+
     DAY_BEGIN = "天亮了"
     PEACEFUL_NIGHT = "今晚是个平安夜"
     DEATH_ANNOUNCE_ONE = "今晚{player}号玩家死了"
     DEATH_ANNOUNCE_TWO = "今晚{player1}号玩家和{player2}号玩家死了"
-    
+
     LAST_WORDS = "你死了，请发表遗言"
     LAST_WORDS_ANNOUNCE = "{player}号玩家的遗言是：{words}"
     FIRST_NIGHT_NO_WORDS = "第一晚没有遗言"
-    
+
     SPEECH_BEGIN = "发言阶段，请玩家轮流发言，每天顺序交替，第一次1-12，第二次12-1，以此类推"
     SPEECH_PROMPT = (
         "请完成本轮公开发言任务：仅通过 generate_response 提交 SpeechDecision，"
@@ -80,7 +81,7 @@ class GamePrompts:
     )
     SPEECH_ANNOUNCE = "{player}号玩家的发言：{speech}"
     PLAYER_DEAD_SKIP = "{player}号玩家已死亡，跳过发言。"
-    
+
     VOTE_BEGIN = "请各位玩家轮流投票，必须回复[[座位号]]，一定要把要投的座位号放在[[]]里，弃票的话必须回复[[0]]，每天投票顺序交替，第一次1-12，第二次12-1，以此类推"
     VOTE_ANNOUNCE = "{player}号玩家投给了{target}号"
     VOTE_ABSTAIN = "{player}号玩家弃票"
@@ -88,14 +89,14 @@ class GamePrompts:
     VOTE_TIE = "平票，无人出局"
     VOTE_RESULT = "公投结果：{player}号玩家出局"
     VOTE_ALL_ABSTAIN = "全体玩家弃票"
-    
+
     WOLF_KING_DEATH = "你被投票处决死了，你作为狼王可以发动技能杀死一名玩家，请回答存活的玩家编号，并放在[[]]中，[[]]中不要放发言，不发动技能请回答[[0]]"
     WOLF_KING_KILL = "有人发动了技能，把{target}号玩家杀死了"
-    
+
     HUNTER_DEATH = "你被击杀了，你作为猎人可以发动技能带走一名玩家，请回答存活的玩家编号，并放在[[]]中，[[]]中不要放发言，不发动技能请回答[[0]]"
     HUNTER_KILL = "有人发动了技能，把{target}号玩家杀死了"
     HUNTER_POISON_DEATH = "你被女巫毒死了，无法发动猎人技能"
-    
+
     GOOD_WIN = "好人阵营胜利"
     BAD_WIN = "狼人阵营胜利"
 

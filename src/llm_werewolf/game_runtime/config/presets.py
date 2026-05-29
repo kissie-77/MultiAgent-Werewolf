@@ -1,4 +1,4 @@
-﻿from llm_werewolf.game_runtime.config.game_config import GameConfig
+from llm_werewolf.game_runtime.config.game_config import GameConfig
 
 
 def _validate_player_count(num_players: int) -> None:

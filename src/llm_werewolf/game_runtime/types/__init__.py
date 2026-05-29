@@ -1,12 +1,13 @@
-﻿# 导出所有枚举
+# 导出所有枚举
+from llm_werewolf.game_runtime.observation import PlayerObservation
 from llm_werewolf.game_runtime.types.enums import (
     Camp,
     EventType,
     GamePhase,
     ActionType,
+    VictoryGoal,
     PlayerStatus,
     ActionPriority,
-    VictoryGoal,
 )
 
 # 导出所有模型
@@ -26,7 +27,6 @@ from llm_werewolf.game_runtime.types.protocols import (
     PlayerProtocol,
     GameStateProtocol,
 )
-from llm_werewolf.game_runtime.observation import PlayerObservation
 
 __all__ = [
     # 枚举
@@ -46,8 +46,8 @@ __all__ = [
     "PlayerObservation",
     "PlayerProtocol",
     "PlayerStatus",
-    "VictoryGoal",
     "RoleConfig",
     "RoleProtocol",
+    "VictoryGoal",
     "VictoryResult",
 ]

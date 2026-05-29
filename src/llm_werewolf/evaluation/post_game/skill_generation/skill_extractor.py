@@ -2,25 +2,28 @@
 
 from __future__ import annotations
 
-import json
 import re
+import json
+from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
-    build_night_action_skill_card,
     build_persuasion_skill_card,
+    build_night_action_skill_card,
 )
 from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     SkillGenerationCandidate,
-    collect_skill_generation_candidates,
-    collect_skipped_candidates,
     generation_rules_summary,
+    collect_skipped_candidates,
+    collect_skill_generation_candidates,
 )
-from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 
 def _slug(text: str, *, max_len: int = 40) -> str:
@@ -30,10 +33,7 @@ def _slug(text: str, *, max_len: int = 40) -> str:
 
 
 def _skill_from_candidate(
-    candidate: SkillGenerationCandidate,
-    ctx: RunContext,
-    *,
-    rank: int,
+    candidate: SkillGenerationCandidate, ctx: RunContext, *, rank: int
 ) -> dict[str, Any]:
     if candidate.source_kind == "persuasion_speech" and candidate.speech is not None:
         return _skill_from_persuasion(candidate, ctx, rank=rank)
@@ -41,10 +41,7 @@ def _skill_from_candidate(
 
 
 def _skill_from_persuasion(
-    candidate: SkillGenerationCandidate,
-    ctx: RunContext,
-    *,
-    rank: int,
+    candidate: SkillGenerationCandidate, ctx: RunContext, *, rank: int
 ) -> dict[str, Any]:
     speech = candidate.speech
     assert speech is not None
@@ -86,10 +83,7 @@ def _skill_from_persuasion(
             "camp_aligned_swings": speech.camp_aligned_swings,
             "camp_aligned_score": speech.camp_aligned_score,
             "matched_round_elimination": speech.matched_round_elimination,
-            "scores": {
-                "intention": speech.camp_aligned_score,
-                "benefit": None,
-            },
+            "scores": {"intention": speech.camp_aligned_score, "benefit": None},
         },
         "rationale": (
             f"[生成规则: {candidate.rule.rule_id}] "
@@ -101,10 +95,7 @@ def _skill_from_persuasion(
 
 
 def _skill_from_night_action(
-    candidate: SkillGenerationCandidate,
-    ctx: RunContext,
-    *,
-    rank: int,
+    candidate: SkillGenerationCandidate, ctx: RunContext, *, rank: int
 ) -> dict[str, Any]:
     event = candidate.night_event or {}
     data = event.get("data") or {}
@@ -159,10 +150,7 @@ def _skill_from_night_action(
     }
 
 
-def build_role_skills(
-    ctx: RunContext,
-    camp_report: CampPersuasionReport,
-) -> dict[str, Any]:
+def build_role_skills(ctx: RunContext, camp_report: CampPersuasionReport) -> dict[str, Any]:
     """构建 role_skills.json；仅包含通过生成规则的条目。"""
     candidates = collect_skill_generation_candidates(ctx, camp_report)
     skills = [
@@ -199,15 +187,13 @@ def build_role_skills(
 
 
 def _build_skipped_summary(
-    ctx: RunContext,
-    camp_report: CampPersuasionReport,
-    candidates: list[SkillGenerationCandidate],
+    ctx: RunContext, camp_report: CampPersuasionReport, candidates: list[SkillGenerationCandidate]
 ) -> list[dict[str, Any]]:
     """记录本局有玩家但未生成 Skill 的身份（仅 JSON 摘要，不写 MD）。"""
+    from llm_werewolf.game_runtime.prompts.manager import PromptManager
     from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
         evaluate_persuasion_speech,
     )
-    from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
     generated_roles = {c.prompt_role_key for c in candidates}
     roster_roles: dict[str, list[str]] = {}
@@ -237,10 +223,7 @@ def _build_skipped_summary(
 
 
 def write_skill_markdown_files(
-    skills: list[dict[str, Any]],
-    *,
-    run_skills_dir: Path,
-    agent_skills_root: Path | None = None,
+    skills: list[dict[str, Any]], *, run_skills_dir: Path, agent_skills_root: Path | None = None
 ) -> list[str]:
     """写入 run 目录下的 Skill MD；可选双写 agent_team/skills。"""
     written: list[str] = []
@@ -278,7 +261,9 @@ def write_role_skills_artifacts(
 ) -> Path:
     """写出 role_skills.json 与 Skill MD（默认仅 run 目录）。"""
     if agent_skills_root is None:
-        from llm_werewolf.agent_team.skill_support.skill_loader import agent_skills_root as default_root
+        from llm_werewolf.agent_team.skill_support.skill_loader import (
+            agent_skills_root as default_root,
+        )
 
         agent_skills_root = default_root()
 

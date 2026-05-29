@@ -1,7 +1,6 @@
-﻿"""使用统一 AgentScope 风格 prompt 的 Agent 混入类。"""
+"""使用统一 AgentScope 风格 prompt 的 Agent 混入类。"""
 
 from llm_werewolf.game_runtime.roles.catalog import get_definition_by_role_class
-from llm_werewolf.game_runtime.roles.definition import RoleDefinition
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 
@@ -16,10 +15,7 @@ class PromptAgentMixin:
             self.plan = plan
         name = getattr(self, "name", "玩家")
         self.chat_history = PromptManager.build_initial_chat_history(
-            self.role_definition,
-            player_name=name,
-            seat_number=seat_number,
-            plan=self.plan,
+            self.role_definition, player_name=name, seat_number=seat_number, plan=self.plan
         )
 
     def get_role_display_name(self) -> str:

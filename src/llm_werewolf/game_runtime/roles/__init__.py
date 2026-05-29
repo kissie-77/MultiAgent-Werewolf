@@ -1,8 +1,7 @@
-﻿from llm_werewolf.game_runtime.types import Camp, RoleConfig, ActionPriority
-from llm_werewolf.game_runtime.types.enums import VictoryGoal
+from llm_werewolf.game_runtime.types import Camp, RoleConfig, ActionPriority
 from llm_werewolf.game_runtime.roles.base import Role
+from llm_werewolf.game_runtime.types.enums import VictoryGoal
 from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG, get_catalog, get_definition
-from llm_werewolf.game_runtime.roles.definition import RoleDefinition
 from llm_werewolf.game_runtime.roles.neutral import Lover, Thief, WhiteLoverWolf
 from llm_werewolf.game_runtime.roles.villager import (
     Seer,
@@ -28,8 +27,10 @@ from llm_werewolf.game_runtime.roles.werewolf import (
     NightmareWolf,
     BloodMoonApostle,
 )
+from llm_werewolf.game_runtime.roles.definition import RoleDefinition
 
 __all__ = [
+    "ROLE_CATALOG",
     "ActionPriority",
     "AlphaWolf",
     "BloodMoonApostle",
@@ -47,19 +48,18 @@ __all__ = [
     "Magician",
     "NightmareWolf",
     "Raven",
-    "ROLE_CATALOG",
     "Role",
     "RoleConfig",
     "RoleDefinition",
-    "VictoryGoal",
-    "get_catalog",
-    "get_definition",
     "Seer",
     "Thief",
+    "VictoryGoal",
     "Villager",
     "Werewolf",
     "WhiteLoverWolf",
     "WhiteWolf",
     "Witch",
     "WolfBeauty",
+    "get_catalog",
+    "get_definition",
 ]

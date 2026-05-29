@@ -3,23 +3,22 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
 
 from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory
 from llm_werewolf.evaluation.post_game.event_adapter import (
     event_logger_from_dicts,
     event_logger_from_engine,
 )
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
 
 
-def episodic_memory_for_run(
-    ctx: RunContext,
-    *,
-    engine: Any | None = None,
-) -> EpisodicMemory:
+def episodic_memory_for_run(ctx: RunContext, *, engine: Any | None = None) -> EpisodicMemory:
     """为赛后分析构建 EpisodicMemory：优先引擎 EventLogger，否则 events.jsonl。"""
     logger = event_logger_from_engine(engine)
     if logger is None or not logger.events:
@@ -27,11 +26,7 @@ def episodic_memory_for_run(
     return EpisodicMemory(logger)
 
 
-def export_player_episode_reports(
-    ctx: RunContext,
-    *,
-    engine: Any | None = None,
-) -> dict[str, Any]:
+def export_player_episode_reports(ctx: RunContext, *, engine: Any | None = None) -> dict[str, Any]:
     """按 roster 导出各玩家 POV 的 episode 复盘（与 MemoryManager 使用同一 API）。"""
     episodic = episodic_memory_for_run(ctx, engine=engine)
     reports: dict[str, Any] = {}
@@ -73,11 +68,7 @@ def episode_excerpt_for_player_round(
     }
 
 
-def write_episodic_artifacts(
-    ctx: RunContext,
-    *,
-    engine: Any | None = None,
-) -> Path:
+def write_episodic_artifacts(ctx: RunContext, *, engine: Any | None = None) -> Path:
     """写出 episodic_reports.json（与情景记忆 export_episode_report 对齐）。"""
     payload = export_player_episode_reports(ctx, engine=engine)
     path = ctx.run_dir / "episodic_reports.json"

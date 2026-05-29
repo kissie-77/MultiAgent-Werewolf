@@ -2,7 +2,7 @@
 
 > 日期：2026-05-28
 > 目标：用**真实 doubao 对局**验证"消除结构化决策后被丢弃的第二次 LLM 往返"（性能报告 ③）的实际效果——既要量化提速，也要确认不伤对局质量。
-> 配套：实现见分支 `fix-second-round-trip`（`FastReActAgent` + `factory` 接线）；瓶颈定性见 [`对局性能瓶颈-影响程度量化报告.md`](对局性能瓶颈-影响程度量化报告.md)。
+> 配套：实现见分支 `fix-second-round-trip`（`FastReActAgent` + `factory` 接线）；瓶颈定性见 [`对局性能瓶颈-影响程度量化报告.md`](%E5%AF%B9%E5%B1%80%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88-%E5%BD%B1%E5%93%8D%E7%A8%8B%E5%BA%A6%E9%87%8F%E5%8C%96%E6%8A%A5%E5%91%8A.md)。
 
 ---
 
@@ -20,34 +20,34 @@
 
 **两臂**（同 seed=12345、同 6p doubao 配置 `llm-6p-doubao.yaml`、意向轮询保持默认开启）：
 
-| 臂 | 代码状态 | ReActAgent | 期望 ③ 行为 |
-|---|---|---|---|
-| **before** | `main` 源码（未修复） | 原版 `ReActAgent` | 结构化决策后多打一次纯文本往返 |
-| **after** | 分支 `fix-second-round-trip` | `FastReActAgent` | 首轮即终止，无第二次往返 |
+| 臂         | 代码状态                     | ReActAgent        | 期望 ③ 行为                    |
+| ---------- | ---------------------------- | ----------------- | ------------------------------ |
+| **before** | `main` 源码（未修复）        | 原版 `ReActAgent` | 结构化决策后多打一次纯文本往返 |
+| **after**  | 分支 `fix-second-round-trip` | `FastReActAgent`  | 首轮即终止，无第二次往返       |
 
 **计时器**（`scripts/timed_game.py`，自包含、非侵入）：只在 `openai` 边界 patch `AsyncCompletions.create`，记录每次**物理 HTTP 往返**的 wall / tokens / finish_reason / tool_calls；同时落一份事件流 transcript 供质量评审。补丁内只累加不 print（避开 rich/logfire 的 stdout 捕获陷阱）。两臂用**同一份脚本**、仅切 `PYTHONPATH` 指向不同源码树，确保指标口径一致。
 
 **证据等级**：🟩 确定性（代码/单测）｜🟦 实测（本次真实对局插桩）｜🟨 估算（由实测推导，含假设）。
 
-**关键混淆项（必须正视）**：两局是独立的真实对局，LLM 温度导致剧情分叉——未修复局打满 2 个游戏轮（村民胜），修复局 1 个游戏轮即结束（狼人胜）。**对局长度不同 ⇒ 原始总量（总墙钟、总 HTTP、总 token）不可直接对比**。因此本报告以**与局长无关的"浪费占比"**作为承重证据，原始总量只作旁证。
+**关键混淆项（必须正视）**：两局是独立的真实对局，LLM 温度导致剧情分叉——未修复局打满 2 个游戏轮（村民胜），修复局 1 个游戏轮即结束（狼人胜）。**对局长度不同 ⇒ 原始总量（总墙钟、总 HTTP、总 token）不可直接对比**。因此本报告以\*\*与局长无关的"浪费占比"\*\*作为承重证据，原始总量只作旁证。
 
 ---
 
 ## 2 · 实测结果
 
-| 指标 | before（未修复） | after（修复后） | 说明 |
-|---|---|---|---|
-| 总墙钟 | 3031.6 s（50.5 min） | 694.2 s（11.6 min） | ⚠️ 含局长差，不可直接归因 |
-| 游戏轮数 | 2 轮（+ setup） | 1 轮（+ setup） | 剧情分叉，非修复所致 |
-| 胜负 | 村民胜 | 狼人胜 | 非确定性，非质量信号 |
-| **HTTP 往返总数** | **187** | **55** | |
-| ├ 带工具调用 | 119 | 55 | 真正承载决策的调用 |
-| └ **纯文本无工具调用** | **68（36.4%）** | **0（0%）** | 🟦 **③ 的直接指纹** |
-| **reasoning token 合计** | **38,518** | **0** | 🟦 第二次往返的浪费独白 |
-| HTTP 占墙钟比 | 96.4% | 91.9% | 墙钟几乎全在等模型 |
-| 单次 HTTP 均值 / 中位 | 15.62 s / 11.57 s | 11.60 s / **5.93 s** | 🟦 中位大幅下降 |
-| finish_reason=length | 15 | 7 | ⑤ 问题两臂都在，非本修复目标 |
-| prompt token 合计 | 3,808,363 | 732,909 | ⚠️ 受局长影响，见 §3 |
+| 指标                     | before（未修复）     | after（修复后）      | 说明                         |
+| ------------------------ | -------------------- | -------------------- | ---------------------------- |
+| 总墙钟                   | 3031.6 s（50.5 min） | 694.2 s（11.6 min）  | ⚠️ 含局长差，不可直接归因    |
+| 游戏轮数                 | 2 轮（+ setup）      | 1 轮（+ setup）      | 剧情分叉，非修复所致         |
+| 胜负                     | 村民胜               | 狼人胜               | 非确定性，非质量信号         |
+| **HTTP 往返总数**        | **187**              | **55**               |                              |
+| ├ 带工具调用             | 119                  | 55                   | 真正承载决策的调用           |
+| └ **纯文本无工具调用**   | **68（36.4%）**      | **0（0%）**          | 🟦 **③ 的直接指纹**          |
+| **reasoning token 合计** | **38,518**           | **0**                | 🟦 第二次往返的浪费独白      |
+| HTTP 占墙钟比            | 96.4%                | 91.9%                | 墙钟几乎全在等模型           |
+| 单次 HTTP 均值 / 中位    | 15.62 s / 11.57 s    | 11.60 s / **5.93 s** | 🟦 中位大幅下降              |
+| finish_reason=length     | 15                   | 7                    | ⑤ 问题两臂都在，非本修复目标 |
+| prompt token 合计        | 3,808,363            | 732,909              | ⚠️ 受局长影响，见 §3         |
 
 **承重结论（🟦，与局长无关）**：未修复局每 ~3 次 HTTP 就有超过 1 次是纯浪费的第二次往返（36.4%）；修复后这类调用**彻底消失**（0%），且与之绑定的 reasoning token 从 38,518 归零。这与确定性单测（§4）完全自洽。
 
@@ -58,6 +58,7 @@
 **不能说"快了 4.4×"**——那主要来自修复局少打了一个游戏轮。可归因于 ③ 的提速，应在"同等长度对局"口径下估计：
 
 🟨 **臂内估算（only ③，与局长无关）**：未修复局 68 次浪费往返。
+
 - 若按全局均值 15.62 s/次：68 × 15.62 ≈ **1062 s**，占该局墙钟 **~35%**。
 - 浪费往返是 reasoning-heavy 的（diagnosis 探针实测第二次往返 ~19 s，高于首次 ~8 s）；若按 ~19 s/次：68 × 19 ≈ **1292 s**，占 **~43%**。
 - ⇒ **③ 单独可削减同等对局约 35–43% 的墙钟**。HTTP 占墙钟 96%，故"减往返"几乎等比转化为减墙钟。
@@ -113,12 +114,12 @@ export PYTHONUTF8=1
 WT=<worktree>; MAIN=<main tree>
 # before（未修复，main/src）
 PYTHONPATH=$MAIN/src python -u $WT/scripts/timed_game.py \
-  --config $MAIN/configs/llm-6p-doubao.yaml \
-  --out $WT/runs_timing/before.json --label before --seed 12345 --max-seconds 3600
+    --config $MAIN/configs/llm-6p-doubao.yaml \
+    --out $WT/runs_timing/before.json --label before --seed 12345 --max-seconds 3600
 # after（修复后，worktree/src）
 PYTHONPATH=$WT/src python -u $WT/scripts/timed_game.py \
-  --config $WT/configs/llm-6p-doubao.yaml \
-  --out $WT/runs_timing/after.json --label after --seed 12345 --max-seconds 3600
+    --config $WT/configs/llm-6p-doubao.yaml \
+    --out $WT/runs_timing/after.json --label after --seed 12345 --max-seconds 3600
 ```
 
 产物：`runs_timing/{before,after}.json`（时序指标）+ `{before,after}.events.jsonl`（对局 transcript）。

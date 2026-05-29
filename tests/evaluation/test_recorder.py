@@ -1,14 +1,14 @@
-﻿import json
+import json
 from pathlib import Path
 
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.agent_team.agents.base import DemoAgent
-from llm_werewolf.game_runtime.config import create_game_config_from_player_count
-from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.game_runtime.types import Event, EventType
+from llm_werewolf.game_runtime.config import create_game_config_from_player_count
+from llm_werewolf.interface.bootstrap import create_information_hub
+from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.evaluation.core.models import CheckResult
 from llm_werewolf.evaluation.core.recorder import EvaluationRecorder
-from llm_werewolf.interface.bootstrap import create_information_hub
+from llm_werewolf.game_runtime.registries.role_registry import create_roles
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -38,20 +38,11 @@ def test_recorder_writes_events_snapshots_errors_and_checks(tmp_path: Path) -> N
     recorder.record_event(event)
     recorder.record_snapshot(engine.game_state, label="after_setup")
     recorder.record_error(
-        ValueError("bad target"),
-        phase="night",
-        round_number=1,
-        role_name="Werewolf",
+        ValueError("bad target"), phase="night", round_number=1, role_name="Werewolf"
     )
-    recorder.finalize_checks(
-        [
-            CheckResult(
-                checker="RoleSkillChecker",
-                passed=False,
-                message="Missing target_id",
-            )
-        ]
-    )
+    recorder.finalize_checks([
+        CheckResult(checker="RoleSkillChecker", passed=False, message="Missing target_id")
+    ])
 
     events = _read_jsonl(tmp_path / "events.jsonl")
     snapshots = _read_jsonl(tmp_path / "snapshots.jsonl")

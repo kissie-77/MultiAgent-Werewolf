@@ -7,7 +7,7 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, BaseModel, field_validator
 
 # 圆桌 / 警长 / 遗言等公开发言的最小长度。
 SPEECH_PUBLIC_MIN_CHARS = 15
@@ -20,11 +20,7 @@ _SEAT_ONLY_PATTERN = re.compile(r"^\d{1,2}$")
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 
 
-def generate_response_instruction(
-    schema_name: str,
-    *,
-    information_isolation: bool = False,
-) -> str:
+def generate_response_instruction(schema_name: str, *, information_isolation: bool = False) -> str:
     """返回与具体结构化 Schema 绑定的 generate_response 约束。"""
     parts = [
         (
@@ -42,8 +38,7 @@ def generate_response_instruction(
 
 
 GENERATE_RESPONSE_INSTRUCTION = generate_response_instruction(
-    "SpeechDecision",
-    information_isolation=True,
+    "SpeechDecision", information_isolation=True
 )
 
 
@@ -72,8 +67,7 @@ class VoteIntentionDecision(BaseModel):
         ),
     )
     reason: str | None = Field(
-        default=None,
-        description="Private rationale; not broadcast to other players.",
+        default=None, description="Private rationale; not broadcast to other players."
     )
 
 
@@ -86,8 +80,7 @@ class SeatChoiceDecision(BaseModel):
         description="Global seat number of the target player. Use 0 only when skip is allowed.",
     )
     reason: str | None = Field(
-        default=None,
-        description="Private rationale; not shown to other players.",
+        default=None, description="Private rationale; not shown to other players."
     )
 
 
@@ -95,9 +88,7 @@ class MultiSeatChoiceDecision(BaseModel):
     """选择多个不重复的座位（如盗贼 / 丘比特）。"""
 
     seats: list[int] = Field(
-        ...,
-        min_length=1,
-        description="List of distinct global seat numbers.",
+        ..., min_length=1, description="List of distinct global seat numbers."
     )
     reason: str | None = Field(default=None, description="Private rationale.")
 
@@ -114,8 +105,7 @@ class SpeechDecision(BaseModel):
         ),
     )
     private_thought: str | None = Field(
-        default=None,
-        description="Private reasoning; not broadcast to other players.",
+        default=None, description="Private reasoning; not broadcast to other players."
     )
 
     @field_validator("public_speech")
@@ -142,8 +132,7 @@ class WitchNightDecision(BaseModel):
     """狼刀结算后女巫的夜间回合（救 / 毒 / 不行动）。"""
 
     action: Literal["save", "poison", "none"] = Field(
-        ...,
-        description="save=use antidote on tonight's wolf victim; poison=use poison; none=skip",
+        ..., description="save=use antidote on tonight's wolf victim; poison=use poison; none=skip"
     )
     seat: int = Field(
         default=0,
@@ -168,7 +157,9 @@ def vote_intention_schema_instruction() -> str:
 
 def seat_choice_schema_instruction(*, allow_skip: bool = False) -> str:
     """SeatChoiceDecision 的提示块（投票 / 夜间目标）。"""
-    skip_line = "不行动或弃票时 seat=0。" if allow_skip else "必须选择有效目标，seat 为全局座位号。"
+    skip_line = (
+        "不行动或弃票时 seat=0。" if allow_skip else "必须选择有效目标，seat 为全局座位号。"
+    )
     return "\n".join([
         "【本任务输出 — 仅 SeatChoiceDecision Schema】",
         "必须调用 generate_response，字段：",
@@ -219,9 +210,7 @@ def metadata_looks_like_wrong_schema_for_speech(metadata: dict) -> bool:
         return True
     if metadata.get("public_speech"):
         return False
-    if "seat" in metadata or "seats" in metadata or "choice" in metadata:
-        return True
-    return False
+    return bool("seat" in metadata or "seats" in metadata or "choice" in metadata)
 
 
 def looks_like_kill_or_vote_format(text: str) -> bool:
@@ -235,9 +224,7 @@ def looks_like_kill_or_vote_format(text: str) -> bool:
         return True
     if re.fullmatch(r"刀\s*\d+\s*号?", stripped):
         return True
-    if re.fullmatch(r"刀\s*\d+", stripped) and len(stripped) <= 8:
-        return True
-    return False
+    return bool(re.fullmatch(r"刀\s*\d+", stripped) and len(stripped) <= 8)
 
 
 def looks_like_seat_only(text: str) -> bool:
@@ -247,9 +234,7 @@ def looks_like_seat_only(text: str) -> bool:
         return True
     if _SEAT_ONLY_PATTERN.fullmatch(stripped):
         return True
-    if len(stripped) <= 3 and stripped.isdigit():
-        return True
-    return False
+    return bool(len(stripped) <= 3 and stripped.isdigit())
 
 
 def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> bool:
@@ -261,9 +246,7 @@ def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> 
         return False
     if looks_like_seat_only(stripped):
         return False
-    if looks_like_kill_or_vote_format(stripped):
-        return False
-    return True
+    return not looks_like_kill_or_vote_format(stripped)
 
 
 def extract_public_text(response: str) -> str:
@@ -298,9 +281,7 @@ def extract_public_text(response: str) -> str:
 
 
 def normalize_speech_decision(
-    decision: SpeechDecision,
-    *,
-    raw_fallback: str | None = None,
+    decision: SpeechDecision, *, raw_fallback: str | None = None
 ) -> SpeechDecision:
     """必要时用原始模型输出修复纯座位号或空的 public_speech。"""
     raw = raw_fallback or ""
@@ -309,12 +290,8 @@ def normalize_speech_decision(
 
     repaired = extract_public_text(raw)
     if is_valid_public_speech(repaired):
-        return SpeechDecision(
-            public_speech=repaired,
-            private_thought=decision.private_thought,
-        )
+        return SpeechDecision(public_speech=repaired, private_thought=decision.private_thought)
 
     return SpeechDecision.model_construct(
-        public_speech="（无公开发言）",
-        private_thought=decision.private_thought,
+        public_speech="（无公开发言）", private_thought=decision.private_thought
     )

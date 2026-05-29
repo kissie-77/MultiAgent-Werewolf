@@ -1,8 +1,8 @@
-﻿"""遗留路径：解析位于 WerewolfAdapterBridge（ActionSelector 已移除）。"""
+"""遗留路径：解析位于 WerewolfAdapterBridge（ActionSelector 已移除）。"""
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles import Villager, Werewolf
+from llm_werewolf.game_runtime.state.player import Player
 
 
 def test_target_selection_uses_player_seat_not_list_position() -> None:
@@ -19,19 +19,13 @@ def test_target_selection_uses_player_seat_not_list_position() -> None:
 
 
 def test_target_selection_rejects_illegal_seat() -> None:
-    targets = [
-        Player("player_2", "玩家2", Villager),
-        Player("player_4", "玩家4", Villager),
-    ]
+    targets = [Player("player_2", "玩家2", Villager), Player("player_4", "玩家4", Villager)]
 
     assert WerewolfAdapterBridge.parse_target_selection("[[3]]", targets) is None
 
 
 def test_target_selection_can_parse_seat_from_player_name() -> None:
-    targets = [
-        Player("seat-a", "玩家2", Villager),
-        Player("seat-b", "玩家4", Werewolf),
-    ]
+    targets = [Player("seat-a", "玩家2", Villager), Player("seat-b", "玩家4", Werewolf)]
 
     selected = WerewolfAdapterBridge.parse_target_selection("4", targets)
 

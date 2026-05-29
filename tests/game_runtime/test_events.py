@@ -1,4 +1,4 @@
-﻿"""game_runtime/events.py 模块的测试。"""
+"""game_runtime/events.py 模块的测试。"""
 
 from llm_werewolf.game_runtime.types import Event, EventType
 from llm_werewolf.game_runtime.events.events import EventLogger
@@ -125,7 +125,10 @@ class TestEventLogger:
             event_type=EventType.PHASE_CHANGED, round_number=2, phase="night", message="Round 2"
         )
         logger.create_event(
-            event_type=EventType.PHASE_CHANGED, round_number=3, phase="day_discussion", message="Round 3"
+            event_type=EventType.PHASE_CHANGED,
+            round_number=3,
+            phase="day_discussion",
+            message="Round 3",
         )
 
         # 获取第 2 回合起的事件

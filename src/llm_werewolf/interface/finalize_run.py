@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 import logging
 from pathlib import Path
-from typing import Any
 
 from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
@@ -51,5 +51,7 @@ async def finalize_run(
     if result.error:
         logger.error("PostGame pipeline failed for %s: %s", path, result.error)
     elif result.stage_errors:
-        logger.warning("PostGame completed with stage errors for %s: %s", path, result.stage_errors)
+        logger.warning(
+            "PostGame completed with stage errors for %s: %s", path, result.stage_errors
+        )
     return result

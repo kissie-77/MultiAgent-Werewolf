@@ -3,19 +3,19 @@
 import asyncio
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
-from llm_werewolf.strategy.decisions import SpeechDecision
-from llm_werewolf.strategy.phase_outputs import ActionPhase, action_phase_instruction
-from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
+from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.actions import VoteAction
-from llm_werewolf.game_runtime.engine.death_messages import elimination_announcement
-from llm_werewolf.game_runtime.roles.names import RoleNames
-from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.events.events import EventLogger
-from llm_werewolf.game_runtime.actions.base import Action
 from llm_werewolf.strategy.role_prompts import GamePrompts
+from llm_werewolf.strategy.phase_outputs import ActionPhase, action_phase_instruction
+from llm_werewolf.game_runtime.roles.names import RoleNames
+from llm_werewolf.game_runtime.actions.base import Action
+from llm_werewolf.game_runtime.events.events import EventLogger
+from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
+from llm_werewolf.game_runtime.engine.death_messages import elimination_announcement
 
 
 class VotingPhaseMixin:
@@ -199,9 +199,7 @@ class VotingPhaseMixin:
         self.game_state.death_causes[eliminated_id] = "vote"
 
         message, data = elimination_announcement(
-            self.locale,
-            eliminated,
-            show_role=self.show_role_on_death(),
+            self.locale, eliminated, show_role=self.show_role_on_death()
         )
         self._log_event(EventType.PLAYER_ELIMINATED, message, data=data)
 
@@ -218,9 +216,7 @@ class VotingPhaseMixin:
         self._handle_lover_death(eliminated)
         self._handle_wolf_beauty_charm_death(eliminated)
 
-    async def _handle_vote_tie(
-        self, tie_candidates: list[str], messages: list[str]
-    ) -> list[str]:
+    async def _handle_vote_tie(self, tie_candidates: list[str], messages: list[str]) -> list[str]:
         """处理投票平票：第一次平票 → PK 发言 + 重新投票；第二次平票 → 无人淘汰。
 
         Args:
@@ -260,20 +256,32 @@ class VotingPhaseMixin:
             # 第一次平票：PK 发言 + 重新投票
             self._log_event(
                 EventType.VOTE_RESULT,
-                self.locale.get("vote_tie_pk_announce", candidates=", ".join(
-                    self.game_state.get_player(cid).name for cid in tie_candidates if self.game_state.get_player(cid)
-                )),
+                self.locale.get(
+                    "vote_tie_pk_announce",
+                    candidates=", ".join(
+                        self.game_state.get_player(cid).name
+                        for cid in tie_candidates
+                        if self.game_state.get_player(cid)
+                    ),
+                ),
                 data={"tie_candidates": tie_candidates},
             )
             messages.append(
-                self.locale.get("vote_tie_pk_announce", candidates=", ".join(
-                    self.game_state.get_player(cid).name for cid in tie_candidates if self.game_state.get_player(cid)
-                ))
+                self.locale.get(
+                    "vote_tie_pk_announce",
+                    candidates=", ".join(
+                        self.game_state.get_player(cid).name
+                        for cid in tie_candidates
+                        if self.game_state.get_player(cid)
+                    ),
+                )
             )
 
             # PK 发言
             pk_candidates = [
-                self.game_state.get_player(cid) for cid in tie_candidates if self.game_state.get_player(cid)
+                self.game_state.get_player(cid)
+                for cid in tie_candidates
+                if self.game_state.get_player(cid)
             ]
             await self._conduct_voting_pk_speeches(pk_candidates, messages)
 
@@ -303,15 +311,25 @@ class VotingPhaseMixin:
             # 第二次平票：无人淘汰
             self._log_event(
                 EventType.VOTE_RESULT,
-                self.locale.get("vote_tie_no_elimination", candidates=", ".join(
-                    self.game_state.get_player(cid).name for cid in tie_candidates if self.game_state.get_player(cid)
-                )),
+                self.locale.get(
+                    "vote_tie_no_elimination",
+                    candidates=", ".join(
+                        self.game_state.get_player(cid).name
+                        for cid in tie_candidates
+                        if self.game_state.get_player(cid)
+                    ),
+                ),
                 data={"tie_candidates": tie_candidates},
             )
             messages.append(
-                self.locale.get("vote_tie_no_elimination", candidates=", ".join(
-                    self.game_state.get_player(cid).name for cid in tie_candidates if self.game_state.get_player(cid)
-                ))
+                self.locale.get(
+                    "vote_tie_no_elimination",
+                    candidates=", ".join(
+                        self.game_state.get_player(cid).name
+                        for cid in tie_candidates
+                        if self.game_state.get_player(cid)
+                    ),
+                )
             )
 
         return messages
@@ -354,21 +372,18 @@ class VotingPhaseMixin:
         interaction = self.game_state.require_phase_interaction()
 
         opening = self.locale.get(
-            "pk_speech_opening",
-            candidates=", ".join(p.name for p in pk_candidates),
+            "pk_speech_opening", candidates=", ".join(p.name for p in pk_candidates)
         )
 
         def context_builder(candidate: PlayerProtocol) -> str:
             return self._build_exile_pk_speech_context(candidate, pk_candidates)
 
-        def on_speech(
-            speaker: PlayerProtocol,
-            decision: SpeechDecision,
-            _routed: object,
-        ) -> None:
+        def on_speech(speaker: PlayerProtocol, decision: SpeechDecision, _routed: object) -> None:
             self._log_public_speech(speaker, decision)
             messages.append(
-                self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech)
+                self.locale.get(
+                    "player_speech", player=speaker.name, speech=decision.public_speech
+                )
             )
 
         await interaction.run_roundtable(
@@ -395,7 +410,8 @@ class VotingPhaseMixin:
         messages = []
         # 查找存活且未决斗过的骑士
         knights = [
-            p for p in self.game_state.get_alive_players()
+            p
+            for p in self.game_state.get_alive_players()
             if p.get_role_name() == "Knight"
             and hasattr(p.role, "has_dueled")
             and not p.role.has_dueled
@@ -432,6 +448,7 @@ class VotingPhaseMixin:
 
             if target and target.is_alive():
                 from llm_werewolf.game_runtime.actions.villager import KnightDuelAction
+
                 action = KnightDuelAction(knight, target, self.game_state)
                 if action.validate():
                     action.execute()
@@ -440,27 +457,49 @@ class VotingPhaseMixin:
                     if target.get_camp().value == "werewolf":
                         self._log_event(
                             EventType.KNIGHT_DUEL,
-                            self.locale.get("knight_duel_wolf", knight=knight.name, target=target.name),
-                            data={"knight_id": knight.player_id, "target_id": target.player_id, "target_is_wolf": True},
+                            self.locale.get(
+                                "knight_duel_wolf", knight=knight.name, target=target.name
+                            ),
+                            data={
+                                "knight_id": knight.player_id,
+                                "target_id": target.player_id,
+                                "target_is_wolf": True,
+                            },
                         )
-                        messages.append(self.locale.get("knight_duel_wolf", knight=knight.name, target=target.name))
+                        messages.append(
+                            self.locale.get(
+                                "knight_duel_wolf", knight=knight.name, target=target.name
+                            )
+                        )
                         # 处理决斗导致的死亡连锁
                         self._handle_lover_death(target)
                         self._handle_wolf_beauty_charm_death(target)
                     else:
                         self._log_event(
                             EventType.KNIGHT_DUEL,
-                            self.locale.get("knight_duel_good", knight=knight.name, target=target.name),
-                            data={"knight_id": knight.player_id, "target_id": target.player_id, "target_is_wolf": False},
+                            self.locale.get(
+                                "knight_duel_good", knight=knight.name, target=target.name
+                            ),
+                            data={
+                                "knight_id": knight.player_id,
+                                "target_id": target.player_id,
+                                "target_is_wolf": False,
+                            },
                         )
-                        messages.append(self.locale.get("knight_duel_good", knight=knight.name, target=target.name))
+                        messages.append(
+                            self.locale.get(
+                                "knight_duel_good", knight=knight.name, target=target.name
+                            )
+                        )
                         # 处理骑士死亡连锁
                         self._handle_lover_death(knight)
                         self._handle_wolf_beauty_charm_death(knight)
                 else:
                     self._log_event(
                         EventType.ERROR,
-                        self.locale.get("knight_duel_failed", knight=knight.name, target=target.name),
+                        self.locale.get(
+                            "knight_duel_failed", knight=knight.name, target=target.name
+                        ),
                         data={"player_id": knight.player_id},
                     )
 

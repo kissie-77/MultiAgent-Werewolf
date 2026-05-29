@@ -1,4 +1,4 @@
-﻿"""game_runtime/utils.py 的测试。"""
+"""game_runtime/utils.py 的测试。"""
 
 from pathlib import Path
 

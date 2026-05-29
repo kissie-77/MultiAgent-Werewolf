@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
-from typing import Any
+import json
+from typing import TYPE_CHECKING, Any
 
 from agentscope.message import Msg as AgentScopeMsg
 
 from llm_werewolf.agent_team.agents.factory import create_react_agent
-from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-from llm_werewolf.evaluation.post_game.run_context import RunContext
-from llm_werewolf.game_runtime.config import PlayerConfig
-from llm_werewolf.evaluation.post_game.turning_points import build_rule_summary_zh
 from llm_werewolf.strategy.evaluation_outputs import ReplayAnalysisDecision
+from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
+from llm_werewolf.evaluation.post_game.turning_points import build_rule_summary_zh
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.game_runtime.config import PlayerConfig
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 EVAL_ANALYST_SYSTEM_PROMPT = (
     "你是一名狼人杀对局赛后评测分析师。"
@@ -183,18 +186,15 @@ async def run_eval_replay(
 
     try:
         react_agent = create_react_agent(
-            analyst_config,
-            agent_name="EvalAnalyst",
-            sys_prompt=EVAL_ANALYST_SYSTEM_PROMPT,
+            analyst_config, agent_name="EvalAnalyst", sys_prompt=EVAL_ANALYST_SYSTEM_PROMPT
         )
         user_prompt = (
-            f"{prompt}\n\n"
-            "请严格以 JSON 回复，字段: summary_zh, prompt_suggestions, risks。"
+            f"{prompt}\n\n请严格以 JSON 回复，字段: summary_zh, prompt_suggestions, risks。"
         )
         input_msg = AgentScopeMsg(name="Moderator", content=user_prompt, role="user")
 
         response_msg = await run_serial_agent_call(
-            lambda: react_agent(input_msg, structured_model=ReplayAnalysisDecision),
+            lambda: react_agent(input_msg, structured_model=ReplayAnalysisDecision)
         )
         metadata = getattr(response_msg, "metadata", None)
         if isinstance(metadata, dict):

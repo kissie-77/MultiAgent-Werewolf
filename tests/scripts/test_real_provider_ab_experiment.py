@@ -1,12 +1,10 @@
-from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from importlib.util import module_from_spec, spec_from_file_location
 
 
 def _load_script_module():
     script_path = (
-        Path(__file__).resolve().parents[2]
-        / "scripts"
-        / "run_real_provider_ab_experiment.py"
+        Path(__file__).resolve().parents[2] / "scripts" / "run_real_provider_ab_experiment.py"
     )
     spec = spec_from_file_location("run_real_provider_ab_experiment", script_path)
     assert spec is not None

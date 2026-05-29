@@ -1,4 +1,4 @@
-"""对局计时器：非侵入式测量一局狼人杀的墙钟与 LLM HTTP 往返开销。
+r"""对局计时器：非侵入式测量一局狼人杀的墙钟与 LLM HTTP 往返开销。
 
 **自包含**（不依赖 llm_werewolf 包内的任何计时模块），这样同一个脚本可以用来测
 before(main/src) 与 after(worktree/src) 两个代码状态的同一套指标——只需切换
@@ -20,19 +20,22 @@ stdout，调用内 print 会抛错并打断模型调用——见项目记忆 gam
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import json
 import math
-import random
 import time
+import random
+from typing import TYPE_CHECKING, Any
+import asyncio
 from pathlib import Path
-from typing import Any, Callable
+import argparse
 
 import openai.resources.chat.completions as _OC
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 # 进程内当前激活的计时器；被打补丁的 create 用它来记录。
-_ACTIVE: "GameTimer | None" = None
+_ACTIVE: GameTimer | None = None
 _ORIG_CREATE: Callable | None = None
 
 
@@ -78,7 +81,7 @@ async def _wrapped_create(self, *args: Any, **kwargs: Any):  # noqa: ANN001
             tcs = getattr(msg, "tool_calls", None) if msg else None
             rec["n_tool_calls"] = len(tcs) if tcs else 0
         rec["max_tokens_req"] = kwargs.get("max_tokens")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         rec["inspect_error"] = str(exc)[:120]
     timer.http_calls.append(rec)
     return resp
@@ -120,14 +123,12 @@ class GameTimer:
         t0 = self._t0
         phase = getattr(event, "phase", None)
         etype = getattr(event, "event_type", None)
-        self.events.append(
-            {
-                "t": round(now - t0, 3) if t0 is not None else 0.0,
-                "type": getattr(etype, "value", str(etype)),
-                "round": getattr(event, "round_number", None),
-                "phase": getattr(phase, "value", str(phase)),
-            }
-        )
+        self.events.append({
+            "t": round(now - t0, 3) if t0 is not None else 0.0,
+            "type": getattr(etype, "value", str(etype)),
+            "round": getattr(event, "round_number", None),
+            "phase": getattr(phase, "value", str(phase)),
+        })
 
     def start(self) -> None:
         self._t0 = time.perf_counter()
@@ -166,9 +167,11 @@ class GameTimer:
         per_round = []
         for rnd in rounds_seen:
             ts = [e["t"] for e in self.events if e["round"] == rnd]
-            per_round.append(
-                {"round": rnd, "span_s": round(max(ts) - min(ts), 1), "n_events": len(ts)}
-            )
+            per_round.append({
+                "round": rnd,
+                "span_s": round(max(ts) - min(ts), 1),
+                "n_events": len(ts),
+            })
         n_rounds = len(rounds_seen)
         overall = self._agg(self.http_calls)
         return {
@@ -179,9 +182,7 @@ class GameTimer:
                 "n_rounds": n_rounds,
                 "http_per_round": round(overall["n_http"] / n_rounds, 1) if n_rounds else None,
                 "wall_per_round_s": round(total / n_rounds, 1) if n_rounds else None,
-                "http_share_of_wall": round(
-                    sum(c["wall_s"] for c in self.http_calls) / total, 3
-                )
+                "http_share_of_wall": round(sum(c["wall_s"] for c in self.http_calls) / total, 3)
                 if total
                 else None,
                 # 第二次往返画像：无工具调用的 HTTP 占比（结构化决策的"纯文本第二次往返"
@@ -221,10 +222,7 @@ async def run_timed_game(
     # 延迟导入：游戏代码由 PYTHONPATH 决定（before=main/src，after=worktree/src）。
     from llm_werewolf.game_runtime import GameEngine
     from llm_werewolf.game_runtime.utils import load_config
-    from llm_werewolf.interface.bootstrap import (
-        prepare_game_roster,
-        wire_agentscope_after_setup,
-    )
+    from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscope_after_setup
 
     if seed is not None:
         random.seed(seed)  # 让角色洗牌在两臂间一致，减少一个方差来源。

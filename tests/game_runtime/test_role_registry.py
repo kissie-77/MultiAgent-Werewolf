@@ -1,4 +1,4 @@
-﻿"""game_runtime/role_registry.py 模块的测试。"""
+"""game_runtime/role_registry.py 模块的测试。"""
 
 import pytest
 

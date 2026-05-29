@@ -1,7 +1,7 @@
-﻿"""从定义中的实现路径加载角色类。"""
+"""从定义中的实现路径加载角色类。"""
 
-import importlib
 from typing import TypeVar
+import importlib
 
 from llm_werewolf.game_runtime.roles.base import Role
 from llm_werewolf.game_runtime.roles.definition import RoleDefinition

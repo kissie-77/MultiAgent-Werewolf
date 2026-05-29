@@ -26,8 +26,8 @@ def test_parse_yes_no_rejects_substring_false_positive() -> None:
 
 
 def test_vote_intention_snapshot_not_visible_to_players() -> None:
-    from llm_werewolf.game_runtime.events.event_visibility import resolve_visible_to
     from llm_werewolf.game_runtime.types import EventType
+    from llm_werewolf.game_runtime.events.event_visibility import resolve_visible_to
 
     visible = resolve_visible_to(EventType.VOTE_INTENTION_SNAPSHOT, {"speaker_id": "p1"})
     assert visible == []

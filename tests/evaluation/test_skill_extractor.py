@@ -3,8 +3,16 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.evaluation.post_game.camp_persuasion import (
+    CampSpeechInfluence,
+    build_camp_persuasion_report,
+)
+from llm_werewolf.agent_team.skill_support.skill_loader import (
+    load_role_skills,
+    format_role_skills_section,
+)
+from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
 from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     build_role_skills,
     write_role_skills_artifacts,
@@ -12,12 +20,6 @@ from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
 from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     evaluate_persuasion_speech,
     collect_skill_generation_candidates,
-)
-from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampSpeechInfluence
-from llm_werewolf.agent_team.skill_support.skill_loader import (
-    format_role_skills_section,
-    load_role_skills,
 )
 
 
@@ -46,7 +48,7 @@ def _fixture_events() -> list[dict]:
                         "player_name": "A",
                         "seat": 0,
                         "target_id": None,
-                    },
+                    }
                 },
                 "after": {
                     "player_1": {
@@ -54,7 +56,7 @@ def _fixture_events() -> list[dict]:
                         "player_name": "A",
                         "seat": 5,
                         "target_id": "player_5",
-                    },
+                    }
                 },
                 "swings": [
                     {
@@ -64,7 +66,7 @@ def _fixture_events() -> list[dict]:
                         "to_seat": 5,
                         "from_target_id": None,
                         "to_target_id": "player_5",
-                    },
+                    }
                 ],
                 "swing_count": 1,
             },
@@ -149,15 +151,13 @@ def test_persuasion_rule_rejects_no_influence() -> None:
 def test_write_role_skills_only_generates_passed_candidates(tmp_path: Path) -> None:
     events = _fixture_events()
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in records),
-        encoding="utf-8",
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in records), encoding="utf-8"
     )
 
     agent_root = tmp_path / "agent_skills"
@@ -180,15 +180,13 @@ def test_write_role_skills_only_generates_passed_candidates(tmp_path: Path) -> N
 def test_build_role_skills_no_placeholder_for_all_roles(tmp_path: Path) -> None:
     events = _fixture_events()
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in records),
-        encoding="utf-8",
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in records), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     camp = build_camp_persuasion_report(ctx)
@@ -223,17 +221,13 @@ def test_night_action_generates_skill(tmp_path: Path) -> None:
         },
     ]
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry
 
     ctx.roster["player_3"] = PlayerRosterEntry(
-        player_id="player_3",
-        player_name="预言家",
-        role_name="Seer",
-        camp="villager",
+        player_id="player_3", player_name="预言家", role_name="Seer", camp="villager"
     )
     camp = build_camp_persuasion_report(ctx)
     payload = build_role_skills(ctx, camp)
@@ -264,17 +258,13 @@ def test_night_action_dedupes_same_role_event_type(tmp_path: Path) -> None:
         },
     ]
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry
 
     ctx.roster["player_3"] = PlayerRosterEntry(
-        player_id="player_3",
-        player_name="预言家",
-        role_name="Seer",
-        camp="villager",
+        player_id="player_3", player_name="预言家", role_name="Seer", camp="villager"
     )
     camp = build_camp_persuasion_report(ctx)
     payload = build_role_skills(ctx, camp)
@@ -298,17 +288,13 @@ def test_skill_card_has_role_strategy_content(tmp_path: Path) -> None:
         },
     ]
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry
 
     ctx.roster["player_3"] = PlayerRosterEntry(
-        player_id="player_3",
-        player_name="预言家",
-        role_name="Seer",
-        camp="villager",
+        player_id="player_3", player_name="预言家", role_name="Seer", camp="villager"
     )
     camp = build_camp_persuasion_report(ctx)
     payload = build_role_skills(ctx, camp)
@@ -376,10 +362,11 @@ def test_reference_skills_from_local_run(tmp_path: Path) -> None:
         },
     ]
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
-    from llm_werewolf.evaluation.post_game.skill_generation.reference_skills import build_reference_skills
+    from llm_werewolf.evaluation.post_game.skill_generation.reference_skills import (
+        build_reference_skills,
+    )
 
     skills = build_reference_skills(tmp_path)
     roles = {s["prompt_role_key"] for s in skills}
@@ -465,7 +452,9 @@ def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> Non
     assert items[0]["weight"] == 1.0
 
 
-def test_skill_loader_strips_legacy_description_line_from_prompt_body(tmp_path: Path, monkeypatch) -> None:
+def test_skill_loader_strips_legacy_description_line_from_prompt_body(
+    tmp_path: Path, monkeypatch
+) -> None:
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"

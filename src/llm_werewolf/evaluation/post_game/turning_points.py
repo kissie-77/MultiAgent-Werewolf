@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 
 
 def _player_label(ctx: RunContext, player_id: str | None) -> str:
@@ -96,8 +94,7 @@ def build_turning_points(ctx: RunContext) -> list[str]:
     speech_failures = sum(
         1
         for e in ctx.events
-        if e.get("event_type") == "error"
-        or "发言失败" in str(e.get("message", ""))
+        if e.get("event_type") == "error" or "发言失败" in str(e.get("message", ""))
     )
     if speech_failures:
         lines.append(f"- **异常**：记录到 {speech_failures} 次发言/决策失败，评分样本可能不完整")

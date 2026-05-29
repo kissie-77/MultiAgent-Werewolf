@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
 
-from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.evaluation.post_game.turning_points import build_turning_points
 
-_CAMP_LABELS = {
-    "werewolf": "狼人阵营",
-    "villager": "好人阵营",
-    "neutral": "中立",
-}
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+
+_CAMP_LABELS = {"werewolf": "狼人阵营", "villager": "好人阵营", "neutral": "中立"}
 
 
 def _camp_label(camp: str | None) -> str:
@@ -108,8 +107,7 @@ def _ranking_table(players: list[dict[str, Any]], *, limit: int = 9) -> list[str
 
 
 def _mvp_ranking_notes(
-    players: list[dict[str, Any]],
-    swing_ranking: list[dict[str, Any]] | None,
+    players: list[dict[str, Any]], swing_ranking: list[dict[str, Any]] | None
 ) -> list[str]:
     if not swing_ranking:
         return []
@@ -191,11 +189,7 @@ def build_game_quality_report(
         "",
     ])
     sections_md.extend(build_turning_points(ctx) or ["- 无足够事件生成转折链。"])
-    sections_md.extend([
-        "",
-        "## 3. 全场 MVP",
-        "",
-    ])
+    sections_md.extend(["", "## 3. 全场 MVP", ""])
     sections_md.extend(_mvp_highlights(mvp))
 
     if camp_mvp:
@@ -209,9 +203,7 @@ def build_game_quality_report(
 
     sections_md.extend(["", "## 5. 玩家综合排名", ""])
     sections_md.extend(_ranking_table(players))
-    sections_md.extend(
-        _mvp_ranking_notes(players, (swing_summary or {}).get("player_ranking"))
-    )
+    sections_md.extend(_mvp_ranking_notes(players, (swing_summary or {}).get("player_ranking")))
 
     top_wolf_speeches = wolf.get("speeches") or []
     if top_wolf_speeches:

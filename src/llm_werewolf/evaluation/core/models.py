@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import Field, BaseModel, computed_field
 
 
 class CheckSeverity(str, Enum):

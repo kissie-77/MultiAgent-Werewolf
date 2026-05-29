@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
-from llm_werewolf.game_runtime.types import PlayerProtocol
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.types import PlayerProtocol
 
 
 def get_player_seat(player: PlayerProtocol) -> int | None:
@@ -16,10 +18,7 @@ def get_player_seat(player: PlayerProtocol) -> int | None:
     return None
 
 
-def resolve_player_by_seat(
-    seat: int,
-    candidates: list[PlayerProtocol],
-) -> PlayerProtocol | None:
+def resolve_player_by_seat(seat: int, candidates: list[PlayerProtocol]) -> PlayerProtocol | None:
     """Find a candidate by its stable seat number."""
     for player in candidates:
         if get_player_seat(player) == seat:

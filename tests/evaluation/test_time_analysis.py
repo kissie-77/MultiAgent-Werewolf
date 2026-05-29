@@ -2,9 +2,9 @@ import json
 from datetime import datetime, timedelta
 
 from llm_werewolf.evaluation.time_analysis import (
+    estimate_roundtable_time,
     compare_event_log_durations,
     compare_roundtable_parallelism,
-    estimate_roundtable_time,
 )
 
 
@@ -42,21 +42,17 @@ def test_compare_event_log_durations_reads_first_and_last_timestamp(tmp_path) ->
     start = datetime(2026, 5, 28, 12, 0, 0)
 
     before.write_text(
-        "\n".join(
-            [
-                json.dumps({"timestamp": start.isoformat()}),
-                json.dumps({"timestamp": (start + timedelta(seconds=100)).isoformat()}),
-            ],
-        ),
+        "\n".join([
+            json.dumps({"timestamp": start.isoformat()}),
+            json.dumps({"timestamp": (start + timedelta(seconds=100)).isoformat()}),
+        ]),
         encoding="utf-8",
     )
     after.write_text(
-        "\n".join(
-            [
-                json.dumps({"timestamp": start.isoformat()}),
-                json.dumps({"timestamp": (start + timedelta(seconds=25)).isoformat()}),
-            ],
-        ),
+        "\n".join([
+            json.dumps({"timestamp": start.isoformat()}),
+            json.dumps({"timestamp": (start + timedelta(seconds=25)).isoformat()}),
+        ]),
         encoding="utf-8",
     )
 

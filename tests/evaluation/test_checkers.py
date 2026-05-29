@@ -1,11 +1,11 @@
-﻿from llm_werewolf.game_runtime.types import Camp, Event, EventType
+from llm_werewolf.game_runtime.types import Camp, Event, EventType
 from llm_werewolf.evaluation.core.checkers import (
-    PromptBadCaseChecker,
     AsyncFlowChecker,
+    RoleSkillChecker,
+    PromptBadCaseChecker,
+    VictoryCheckerEvaluator,
     DecisionConsistencyChecker,
     InformationIsolationChecker,
-    RoleSkillChecker,
-    VictoryCheckerEvaluator,
 )
 
 
@@ -130,7 +130,10 @@ def test_prompt_bad_case_checker_detects_short_or_generic_speech() -> None:
 
     results = PromptBadCaseChecker().check(events=[event])
 
-    assert any("too generic" in r.message or "too short" in r.message or "seat token" in r.message for r in results)
+    assert any(
+        "too generic" in r.message or "too short" in r.message or "seat token" in r.message
+        for r in results
+    )
 
 
 def test_prompt_bad_case_checker_detects_repeated_seer_target() -> None:

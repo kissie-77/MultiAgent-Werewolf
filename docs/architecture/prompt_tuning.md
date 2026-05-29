@@ -11,17 +11,17 @@
 
 ## 版本历史
 
-| 版本 | 日期 | 范围 | 改动依据 | 目标 | 状态 |
-| --- | --- | --- | --- | --- | --- |
-| v1_baseline | 2026-05-23 | 重构前项目内原始角色 Prompt | 项目初始实现 | 提供基础角色身份说明和输出格式约束 | 基线版本 |
-| v2_role_strategy | 2026-05-23 | 改写村民、预言家、女巫、狼人、狼王、守卫、猎人 7 个核心角色 Prompt | 评分标准与本项目角色目标 | 完成初始策略化改写，提升角色策略、信息边界意识、发言质量、投票逻辑和技能使用决策 | 已实现，待对局验证 |
-| v2_strategy_module | 2026-05-24 | `src/llm_werewolf/strategy/role_prompts.py` | 工程架构重构计划 | 将角色策略 Prompt 收口到 strategy 策略层，作为角色 Prompt 的唯一主实现 | 已实现 |
-| v2_prompt_manager | 2026-05-24 | `PromptManager` 统一构建 | 工程架构重构计划 | 已实现 |
-| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py` | 提示词版本与变量设计 | 已实现（agent.base + 7 角色外置） |
+| 版本                | 日期       | 范围                                                               | 改动依据                 | 目标                                                                             | 状态               |
+| ------------------- | ---------- | ------------------------------------------------------------------ | ------------------------ | -------------------------------------------------------------------------------- | ------------------ |
+| v1_baseline         | 2026-05-23 | 重构前项目内原始角色 Prompt                                        | 项目初始实现             | 提供基础角色身份说明和输出格式约束                                               | 基线版本           |
+| v2_role_strategy    | 2026-05-23 | 改写村民、预言家、女巫、狼人、狼王、守卫、猎人 7 个核心角色 Prompt | 评分标准与本项目角色目标 | 完成初始策略化改写，提升角色策略、信息边界意识、发言质量、投票逻辑和技能使用决策 | 已实现，待对局验证 |
+| v2_strategy_module  | 2026-05-24 | `src/llm_werewolf/strategy/role_prompts.py`                        | 工程架构重构计划         | 将角色策略 Prompt 收口到 strategy 策略层，作为角色 Prompt 的唯一主实现           | 已实现             |
+| v2_prompt_manager   | 2026-05-24 | `PromptManager` 统一构建                                           | 工程架构重构计划         | 已实现                                                                           |                    |
+| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py`                      | 提示词版本与变量设计     | 已实现（agent.base + 7 角色外置）                                                |                    |
 
 ## v2 变量化外置（2026-05-25）
 
-- 设计文档：[吕祎晗-提示词版本与变量设计.md](./吕祎晗-提示词版本与变量设计.md)
+- 设计文档：[吕祎晗-提示词版本与变量设计.md](./%E5%90%95%E7%A5%8E%E6%99%97-%E6%8F%90%E7%A4%BA%E8%AF%8D%E7%89%88%E6%9C%AC%E4%B8%8E%E5%8F%98%E9%87%8F%E8%AE%BE%E8%AE%A1.md)
 - 变量 id 示例：`v2.agent.base`、`v2.role.wolf`
 - 正文路径：`src/llm_werewolf/strategy/prompts/v2/text/`、`roles/*.yaml`
 - 代码只通过 `PromptRegistry` / `PromptManager(prompt_version="v2")` 引用，**改 Prompt 优先改外置文件**
@@ -47,27 +47,27 @@
 
 ## 角色差异目标
 
-| 角色 | 预期行为差异 |
-| --- | --- |
-| 村民 | 重点分析公开发言、投票链、前后矛盾和带票行为。 |
-| 预言家 | 将查验结果视为高价值信息，并根据局势判断是否跳身份。 |
-| 女巫 | 权衡解药和毒药收益，避免情绪化用毒，优先保护关键好人。 |
-| 狼人 | 协调夜间击杀，隐藏身份，制造错误怀疑链并操纵投票。 |
-| 狼王 | 承担更高风险，提前准备死亡技能的高价值目标。 |
-| 守卫 | 保护疑似关键神职或强势好人，同时隐藏守护路径。 |
-| 猎人 | 避免过早暴露身份，临死开枪时基于证据而非情绪。 |
+| 角色   | 预期行为差异                                           |
+| ------ | ------------------------------------------------------ |
+| 村民   | 重点分析公开发言、投票链、前后矛盾和带票行为。         |
+| 预言家 | 将查验结果视为高价值信息，并根据局势判断是否跳身份。   |
+| 女巫   | 权衡解药和毒药收益，避免情绪化用毒，优先保护关键好人。 |
+| 狼人   | 协调夜间击杀，隐藏身份，制造错误怀疑链并操纵投票。     |
+| 狼王   | 承担更高风险，提前准备死亡技能的高价值目标。           |
+| 守卫   | 保护疑似关键神职或强势好人，同时隐藏守护路径。         |
+| 猎人   | 避免过早暴露身份，临死开枪时基于证据而非情绪。         |
 
 ## 赛后 PostGame 闭环（v2+）
 
 对局结束后由 `evaluation/post_game/` 自动运行（`interface/finalize_run.py` 触发），**不修改运行时 Prompt**，仅产出 JSON/Markdown：
 
-| 产物 | 说明 |
-| --- | --- |
-| `vote_swing_report.md` / `vote_swing_summary.json` | 投票意向摇摆统计 |
-| `camp_persuasion_report.md` / `camp_persuasion_summary.json` | **阵营匹配**后的正向说服评分 |
-| `post_game_analysis.json` / `post_game_report.md` | LLM 复盘（有 API 时） |
-| `prompt_proposals.json` | Prompt 补丁提案（`apply_policy: json_only_no_runtime_replace`） |
-| `post_game_manifest.json` | 本局赛后流水线索引 |
+| 产物                                                         | 说明                                                            |
+| ------------------------------------------------------------ | --------------------------------------------------------------- |
+| `vote_swing_report.md` / `vote_swing_summary.json`           | 投票意向摇摆统计                                                |
+| `camp_persuasion_report.md` / `camp_persuasion_summary.json` | **阵营匹配**后的正向说服评分                                    |
+| `post_game_analysis.json` / `post_game_report.md`            | LLM 复盘（有 API 时）                                           |
+| `prompt_proposals.json`                                      | Prompt 补丁提案（`apply_policy: json_only_no_runtime_replace`） |
+| `post_game_manifest.json`                                    | 本局赛后流水线索引                                              |
 
 运行时仅使用 **v2+**（`strategy/role_prompts.py`）。提案合并与 `prompt_comparison` 文档待后续手工/脚本接入。
 
@@ -75,21 +75,21 @@
 
 后续应使用相同对局配置分别运行 v1 和 v2 Prompt，并比较以下指标：
 
-| 指标 | 含义 |
-| --- | --- |
-| `format_score` | 最终答案是否遵守 `[[...]]` 输出格式。 |
-| `role_consistency` | 行为是否符合当前身份和阵营目标。 |
-| `reasoning_quality` | 发言和投票是否包含具体证据、目标和理由。 |
-| `team_strategy` | 狼人是否有协作，好人是否有效利用公开信息。 |
-| `decision_validity` | 技能和投票选择是否合法、是否具备基本策略合理性。 |
-| `bad_case_count` | evaluation checker 自动发现的 Prompt bad case 候选数量。 |
+| 指标                | 含义                                                     |
+| ------------------- | -------------------------------------------------------- |
+| `format_score`      | 最终答案是否遵守 `[[...]]` 输出格式。                    |
+| `role_consistency`  | 行为是否符合当前身份和阵营目标。                         |
+| `reasoning_quality` | 发言和投票是否包含具体证据、目标和理由。                 |
+| `team_strategy`     | 狼人是否有协作，好人是否有效利用公开信息。               |
+| `decision_validity` | 技能和投票选择是否合法、是否具备基本策略合理性。         |
+| `bad_case_count`    | evaluation checker 自动发现的 Prompt bad case 候选数量。 |
 
 对局对比表：
 
-| Game ID | Prompt 版本 | 胜利阵营 | 回合数 | 格式分 | 角色一致性 | 推理质量 | 团队策略 | 决策合理性 | Bad Case 数 |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 待补充 | v1_baseline | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 |
-| 待补充 | v2_role_strategy | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 | 待补充 |
+| Game ID | Prompt 版本      | 胜利阵营 | 回合数 | 格式分 | 角色一致性 | 推理质量 | 团队策略 | 决策合理性 | Bad Case 数 |
+| ------- | ---------------- | -------- | -----: | -----: | ---------: | -------: | -------: | ---------: | ----------: |
+| 待补充  | v1_baseline      | 待补充   | 待补充 | 待补充 |     待补充 |   待补充 |   待补充 |     待补充 |      待补充 |
+| 待补充  | v2_role_strategy | 待补充   | 待补充 | 待补充 |     待补充 |   待补充 |   待补充 |     待补充 |      待补充 |
 
 ## Bad Case 记录模板
 

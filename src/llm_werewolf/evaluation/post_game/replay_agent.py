@@ -6,12 +6,15 @@ v2：经 ``eval_agent`` + AgentScope 调用，不再使用 AsyncOpenAI 旁路。
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 from llm_werewolf.evaluation.post_game.eval_agent import run_eval_replay
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 
 async def run_llm_replay(
@@ -38,11 +41,7 @@ async def run_llm_replay(
 
 def write_post_game_analysis(ctx: RunContext, analysis: dict[str, Any]) -> Path:
     path = ctx.run_dir / "post_game_analysis.json"
-    payload = {
-        "run_dir": str(ctx.run_dir),
-        "prompt_version": ctx.prompt_version,
-        **analysis,
-    }
+    payload = {"run_dir": str(ctx.run_dir), "prompt_version": ctx.prompt_version, **analysis}
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     md_path = ctx.run_dir / "post_game_report.md"

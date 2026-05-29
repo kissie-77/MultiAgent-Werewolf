@@ -1,13 +1,13 @@
-﻿"""有序夜间技能收集的测试。"""
+"""有序夜间技能收集的测试。"""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.night_scheduler import NightSkillScheduler
+from llm_werewolf.game_runtime.roles import Seer, Witch, Villager, Werewolf
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.roles import Seer, Villager, Werewolf, Witch
+from llm_werewolf.game_runtime.night_scheduler import NightSkillScheduler
+from llm_werewolf.game_runtime.state.game_state import GameState
 
 
 @pytest.mark.asyncio
@@ -20,18 +20,16 @@ async def test_witch_collected_after_wolf_phase_not_in_pre_wolf() -> None:
     game_state = GameState([witch, wolf, seer, villager])
     game_state.round_number = 2
 
-    from llm_werewolf.agent_team.communication.information_hub import InformationHub
     from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.agent_team.communication.information_hub import InformationHub
 
     game_state.phase_interaction = PhaseInteraction(InformationHub())
 
-    with (
-        patch(
-            "llm_werewolf.game_runtime.night_scheduler.dispatch_night_plan",
-            new_callable=AsyncMock,
-            return_value=[],
-        ) as dispatch_plan,
-    ):
+    with patch(
+        "llm_werewolf.game_runtime.night_scheduler.dispatch_night_plan",
+        new_callable=AsyncMock,
+        return_value=[],
+    ) as dispatch_plan:
         locale = MagicMock()
         locale.get = MagicMock(side_effect=lambda key, **kw: key)
 

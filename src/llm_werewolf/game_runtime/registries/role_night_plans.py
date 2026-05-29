@@ -1,49 +1,48 @@
-﻿"""各角色夜间行动规划（通过 PhaseInteraction / InformationHub 调用 LLM）。"""
+"""各角色夜间行动规划（通过 PhaseInteraction / InformationHub 调用 LLM）。"""
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
+from collections.abc import Callable, Awaitable
 
+from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
+from llm_werewolf.game_runtime.types import Camp
 from llm_werewolf.strategy.role_prompts import GamePrompts
 from llm_werewolf.strategy.phase_outputs import ActionPhase
-from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
+from llm_werewolf.game_runtime.roles.names import is_untransformed_blood_moon
+from llm_werewolf.game_runtime.roles.werewolf import build_werewolf_team_context
 from llm_werewolf.game_runtime.actions.villager import (
     CupidLinkAction,
-    GraveyardKeeperCheckAction,
-    GuardProtectAction,
     RavenMarkAction,
     SeerCheckAction,
-    WitchPoisonAction,
     WitchSaveAction,
+    WitchPoisonAction,
+    GuardProtectAction,
+    GraveyardKeeperCheckAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import (
-    GuardianWolfProtectAction,
-    NightmareWolfBlockAction,
     WerewolfVoteAction,
     WhiteWolfKillAction,
     WolfBeautyCharmAction,
+    NightmareWolfBlockAction,
+    GuardianWolfProtectAction,
 )
-from llm_werewolf.game_runtime.roles.werewolf import build_werewolf_team_context
-from llm_werewolf.game_runtime.roles.names import is_untransformed_blood_moon
-from llm_werewolf.game_runtime.types import Camp
 
 if TYPE_CHECKING:
-    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.game_runtime.types import ActionProtocol, PlayerProtocol, GameStateProtocol
     from llm_werewolf.game_runtime.roles.base import Role
-    from llm_werewolf.game_runtime.roles.villager import Cupid, Guard, GraveyardKeeper, Seer, Witch
+    from llm_werewolf.game_runtime.roles.villager import Seer, Cupid, Guard, Witch
     from llm_werewolf.game_runtime.roles.werewolf import (
-        BloodMoonApostle,
-        GuardianWolf,
-        NightmareWolf,
         WhiteWolf,
         WolfBeauty,
+        GuardianWolf,
+        NightmareWolf,
+        BloodMoonApostle,
     )
-    from llm_werewolf.game_runtime.types import ActionProtocol, GameStateProtocol, PlayerProtocol
+    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
 
 NightPlanner = Callable[
-    ["Role", "GameStateProtocol", "PhaseInteraction"],
-    Awaitable[list["ActionProtocol"]],
+    ["Role", "GameStateProtocol", "PhaseInteraction"], Awaitable[list["ActionProtocol"]]
 ]
 
 
@@ -63,17 +62,11 @@ def _werewolf_context(role: Role, game_state: GameStateProtocol) -> str:
 
 
 async def _plan_werewolf_pack_vote(
-    role: Role,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
-    *,
-    role_name: str,
+    role: Role, game_state: GameStateProtocol, interaction: PhaseInteraction, *, role_name: str
 ) -> list[ActionProtocol]:
     if not role.player.is_alive() or not role.player.agent:
         return []
-    targets = [
-        p for p in game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
-    ]
+    targets = [p for p in game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF]
     if not targets:
         return []
     target = await interaction.request_seat_choice(
@@ -94,13 +87,9 @@ async def _plan_werewolf_pack_vote(
 
 
 async def plan_werewolf_vote(
-    role,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
-    return await _plan_werewolf_pack_vote(
-        role, game_state, interaction, role_name="Werewolf"
-    )
+    return await _plan_werewolf_pack_vote(role, game_state, interaction, role_name="Werewolf")
 
 
 async def plan_alpha_wolf_vote(role, game_state, interaction):
@@ -112,13 +101,9 @@ async def plan_hidden_wolf_vote(role, game_state, interaction):
 
 
 async def plan_white_wolf(
-    role: WhiteWolf,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: WhiteWolf, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
-    actions = await _plan_werewolf_pack_vote(
-        role, game_state, interaction, role_name="White Wolf"
-    )
+    actions = await _plan_werewolf_pack_vote(role, game_state, interaction, role_name="White Wolf")
     if game_state.round_number % 2 == 1 and role.player.agent:
         wolf_targets = [
             p
@@ -144,9 +129,7 @@ async def plan_white_wolf(
 
 
 async def plan_wolf_beauty(
-    role: WolfBeauty,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: WolfBeauty, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     actions = await _plan_werewolf_pack_vote(
         role, game_state, interaction, role_name="Wolf Beauty"
@@ -171,14 +154,10 @@ async def plan_wolf_beauty(
 
 
 async def plan_guardian_wolf(
-    role: GuardianWolf,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: GuardianWolf, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     actions: list[ActionProtocol] = []
-    wolf_targets = [
-        p for p in game_state.get_players_by_camp(Camp.WEREWOLF) if p.is_alive()
-    ]
+    wolf_targets = [p for p in game_state.get_players_by_camp(Camp.WEREWOLF) if p.is_alive()]
     if wolf_targets and role.player.agent:
         target = await interaction.request_seat_choice(
             role.player,
@@ -198,9 +177,7 @@ async def plan_guardian_wolf(
 
 
 async def plan_nightmare_wolf(
-    role: NightmareWolf,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: NightmareWolf, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     actions: list[ActionProtocol] = []
     block_targets = game_state.get_alive_players(except_ids=[role.player.player_id])
@@ -223,9 +200,7 @@ async def plan_nightmare_wolf(
 
 
 async def plan_blood_moon_apostle(
-    role: BloodMoonApostle,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: BloodMoonApostle, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     if not role.transformed:
         return []
@@ -251,9 +226,7 @@ def blood_moon_other_wolves_alive(game_state: GameStateProtocol, apostle: Player
 
 
 async def offer_blood_moon_transform(
-    role: BloodMoonApostle,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: BloodMoonApostle, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> bool:
     """当其余狼人全灭时，由 LLM 决定是否变身。返回是否已变身。"""
     if role.transformed or not role.player.is_alive() or not role.player.agent:
@@ -276,9 +249,7 @@ async def offer_blood_moon_transform(
 
 
 async def plan_witch_actions(
-    role: Witch,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: Witch, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     if not role.player.is_alive() or not role.player.agent:
         return []
@@ -297,14 +268,11 @@ async def plan_witch_actions(
             can_see_victim = True
             seat = _seat_label(victim)
             victim_line = (
-                f"今晚狼人刀口：{victim.name}（{seat}号）。"
-                "你仍持有解药，可以选择救他/她。"
+                f"今晚狼人刀口：{victim.name}（{seat}号）。你仍持有解药，可以选择救他/她。"
             )
 
     poison_targets = [
-        p
-        for p in game_state.get_alive_players()
-        if p.player_id != role.player.player_id
+        p for p in game_state.get_alive_players() if p.player_id != role.player.player_id
     ]
 
     notes = [
@@ -329,12 +297,7 @@ async def plan_witch_actions(
     actions: list[ActionProtocol] = []
     saved_this_night: PlayerProtocol | None = None
 
-    if (
-        decision.action == "save"
-        and has_save
-        and can_see_victim
-        and victim is not None
-    ):
+    if decision.action == "save" and has_save and can_see_victim and victim is not None:
         actions.append(WitchSaveAction(role.player, victim, game_state))
         saved_this_night = victim
 
@@ -352,9 +315,7 @@ async def plan_witch_actions(
 
 
 async def plan_guard_protect(
-    role: Guard,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: Guard, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     if not role.player.is_alive():
         return []
@@ -367,7 +328,9 @@ async def plan_guard_protect(
     if role.last_protected:
         last_player = game_state.get_player(role.last_protected)
         if last_player:
-            context += f"\n\n你不能连续两晚守护 {last_player.name}（{_seat_label(last_player)}号）。"
+            context += (
+                f"\n\n你不能连续两晚守护 {last_player.name}（{_seat_label(last_player)}号）。"
+            )
     target = await interaction.request_seat_choice(
         role.player,
         role.player.agent,
@@ -386,9 +349,7 @@ async def plan_guard_protect(
 
 
 async def plan_seer_check(
-    role: Seer,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: Seer, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     if not role.player.is_alive():
         return []
@@ -423,9 +384,7 @@ async def plan_seer_check(
 
 
 async def plan_cupid_link(
-    role: Cupid,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: Cupid, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     if game_state.round_number != 1 or role.has_linked or not role.player.agent:
         return []
@@ -449,9 +408,7 @@ async def plan_cupid_link(
 
 
 async def plan_raven_mark(
-    role,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     if not role.player.is_alive() or not role.player.agent:
         return []
@@ -475,9 +432,7 @@ async def plan_raven_mark(
 
 
 async def plan_graveyard_check(
-    role,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     if not role.player.is_alive() or not role.player.agent:
         return []
@@ -533,9 +488,7 @@ def _resolve_night_planner(role_name: str) -> NightPlanner | None:
 
 
 async def dispatch_night_plan(
-    role: Role,
-    game_state: GameStateProtocol,
-    interaction: PhaseInteraction,
+    role: Role, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     """经 Hub 路由夜间行动；未注册的角色返回 []。"""
     planner = _resolve_night_planner(role.name)

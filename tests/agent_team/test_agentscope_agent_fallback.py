@@ -1,4 +1,4 @@
-﻿"""AgentScopeWerewolfAgent 回退响应的测试。"""
+"""AgentScopeWerewolfAgent 回退响应的测试。"""
 
 import pytest
 from pydantic import BaseModel
@@ -17,12 +17,10 @@ def villager_agent() -> AgentScopeWerewolfAgent:
 
 
 class TestWerewolfPrivateFallback:
-    def test_no_good_identity_in_wolf_night_chat(self, wolf_agent: AgentScopeWerewolfAgent) -> None:
-        prompt = "\n".join([
-            "You are W1, a Werewolf.",
-            "Discuss with your fellow werewolves who should be eliminated tonight.",
-            "Available targets: P4, P5, P12.",
-        ])
+    def test_no_good_identity_in_wolf_night_chat(
+        self, wolf_agent: AgentScopeWerewolfAgent
+    ) -> None:
+        prompt = "You are W1, a Werewolf.\nDiscuss with your fellow werewolves who should be eliminated tonight.\nAvailable targets: P4, P5, P12."
         for _ in range(20):
             text = wolf_agent._generate_fallback_response(prompt, "empty")
             assert "好人" not in text
@@ -72,13 +70,11 @@ class DummyResponse:
 
 
 def test_sanitize_agentscope_response_msg_removes_thinking_blocks() -> None:
-    response = DummyResponse(
-        [
-            {"type": "thinking", "thinking": "internal reasoning"},
-            {"type": "text", "text": "公开回复"},
-            {"type": "tool_result", "output": "kept"},
-        ]
-    )
+    response = DummyResponse([
+        {"type": "thinking", "thinking": "internal reasoning"},
+        {"type": "text", "text": "公开回复"},
+        {"type": "tool_result", "output": "kept"},
+    ])
 
     sanitized = AgentScopeWerewolfAgent._sanitize_agentscope_response_msg(response)
 
@@ -93,20 +89,17 @@ def test_sanitize_agentscope_response_msg_removes_thinking_blocks() -> None:
 async def test_call_agentscope_agent_sanitizes_response_before_extract(monkeypatch) -> None:
     agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
     agent.agentscope_agent = object()
-    response_msg = DummyResponse(
-        [
-            {"type": "thinking", "thinking": "internal reasoning"},
-            {"type": "text", "text": "我觉得先听4号发言，先看票型再判断。"},
-        ]
-    )
+    response_msg = DummyResponse([
+        {"type": "thinking", "thinking": "internal reasoning"},
+        {"type": "text", "text": "我觉得先听4号发言，先看票型再判断。"},
+    ])
 
     async def fake_serial_call(fn):
         del fn
         return response_msg
 
     monkeypatch.setattr(
-        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call",
-        fake_serial_call,
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call", fake_serial_call
     )
 
     response = await agent._call_agentscope_agent("请发言")
@@ -133,8 +126,7 @@ async def test_get_structured_response_sanitizes_thinking_blocks(monkeypatch) ->
         return response
 
     monkeypatch.setattr(
-        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call",
-        fake_serial_call,
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call", fake_serial_call
     )
 
     decision = await agent.get_structured_response("请输出结构化结果", DummyStructuredDecision)

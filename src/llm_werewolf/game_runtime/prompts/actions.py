@@ -26,7 +26,9 @@ class EngineContexts:
     """阶段讨论用的中文自由文本上下文片段。"""
 
     @staticmethod
-    def werewolf_coordination_note(werewolf_names: list[str], target_names: list[str]) -> list[str]:
+    def werewolf_coordination_note(
+        werewolf_names: list[str], target_names: list[str]
+    ) -> list[str]:
         return [
             f"与你协同的狼人：{', '.join(werewolf_names)}。",
             f"可选目标：{', '.join(target_names)}。",
@@ -77,12 +79,7 @@ class EngineContexts:
     @staticmethod
     def hub_decision_memory_notice() -> str:
         """提醒模型：发言/讨论在 ReAct/MsgHub 历史中，不在 Event 日志里。"""
-        return "\n".join([
-            "【决策上下文 · MsgHub】",
-            "玩家发言、狼队夜聊、警上发言等对话内容在你上方的对话记忆中。",
-            "下方「可见事件」仅记录局面变化（死亡、平安夜、阶段切换等），不含发言全文。",
-            "做投票或夜间决策时请优先依据对话记忆，不要等待事件里重复的发言。",
-        ])
+        return "【决策上下文 · MsgHub】\n玩家发言、狼队夜聊、警上发言等对话内容在你上方的对话记忆中。\n下方「可见事件」仅记录局面变化（死亡、平安夜、阶段切换等），不含发言全文。\n做投票或夜间决策时请优先依据对话记忆，不要等待事件里重复的发言。"
 
     @staticmethod
     def sheriff_run(player_name: str, role_name: str, round_number: int) -> str:
@@ -94,10 +91,7 @@ class EngineContexts:
 
     @staticmethod
     def exile_pk_speech(
-        player_name: str,
-        role_name: str,
-        round_number: int,
-        num_candidates: int,
+        player_name: str, role_name: str, round_number: int, num_candidates: int
     ) -> str:
         return (
             f"你是 {player_name}，身份为 {role_name}。\n"
@@ -108,10 +102,7 @@ class EngineContexts:
 
     @staticmethod
     def sheriff_speech(
-        player_name: str,
-        role_name: str,
-        round_number: int,
-        num_candidates: int,
+        player_name: str, role_name: str, round_number: int, num_candidates: int
     ) -> str:
         return (
             f"你是 {player_name}，身份为 {role_name}。\n"
@@ -122,10 +113,7 @@ class EngineContexts:
 
     @staticmethod
     def sheriff_vote_intro(
-        player_name: str,
-        role_name: str,
-        round_number: int,
-        candidate_names: list[str],
+        player_name: str, role_name: str, round_number: int, candidate_names: list[str]
     ) -> str:
         return (
             f"你是 {player_name}，身份为 {role_name}。\n"

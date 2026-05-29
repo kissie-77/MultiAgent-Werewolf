@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from dataclasses import field, dataclass
 
 from llm_werewolf.evaluation.log_views.filters import (
-    estimate_tokens,
     event_line,
+    estimate_tokens,
     filter_events_for_player,
-    sanitize_event_message,
 )
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 _PUBLIC_EVENT_TYPES = frozenset({
     "player_speech",
@@ -75,10 +77,7 @@ def build_god_timeline(events: list[dict[str, Any]], *, max_events: int = 500) -
 
 
 def build_player_timeline(
-    events: list[dict[str, Any]],
-    player_id: str,
-    *,
-    max_events: int = 300,
+    events: list[dict[str, Any]], player_id: str, *, max_events: int = 300
 ) -> str:
     pov = filter_events_for_player(events, player_id)[-max_events:]
     lines = [f"# Player POV: {player_id}", ""]
@@ -100,11 +99,7 @@ def build_public_digest(events: list[dict[str, Any]], *, max_events: int = 200) 
 
 
 def build_swing_digest(camp_report: CampPersuasionReport, *, top_n: int = 15) -> dict[str, Any]:
-    ranked = sorted(
-        camp_report.speeches,
-        key=lambda s: s.camp_aligned_score,
-        reverse=True,
-    )[:top_n]
+    ranked = sorted(camp_report.speeches, key=lambda s: s.camp_aligned_score, reverse=True)[:top_n]
     return {
         "winner_camp": camp_report.winner_camp,
         "entries": [
@@ -124,11 +119,7 @@ def build_swing_digest(camp_report: CampPersuasionReport, *, top_n: int = 15) ->
 
 
 def build_role_timeline(
-    events: list[dict[str, Any]],
-    ctx: RunContext,
-    prompt_role_key: str,
-    *,
-    max_events: int = 300,
+    events: list[dict[str, Any]], ctx: RunContext, prompt_role_key: str, *, max_events: int = 300
 ) -> str:
     player_ids = [
         pid
@@ -141,11 +132,7 @@ def build_role_timeline(
     for pid in player_ids:
         for event in filter_events_for_player(events, pid):
             key = json.dumps(
-                [
-                    event.get("event_type"),
-                    event.get("round_number"),
-                    event.get("message"),
-                ],
+                [event.get("event_type"), event.get("round_number"), event.get("message")],
                 ensure_ascii=False,
             )
             if key not in seen:
@@ -159,10 +146,7 @@ def build_role_timeline(
 
 
 def write_log_views(
-    ctx: RunContext,
-    camp_report: CampPersuasionReport,
-    *,
-    max_events_per_view: int = 200,
+    ctx: RunContext, camp_report: CampPersuasionReport, *, max_events_per_view: int = 200
 ) -> ViewManifest:
     """生成 runs/<id>/views/ 与 views_manifest.json。"""
     views_dir = ctx.run_dir / "views"
@@ -228,7 +212,6 @@ def write_log_views(
 
     manifest_path = ctx.run_dir / "views_manifest.json"
     manifest_path.write_text(
-        json.dumps(manifest.to_dict(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
+        json.dumps(manifest.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return manifest

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+from dataclasses import field, dataclass
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from collections.abc import Callable, Awaitable
 
 T = TypeVar("T")
 
@@ -97,17 +99,10 @@ async def run_step_async(
 
 
 def skip_step(
-    steps: list[StepRecord],
-    step_id: str,
-    reason: str,
-    *,
-    artifacts: list[str] | None = None,
+    steps: list[StepRecord], step_id: str, reason: str, *, artifacts: list[str] | None = None
 ) -> None:
     steps.append(
         StepRecord(
-            step_id=step_id,
-            status="skipped",
-            error=reason,
-            artifacts=list(artifacts or []),
+            step_id=step_id, status="skipped", error=reason, artifacts=list(artifacts or [])
         )
     )

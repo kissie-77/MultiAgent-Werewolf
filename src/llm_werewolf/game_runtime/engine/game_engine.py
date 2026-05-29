@@ -1,4 +1,4 @@
-﻿"""组合所有 Mixin 的主 GameEngine 类。"""
+"""组合所有 Mixin 的主 GameEngine 类。"""
 
 from llm_werewolf.game_runtime.engine.base import GameEngineBase
 from llm_werewolf.game_runtime.engine.day_phase import DayPhaseMixin

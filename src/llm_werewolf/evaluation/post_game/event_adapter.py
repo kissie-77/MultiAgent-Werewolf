@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
+from datetime import datetime
 
-from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import Event
 from llm_werewolf.game_runtime.types.enums import EventType, GamePhase
+from llm_werewolf.game_runtime.events.events import EventLogger
 
 
 def event_to_dict(event: Any) -> dict[str, Any]:

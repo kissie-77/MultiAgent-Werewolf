@@ -1,4 +1,4 @@
-﻿"""AgentScopeWerewolfAgent 主实现的测试。"""
+"""AgentScopeWerewolfAgent 主实现的测试。"""
 
 import pytest
 

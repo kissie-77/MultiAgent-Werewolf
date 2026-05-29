@@ -3,37 +3,40 @@
 from __future__ import annotations
 
 import json
-import logging
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
+import logging
+from pathlib import Path
+from dataclasses import field, dataclass
 
 from llm_werewolf.evaluation.log_views import write_log_views
+from llm_werewolf.evaluation.scoring.benefit import write_benefit_scores
+from llm_werewolf.evaluation.scoring.intention import (
+    build_intention_scores,
+    write_intention_scores,
+)
+from llm_werewolf.evaluation.post_game.coach.coach import Coach
+from llm_werewolf.evaluation.post_game.run_context import RunContext, load_run_context
+from llm_werewolf.evaluation.post_game.scoring.mvp import write_mvp_scores
+from llm_werewolf.evaluation.post_game.replay_agent import run_llm_replay, write_post_game_analysis
+from llm_werewolf.evaluation.core.vote_swing_analysis import write_persuasion_artifacts
+from llm_werewolf.evaluation.post_game.pipeline_steps import (
+    StepRecord,
+    run_step,
+    skip_step,
+    run_step_async,
+    write_pipeline_steps,
+)
 from llm_werewolf.evaluation.post_game.camp_persuasion import (
     CampPersuasionReport,
     write_camp_persuasion_artifacts,
 )
-from llm_werewolf.evaluation.post_game.coach.coach import Coach
 from llm_werewolf.evaluation.post_game.episodic_bridge import write_episodic_artifacts
-from llm_werewolf.evaluation.post_game.game_quality_report import write_game_quality_report
-from llm_werewolf.evaluation.post_game.pipeline_steps import (
-    StepRecord,
-    run_step,
-    run_step_async,
-    skip_step,
-    write_pipeline_steps,
-)
 from llm_werewolf.evaluation.post_game.prompt_proposal import write_prompt_proposals
-from llm_werewolf.evaluation.post_game.replay_agent import run_llm_replay, write_post_game_analysis
-from llm_werewolf.evaluation.post_game.run_context import RunContext, load_run_context
-from llm_werewolf.evaluation.post_game.scoring.mvp import write_mvp_scores
+from llm_werewolf.evaluation.post_game.game_quality_report import write_game_quality_report
 from llm_werewolf.evaluation.post_game.scoring.score_contexts import write_score_contexts
 from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     write_role_skills_artifacts,
 )
-from llm_werewolf.evaluation.core.vote_swing_analysis import write_persuasion_artifacts
-from llm_werewolf.evaluation.scoring.benefit import write_benefit_scores
-from llm_werewolf.evaluation.scoring.intention import build_intention_scores, write_intention_scores
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +92,7 @@ def _sync_stage_errors(result: PostGameResult, steps: list[StepRecord]) -> None:
 
 
 def _on_step_done(
-    result: PostGameResult,
-    steps: list[StepRecord],
-    step_id: str,
-    value: Any,
-    artifacts: list[str],
+    result: PostGameResult, steps: list[StepRecord], step_id: str, value: Any, artifacts: list[str]
 ) -> Any:
     if value is not None:
         _merge_artifacts(result, artifacts)
@@ -123,12 +122,19 @@ async def run_post_game_pipeline(
     loaded = run_step(
         steps,
         "load_context",
-        lambda: setattr(state, "ctx", load_run_context(
-            result.run_dir,
-            engine=engine,
-            game_result_text=game_result_text,
-            prompt_version=prompt_version,
-        )) or state.ctx,
+        lambda: (
+            setattr(
+                state,
+                "ctx",
+                load_run_context(
+                    result.run_dir,
+                    engine=engine,
+                    game_result_text=game_result_text,
+                    prompt_version=prompt_version,
+                ),
+            )
+            or state.ctx
+        ),
         required=True,
     )
     if loaded is None:
@@ -138,13 +144,7 @@ async def run_post_game_pipeline(
         result.error = "load_context failed"
         return result
 
-    _on_step_done(
-        result,
-        steps,
-        "load_context",
-        loaded,
-        [],
-    )
+    _on_step_done(result, steps, "load_context", loaded, [])
 
     _on_step_done(
         result,
@@ -180,10 +180,7 @@ async def run_post_game_pipeline(
     )
     if camp is not None:
         state.camp_report = camp
-        _merge_artifacts(
-            result,
-            ["camp_persuasion_report.md", "camp_persuasion_summary.json"],
-        )
+        _merge_artifacts(result, ["camp_persuasion_report.md", "camp_persuasion_summary.json"])
 
     if state.camp_report is not None:
         _on_step_done(
@@ -207,10 +204,7 @@ async def run_post_game_pipeline(
         intention = run_step(
             steps,
             "intention_scores",
-            lambda: (
-                write_intention_scores(_ctx(), cr),
-                build_intention_scores(_ctx(), cr),
-            )[1],
+            lambda: (write_intention_scores(_ctx(), cr), build_intention_scores(_ctx(), cr))[1],
             artifacts=["intention_scores.json"],
         )
         if intention is not None:
@@ -226,8 +220,7 @@ async def run_post_game_pipeline(
         if manifest is not None:
             state.score_ctx_manifest = manifest
             _merge_artifacts(
-                result,
-                ["views/score_contexts/", "views/score_contexts/manifest.json"],
+                result, ["views/score_contexts/", "views/score_contexts/manifest.json"]
             )
 
         mvp = run_step(
@@ -288,10 +281,7 @@ async def run_post_game_pipeline(
             )
 
         analysis = await run_step_async(
-            steps,
-            "llm_replay",
-            _llm,
-            artifacts=["post_game_analysis.json", "post_game_report.md"],
+            steps, "llm_replay", _llm, artifacts=["post_game_analysis.json", "post_game_report.md"]
         )
         if analysis is not None:
             state.llm_analysis = analysis
@@ -328,12 +318,11 @@ async def run_post_game_pipeline(
         name = run_step(
             steps,
             "prompt_proposals",
-            lambda: write_prompt_proposals(
-                _ctx(),
-                state.camp_report,
-                llm_notes=llm_notes,
-                mvp_payload=state.mvp_payload,
-            ).name,
+            lambda: (
+                write_prompt_proposals(
+                    _ctx(), state.camp_report, llm_notes=llm_notes, mvp_payload=state.mvp_payload
+                ).name
+            ),
             artifacts=["prompt_proposals.json"],
         )
         if name:
@@ -357,20 +346,13 @@ async def run_post_game_pipeline(
             skills_payload = json.loads(role_skills_path.read_text(encoding="utf-8"))
             coach = Coach()
             coach_result = coach.enrich_skills_with_episodes(
-                _ctx(),
-                list(skills_payload.get("skills") or []),
-                engine=engine,
+                _ctx(), list(skills_payload.get("skills") or []), engine=engine
             )
             role_skills_path.write_text(
-                json.dumps(skills_payload, ensure_ascii=False, indent=2),
-                encoding="utf-8",
+                json.dumps(skills_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             coach.write_coach_artifacts(
-                _ctx(),
-                state.camp_report,
-                skills_payload,
-                engine=engine,
-                coach_result=coach_result,
+                _ctx(), state.camp_report, skills_payload, engine=engine, coach_result=coach_result
             )
 
         _on_step_done(
@@ -419,10 +401,7 @@ async def run_post_game_pipeline(
     return result
 
 
-def run_post_game_pipeline_sync(
-    run_dir: str | Path,
-    **kwargs: Any,
-) -> PostGameResult:
+def run_post_game_pipeline_sync(run_dir: str | Path, **kwargs: Any) -> PostGameResult:
     import asyncio
     import concurrent.futures
 

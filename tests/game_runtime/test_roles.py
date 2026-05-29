@@ -1,8 +1,6 @@
-﻿from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.roles import Camp, Seer, Guard, Witch, Villager, Werewolf
-from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.actions import (
     SeerCheckAction,
     WitchSaveAction,
@@ -10,6 +8,8 @@ from llm_werewolf.game_runtime.actions import (
     GuardProtectAction,
     WerewolfVoteAction,
 )
+from llm_werewolf.agent_team.agents.base import DemoAgent
+from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.state.game_state import GameState
 
 

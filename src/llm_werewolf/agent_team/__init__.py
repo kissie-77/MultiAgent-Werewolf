@@ -11,8 +11,8 @@ __all__ = [
     "SemanticMemory",
     "WorkingMemory",
     "configure_agents_for_players",
-    "create_react_agent",
     "create_agent",
+    "create_react_agent",
 ]
 
 

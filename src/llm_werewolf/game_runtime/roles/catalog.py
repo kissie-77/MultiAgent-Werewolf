@@ -1,4 +1,4 @@
-﻿"""权威角色目录：名称、实现、阵营、胜利目标。"""
+"""权威角色目录：名称、实现、阵营、胜利目标。"""
 
 from llm_werewolf.game_runtime.types.enums import Camp, VictoryGoal
 from llm_werewolf.game_runtime.roles.definition import RoleDefinition

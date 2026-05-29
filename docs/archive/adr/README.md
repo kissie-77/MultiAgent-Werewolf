@@ -27,9 +27,9 @@
 
 ## Index
 
-| # | 标题 | 状态 |
-|---|---|---|
-| [0001](0001-mixin-engine.md) | 引擎用 Mixin 组合而非单类 | accepted |
-| [0002](0002-protocols-over-abc.md) | 用 Protocol 而非 ABC 描述接口 | accepted |
-| [0003](0003-async-engine.md) | 引擎全异步化 | accepted |
-| [0004](0004-offline-game-correctness-evaluation.md) | 离线游戏正确性评测独立成模块 | accepted |
+| #                                                   | 标题                          | 状态     |
+| --------------------------------------------------- | ----------------------------- | -------- |
+| [0001](0001-mixin-engine.md)                        | 引擎用 Mixin 组合而非单类     | accepted |
+| [0002](0002-protocols-over-abc.md)                  | 用 Protocol 而非 ABC 描述接口 | accepted |
+| [0003](0003-async-engine.md)                        | 引擎全异步化                  | accepted |
+| [0004](0004-offline-game-correctness-evaluation.md) | 离线游戏正确性评测独立成模块  | accepted |

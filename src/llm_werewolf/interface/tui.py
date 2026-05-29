@@ -1,19 +1,19 @@
-﻿import fire
+import fire
 import logfire
 
 from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 
-from llm_werewolf.interface.bootstrap import (
-    create_information_hub,
-    prepare_game_roster,
-    wire_agentscope_after_setup,
-)
 from llm_werewolf.ui import run_tui
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.interface.modes import resolve_config_path
+from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.interface.bootstrap import (
+    prepare_game_roster,
+    create_information_hub,
+    wire_agentscope_after_setup,
+)
 
 
 def main(
@@ -34,11 +34,7 @@ def main(
         human_seat: 人类玩家的 1-based 座位号，可用逗号分隔多个；缺省为纯 Agent 局。
         badge_flow: 是否开启警长 / 警徽流；缺省关闭，行为与现状一致。
     """
-    config_path = resolve_config_path(
-        config,
-        participation=participation,
-        rules=rules,
-    )
+    config_path = resolve_config_path(config, participation=participation, rules=rules)
     players_config = load_config(config_path=config_path)
 
     try:
@@ -47,7 +43,7 @@ def main(
 
             players_config = resize_players_config(players_config, int(players))
         if human_seat is not None:
-            from llm_werewolf.interface.cli_overrides import apply_human_seats, parse_seat_list
+            from llm_werewolf.interface.cli_overrides import parse_seat_list, apply_human_seats
 
             players_config = apply_human_seats(players_config, parse_seat_list(human_seat))
     except (ValueError, TypeError) as exc:
@@ -60,9 +56,7 @@ def main(
         game_config = game_config.model_copy(update={"enable_sheriff": True})
 
     engine = GameEngine(
-        game_config,
-        language=players_config.language,
-        information_hub=create_information_hub(),
+        game_config, language=players_config.language, information_hub=create_information_hub()
     )
     engine.setup_game(players=agents, roles=roles)
     wire_agentscope_after_setup(engine, players_config)
@@ -84,7 +78,7 @@ def main(
 
 
 def entry() -> None:
-    """werewolf TUI 命令的入口点。"""
+    """Werewolf TUI 命令的入口点。"""
     fire.Fire(main)
 
 

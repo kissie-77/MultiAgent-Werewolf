@@ -1,17 +1,31 @@
-﻿import json
+import json
 from typing import Any
 from pathlib import Path
 
 from pydantic import Field, BaseModel
 
-from llm_werewolf.game_runtime.events.events import EventLogger
-from llm_werewolf.game_runtime.types import Event, GamePhase, PlayerStatus, PlayerProtocol, GameStateProtocol
+from llm_werewolf.game_runtime.types import (
+    Event,
+    GamePhase,
+    PlayerStatus,
+    PlayerProtocol,
+    GameStateProtocol,
+)
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.roles.registry import get_role_map
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.roles.neutral import Thief
-from llm_werewolf.game_runtime.roles.villager import Cupid, Elder, Guard, Idiot, Witch, Knight, Magician
+from llm_werewolf.game_runtime.roles.registry import get_role_map
+from llm_werewolf.game_runtime.roles.villager import (
+    Cupid,
+    Elder,
+    Guard,
+    Idiot,
+    Witch,
+    Knight,
+    Magician,
+)
 from llm_werewolf.game_runtime.roles.werewolf import WolfBeauty, BloodMoonApostle
+from llm_werewolf.game_runtime.state.game_state import GameState
 
 
 class PlayerSnapshot(BaseModel):
@@ -354,9 +368,7 @@ def _restore_game_state_fields(game_state: GameState, snapshot: GameStateSnapsho
     game_state.guardian_wolf_protected = snapshot.guardian_wolf_protected
     game_state.nightmare_blocked = snapshot.nightmare_blocked
     game_state.seer_checked = {int(k): v for k, v in snapshot.seer_checked.items()}
-    game_state.graveyard_checked = {
-        int(k): v for k, v in snapshot.graveyard_checked.items()
-    }
+    game_state.graveyard_checked = {int(k): v for k, v in snapshot.graveyard_checked.items()}
 
     game_state.votes = snapshot.votes
     game_state.raven_marked = snapshot.raven_marked

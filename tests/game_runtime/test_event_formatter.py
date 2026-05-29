@@ -1,4 +1,4 @@
-﻿"""事件格式化器的测试。"""
+"""事件格式化器的测试。"""
 
 from datetime import datetime
 

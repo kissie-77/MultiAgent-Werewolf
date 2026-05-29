@@ -3,9 +3,9 @@
 import json
 
 from llm_werewolf.evaluation.core.vote_swing_analysis import (
+    load_speech_records,
     analyze_speech_records,
     format_markdown_report,
-    load_speech_records,
     write_persuasion_artifacts,
 )
 
@@ -64,7 +64,7 @@ def _sample_record() -> dict:
     }
 
 
-def test_analyze_speech_records():
+def test_analyze_speech_records() -> None:
     report = analyze_speech_records([_sample_record()])
     assert report.total_speeches == 1
     assert report.total_swings == 1
@@ -73,7 +73,7 @@ def test_analyze_speech_records():
     assert stats.total_influence_score == 10
 
 
-def test_write_persuasion_artifacts(tmp_path):
+def test_write_persuasion_artifacts(tmp_path) -> None:
     path = tmp_path / "vote_intentions.jsonl"
     path.write_text(json.dumps(_sample_record(), ensure_ascii=False) + "\n", encoding="utf-8")
     out = write_persuasion_artifacts(tmp_path)

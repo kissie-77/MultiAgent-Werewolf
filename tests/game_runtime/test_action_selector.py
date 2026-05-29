@@ -1,21 +1,18 @@
-﻿"""game_runtime/action_selector.py 的测试。"""
+"""game_runtime/action_selector.py 的测试。"""
 
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from llm_werewolf.game_runtime.action_selector import ActionSelector
+from llm_werewolf.game_runtime.roles import Villager
 from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.roles import Villager
+from llm_werewolf.game_runtime.action_selector import ActionSelector
 
 
 @pytest.fixture
 def two_players() -> list[Player]:
-    return [
-        Player("p1", "Alice", Villager),
-        Player("p2", "Bob", Villager),
-    ]
+    return [Player("p1", "Alice", Villager), Player("p2", "Bob", Villager)]
 
 
 def test_build_target_selection_prompt(two_players: list[Player]) -> None:
@@ -36,9 +33,7 @@ def test_build_target_selection_prompt(two_players: list[Player]) -> None:
 def test_parse_target_selection(two_players: list[Player]) -> None:
     assert ActionSelector.parse_target_selection("2", two_players) == two_players[1]
     assert ActionSelector.parse_target_selection("invalid", two_players) is None
-    assert (
-        ActionSelector.parse_target_selection("3", two_players, allow_skip=True) is None
-    )
+    assert ActionSelector.parse_target_selection("3", two_players, allow_skip=True) is None
 
 
 def test_parse_yes_no() -> None:
@@ -54,7 +49,8 @@ def test_build_multi_target_prompt(two_players: list[Player]) -> None:
         possible_targets=two_players,
         num_targets=2,
     )
-    assert "2" in prompt and "不同目标" in prompt
+    assert "2" in prompt
+    assert "不同目标" in prompt
 
 
 def test_parse_multi_target_selection(two_players: list[Player]) -> None:

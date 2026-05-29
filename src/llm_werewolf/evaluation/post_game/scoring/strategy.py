@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
-from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 
 
 def _role_key(role_name: str | None) -> str:
@@ -16,12 +16,9 @@ def _role_key(role_name: str | None) -> str:
 
 
 def build_strategy_scores(
-    ctx: RunContext,
-    events: list[dict[str, Any]] | None = None,
+    ctx: RunContext, events: list[dict[str, Any]] | None = None
 ) -> dict[str, dict[str, Any]]:
-    scores: dict[str, dict[str, Any]] = {
-        pid: {"total": 0, "details": []} for pid in ctx.roster
-    }
+    scores: dict[str, dict[str, Any]] = {pid: {"total": 0, "details": []} for pid in ctx.roster}
     source = events if events is not None else ctx.events
 
     for event in source:

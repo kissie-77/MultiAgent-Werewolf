@@ -33,9 +33,7 @@ async def test_run_serial_agent_call_serializes_concurrent_calls_by_default() ->
         return "ok"
 
     results = await asyncio.gather(
-        run_serial_agent_call(call),
-        run_serial_agent_call(call),
-        run_serial_agent_call(call),
+        run_serial_agent_call(call), run_serial_agent_call(call), run_serial_agent_call(call)
     )
 
     assert results == ["ok", "ok", "ok"]

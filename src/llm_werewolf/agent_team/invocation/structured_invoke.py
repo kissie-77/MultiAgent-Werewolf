@@ -1,11 +1,11 @@
-﻿"""通过 generate_response → Msg.metadata 的统一 AgentScope 结构化输出。"""
+"""通过 generate_response → Msg.metadata 的统一 AgentScope 结构化输出。"""
 
 from __future__ import annotations
 
-import json
-import logging
 import re
+import json
 from typing import Any, TypeVar
+import logging
 
 from pydantic import BaseModel, ValidationError
 
@@ -37,10 +37,7 @@ def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:
     if metadata.get("success") is False:
         return None
     # 最终回复直接存字段（seat、choice、public_speech 等）
-    if any(
-        key in metadata
-        for key in ("seat", "choice", "public_speech", "seats", "beliefs")
-    ):
+    if any(key in metadata for key in ("seat", "choice", "public_speech", "seats", "beliefs")):
         return metadata
     return metadata if metadata else None
 
@@ -113,9 +110,7 @@ def _parse_legacy_scalar_text(text: str, model: type[T]) -> T | None:
         if upper in {"YES", "NO"}:
             return model.model_validate({"choice": upper == "YES", "reason": None})
         if seat_match and seat_match.group(1) in {"0", "1"}:
-            return model.model_validate(
-                {"choice": seat_match.group(1) == "1", "reason": None}
-            )
+            return model.model_validate({"choice": seat_match.group(1) == "1", "reason": None})
     return None
 
 
@@ -147,11 +142,7 @@ def parse_structured_from_text(text: str, model: type[T]) -> T | None:
 
 
 async def invoke_structured(
-    agent: Any,
-    prompt: str,
-    model: type[T],
-    *,
-    retries: int = 2,
+    agent: Any, prompt: str, model: type[T], *, retries: int = 2
 ) -> T | None:
     """调用 agent.get_structured_response；prompt 须要求 generate_response JSON。"""
     getter = getattr(agent, "get_structured_response", None)
@@ -212,8 +203,5 @@ async def invoke_structured(
 
 def coerce_speech(decision: SpeechDecision | None) -> SpeechDecision:
     if decision is None:
-        return SpeechDecision.model_construct(
-            public_speech="（无公开发言）",
-            private_thought=None,
-        )
+        return SpeechDecision.model_construct(public_speech="（无公开发言）", private_thought=None)
     return normalize_speech_decision(decision)

@@ -1,7 +1,7 @@
 # MultiAgent-Werewolf 项目文件架构
 
-> 版本：2026-05-20  
-> 说明：**当前已有** + **治理目标下建议新增** 的目录与存放规则。  
+> 版本：2026-05-20
+> 说明：**当前已有** + **治理目标下建议新增** 的目录与存放规则。
 > 职责边界见 [project-governance.md](./project-governance.md)。
 
 ---
@@ -22,13 +22,13 @@ MultiAgent-Werewolf/
 └── README*.md            # 使用说明
 ```
 
-| 路径 | 存放规则 |
-|------|----------|
-| `src/` | 所有可发布代码；禁止放密钥、对局日志 |
-| `configs/` | 仅 YAML/JSON 配置；一条文件对应一种预设对局 |
-| `docs/` | Markdown 架构/流程/治理；与代码同步更新 |
-| `runs/`、`eval_runs/` | 只写不入库（或仅样例）；程序输出目录 |
-| `.venv/` | 本地虚拟环境，不入库 |
+| 路径                  | 存放规则                                    |
+| --------------------- | ------------------------------------------- |
+| `src/`                | 所有可发布代码；禁止放密钥、对局日志        |
+| `configs/`            | 仅 YAML/JSON 配置；一条文件对应一种预设对局 |
+| `docs/`               | Markdown 架构/流程/治理；与代码同步更新     |
+| `runs/`、`eval_runs/` | 只写不入库（或仅样例）；程序输出目录        |
+| `.venv/`              | 本地虚拟环境，不入库                        |
 
 ---
 
@@ -242,53 +242,53 @@ MultiAgent-Werewolf/
 
 ## 4. 分层存放规则（新建文件放哪）
 
-| 你要加的东西 | 放在 | 命名建议 |
-|--------------|------|----------|
-| 新游戏阶段（如「遗言阶段」） | `core/engine/<phase>_phase.py` + 在 `game_engine.py` 继承 | `xxx_phase.py` |
-| 阶段状态字段 | `core/game_state.py` | 与 `GamePhase` 同步 |
-| 新角色技能逻辑 | `core/roles/<camp>.py` 或新文件 | 类名 = 角色英文名 |
-| 新动作类型 | `core/actions/*.py` + `types/enums.ActionType` | `XxxAction` |
-| 新事件类型 | `types/enums.EventType` + 在 `event_visibility` 登记可见性 | 见治理表 |
-| LLM 输出新格式 | `core/decisions.py` + `adapter/bridge.py` | `XxxDecision` |
-| MsgHub 新通道/路由 | `adapter/visibility.py` + `information_hub.py` | 扩展 `VisibilityChannel` |
-| Catalog 提示词 | `core/prompts/` | `implementation` 字段 |
-| AgentScope 提示词 | `adapter/prompts.py` | 与 factory 配合 |
-| AgentScope 绑定 | `adapter/factory.py`、`setup.py` | — |
-| 控制台/TUI 展示 | `ui/` | 只读 Event，不改状态 |
-| 评测规则 | `evaluation/checkers.py` | 一个 Checker 一类 |
-| 6/12 人预设 | `configs/*.yaml` | `llm-<n>p-<backend>.yaml` |
-| 架构/流程文档 | `docs/*.md` | 与 PR 同步 |
+| 你要加的东西                 | 放在                                                       | 命名建议                  |
+| ---------------------------- | ---------------------------------------------------------- | ------------------------- |
+| 新游戏阶段（如「遗言阶段」） | `core/engine/<phase>_phase.py` + 在 `game_engine.py` 继承  | `xxx_phase.py`            |
+| 阶段状态字段                 | `core/game_state.py`                                       | 与 `GamePhase` 同步       |
+| 新角色技能逻辑               | `core/roles/<camp>.py` 或新文件                            | 类名 = 角色英文名         |
+| 新动作类型                   | `core/actions/*.py` + `types/enums.ActionType`             | `XxxAction`               |
+| 新事件类型                   | `types/enums.EventType` + 在 `event_visibility` 登记可见性 | 见治理表                  |
+| LLM 输出新格式               | `core/decisions.py` + `adapter/bridge.py`                  | `XxxDecision`             |
+| MsgHub 新通道/路由           | `adapter/visibility.py` + `information_hub.py`             | 扩展 `VisibilityChannel`  |
+| Catalog 提示词               | `core/prompts/`                                            | `implementation` 字段     |
+| AgentScope 提示词            | `adapter/prompts.py`                                       | 与 factory 配合           |
+| AgentScope 绑定              | `adapter/factory.py`、`setup.py`                           | —                         |
+| 控制台/TUI 展示              | `ui/`                                                      | 只读 Event，不改状态      |
+| 评测规则                     | `evaluation/checkers.py`                                   | 一个 Checker 一类         |
+| 6/12 人预设                  | `configs/*.yaml`                                           | `llm-<n>p-<backend>.yaml` |
+| 架构/流程文档                | `docs/*.md`                                                | 与 PR 同步                |
 
 ---
 
 ## 5. 模块 ↔ 路径速查
 
-| 治理层 | 路径 |
-|--------|------|
-| 应用入口 | `cli.py`, `tui.py`, `eval_cli.py` |
-| 阶段控制 | `core/engine/*.py`, `core/game_state.py` |
-| 规则状态 | `core/game_state.py` |
-| 事件与可见性 | `core/events.py`, `core/types/models.py` |
+| 治理层             | 路径                                                          |
+| ------------------ | ------------------------------------------------------------- |
+| 应用入口           | `cli.py`, `tui.py`, `eval_cli.py`                             |
+| 阶段控制           | `core/engine/*.py`, `core/game_state.py`                      |
+| 规则状态           | `core/game_state.py`                                          |
+| 事件与可见性       | `core/events.py`, `core/types/models.py`                      |
 | 观察/Prompt 上下文 | `core/observation.py`, `engine/base.build_player_observation` |
-| 角色规则 | `core/roles/` |
-| 动作执行 | `core/actions/` |
-| 信息隔离 / MsgHub | `adapter/information_hub.py`, `adapter/visibility.py` |
-| LLM 解析（Bridge） | `adapter/bridge.py` |
-| 决策契约类型 | `core/decisions.py` |
-| Agent 实现 | `agents/base.py`, `integration/agentscope.py` |
-| 角色目录 | `core/roles/catalog.py`, `registry.py` |
-| 展示 | `ui/` |
-| 评测 | `evaluation/` |
+| 角色规则           | `core/roles/`                                                 |
+| 动作执行           | `core/actions/`                                               |
+| 信息隔离 / MsgHub  | `adapter/information_hub.py`, `adapter/visibility.py`         |
+| LLM 解析（Bridge） | `adapter/bridge.py`                                           |
+| 决策契约类型       | `core/decisions.py`                                           |
+| Agent 实现         | `agents/base.py`, `integration/agentscope.py`                 |
+| 角色目录           | `core/roles/catalog.py`, `registry.py`                        |
+| 展示               | `ui/`                                                         |
+| 评测               | `evaluation/`                                                 |
 
 ---
 
 ## 6. 入口命令与文件关系
 
-| 命令（pyproject 入口） | 调用链 |
-|------------------------|--------|
-| `llm-werewolf` / `werewolf` | `cli.py` → `GameEngine` → configs |
-| `llm-werewolf-tui` | `tui.py` → `TUIApp` → `GameEngine` |
-| `werewolf-eval` | `eval_cli.py` → `evaluation/runner.py` |
+| 命令（pyproject 入口）      | 调用链                                 |
+| --------------------------- | -------------------------------------- |
+| `llm-werewolf` / `werewolf` | `cli.py` → `GameEngine` → configs      |
+| `llm-werewolf-tui`          | `tui.py` → `TUIApp` → `GameEngine`     |
+| `werewolf-eval`             | `eval_cli.py` → `evaluation/runner.py` |
 
 配置文件路径由 CLI 参数传入，默认读 `configs/` 下 YAML。
 
@@ -310,6 +310,6 @@ werewolf/                          # 工作区根（可能含多子项目）
 
 ## 8. 修订记录
 
-| 日期 | 说明 |
-|------|------|
+| 日期       | 说明                                       |
+| ---------- | ------------------------------------------ |
 | 2026-05-20 | 首版：顶层规则、包内树、分层依赖、存放规则 |

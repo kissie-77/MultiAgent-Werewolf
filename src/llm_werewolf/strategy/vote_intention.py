@@ -1,14 +1,15 @@
-﻿"""投票意向追踪，用于复盘 / 说服分析（Foaster 风格）。"""
+"""投票意向追踪，用于复盘 / 说服分析（Foaster 风格）。"""
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
 from enum import Enum
+import json
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
-from typing import Any
+from dataclasses import field, dataclass
 
-from llm_werewolf.game_runtime.types import PlayerProtocol
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.types import PlayerProtocol
 
 
 class VoteIntentionAnchor(str, Enum):
@@ -87,9 +88,7 @@ class VoteIntentionSnapshot:
             "anchor": self.anchor.value,
             "speaker_id": self.speaker_id,
             "speaker_name": self.speaker_name,
-            "intentions": {
-                pid: entry.to_dict() for pid, entry in self.intentions.items()
-            },
+            "intentions": {pid: entry.to_dict() for pid, entry in self.intentions.items()},
         }
 
 
@@ -123,8 +122,7 @@ class SpeechVoteIntentionRecord:
 
 
 def compute_vote_swings(
-    before: dict[str, VoteIntentionEntry],
-    after: dict[str, VoteIntentionEntry],
+    before: dict[str, VoteIntentionEntry], after: dict[str, VoteIntentionEntry]
 ) -> list[VoteSwing]:
     """返回意向投票目标发生变化的玩家。"""
     swings: list[VoteSwing] = []
@@ -132,7 +130,10 @@ def compute_vote_swings(
         after_entry = after.get(player_id)
         if after_entry is None:
             continue
-        if before_entry.seat == after_entry.seat and before_entry.target_id == after_entry.target_id:
+        if (
+            before_entry.seat == after_entry.seat
+            and before_entry.target_id == after_entry.target_id
+        ):
             continue
         swings.append(
             VoteSwing(

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from difflib import SequenceMatcher
+from collections import defaultdict
 
 
 def normalize_content(content: str) -> str:
@@ -11,11 +11,7 @@ def normalize_content(content: str) -> str:
 
 
 def similarity(left: str, right: str) -> float:
-    return SequenceMatcher(
-        None,
-        normalize_content(left),
-        normalize_content(right),
-    ).ratio()
+    return SequenceMatcher(None, normalize_content(left), normalize_content(right)).ratio()
 
 
 def merge_card_contents(base: str, incoming: str) -> str:

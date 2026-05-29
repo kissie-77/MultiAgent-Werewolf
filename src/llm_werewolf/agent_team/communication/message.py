@@ -1,12 +1,13 @@
-﻿"""LLMWerewolf 字符串与 AgentScope Msg 格式之间的消息适配器。
+"""LLMWerewolf 字符串与 AgentScope Msg 格式之间的消息适配器。
 
 .. deprecated::
     对局内消息请优先使用 InformationHub。Msg metadata 上的 ``visible_to``
     未接入引擎事件日志；仅保留供 AgentScope Agent 辅助使用。
 """
 
-from typing import Literal, Sequence
+from typing import Literal
 from datetime import datetime
+from collections.abc import Sequence
 
 import shortuuid
 
@@ -116,7 +117,7 @@ class Msg:
         return (
             f"Msg(id='{self.id}', "
             f"name='{self.name}', "
-            f"content={repr(self.content)}, "
+            f"content={self.content!r}, "
             f"role='{self.role}')"
         )
 
@@ -147,12 +148,7 @@ class MessageAdapter:
         Returns:
             与 AgentScope 兼容的 Msg 对象。
         """
-        return Msg(
-            name=name,
-            content=text,
-            role=role,
-            metadata=metadata or {},
-        )
+        return Msg(name=name, content=text, role=role, metadata=metadata or {})
 
     @staticmethod
     def msg_to_str(msg: Msg) -> str:
@@ -210,12 +206,7 @@ class MessageAdapter:
         if visible_to is not None:
             metadata["visible_to"] = visible_to
 
-        return Msg(
-            name=name,
-            content=text,
-            role=role_type,
-            metadata=metadata,
-        )
+        return Msg(name=name, content=text, role=role_type, metadata=metadata)
 
     @staticmethod
     def chat_history_to_msgs(history: list[dict]) -> list[Msg]:
@@ -233,11 +224,7 @@ class MessageAdapter:
             if role not in ("user", "assistant", "system"):
                 role = "user"
 
-            msgs.append(Msg(
-                name="Player",
-                content=item.get("content", ""),
-                role=role,
-            ))
+            msgs.append(Msg(name="Player", content=item.get("content", ""), role=role))
         return msgs
 
     @staticmethod
@@ -253,10 +240,7 @@ class MessageAdapter:
         history = []
         for msg in msgs:
             content = msg.get_text_content() or ""
-            history.append({
-                "role": msg.role,
-                "content": content,
-            })
+            history.append({"role": msg.role, "content": content})
         return history
 
     @staticmethod

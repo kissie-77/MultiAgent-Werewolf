@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
+from pathlib import Path
+from dataclasses import field, dataclass
 
 
 @dataclass
@@ -78,9 +78,7 @@ class VoteSwingReport:
 
     def to_dict(self) -> dict[str, Any]:
         ranked = sorted(
-            self.player_stats.values(),
-            key=lambda s: s.total_influence_score,
-            reverse=True,
+            self.player_stats.values(), key=lambda s: s.total_influence_score, reverse=True
         )
         return {
             "total_speeches": self.total_speeches,
@@ -139,10 +137,7 @@ def analyze_speech_records(records: list[dict[str, Any]]) -> VoteSwingReport:
 
         stats = report.player_stats.get(speaker_id)
         if stats is None:
-            stats = PlayerPersuasionStats(
-                player_id=speaker_id,
-                player_name=speaker_name,
-            )
+            stats = PlayerPersuasionStats(player_id=speaker_id, player_name=speaker_name)
             report.player_stats[speaker_id] = stats
         stats.speeches_count += 1
         stats.total_swings_caused += swing_count
@@ -220,8 +215,7 @@ def ensure_vote_intentions_jsonl(
         return False
 
     path.write_text(
-        "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
-        encoding="utf-8",
+        "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8"
     )
     return True
 
@@ -245,9 +239,7 @@ def format_markdown_report(report: VoteSwingReport, *, title: str = "Vote Swing 
         "|--------|----------|---------------|-----------|-------------------|",
     ]
     ranked = sorted(
-        report.player_stats.values(),
-        key=lambda s: s.total_influence_score,
-        reverse=True,
+        report.player_stats.values(), key=lambda s: s.total_influence_score, reverse=True
     )
     for stats in ranked:
         lines.append(
@@ -257,17 +249,15 @@ def format_markdown_report(report: VoteSwingReport, *, title: str = "Vote Swing 
         )
 
     lines.extend(["", "## Top influential speeches", ""])
-    top = sorted(
-        report.speech_influences,
-        key=lambda s: s.influence_score,
-        reverse=True,
-    )[:20]
+    top = sorted(report.speech_influences, key=lambda s: s.influence_score, reverse=True)[:20]
     for idx, speech in enumerate(top, start=1):
         lines.append(
             f"### {idx}. {speech.speaker_name} "
             f"(R{speech.round_number} · {speech.phase} · {speech.channel})"
         )
-        lines.append(f"- **Influence score**: {speech.influence_score} ({speech.swing_count} swings)")
+        lines.append(
+            f"- **Influence score**: {speech.influence_score} ({speech.swing_count} swings)"
+        )
         if speech.public_speech:
             excerpt = speech.public_speech.replace("\n", " ")[:200]
             lines.append(f"- **Speech**: {excerpt}")
@@ -285,10 +275,7 @@ def format_markdown_report(report: VoteSwingReport, *, title: str = "Vote Swing 
     return "\n".join(lines)
 
 
-def write_persuasion_artifacts(
-    source: str | Path,
-    output_dir: str | Path | None = None,
-) -> Path:
+def write_persuasion_artifacts(source: str | Path, output_dir: str | Path | None = None) -> Path:
     """分析源数据并写入 vote_swing_report.md 与 vote_swing_summary.json。"""
     report = analyze_path(source)
     out = Path(output_dir) if output_dir else Path(source)
@@ -301,7 +288,6 @@ def write_persuasion_artifacts(
 
     json_path = out / "vote_swing_summary.json"
     json_path.write_text(
-        json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
+        json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return out

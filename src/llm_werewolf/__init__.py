@@ -1,5 +1,5 @@
-﻿from pathlib import Path
-from importlib.metadata import version, PackageNotFoundError
+from pathlib import Path
+from importlib.metadata import PackageNotFoundError, version
 
 import logfire
 

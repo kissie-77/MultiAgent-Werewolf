@@ -1,12 +1,16 @@
-﻿"""基于声明式角色目录的角色注册表。"""
+"""基于声明式角色目录的角色注册表。"""
 
 from __future__ import annotations
 
-from llm_werewolf.game_runtime.roles.base import Role
-from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG, get_definition
-from llm_werewolf.game_runtime.roles.definition import RoleDefinition
-from llm_werewolf.game_runtime.roles.loader import role_class_from_definition
+from typing import TYPE_CHECKING
+
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.game_runtime.roles.loader import role_class_from_definition
+from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG, get_definition
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.roles.base import Role
+    from llm_werewolf.game_runtime.roles.definition import RoleDefinition
 
 
 class _ConfigProbe:
@@ -48,11 +52,7 @@ def get_role_definition(name: str) -> RoleDefinition:
 
 def get_werewolf_roles() -> set[str]:
     """狼人阵营的运行时角色名（Role.config.name）集合。"""
-    return {
-        CATALOG_TO_RUNTIME_NAME[d.name]
-        for d in ROLE_CATALOG
-        if d.camp == Camp.WEREWOLF
-    }
+    return {CATALOG_TO_RUNTIME_NAME[d.name] for d in ROLE_CATALOG if d.camp == Camp.WEREWOLF}
 
 
 def validate_role_names(role_names: list[str]) -> None:
@@ -64,9 +64,7 @@ def validate_role_names(role_names: list[str]) -> None:
             msg = f"Unknown role: {role_name}"
             raise ValueError(msg)
 
-    werewolf_count = sum(
-        1 for role in role_names if get_definition(role).camp == Camp.WEREWOLF
-    )
+    werewolf_count = sum(1 for role in role_names if get_definition(role).camp == Camp.WEREWOLF)
     if werewolf_count == 0:
         msg = "At least one werewolf role is required"
         raise ValueError(msg)

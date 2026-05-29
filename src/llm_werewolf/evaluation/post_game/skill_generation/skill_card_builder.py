@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
 from dataclasses import dataclass
-from typing import Any
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampSpeechInfluence
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+if TYPE_CHECKING:
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampSpeechInfluence
 
 # 策略要点提炼自 strategy/prompts/v2/roles/*.yaml 与常见网规狼人杀思路
 _ROLE_DAY_PERSUASION: dict[str, dict[str, str]] = {
@@ -111,9 +112,7 @@ _NIGHT_EVENT_STRATEGY: dict[str, dict[str, str]] = {
         "when_early": "首夜刀口落在关键神职或高价值好人",
         "when_late": "残局保能带队者或能形成票型优势的核心",
         "behavior": (
-            "① 评估被刀者身份价值与自刀嫌疑；"
-            "② 关键神职优先于普通平民；"
-            "③ 用药后白天谨慎透露信息。"
+            "① 评估被刀者身份价值与自刀嫌疑；② 关键神职优先于普通平民；③ 用药后白天谨慎透露信息。"
         ),
         "avoid": "首夜盲救低价值位、忽视自刀骗药、用药后立即暴露女巫",
     },
@@ -141,12 +140,7 @@ _NIGHT_EVENT_STRATEGY: dict[str, dict[str, str]] = {
     },
 }
 
-_RESULT_ZH = {
-    "werewolf": "狼人",
-    "wolf": "狼人",
-    "villager": "好人",
-    "good": "好人",
-}
+_RESULT_ZH = {"werewolf": "狼人", "wolf": "狼人", "villager": "好人", "good": "好人"}
 
 
 @dataclass(frozen=True)
@@ -182,11 +176,7 @@ def _round_phase_hint(round_number: int) -> str:
 
 
 def _seer_target_motivation(
-    ctx: RunContext,
-    *,
-    target_id: str,
-    check_result: str,
-    round_number: int,
+    ctx: RunContext, *, target_id: str, check_result: str, round_number: int
 ) -> str:
     entry = ctx.roster.get(target_id)
     role_name = entry.role_name if entry else None
@@ -212,25 +202,19 @@ def _guard_target_motivation(ctx: RunContext, *, target_id: str, round_number: i
 
 
 def build_wolf_night_coordination_card(
-    *,
-    round_number: int,
-    speeches: list[str],
-    kill_target_id: str | None,
-    ctx: RunContext,
+    *, round_number: int, speeches: list[str], kill_target_id: str | None, ctx: RunContext
 ) -> SkillCardContent:
     kill_label = _player_label(ctx, kill_target_id) if kill_target_id else "待对齐刀口"
     excerpt = "；".join(s.strip() for s in speeches if s.strip())[:120]
     return SkillCardContent(
         title_zh=f"第{round_number}轮狼队夜间刀口协商",
         when_to_use=(
-            f"第{round_number}轮狼队私密频道，需在落刀前统一目标；"
-            "优先神职 > 能带队平民 > 划水位。"
+            f"第{round_number}轮狼队私密频道，需在落刀前统一目标；优先神职 > 能带队平民 > 划水位。"
         ),
         public_behavior=(
             "① 夜间先报「建议刀口 + 一句理由」，等队友表态后再收敛到单一目标；"
             "② 理由用「高置位/像神职/发言像预言家」等可白天自洽的说法，不用夜间私密细节；"
-            f"③ 本局最终刀口对齐 {kill_label}。"
-            + (f" 协商摘录：{excerpt}。" if excerpt else "")
+            f"③ 本局最终刀口对齐 {kill_label}。" + (f" 协商摘录：{excerpt}。" if excerpt else "")
         ),
         avoid=(
             "① 各狼各刀各的、白天叙事与刀口对不上；"
@@ -241,10 +225,7 @@ def build_wolf_night_coordination_card(
 
 
 def build_persuasion_skill_card(
-    *,
-    role_key: str,
-    speech: CampSpeechInfluence,
-    ctx: RunContext,
+    *, role_key: str, speech: CampSpeechInfluence, ctx: RunContext
 ) -> SkillCardContent:
     base = _ROLE_DAY_PERSUASION.get(role_key, _ROLE_DAY_PERSUASION["villager"])
     rnd = speech.round_number
@@ -264,18 +245,12 @@ def build_persuasion_skill_card(
         behavior += f" ④ 表述上可先点出具体矛盾，再收束到单一归票（如摘录：「{excerpt[:80]}…」）。"
 
     return SkillCardContent(
-        title_zh=title,
-        when_to_use=when,
-        public_behavior=behavior,
-        avoid=base["avoid"],
+        title_zh=title, when_to_use=when, public_behavior=behavior, avoid=base["avoid"]
     )
 
 
 def build_night_action_skill_card(
-    *,
-    role_key: str,
-    event: dict[str, Any],
-    ctx: RunContext,
+    *, role_key: str, event: dict[str, Any], ctx: RunContext
 ) -> SkillCardContent:
     etype = str(event.get("event_type", "night_action"))
     data = event.get("data") or {}
@@ -300,10 +275,7 @@ def build_night_action_skill_card(
     behavior = strat["behavior"]
     if etype == "seer_checked" and target_id:
         motive = _seer_target_motivation(
-            ctx,
-            target_id=target_id,
-            check_result=check_result,
-            round_number=rnd,
+            ctx, target_id=target_id, check_result=check_result, round_number=rnd
         )
         behavior += f" 本局验 {target_label}（{motive}），结果 {check_result}。"
     elif etype == "guard_protected" and target_id:
@@ -320,11 +292,7 @@ def build_night_action_skill_card(
     )
 
 
-def dedupe_skill_candidates(
-    candidates: list[Any],
-    *,
-    max_per_role: int = 2,
-) -> list[Any]:
+def dedupe_skill_candidates(candidates: list[Any], *, max_per_role: int = 2) -> list[Any]:
     """同局内去重：每身份保留高分且场景不重复的 Skill。"""
     if not candidates:
         return []

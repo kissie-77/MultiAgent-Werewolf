@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
+from datetime import datetime, timezone
 
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import _result_zh
 

@@ -1,26 +1,28 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import TYPE_CHECKING
 
-from llm_werewolf.game_runtime.types import Event, GameStateInfo, PlayerInfo, PlayerProtocol
+from pydantic import Field, BaseModel
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.types import Event, PlayerInfo, GameStateInfo, PlayerProtocol
 
 
 class PlayerObservation(BaseModel):
     """单个玩家可见的过滤后游戏上下文。"""
 
-    self_player: PlayerInfo = Field(..., description="Public identity and status of the acting player")
+    self_player: PlayerInfo = Field(
+        ..., description="Public identity and status of the acting player"
+    )
     game_state: GameStateInfo = Field(..., description="Public game-state summary")
     visible_players: list[PlayerInfo] = Field(
-        default_factory=list,
-        description="Publicly visible player information for all players",
+        default_factory=list, description="Publicly visible player information for all players"
     )
     visible_events: list[Event] = Field(
-        default_factory=list,
-        description="Events this player is allowed to observe",
+        default_factory=list, description="Events this player is allowed to observe"
     )
     private_notes: list[str] = Field(
-        default_factory=list,
-        description="Role-specific private facts only this player may know",
+        default_factory=list, description="Role-specific private facts only this player may know"
     )
 
 

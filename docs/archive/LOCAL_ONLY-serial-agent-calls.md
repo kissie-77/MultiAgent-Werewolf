@@ -4,14 +4,14 @@
 
 ## 涉及文件
 
-| 文件 | 说明 |
-|------|------|
-| `src/llm_werewolf/agent_team/serial_calls.py` | 已转为正式默认模块，用于串行保护 AgentScope 调用 |
-| `src/llm_werewolf/adapter/agent.py` | 仅 **串行/限流** 相关：`run_serial_agent_call`、`_call_agentscope_agent` 重试、`_extract_agentscope_text` |
-| `.env.example` | `AGENT_SERIAL_DELAY_SECONDS` 一行（可选不提交） |
-| `src/llm_werewolf/core/engine/night_phase.py` | 注释「concurrently → sequentially」 |
-| `src/llm_werewolf/core/engine/voting_phase.py` | 同上 |
-| `src/llm_werewolf/core/engine/sheriff_election.py` | 同上 |
+| 文件                                               | 说明                                                                                                      |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `src/llm_werewolf/agent_team/serial_calls.py`      | 已转为正式默认模块，用于串行保护 AgentScope 调用                                                          |
+| `src/llm_werewolf/adapter/agent.py`                | 仅 **串行/限流** 相关：`run_serial_agent_call`、`_call_agentscope_agent` 重试、`_extract_agentscope_text` |
+| `.env.example`                                     | `AGENT_SERIAL_DELAY_SECONDS` 一行（可选不提交）                                                           |
+| `src/llm_werewolf/core/engine/night_phase.py`      | 注释「concurrently → sequentially」                                                                       |
+| `src/llm_werewolf/core/engine/voting_phase.py`     | 同上                                                                                                      |
+| `src/llm_werewolf/core/engine/sheriff_election.py` | 同上                                                                                                      |
 
 **可正常 push 的**（与串行无关）：AgentScope 接入（`factory.py`、`setup.py`、`cli.py`、`core/agent.py` 的 `create_agent` 等）、`configs/llm-*-agentscope.yaml`、`pyproject.toml` 的 `agentscope` 依赖等。
 
@@ -29,8 +29,8 @@ git add -p src/llm_werewolf/adapter/agent.py
 
 # 4. 可选：不提交引擎注释与 .env.example 串行配置
 git restore --staged .env.example src/llm_werewolf/core/engine/night_phase.py \
-  src/llm_werewolf/core/engine/voting_phase.py \
-  src/llm_werewolf/core/engine/sheriff_election.py 2>/dev/null || true
+    src/llm_werewolf/core/engine/voting_phase.py \
+    src/llm_werewolf/core/engine/sheriff_election.py 2>/dev/null || true
 ```
 
 ## 本地标记（可选）

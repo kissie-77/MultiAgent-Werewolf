@@ -1,30 +1,30 @@
-﻿import asyncio
 import json
-import random
 import time
-from datetime import datetime
-from pathlib import Path
+import random
 from typing import Any
+import asyncio
+from pathlib import Path
+from datetime import datetime
 
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.agent_team.agents.base import DemoAgent
-from llm_werewolf.game_runtime.config import GameConfig
-from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.game_runtime.types import Event, EventType
+from llm_werewolf.game_runtime.config import GameConfig
+from llm_werewolf.interface.bootstrap import create_information_hub
+from llm_werewolf.agent_team.agents.base import DemoAgent
+from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
+from llm_werewolf.evaluation.core.metrics import build_summary
 from llm_werewolf.evaluation.core.checkers import (
     AsyncFlowChecker,
+    RoleSkillChecker,
+    PromptBadCaseChecker,
+    VictoryCheckerEvaluator,
     DecisionConsistencyChecker,
     InformationIsolationChecker,
-    RoleSkillChecker,
-    VictoryCheckerEvaluator,
-    PromptBadCaseChecker,
 )
-from llm_werewolf.evaluation.core.metrics import build_summary
-from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
 from llm_werewolf.evaluation.core.recorder import EvaluationRecorder
 from llm_werewolf.evaluation.core.reporter import EvaluationReporter
 from llm_werewolf.evaluation.core.scenarios import EvaluationScenario
-from llm_werewolf.interface.bootstrap import create_information_hub
+from llm_werewolf.game_runtime.registries.role_registry import create_roles
 
 
 class EvaluationRunner:
@@ -61,10 +61,7 @@ class EvaluationRunner:
         return results
 
     async def run_scenario(
-        self,
-        scenario: EvaluationScenario,
-        game_id: str,
-        seed: int,
+        self, scenario: EvaluationScenario, game_id: str, seed: int
     ) -> GameRunResult:
         """运行单局游戏并返回摘要结果。
 
@@ -118,7 +115,9 @@ class EvaluationRunner:
             for player in engine.game_state.players:
                 try:
                     # 收集每个玩家最终 observation，用于检查私有事件是否泄露。
-                    observations_by_player[player.player_id] = engine.build_player_observation(player)
+                    observations_by_player[player.player_id] = engine.build_player_observation(
+                        player
+                    )
                 except Exception as exc:
                     if not crashed:
                         crashed = True
@@ -136,27 +135,19 @@ class EvaluationRunner:
         if engine.game_state and engine.game_state.vote_intention_tracker is not None:
             records = engine.game_state.vote_intention_tracker.export_records()
             recorder.record_vote_intentions(records)
-            from llm_werewolf.evaluation.core.vote_swing_analysis import ensure_vote_intentions_jsonl
-
-            events_for_intentions = [
-                event.model_dump(mode="json") for event in events
-            ]
-            ensure_vote_intentions_jsonl(
-                game_dir,
-                records=records,
-                events=events_for_intentions,
+            from llm_werewolf.evaluation.core.vote_swing_analysis import (
+                ensure_vote_intentions_jsonl,
             )
+
+            events_for_intentions = [event.model_dump(mode="json") for event in events]
+            ensure_vote_intentions_jsonl(game_dir, records=records, events=events_for_intentions)
 
         events_path = game_dir / "events.jsonl"
         if events_path.is_file() and events_path.stat().st_size > 0:
             try:
                 from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline
 
-                await run_post_game_pipeline(
-                    game_dir,
-                    engine=engine,
-                    skip_llm=True,
-                )
+                await run_post_game_pipeline(game_dir, engine=engine, skip_llm=True)
             except Exception as exc:
                 recorder.record_error(
                     exc,
@@ -166,7 +157,12 @@ class EvaluationRunner:
         checks = self._run_checkers(events, observations_by_player, engine)
         recorder.finalize_checks(checks)
 
-        completed = not crashed and not timed_out and engine.game_state is not None and bool(engine.game_state.winner)
+        completed = (
+            not crashed
+            and not timed_out
+            and engine.game_state is not None
+            and bool(engine.game_state.winner)
+        )
         duration = time.perf_counter() - started
         return GameRunResult(
             game_id=game_id,
@@ -188,28 +184,20 @@ class EvaluationRunner:
 
         第一版固定使用 DemoAgent，避免真实模型 API 成本和随机延迟影响系统正确性评测。
         """
-        config = GameConfig(
-            num_players=scenario.num_players,
-            role_names=scenario.role_names,
-        )
+        config = GameConfig(num_players=scenario.num_players, role_names=scenario.role_names)
         agents = [
             DemoAgent(name=f"EvalPlayer{i}", model="demo")
             for i in range(1, scenario.num_players + 1)
         ]
         roles = create_roles(config.role_names)
         engine = GameEngine(
-            config,
-            language=scenario.language,
-            information_hub=create_information_hub(),
+            config, language=scenario.language, information_hub=create_information_hub()
         )
         engine.setup_game(players=agents, roles=roles)
         return engine
 
     def _run_checkers(
-        self,
-        events: list[Event],
-        observations_by_player: dict[str, str],
-        engine: GameEngine,
+        self, events: list[Event], observations_by_player: dict[str, str], engine: GameEngine
     ) -> list[CheckResult]:
         """运行所有正确性 checker。
 
@@ -237,11 +225,7 @@ class EvaluationRunner:
             (DecisionConsistencyChecker(), {"events": events}),
             (
                 PromptBadCaseChecker(),
-                {
-                    "events": events,
-                    "player_roles": player_roles,
-                    "player_camps": player_camps,
-                },
+                {"events": events, "player_roles": player_roles, "player_camps": player_camps},
             ),
         ]
 
@@ -277,7 +261,9 @@ class EvaluationRunner:
                     passed=False,
                     message=event.data.get("error", event.message),
                     data={
-                        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
+                        "phase": event.phase.value
+                        if hasattr(event.phase, "value")
+                        else str(event.phase),
                         "round_number": event.round_number,
                         "player_id": event.data.get("player_id"),
                         "role_name": role_name,
@@ -294,6 +280,5 @@ class EvaluationRunner:
             "scenarios": [scenario.model_dump(mode="json") for scenario in self.scenarios],
         }
         (self.output_dir / "manifest.json").write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2),
-            encoding="utf-8",
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )

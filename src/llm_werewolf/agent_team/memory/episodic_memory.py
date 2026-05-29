@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from dataclasses import asdict, dataclass
 
-from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import Event, EventType
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.events.events import EventLogger
 
 _KEY_EVENT_TYPES = {
     EventType.VOTE_CAST,
@@ -43,10 +46,7 @@ class EpisodicMemory:
     # ── 全局查询（不过滤玩家可见性） ──
 
     def get_all_events(
-        self,
-        *,
-        since_round: int | None = None,
-        event_types: set[EventType] | None = None,
+        self, *, since_round: int | None = None, event_types: set[EventType] | None = None
     ) -> list[Event]:
         """获取全量事件，支持按轮次和事件类型过滤。"""
         events = list(self._logger.events)
@@ -64,10 +64,7 @@ class EpisodicMemory:
         """返回全局关键决策和结果事件。"""
         return [e for e in self._logger.events if e.event_type in _KEY_EVENT_TYPES]
 
-    def get_thought_events(
-        self,
-        player_id: str | None = None,
-    ) -> list[Event]:
+    def get_thought_events(self, player_id: str | None = None) -> list[Event]:
         """获取心理记录事件（AGENT_THOUGHT），仅用于复盘/教练。"""
         events = [e for e in self._logger.events if e.event_type == EventType.AGENT_THOUGHT]
         if player_id is not None:
@@ -76,11 +73,7 @@ class EpisodicMemory:
 
     # ── 玩家视角查询（过滤可见性） ──
 
-    def get_player_timeline(
-        self,
-        player_id: str,
-        since_round: int | None = None,
-    ) -> list[Event]:
+    def get_player_timeline(self, player_id: str, since_round: int | None = None) -> list[Event]:
         """获取玩家视角的可见事件。"""
         return self._logger.get_events_for_player(player_id, since_round)
 
@@ -130,12 +123,10 @@ class EpisodicMemory:
         """导出玩家整局的 episode 复盘数据。"""
         timeline = self.get_player_timeline(player_id)
         rounds = sorted({event.round_number for event in timeline})
-        episodes = [asdict(self.build_round_episode(player_id, round_number)) for round_number in rounds]
-        return {
-            "player_id": player_id,
-            "episode_count": len(episodes),
-            "episodes": episodes,
-        }
+        episodes = [
+            asdict(self.build_round_episode(player_id, round_number)) for round_number in rounds
+        ]
+        return {"player_id": player_id, "episode_count": len(episodes), "episodes": episodes}
 
     def export_for_analysis(self) -> dict:
         """导出完整事件数据，供评测/复盘使用。"""

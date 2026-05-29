@@ -21,8 +21,7 @@ class FastReActAgent(ReActAgent):
     """跳过结构化决策后被丢弃的第二次纯文本往返。"""
 
     async def _reasoning(
-        self,
-        tool_choice: Literal["auto", "none", "required"] | None = None,
+        self, tool_choice: Literal["auto", "none", "required"] | None = None
     ) -> Msg:
         msg = await super()._reasoning(tool_choice)
         if (

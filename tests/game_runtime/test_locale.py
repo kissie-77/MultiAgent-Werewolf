@@ -1,4 +1,4 @@
-﻿"""game_runtime/locale.py 模块的测试。"""
+"""game_runtime/locale.py 模块的测试。"""
 
 from llm_werewolf.game_runtime.locale import Locale
 

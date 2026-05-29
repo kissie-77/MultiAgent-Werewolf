@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.evaluation.scoring.models import PlayerBenefitScore
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 
 def build_benefit_scores(
@@ -98,10 +101,7 @@ def write_benefit_scores(
     mvp_payload: dict[str, Any] | None = None,
 ) -> Path:
     payload = build_benefit_scores(
-        ctx,
-        camp_report,
-        intention_by_player=intention_by_player,
-        mvp_payload=mvp_payload,
+        ctx, camp_report, intention_by_player=intention_by_player, mvp_payload=mvp_payload
     )
     path = ctx.run_dir / "benefit_scores.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -1,9 +1,9 @@
-﻿from llm_werewolf.game_runtime.types import Camp, VictoryResult, PlayerProtocol, GameStateProtocol
+from llm_werewolf.game_runtime.types import Camp, VictoryResult, PlayerProtocol, GameStateProtocol
 from llm_werewolf.game_runtime.roles.names import (
     RoleNames,
-    is_untransformed_blood_moon,
-    player_camp_is,
     role_name_is,
+    player_camp_is,
+    is_untransformed_blood_moon,
 )
 
 
@@ -67,9 +67,7 @@ class VictoryChecker:
                     continue
                 werewolf_count += 1
 
-        villager_count = sum(
-            1 for p in alive_players if player_camp_is(p, Camp.VILLAGER)
-        )
+        villager_count = sum(1 for p in alive_players if player_camp_is(p, Camp.VILLAGER))
 
         if werewolf_count >= villager_count and werewolf_count > 0:
             # 胜者列表包含所有狼人（含已变身血月使徒）
@@ -101,14 +99,10 @@ class VictoryChecker:
         alive_players = self.game_state.get_alive_players()
 
         # 统计所有狼人（含血月使徒，即使未变身）
-        werewolf_count = sum(
-            1 for p in alive_players if player_camp_is(p, Camp.WEREWOLF)
-        )
+        werewolf_count = sum(1 for p in alive_players if player_camp_is(p, Camp.WEREWOLF))
 
         if werewolf_count == 0:
-            villager_ids = [
-                p.player_id for p in alive_players if player_camp_is(p, Camp.VILLAGER)
-            ]
+            villager_ids = [p.player_id for p in alive_players if player_camp_is(p, Camp.VILLAGER)]
             return VictoryResult(
                 has_winner=True,
                 winner_camp="villager",
@@ -130,7 +124,9 @@ class VictoryChecker:
 
         if len(lovers) == 2 and len(alive_players) == 2:
             if self._is_white_lover_pair(lovers[0], lovers[1]):
-                return VictoryResult(has_winner=False, reason="White lover pair uses special victory")
+                return VictoryResult(
+                    has_winner=False, reason="White lover pair uses special victory"
+                )
             lover_ids = [p.player_id for p in lovers]
             return VictoryResult(
                 has_winner=True,

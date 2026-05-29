@@ -1,4 +1,4 @@
-﻿from llm_werewolf.game_runtime.types import ActionType, PlayerProtocol, GameStateProtocol
+from llm_werewolf.game_runtime.types import ActionType, PlayerProtocol, GameStateProtocol
 from llm_werewolf.game_runtime.actions.base import Action
 
 

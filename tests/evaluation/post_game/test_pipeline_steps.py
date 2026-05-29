@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
-from llm_werewolf.evaluation.post_game.pipeline_steps import run_step, write_pipeline_steps
+from llm_werewolf.evaluation.post_game.pipeline_steps import run_step
 
 
 def test_run_step_captures_failure_without_raise() -> None:
@@ -50,8 +50,7 @@ def test_pipeline_writes_steps_and_quality_report(tmp_path: Path) -> None:
         },
     ]
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
 
     result = run_post_game_pipeline_sync(tmp_path, skip_llm=True)

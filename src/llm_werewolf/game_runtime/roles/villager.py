@@ -1,19 +1,9 @@
-﻿from llm_werewolf.game_runtime.types import (
+from llm_werewolf.game_runtime.types import (
     Camp,
     RoleConfig,
     ActionPriority,
-    ActionProtocol,
     PlayerProtocol,
     GameStateProtocol,
-)
-from llm_werewolf.game_runtime.actions import (
-    CupidLinkAction,
-    RavenMarkAction,
-    SeerCheckAction,
-    WitchSaveAction,
-    WitchPoisonAction,
-    GuardProtectAction,
-    GraveyardKeeperCheckAction,
 )
 from llm_werewolf.game_runtime.roles.base import Role
 from llm_werewolf.game_runtime.roles.names import seer_apparent_camp
@@ -39,7 +29,6 @@ class Villager(Role):
             can_act_night=False,
             can_act_day=False,
         )
-
 
 
 class Seer(Role):
@@ -76,7 +65,6 @@ class Seer(Role):
             can_act_night=True,
             can_act_day=False,
         )
-
 
 
 class Witch(Role):
@@ -117,13 +105,11 @@ class Witch(Role):
         )
 
 
-
 class Hunter(Role):
     """猎人角色。
 
     被放逐或被狼人击杀时，可开枪带走另一名玩家。
     """
-
 
     def get_config(self) -> RoleConfig:
         """获取猎人角色的配置。"""
@@ -176,7 +162,6 @@ class Guard(Role):
         )
 
 
-
 class Idiot(Role):
     """白痴角色。
 
@@ -201,7 +186,6 @@ class Idiot(Role):
             can_act_night=False,
             can_act_day=False,
         )
-
 
 
 class Elder(Role):
@@ -231,7 +215,6 @@ class Elder(Role):
         )
 
 
-
 class Knight(Role):
     """骑士角色。
 
@@ -243,7 +226,6 @@ class Knight(Role):
         """初始化骑士角色。"""
         super().__init__(player)
         self.has_dueled = False
-
 
     def get_config(self) -> RoleConfig:
         """获取骑士角色的配置。"""
@@ -271,7 +253,6 @@ class Magician(Role):
         """初始化魔术师角色。"""
         super().__init__(player)
         self.has_swapped = False
-
 
     def get_config(self) -> RoleConfig:
         """获取魔术师角色的配置。"""
@@ -301,7 +282,6 @@ class Cupid(Role):
         super().__init__(player)
         self.has_linked = False
 
-
     def get_config(self) -> RoleConfig:
         """获取丘比特角色的配置。"""
         return RoleConfig(
@@ -326,7 +306,6 @@ class Raven(Role):
     额外获得一票。
     """
 
-
     def get_config(self) -> RoleConfig:
         """获取渡鸦角色的配置。"""
         return RoleConfig(
@@ -348,7 +327,6 @@ class GraveyardKeeper(Role):
 
     每晚可查验一名已死亡玩家是狼人还是好人。
     """
-
 
     def get_config(self) -> RoleConfig:
         """获取守墓人角色的配置。"""

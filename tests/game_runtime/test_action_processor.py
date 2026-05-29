@@ -1,15 +1,19 @@
-﻿"""game_runtime/engine/action_processor.py 的测试。"""
+"""game_runtime/engine/action_processor.py 的测试。"""
 
 from unittest.mock import MagicMock
 
-from llm_werewolf.game_runtime.actions.villager import GuardProtectAction, SeerCheckAction, WitchSaveAction
-from llm_werewolf.game_runtime.actions.werewolf import NightmareWolfBlockAction, WerewolfVoteAction
-from llm_werewolf.game_runtime.engine.action_processor import ActionProcessorMixin
-from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.roles import Seer, Guard, Witch, Villager, Werewolf, NightmareWolf
+from llm_werewolf.game_runtime.types import ActionPriority
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.roles import Guard, NightmareWolf, Seer, Villager, Werewolf, Witch
-from llm_werewolf.game_runtime.types import ActionPriority
+from llm_werewolf.game_runtime.actions.villager import (
+    SeerCheckAction,
+    WitchSaveAction,
+    GuardProtectAction,
+)
+from llm_werewolf.game_runtime.actions.werewolf import WerewolfVoteAction, NightmareWolfBlockAction
+from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.engine.action_processor import ActionProcessorMixin
 
 
 class _Processor(ActionProcessorMixin):
@@ -21,19 +25,13 @@ class _Processor(ActionProcessorMixin):
 
 def test_get_action_priority_order() -> None:
     guard = GuardProtectAction(
-        Player("g1", "Guard", Guard),
-        Player("v1", "Villager", Villager),
-        GameState([]),
+        Player("g1", "Guard", Guard), Player("v1", "Villager", Villager), GameState([])
     )
     werewolf_vote = WerewolfVoteAction(
-        Player("w1", "Wolf", Werewolf),
-        Player("v1", "Villager", Villager),
-        GameState([]),
+        Player("w1", "Wolf", Werewolf), Player("v1", "Villager", Villager), GameState([])
     )
     seer_check = SeerCheckAction(
-        Player("s1", "Seer", Seer),
-        Player("v1", "Villager", Villager),
-        GameState([]),
+        Player("s1", "Seer", Seer), Player("v1", "Villager", Villager), GameState([])
     )
 
     assert ActionProcessorMixin._get_action_priority(guard) == ActionPriority.GUARD.value

@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.evaluation.core.metrics import build_summary
 from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
+from llm_werewolf.evaluation.core.metrics import build_summary
 from llm_werewolf.evaluation.core.reporter import EvaluationReporter
 
 
@@ -34,14 +34,10 @@ def test_build_summary_counts_rates_and_checker_failures() -> None:
                     data={"role_name": "Alpha Wolf", "phase": "night"},
                 ),
                 CheckResult(
-                    checker="AsyncFlowChecker",
-                    passed=False,
-                    message="Illegal phase transition",
+                    checker="AsyncFlowChecker", passed=False, message="Illegal phase transition"
                 ),
                 CheckResult(
-                    checker="InformationIsolationChecker",
-                    passed=False,
-                    message="Private leak",
+                    checker="InformationIsolationChecker", passed=False, message="Private leak"
                 ),
             ],
         ),

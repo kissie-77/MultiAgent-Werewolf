@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
+from dataclasses import field, dataclass
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 from llm_werewolf.evaluation.post_game.episodic_bridge import (
-    episode_excerpt_for_player_round,
     export_player_episode_reports,
+    episode_excerpt_for_player_round,
 )
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 
 @dataclass
@@ -36,11 +39,7 @@ class Coach:
     """衔接情景记忆与 Skill 产物：为每条 Skill 附加 POV episode 证据。"""
 
     def enrich_skills_with_episodes(
-        self,
-        ctx: RunContext,
-        skills: list[dict[str, Any]],
-        *,
-        engine: Any | None = None,
+        self, ctx: RunContext, skills: list[dict[str, Any]], *, engine: Any | None = None
     ) -> CoachResult:
         """在 role_skills[] 的 evidence 中写入 episodic_excerpt（与运行时 EpisodicMemory 同源）。"""
         result = CoachResult()
@@ -59,19 +58,16 @@ class Coach:
             round_number = int(evidence.get("round_number") or 0)
             if not player_id or round_number <= 0:
                 continue
-            excerpt = episode_excerpt_for_player_round(
-                ctx,
-                player_id,
-                round_number,
-                engine=engine,
-            )
+            excerpt = episode_excerpt_for_player_round(ctx, player_id, round_number, engine=engine)
             if excerpt is None:
                 continue
             evidence["episodic_excerpt"] = excerpt
             result.enriched_skill_count += 1
 
         if result.enriched_skill_count == 0 and ctx.roster:
-            result.notes.append("no episodic excerpts matched skill rounds; check visible_to on events")
+            result.notes.append(
+                "no episodic excerpts matched skill rounds; check visible_to on events"
+            )
         return result
 
     def write_coach_artifacts(
@@ -86,9 +82,7 @@ class Coach:
         """写出 coach_summary.json（不修改运行时 Prompt）。"""
         if coach_result is None:
             coach_result = self.enrich_skills_with_episodes(
-                ctx,
-                list(skills_payload.get("skills") or []),
-                engine=engine,
+                ctx, list(skills_payload.get("skills") or []), engine=engine
             )
 
         payload = {

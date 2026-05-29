@@ -5,7 +5,7 @@ status: draft
 source_run: artifacts/runs/20260529-143527
 source_player_id: player_4
 camp: villager
-quality_passed: True
+quality_passed: true
 weight: 0.95
 win_count: 0
 use_count: 1
@@ -16,22 +16,28 @@ updated_at: 2026-05-29T07:16:17+00:00
 # 第2轮预言家查验决策
 
 ## 提取依据
+
 [生成规则: night_action] 第2轮 seer_checked，目标 player_1，结果 werewolf。
 
 ## 何时使用
+
 第2轮夜间：中后局需验证站边摇摆者、跟票异常者或对跳位。
 
 ## 公开行为
+
 ① 优先验高置位、首日带节奏或投票摇摆的玩家；② 避免连续两晚验同一人；③ 记录 target 与 result，白天再择机报验。 本局验 玩家1（player_1）（该位首日发言或票型有摇摆，需用查验定阵营），结果 狼人。
 
 ## 避免
+
 ① 首夜盲验已建立可信好人面的玩家；② 为「验谁都是好」的低信息位浪费查验；③ 查到狼后不预留白天叙事直接暴露。
 
 ## 本局决策
+
 - 目标：player_1
 - 查验/结果：狼人
 - 事件：seer_checked
 
 ## 评分
+
 - intention: None
 - benefit: None

@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import Field, BaseModel
 
 from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 
@@ -25,9 +25,7 @@ class EvaluationScenario(BaseModel):
 
 
 def smoke_6p_basic(
-    seed: int = 1,
-    repetitions: int = 1,
-    timeout_seconds: float = 30.0,
+    seed: int = 1, repetitions: int = 1, timeout_seconds: float = 30.0
 ) -> EvaluationScenario:
     """创建 6 人基础 smoke 场景。
 
@@ -44,9 +42,7 @@ def smoke_6p_basic(
 
 
 def regression_default_demo(
-    seed: int = 1,
-    repetitions: int = 1,
-    timeout_seconds: float = 30.0,
+    seed: int = 1, repetitions: int = 1, timeout_seconds: float = 30.0
 ) -> EvaluationScenario:
     """创建默认 16 人 demo 回归场景。
 
@@ -65,10 +61,7 @@ def regression_default_demo(
 
 
 def get_scenario(
-    name: str,
-    games: int = 1,
-    seed: int = 1,
-    timeout_seconds: float = 30.0,
+    name: str, games: int = 1, seed: int = 1, timeout_seconds: float = 30.0
 ) -> EvaluationScenario:
     """按名称解析内置场景。
 
@@ -77,7 +70,9 @@ def get_scenario(
     if name == "smoke_6p_basic":
         return smoke_6p_basic(seed=seed, repetitions=games, timeout_seconds=timeout_seconds)
     if name == "regression_default_demo":
-        return regression_default_demo(seed=seed, repetitions=games, timeout_seconds=timeout_seconds)
+        return regression_default_demo(
+            seed=seed, repetitions=games, timeout_seconds=timeout_seconds
+        )
 
     msg = f"Unknown evaluation scenario: {name}"
     raise ValueError(msg)

@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from llm_werewolf.evaluation.post_game.run_context import load_run_context, roster_from_events
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.evaluation.post_game.run_context import load_run_context, roster_from_events
 
 
 def test_roster_from_role_acting_events() -> None:

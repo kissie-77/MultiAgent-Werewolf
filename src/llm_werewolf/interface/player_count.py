@@ -36,9 +36,7 @@ def resize_players_config(cfg: PlayersConfig, n: int) -> PlayersConfig:
             raise ValueError(msg)
         players = kept
     else:
-        template = next(
-            (p for p in reversed(players) if p.model != "human"), None
-        )
+        template = next((p for p in reversed(players) if p.model != "human"), None)
         if template is None:
             msg = "无法扩容：名单里没有可作模板的非 human 座位，请先保留至少一个 LLM/demo 座位"
             raise ValueError(msg)

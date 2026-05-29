@@ -3,27 +3,29 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
-from typing import Any
+from datetime import datetime, timezone
 
 import yaml
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.evaluation.post_game.scoring.outcome import build_outcome_scores
-from llm_werewolf.evaluation.post_game.scoring.score_contexts import (
-    DIM_OUTCOME,
-    DIM_PERSUASION,
-    DIM_STRATEGY,
-    DIM_WOLF_NIGHT,
-    build_score_context_bundles,
-    write_score_contexts,
-)
 from llm_werewolf.evaluation.post_game.scoring.strategy import build_strategy_scores
 from llm_werewolf.evaluation.post_game.scoring.wolf_night import build_wolf_night_scores
-from llm_werewolf.game_runtime.prompts.manager import PromptManager
-from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.post_game.scoring.score_contexts import (
+    DIM_OUTCOME,
+    DIM_STRATEGY,
+    DIM_PERSUASION,
+    DIM_WOLF_NIGHT,
+    write_score_contexts,
+    build_score_context_bundles,
+)
+
+if TYPE_CHECKING:
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 
 def _role_key(role_name: str | None) -> str:
@@ -35,14 +37,13 @@ def _role_key(role_name: str | None) -> str:
 def _load_role_weights() -> dict[str, dict[str, float]]:
     path = Path(__file__).with_name("role_weights.yaml")
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return {str(k): {str(dim): float(v) for dim, v in (vals or {}).items()} for k, vals in raw.items()}
+    return {
+        str(k): {str(dim): float(v) for dim, v in (vals or {}).items()} for k, vals in raw.items()
+    }
 
 
 def _weights_for_role(
-    weights_table: dict[str, dict[str, float]],
-    role_key: str,
-    *,
-    has_vote_intentions: bool,
+    weights_table: dict[str, dict[str, float]], role_key: str, *, has_vote_intentions: bool
 ) -> dict[str, float]:
     """按身份取权重；无意向数据时把 persuasion 权重重分给 strategy/outcome 并归一化。"""
     w = dict(weights_table.get(role_key) or weights_table.get("default", {}))
@@ -57,8 +58,7 @@ def _weights_for_role(
 
 
 def _persuasion_from_intention(
-    intention_payload: dict[str, Any] | None,
-    camp_report: CampPersuasionReport,
+    intention_payload: dict[str, Any] | None, camp_report: CampPersuasionReport
 ) -> dict[str, dict[str, Any]]:
     by_player: dict[str, dict[str, Any]] = {}
     speeches = (intention_payload or {}).get("speeches") or []
@@ -78,47 +78,37 @@ def _persuasion_from_intention(
             (aligned * 6 + swing_final * 12 + net * 4 + drive * 8 + (25 if matched else 0))
             * max(confidence, 0.35),
         )
-        row = by_player.setdefault(
-            pid,
-            {"total": 0.0, "speeches": [], "golden": []},
-        )
+        row = by_player.setdefault(pid, {"total": 0.0, "speeches": [], "golden": []})
         row["total"] += score
         excerpt = ""
         for speech in camp_report.speeches:
             if speech.speaker_id == pid and speech.round_number == item.get("round_number"):
                 excerpt = speech.public_speech[:300]
                 break
-        row["speeches"].append(
-            {
+        row["speeches"].append({
+            "round_number": item.get("round_number"),
+            "score": score,
+            "matched_elimination": matched,
+        })
+        if score >= 25 and excerpt:
+            row["golden"].append({
+                "kind": "public_persuasion",
                 "round_number": item.get("round_number"),
+                "excerpt": excerpt,
                 "score": score,
                 "matched_elimination": matched,
-            }
-        )
-        if score >= 25 and excerpt:
-            row["golden"].append(
-                {
-                    "kind": "public_persuasion",
-                    "round_number": item.get("round_number"),
-                    "excerpt": excerpt,
-                    "score": score,
-                    "matched_elimination": matched,
-                }
-            )
+            })
     return by_player
 
 
-def _normalize_within_role(
-    raw_by_player: dict[str, float],
-    ctx: RunContext,
-) -> dict[str, float]:
+def _normalize_within_role(raw_by_player: dict[str, float], ctx: RunContext) -> dict[str, float]:
     groups: dict[str, list[str]] = {}
     for pid, entry in ctx.roster.items():
         rk = _role_key(entry.role_name)
         groups.setdefault(rk, []).append(pid)
 
     normalized: dict[str, float] = {}
-    for _rk, pids in groups.items():
+    for pids in groups.values():
         vals = [raw_by_player.get(pid, 0.0) for pid in pids]
         lo, hi = min(vals), max(vals)
         for pid, val in zip(pids, vals, strict=True):
@@ -176,8 +166,7 @@ def build_mvp_scores(
     strategy_raw = build_strategy_scores(ctx, events=bundles[DIM_STRATEGY].events)
     outcome_raw = build_outcome_scores(ctx, events=bundles[DIM_OUTCOME].events)
     wolf_analysis = build_wolf_night_scores(
-        ctx,
-        wolf_records=bundles[DIM_WOLF_NIGHT].vote_intention_records,
+        ctx, wolf_records=bundles[DIM_WOLF_NIGHT].vote_intention_records
     )
     weights_table = _load_role_weights()
     dq = _data_quality(ctx, intention_payload, wolf_analysis, camp_report)
@@ -222,23 +211,18 @@ def build_mvp_scores(
             DIM_OUTCOME: dim_raw[DIM_OUTCOME].get(pid, 0.0),
             DIM_WOLF_NIGHT: dim_raw[DIM_WOLF_NIGHT].get(pid, 0.0),
         }
-        mvp_total = round(
-            sum(breakdown_norm[k] * w.get(k, 0.0) for k in breakdown_norm),
-            1,
-        )
+        mvp_total = round(sum(breakdown_norm[k] * w.get(k, 0.0) for k in breakdown_norm), 1)
 
         golden = list(persuasion_raw.get(pid, {}).get("golden", []))
         for sp in wolf_analysis.get("speeches", []):
             if sp.get("speaker_id") == pid and sp.get("total", 0) >= 10:
-                golden.append(
-                    {
-                        "kind": "wolf_night_plan",
-                        "round_number": sp.get("round_number"),
-                        "excerpt": (sp.get("public_speech") or "")[:300],
-                        "score": sp.get("total"),
-                        "kill_match_bonus": sp.get("kill_match_bonus"),
-                    }
-                )
+                golden.append({
+                    "kind": "wolf_night_plan",
+                    "round_number": sp.get("round_number"),
+                    "excerpt": (sp.get("public_speech") or "")[:300],
+                    "score": sp.get("total"),
+                    "kill_match_bonus": sp.get("kill_match_bonus"),
+                })
 
         evidence: list[dict[str, Any]] = []
         for detail in strategy_raw.get(pid, {}).get("details", []):
@@ -246,25 +230,21 @@ def build_mvp_scores(
         for detail in outcome_raw.get(pid, {}).get("details", []):
             evidence.append({"kind": "outcome", "why": detail})
 
-        player_rows.append(
-            {
-                "player_id": pid,
-                "player_name": entry.player_name,
-                "role_name": entry.role_name,
-                "prompt_role_key": rk,
-                "camp": entry.camp,
-                "mvp_total": mvp_total,
-                "breakdown_raw": breakdown_raw,
-                "breakdown_norm": breakdown_norm,
-                "weights_applied": w,
-                "golden_speech_candidates": sorted(
-                    golden,
-                    key=lambda g: g.get("score", 0),
-                    reverse=True,
-                )[:5],
-                "top_evidence": evidence[:8],
-            }
-        )
+        player_rows.append({
+            "player_id": pid,
+            "player_name": entry.player_name,
+            "role_name": entry.role_name,
+            "prompt_role_key": rk,
+            "camp": entry.camp,
+            "mvp_total": mvp_total,
+            "breakdown_raw": breakdown_raw,
+            "breakdown_norm": breakdown_norm,
+            "weights_applied": w,
+            "golden_speech_candidates": sorted(
+                golden, key=lambda g: g.get("score", 0), reverse=True
+            )[:5],
+            "top_evidence": evidence[:8],
+        })
 
     player_rows.sort(key=lambda r: r["mvp_total"], reverse=True)
     for idx, row in enumerate(player_rows, start=1):
@@ -308,10 +288,7 @@ def write_mvp_scores(
 ) -> Path:
     manifest = score_context_manifest or write_score_contexts(ctx)
     payload = build_mvp_scores(
-        ctx,
-        camp_report,
-        intention_payload=intention_payload,
-        score_context_manifest=manifest,
+        ctx, camp_report, intention_payload=intention_payload, score_context_manifest=manifest
     )
     path = ctx.run_dir / "mvp_scores.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

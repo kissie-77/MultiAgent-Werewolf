@@ -7,19 +7,19 @@ It does not print API keys.
 
 from __future__ import annotations
 
-import argparse
-import asyncio
-import json
-import logging
-import random
 import sys
+from enum import Enum
+import json
 import time
+import random
+from typing import Any
+import asyncio
+import logging
+from pathlib import Path
+import argparse
+from datetime import datetime
 import traceback
 from dataclasses import asdict, is_dataclass
-from datetime import datetime
-from enum import Enum
-from pathlib import Path
-from typing import Any
 
 from dotenv import load_dotenv
 
@@ -29,14 +29,14 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.state.serialization import serialize_game_state
 from llm_werewolf.game_runtime.utils import load_config
-from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.interface.bootstrap import (
-    create_information_hub,
     prepare_game_roster,
+    create_information_hub,
     wire_agentscope_after_setup,
 )
+from llm_werewolf.game_runtime.state.serialization import serialize_game_state
+from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 
 
 def _jsonable(value: Any) -> Any:
@@ -60,10 +60,7 @@ def _serialize_event(event: Any) -> dict[str, Any]:
 
 
 def _write_json(path: Path, payload: Any) -> None:
-    path.write_text(
-        json.dumps(_jsonable(payload), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    path.write_text(json.dumps(_jsonable(payload), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _install_vote_intention_timer(engine: GameEngine) -> list[dict[str, Any]]:
@@ -83,18 +80,16 @@ def _install_vote_intention_timer(engine: GameEngine) -> list[dict[str, Any]]:
             raise
         finally:
             elapsed = time.perf_counter() - started
-            records.append(
-                {
-                    "duration_seconds": elapsed,
-                    "observer_count": len(observers),
-                    "result_count": len(result) if ok else 0,
-                    "anchor": str(kwargs.get("anchor", "")),
-                    "phase": kwargs.get("phase", ""),
-                    "round_number": kwargs.get("round_number", 0),
-                    "ok": ok,
-                    "error": error,
-                }
-            )
+            records.append({
+                "duration_seconds": elapsed,
+                "observer_count": len(observers),
+                "result_count": len(result) if ok else 0,
+                "anchor": str(kwargs.get("anchor", "")),
+                "phase": kwargs.get("phase", ""),
+                "round_number": kwargs.get("round_number", 0),
+                "ok": ok,
+                "error": error,
+            })
 
     engine.information_hub._collect_vote_intentions = timed_collect  # type: ignore[method-assign]
     return records
@@ -144,9 +139,7 @@ async def _run_one(
         )
         players, roles, game_config = prepare_game_roster(players_config)
         engine = GameEngine(
-            game_config,
-            language=players_config.language,
-            information_hub=create_information_hub(),
+            game_config, language=players_config.language, information_hub=create_information_hub()
         )
         engine.on_event = lambda event: None
         engine.setup_game(players=players, roles=roles)
@@ -185,25 +178,22 @@ async def _run_one(
             tracker.save_jsonl(run_dir / "vote_intentions.jsonl")
 
     total_vote_time = sum(item["duration_seconds"] for item in vote_timing)
-    summary.update(
-        {
-            "status": status,
-            "error": error,
-            "finished_at": datetime.now().isoformat(timespec="seconds"),
-            "duration_seconds": duration,
-            "result_text": result_text,
-            "winner": winner,
-            "rounds_played": rounds,
-            "event_count": len(events),
-            "vote_intention_batch_count": len(vote_timing),
-            "vote_intention_total_seconds": total_vote_time,
-            "vote_intention_max_batch_seconds": max(
-                [item["duration_seconds"] for item in vote_timing],
-                default=0.0,
-            ),
-            "vote_intention_result_count": sum(item["result_count"] for item in vote_timing),
-        }
-    )
+    summary.update({
+        "status": status,
+        "error": error,
+        "finished_at": datetime.now().isoformat(timespec="seconds"),
+        "duration_seconds": duration,
+        "result_text": result_text,
+        "winner": winner,
+        "rounds_played": rounds,
+        "event_count": len(events),
+        "vote_intention_batch_count": len(vote_timing),
+        "vote_intention_total_seconds": total_vote_time,
+        "vote_intention_max_batch_seconds": max(
+            [item["duration_seconds"] for item in vote_timing], default=0.0
+        ),
+        "vote_intention_result_count": sum(item["result_count"] for item in vote_timing),
+    })
     _write_json(run_dir / "vote_intention_timing.json", vote_timing)
     _write_json(run_dir / "summary.json", summary)
     print(
@@ -292,20 +282,14 @@ def main() -> None:
         type=_parse_case,
         help="Provider case in label=path form.",
     )
-    parser.add_argument(
-        "--concurrency",
-        nargs="+",
-        type=int,
-        default=[1, 6],
-    )
+    parser.add_argument("--concurrency", nargs="+", type=int, default=[1, 6])
     parser.add_argument("--seed", type=int, default=20260528)
     parser.add_argument("--timeout-seconds", type=float, default=900.0)
     parser.add_argument("--env-file", type=Path)
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("runs")
-        / f"real-provider-ab-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+        default=Path("runs") / f"real-provider-ab-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
     )
     asyncio.run(_main_async(parser.parse_args()))
 

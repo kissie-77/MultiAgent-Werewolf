@@ -1,4 +1,4 @@
-﻿from llm_werewolf.game_runtime.roles import Villager, Werewolf
+from llm_werewolf.game_runtime.roles import Villager, Werewolf
 from llm_werewolf.game_runtime.state.player import Player, PlayerStatus
 
 

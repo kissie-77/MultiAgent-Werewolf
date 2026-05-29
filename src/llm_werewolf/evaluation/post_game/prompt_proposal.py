@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
 
 from llm_werewolf.evaluation.core.checkers import PromptBadCaseChecker
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport, CampSpeechInfluence
-from llm_werewolf.evaluation.post_game.event_adapter import events_from_dicts
-from llm_werewolf.evaluation.post_game.run_context import RunContext
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
-from llm_werewolf.game_runtime.types import Event
+from llm_werewolf.evaluation.post_game.event_adapter import events_from_dicts
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.game_runtime.types import Event
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import (
+        CampSpeechInfluence,
+        CampPersuasionReport,
+    )
 
 
 def _events_from_dicts(rows: list[dict[str, Any]]) -> list[Event]:
@@ -27,10 +33,7 @@ def _role_key_for_speaker(ctx: RunContext, speaker_id: str) -> str:
 
 
 def _proposal_from_speech(
-    speech: CampSpeechInfluence,
-    ctx: RunContext,
-    *,
-    rank: int,
+    speech: CampSpeechInfluence, ctx: RunContext, *, rank: int
 ) -> dict[str, Any]:
     role_key = _role_key_for_speaker(ctx, speech.speaker_id)
     target_var = f"{ctx.prompt_version}.role.{role_key}.suggestion"
@@ -67,12 +70,7 @@ def _proposal_from_speech(
     }
 
 
-def _proposal_from_bad_case(
-    check: Any,
-    ctx: RunContext,
-    *,
-    idx: int,
-) -> dict[str, Any]:
+def _proposal_from_bad_case(check: Any, ctx: RunContext, *, idx: int) -> dict[str, Any]:
     data = check.data or {}
     return {
         "proposal_id": f"bad_case_{idx}",
@@ -93,10 +91,7 @@ def _proposal_from_bad_case(
 
 
 def _proposal_from_golden_quote(
-    golden: dict[str, Any],
-    ctx: RunContext,
-    *,
-    rank: int,
+    golden: dict[str, Any], ctx: RunContext, *, rank: int
 ) -> dict[str, Any]:
     speaker_id = str(golden.get("player_id") or "")
     entry = ctx.roster.get(speaker_id)
@@ -155,16 +150,12 @@ def build_prompt_proposals(
         seen_excerpts.add(excerpt)
         proposals.append(
             _proposal_from_golden_quote(
-                {**golden, "player_id": mvp.get("player_id")},
-                ctx,
-                rank=rank,
+                {**golden, "player_id": mvp.get("player_id")}, ctx, rank=rank
             )
         )
         excerpt = str(golden.get("excerpt") or "").strip()
         if proposals and excerpt:
-            proposals[-1]["suggested_patch"]["text_zh"] = (
-                f"参考 MVP 金句：「{excerpt[:180]}」"
-            )
+            proposals[-1]["suggested_patch"]["text_zh"] = f"参考 MVP 金句：「{excerpt[:180]}」"
 
     positive = sorted(
         [s for s in camp_report.speeches if s.camp_aligned_score > 0],
@@ -181,19 +172,13 @@ def build_prompt_proposals(
         seen_proposal_keys.add(dedupe_key)
         proposal = _proposal_from_speech(speech, ctx, rank=rank)
         proposal["suggested_patch"]["text_zh"] = (
-            f"参考本局发言：「{excerpt}…」"
-            if excerpt
-            else proposal["suggested_patch"]["text_zh"]
+            f"参考本局发言：「{excerpt}…」" if excerpt else proposal["suggested_patch"]["text_zh"]
         )
         proposals.append(proposal)
 
     events = _events_from_dicts(ctx.events)
     if events:
-        player_roles = {
-            pid: (e.role_name or "")
-            for pid, e in ctx.roster.items()
-            if e.role_name
-        }
+        player_roles = {pid: (e.role_name or "") for pid, e in ctx.roster.items() if e.role_name}
         bad_results = PromptBadCaseChecker().check(events, player_roles=player_roles)
         for idx, check in enumerate(bad_results[:10]):
             if not check.passed:
@@ -220,10 +205,7 @@ def write_prompt_proposals(
     mvp_payload: dict[str, Any] | None = None,
 ) -> Path:
     payload = build_prompt_proposals(
-        ctx,
-        camp_report,
-        llm_notes=llm_notes,
-        mvp_payload=mvp_payload,
+        ctx, camp_report, llm_notes=llm_notes, mvp_payload=mvp_payload
     )
     path = ctx.run_dir / "prompt_proposals.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

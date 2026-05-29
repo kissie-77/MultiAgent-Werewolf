@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 import datetime
 
 from rich.text import Text

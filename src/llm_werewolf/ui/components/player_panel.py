@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 
 from rich.table import Table
 from textual.widgets import RichLog

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from collections.abc import Mapping
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 DESCRIPTION_PREFIXES = ("描述：", "描述:", "description:", "Description:")
@@ -60,10 +63,7 @@ def extract_description(content: str) -> str:
         return ensure_description_format(when_to_use)
     source = body or content
     match = re.search(r"[。！？!?；;]", source)
-    if match:
-        candidate = source[: match.start()].strip()
-    else:
-        candidate = source.strip()[:30]
+    candidate = source[: match.start()].strip() if match else source.strip()[:30]
     return ensure_description_format(candidate)
 
 
@@ -110,6 +110,8 @@ def strip_legacy_description_line(body: str) -> str:
     if not lines:
         return ""
     first = lines[0].strip()
-    if first.startswith(DESCRIPTION_PREFIXES) and re.search(r"^#+\s*何时使用\s*$", body, re.MULTILINE):
+    if first.startswith(DESCRIPTION_PREFIXES) and re.search(
+        r"^#+\s*何时使用\s*$", body, re.MULTILINE
+    ):
         return "\n".join(lines[1:]).strip()
     return body.strip()

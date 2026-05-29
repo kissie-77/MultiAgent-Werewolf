@@ -1,16 +1,14 @@
 from llm_werewolf.evaluation.core.models import (
     CheckResult,
     CheckSeverity,
-    EvaluationSummary,
     GameRunResult,
+    EvaluationSummary,
 )
 
 
 def test_check_result_defaults() -> None:
     result = CheckResult(
-        checker="AsyncFlowChecker",
-        passed=False,
-        message="Illegal phase transition",
+        checker="AsyncFlowChecker", passed=False, message="Illegal phase transition"
     )
 
     assert result.severity == CheckSeverity.ERROR
@@ -44,11 +42,7 @@ def test_game_run_result_flags_failures() -> None:
 
 def test_evaluation_summary_rates() -> None:
     summary = EvaluationSummary(
-        total_games=4,
-        completed_games=2,
-        crashed_games=1,
-        timeout_games=1,
-        avg_rounds_per_game=2.5,
+        total_games=4, completed_games=2, crashed_games=1, timeout_games=1, avg_rounds_per_game=2.5
     )
 
     assert summary.completion_rate == 0.5

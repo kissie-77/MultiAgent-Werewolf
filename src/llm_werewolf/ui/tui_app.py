@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from typing import ClassVar
 from datetime import datetime
 
@@ -6,9 +6,9 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header
 from textual.containers import Vertical, Horizontal
 
+from llm_werewolf.ui.components import ChatPanel, GamePanel, PlayerPanel
 from llm_werewolf.game_runtime.engine import GameEngine
 from llm_werewolf.game_runtime.events.events import Event
-from llm_werewolf.ui.components import ChatPanel, GamePanel, PlayerPanel
 
 
 class WerewolfTUI(App):

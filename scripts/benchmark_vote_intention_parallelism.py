@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import argparse
-import asyncio
-import json
-import random
 import sys
+import json
 import time
-from dataclasses import asdict, is_dataclass
-from datetime import datetime
-from pathlib import Path
+import random
 from typing import Any
+import asyncio
+from pathlib import Path
+import argparse
+from datetime import datetime
+from dataclasses import asdict, is_dataclass
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -25,10 +25,7 @@ if str(_SRC_PATH) not in sys.path:
 
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
-from llm_werewolf.interface.bootstrap import (
-    prepare_game_roster,
-    wire_agentscope_after_setup,
-)
+from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscope_after_setup
 from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor
 from llm_werewolf.evaluation.time_analysis import compare_roundtable_parallelism
 
@@ -51,9 +48,7 @@ def _intention_to_dict(entry: Any) -> dict[str, Any]:
 def _build_engine(config_path: Path, concurrency: int, seed: int) -> GameEngine:
     random.seed(seed)
     players_config = load_config(config_path)
-    players_config = players_config.model_copy(
-        update={"vote_intention_concurrency": concurrency},
-    )
+    players_config = players_config.model_copy(update={"vote_intention_concurrency": concurrency})
     players, roles, game_config = prepare_game_roster(players_config)
     engine = GameEngine(game_config, language=players_config.language)
     engine.setup_game(players=players, roles=roles)
@@ -90,8 +85,7 @@ async def _run_once(config_path: Path, concurrency: int, seed: int) -> dict[str,
         "player_count": len(alive),
         "intention_count": len(intentions),
         "intentions": {
-            player_id: _intention_to_dict(entry)
-            for player_id, entry in intentions.items()
+            player_id: _intention_to_dict(entry) for player_id, entry in intentions.items()
         },
     }
 
@@ -110,10 +104,7 @@ async def _main_async(args: argparse.Namespace) -> None:
         result = await _run_once(args.config, concurrency, args.seed)
         runs.append(result)
         out_path = args.output_dir / f"vote_intentions-c{concurrency}.json"
-        out_path.write_text(
-            json.dumps(result, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         print(
             f"[benchmark] concurrency={concurrency} "
             f"duration={result['duration_seconds']:.2f}s "
@@ -162,31 +153,17 @@ async def _main_async(args: argparse.Namespace) -> None:
         }
 
     summary_path = args.output_dir / "benchmark_summary.json"
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[benchmark] summary -> {summary_path}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=Path, default=Path("configs/llm-6p-doubao.yaml"))
     parser.add_argument(
-        "--config",
-        type=Path,
-        default=Path("configs/llm-6p-doubao.yaml"),
+        "--output-dir", type=Path, default=Path("runs") / "vote-intention-parallelism-benchmark"
     )
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("runs") / "vote-intention-parallelism-benchmark",
-    )
-    parser.add_argument(
-        "--concurrency",
-        type=int,
-        nargs="+",
-        default=[1, 6],
-    )
+    parser.add_argument("--concurrency", type=int, nargs="+", default=[1, 6])
     parser.add_argument("--seed", type=int, default=20260528)
     parser.add_argument("--api-key-file", type=Path)
     parser.add_argument("--api-key-env", default="ARK_API_KEY")

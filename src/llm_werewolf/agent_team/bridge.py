@@ -7,44 +7,45 @@
 
 from __future__ import annotations
 
-import json
 import re
 import random
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel
-
-from llm_werewolf.strategy.role_prompts import GamePrompts, ROLE_SEAT_ACTION
-from llm_werewolf.agent_team.invocation.structured_invoke import (
-    agent_uses_structured_output,
-    coerce_speech,
-    invoke_structured,
-)
+from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
 from llm_werewolf.strategy.decisions import (
-    MultiSeatChoiceDecision,
-    SeatChoiceDecision,
-    SpeechDecision,
-    VoteIntentionDecision,
-    WitchNightDecision,
     YesNoDecision,
+    SpeechDecision,
+    SeatChoiceDecision,
+    WitchNightDecision,
+    VoteIntentionDecision,
+    MultiSeatChoiceDecision,
     extract_public_text,
-    generate_response_instruction,
     is_valid_public_speech,
     normalize_speech_decision,
-    seat_choice_schema_instruction,
     speech_schema_instruction,
-    vote_intention_schema_instruction,
+    generate_response_instruction,
+    seat_choice_schema_instruction,
     witch_night_schema_instruction,
+    vote_intention_schema_instruction,
 )
-from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
-from llm_werewolf.strategy.phase_outputs import ActionPhase, RoundtablePhase, action_phase_instruction
-from llm_werewolf.game_runtime.seat import (
-    get_player_seat,
-    resolve_player_by_seat,
+from llm_werewolf.strategy.role_prompts import ROLE_SEAT_ACTION, GamePrompts
+from llm_werewolf.strategy.phase_outputs import (
+    ActionPhase,
+    RoundtablePhase,
+    action_phase_instruction,
 )
-from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
+from llm_werewolf.strategy.vote_intention import VoteIntentionEntry, VoteIntentionAnchor
+from llm_werewolf.agent_team.invocation.structured_invoke import (
+    coerce_speech,
+    invoke_structured,
+    agent_uses_structured_output,
+)
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
+    from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
+
     pass
 
 
@@ -62,8 +63,7 @@ class WerewolfAdapterBridge:
 
     @staticmethod
     def resolve_player_by_seat(
-        seat: int,
-        candidates: list[PlayerProtocol],
+        seat: int, candidates: list[PlayerProtocol]
     ) -> PlayerProtocol | None:
         """在候选列表中按座位号匹配玩家。"""
         return resolve_player_by_seat(seat, candidates)
@@ -74,9 +74,7 @@ class WerewolfAdapterBridge:
 
     @staticmethod
     def parse_target_selection(
-        response: str,
-        possible_targets: list[PlayerProtocol],
-        allow_skip: bool = False,
+        response: str, possible_targets: list[PlayerProtocol], allow_skip: bool = False
     ) -> PlayerProtocol | None:
         if allow_skip and re.search(r"\bskip\b", response, flags=re.I):
             return None
@@ -101,9 +99,7 @@ class WerewolfAdapterBridge:
 
     @staticmethod
     def parse_multi_target_selection(
-        response: str,
-        possible_targets: list[PlayerProtocol],
-        num_targets: int,
+        response: str, possible_targets: list[PlayerProtocol], num_targets: int
     ) -> list[PlayerProtocol] | None:
         numbers = re.findall(r"\d+", response.strip())
         if len(numbers) != num_targets:
@@ -130,8 +126,7 @@ class WerewolfAdapterBridge:
         private_blocks = re.findall(r"\{([^}]*)\}", response, flags=re.S)
         private_thought = "\n".join(b.strip() for b in private_blocks if b.strip()) or None
         decision = SpeechDecision.model_construct(
-            public_speech=extract_public_text(response),
-            private_thought=private_thought,
+            public_speech=extract_public_text(response), private_thought=private_thought
         )
         return normalize_speech_decision(decision, raw_fallback=response)
 
@@ -168,9 +163,7 @@ class WerewolfAdapterBridge:
         for target in possible_targets:
             seat = WerewolfAdapterBridge.get_player_seat(target)
             seat_label = seat if seat is not None else target.player_id
-            prompt_parts.append(
-                f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）"
-            )
+            prompt_parts.append(f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）")
 
         if allow_skip:
             prompt_parts.append("- 座位 0：跳过（不执行此行动）")
@@ -218,10 +211,7 @@ class WerewolfAdapterBridge:
                 generate_response_instruction("YesNoDecision"),
             ])
         else:
-            prompt_parts.extend([
-                "",
-                "请只回复 [[1]] 表示是，[[0]] 表示否。不要输出其他文字。",
-            ])
+            prompt_parts.extend(["", "请只回复 [[1]] 表示是，[[0]] 表示否。不要输出其他文字。"])
         return "\n".join(prompt_parts)
 
     @staticmethod
@@ -256,9 +246,7 @@ class WerewolfAdapterBridge:
         for target in possible_targets:
             seat = WerewolfAdapterBridge.get_player_seat(target)
             seat_label = seat if seat is not None else target.player_id
-            prompt_parts.append(
-                f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）"
-            )
+            prompt_parts.append(f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）")
 
         if structured:
             prompt_parts.extend([
@@ -350,10 +338,7 @@ class WerewolfAdapterBridge:
         if can_see_victim and victim_line:
             prompt_parts.extend(["", victim_line])
         elif not can_see_victim:
-            prompt_parts.extend([
-                "",
-                "你的解药已用完，系统不会告知今晚狼人刀口是谁。",
-            ])
+            prompt_parts.extend(["", "你的解药已用完，系统不会告知今晚狼人刀口是谁。"])
 
         if additional_context:
             prompt_parts.extend(["", additional_context, ""])
@@ -409,9 +394,7 @@ class WerewolfAdapterBridge:
             if structured:
                 result = await invoke_structured(agent, prompt, WitchNightDecision)
                 if isinstance(result, WitchNightDecision):
-                    WerewolfAdapterBridge._store_decision_metadata(
-                        agent, None, decision=result
-                    )
+                    WerewolfAdapterBridge._store_decision_metadata(agent, None, decision=result)
                     return result
             response = await agent.get_response(prompt)
             lowered = response.lower()
@@ -424,14 +407,10 @@ class WerewolfAdapterBridge:
                 seat = int(seat_match.group(1))
                 if seat <= 0:
                     return default
-                poison_target = WerewolfAdapterBridge.resolve_player_by_seat(
-                    seat, poison_targets
-                )
+                poison_target = WerewolfAdapterBridge.resolve_player_by_seat(seat, poison_targets)
                 if poison_target is None:
                     return default
-                return WitchNightDecision(
-                    action="poison", seat=seat, reason=response[:200]
-                )
+                return WitchNightDecision(action="poison", seat=seat, reason=response[:200])
         except Exception:
             pass
         return default
@@ -470,10 +449,7 @@ class WerewolfAdapterBridge:
         structured: bool = False,
     ) -> str:
         if anchor == VoteIntentionAnchor.INITIAL:
-            situation = (
-                "本轮讨论刚刚开始，尚无人发言。"
-                "请上报你此刻若进行放逐投票会投给谁。"
-            )
+            situation = "本轮讨论刚刚开始，尚无人发言。请上报你此刻若进行放逐投票会投给谁。"
         else:
             situation = (
                 f"你刚听完 {last_speaker_name or '上一位玩家'} 的发言（已写入对话记忆）。"
@@ -502,10 +478,7 @@ class WerewolfAdapterBridge:
                     f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）"
                 )
 
-        prompt_parts.extend([
-            "",
-            action_phase_instruction(ActionPhase.VOTE_INTENTION),
-        ])
+        prompt_parts.extend(["", action_phase_instruction(ActionPhase.VOTE_INTENTION)])
         if structured:
             prompt_parts.extend(["", vote_intention_schema_instruction()])
         return "\n".join(prompt_parts)
@@ -538,9 +511,11 @@ class WerewolfAdapterBridge:
 
         def _entry_from_seat(seat: int, reason: str | None) -> VoteIntentionEntry:
             safe_seat = max(0, int(seat))
-            if safe_seat > 0 and WerewolfAdapterBridge.resolve_player_by_seat(
-                safe_seat, possible_targets
-            ) is None:
+            if (
+                safe_seat > 0
+                and WerewolfAdapterBridge.resolve_player_by_seat(safe_seat, possible_targets)
+                is None
+            ):
                 safe_seat = 0
             return WerewolfAdapterBridge.build_vote_intention_entry(
                 actor, safe_seat, possible_targets, reason
@@ -644,9 +619,7 @@ class WerewolfAdapterBridge:
 
             if fallback_random:
                 target = random.choice(possible_targets)  # noqa: S311
-                WerewolfAdapterBridge._store_decision_metadata(
-                    agent, target, fallback=True
-                )
+                WerewolfAdapterBridge._store_decision_metadata(agent, target, fallback=True)
                 return target
         except Exception:
             if fallback_random:
@@ -667,12 +640,7 @@ class WerewolfAdapterBridge:
     ) -> bool:
         structured = agent_uses_structured_output(agent)
         prompt = WerewolfAdapterBridge.build_yes_no_prompt(
-            role_name,
-            question,
-            context,
-            round_number,
-            phase,
-            structured=structured,
+            role_name, question, context, round_number, phase, structured=structured
         )
         try:
             if structured:
@@ -714,9 +682,7 @@ class WerewolfAdapterBridge:
 
         try:
             if structured:
-                result = await invoke_structured(
-                    agent, prompt, MultiSeatChoiceDecision
-                )
+                result = await invoke_structured(agent, prompt, MultiSeatChoiceDecision)
                 if isinstance(result, MultiSeatChoiceDecision):
                     selected: list[PlayerProtocol] = []
                     for seat in result.seats:
@@ -748,17 +714,12 @@ class WerewolfAdapterBridge:
     ) -> SpeechDecision:
         structured = agent_uses_structured_output(agent)
         prompt = WerewolfAdapterBridge.build_speech_prompt(
-            context,
-            instruction,
-            structured=structured,
-            roundtable_phase=roundtable_phase,
+            context, instruction, structured=structured, roundtable_phase=roundtable_phase
         )
         try:
             if structured:
                 for _ in range(schema_retries):
-                    result = await invoke_structured(
-                        agent, prompt, SpeechDecision, retries=1
-                    )
+                    result = await invoke_structured(agent, prompt, SpeechDecision, retries=1)
                     if result is not None:
                         speech = coerce_speech(result)
                         if is_valid_public_speech(speech.public_speech):

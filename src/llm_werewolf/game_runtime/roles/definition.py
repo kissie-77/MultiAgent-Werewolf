@@ -1,4 +1,4 @@
-﻿"""角色定义模式（名称、实现、阵营、胜利目标）。"""
+"""角色定义模式（名称、实现、阵营、胜利目标）。"""
 
 from pydantic import Field, BaseModel
 

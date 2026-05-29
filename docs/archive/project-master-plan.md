@@ -1,6 +1,6 @@
 # MultiAgent-Werewolf 全项目改动主计划（核心重构）
 
-> 版本：2026-05-20  
+> 版本：2026-05-20
 > **权威分工**：规则/可见性 → [project-governance.md](./project-governance.md)；目录 → [project-structure.md](./project-structure.md)；夜间调度 → [adr/0005-night-skill-scheduler.md](./adr/0005-night-skill-scheduler.md)。
 
 ## 1. 目标与边界

@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
+from dataclasses import field, dataclass
 
+from llm_werewolf.game_runtime.types.enums import Camp
 from llm_werewolf.evaluation.post_game.run_context import (
     RunContext,
-    is_camp_aligned_vote_target,
     target_id_to_camp,
+    is_camp_aligned_vote_target,
 )
 from llm_werewolf.evaluation.core.vote_swing_analysis import (
     VoteSwingReport,
     analyze_path,
     format_markdown_report,
 )
-from llm_werewolf.game_runtime.types.enums import Camp
 
 
 @dataclass
@@ -83,11 +82,7 @@ class CampPersuasionReport:
     prompt_version: str = "v2"
 
     def to_dict(self) -> dict[str, Any]:
-        ranked = sorted(
-            self.speeches,
-            key=lambda s: s.camp_aligned_score,
-            reverse=True,
-        )
+        ranked = sorted(self.speeches, key=lambda s: s.camp_aligned_score, reverse=True)
         return {
             "prompt_version": self.prompt_version,
             "winner_camp": self.winner_camp,
@@ -111,9 +106,7 @@ def _eliminations_by_round(ctx: RunContext) -> dict[int, str]:
 
 
 def _annotate_swings(
-    raw_swings: list[dict[str, Any]],
-    speaker_camp: str | None,
-    ctx: RunContext,
+    raw_swings: list[dict[str, Any]], speaker_camp: str | None, ctx: RunContext
 ) -> list[CampAlignedSwing]:
     annotated: list[CampAlignedSwing] = []
     for swing in raw_swings:
@@ -179,17 +172,13 @@ def _persuasion_score_for_speech(
 
 
 def build_camp_persuasion_report(
-    ctx: RunContext,
-    swing_report: VoteSwingReport | None = None,
+    ctx: RunContext, swing_report: VoteSwingReport | None = None
 ) -> CampPersuasionReport:
     if swing_report is None:
         swing_report = analyze_path(ctx.run_dir)
 
     elim_by_round = _eliminations_by_round(ctx)
-    report = CampPersuasionReport(
-        winner_camp=ctx.winner_camp,
-        prompt_version=ctx.prompt_version,
-    )
+    report = CampPersuasionReport(winner_camp=ctx.winner_camp, prompt_version=ctx.prompt_version)
 
     for speech in swing_report.speech_influences:
         entry = ctx.roster.get(speech.speaker_id)
@@ -198,9 +187,7 @@ def build_camp_persuasion_report(
         aligned_count = sum(1 for s in camp_swings if s.camp_aligned)
         elim_target = elim_by_round.get(speech.round_number)
         elim_target_camp = target_id_to_camp(elim_target, ctx.roster) if elim_target else None
-        drive_count = sum(
-            1 for s in camp_swings if elim_target and s.to_target_id == elim_target
-        )
+        drive_count = sum(1 for s in camp_swings if elim_target and s.to_target_id == elim_target)
         matched_elim = _matched_elimination_for_speaker(
             speaker_camp=speaker_camp,
             elim_target=elim_target,
@@ -270,8 +257,7 @@ def format_camp_markdown(report: CampPersuasionReport) -> str:
 
 
 def write_camp_persuasion_artifacts(
-    ctx: RunContext,
-    swing_report: VoteSwingReport | None = None,
+    ctx: RunContext, swing_report: VoteSwingReport | None = None
 ) -> CampPersuasionReport:
     report = build_camp_persuasion_report(ctx, swing_report)
     out = ctx.run_dir
@@ -279,13 +265,9 @@ def write_camp_persuasion_artifacts(
 
     json_path = out / "camp_persuasion_summary.json"
     json_path.write_text(
-        json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
+        json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
     )
     md_path = out / "camp_persuasion_report.md"
     base_md = format_markdown_report(swing_report or analyze_path(ctx.run_dir))
-    md_path.write_text(
-        base_md + "\n\n---\n\n" + format_camp_markdown(report),
-        encoding="utf-8",
-    )
+    md_path.write_text(base_md + "\n\n---\n\n" + format_camp_markdown(report), encoding="utf-8")
     return report

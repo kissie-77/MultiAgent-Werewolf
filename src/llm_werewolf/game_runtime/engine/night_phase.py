@@ -1,21 +1,17 @@
-﻿"""游戏引擎的夜晚阶段逻辑。"""
+"""游戏引擎的夜晚阶段逻辑。"""
 
-from typing import TYPE_CHECKING
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
-from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.types import Camp, EventType, GamePhase, PlayerProtocol
+from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
+from llm_werewolf.game_runtime.roles.werewolf import BloodMoonApostle
 from llm_werewolf.game_runtime.night_scheduler import NightSkillScheduler
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
-from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
+from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
 from llm_werewolf.game_runtime.registries.role_night_plans import offer_blood_moon_transform
-from llm_werewolf.game_runtime.roles.werewolf import BloodMoonApostle
-
-if TYPE_CHECKING:
-    from llm_werewolf.game_runtime.actions.base import Action
 
 
 class NightPhaseMixin:
@@ -54,19 +50,15 @@ class NightPhaseMixin:
             include_visible_events=True,
             for_agent_decision=True,
         )
-        return shared + "\n" + EngineContexts.werewolf_discussion(
-            werewolf.name,
-            self.game_state.round_number,
-            werewolf_names,
-            target_names,
-            "",
+        return (
+            shared
+            + "\n"
+            + EngineContexts.werewolf_discussion(
+                werewolf.name, self.game_state.round_number, werewolf_names, target_names, ""
+            )
         )
 
-    def _log_werewolf_speech(
-        self,
-        speaker: PlayerProtocol,
-        decision: SpeechDecision,
-    ) -> None:
+    def _log_werewolf_speech(self, speaker: PlayerProtocol, decision: SpeechDecision) -> None:
         if not self.game_state:
             return
         wolf_ids = [
@@ -104,10 +96,7 @@ class NightPhaseMixin:
             if transformed:
                 self._log_event(
                     EventType.MESSAGE,
-                    self.locale.get(
-                        "blood_moon_transformed",
-                        player=player.name,
-                    ),
+                    self.locale.get("blood_moon_transformed", player=player.name),
                     data={"player_id": player.player_id, "action": "blood_moon_transform"},
                     visible_to=[player.player_id],
                 )
@@ -140,11 +129,7 @@ class NightPhaseMixin:
         target_names = [p.name for p in possible_targets]
         interaction = self.game_state.require_phase_interaction()
 
-        def on_speech(
-            speaker: PlayerProtocol,
-            decision: SpeechDecision,
-            _routed: object,
-        ) -> None:
+        def on_speech(speaker: PlayerProtocol, decision: SpeechDecision, _routed: object) -> None:
             self._log_werewolf_speech(speaker, decision)
             messages.append(f"🐺 {speaker.name}: {decision.public_speech}")
 
@@ -240,8 +225,8 @@ class NightPhaseMixin:
         breaker = wolves[0] if wolves else None
         if breaker and breaker.agent:
             interaction = self.game_state.require_phase_interaction()
-            from llm_werewolf.strategy.phase_outputs import ActionPhase
             from llm_werewolf.strategy.role_prompts import GamePrompts
+            from llm_werewolf.strategy.phase_outputs import ActionPhase
 
             chosen = await interaction.request_seat_choice(
                 breaker,
@@ -250,9 +235,7 @@ class NightPhaseMixin:
                 action_description=GamePrompts.WOLF_OPEN,
                 possible_targets=tie_targets,
                 allow_skip=False,
-                additional_context=self.locale.get(
-                    "werewolf_vote_tie_break", breaker=breaker.name
-                )
+                additional_context=self.locale.get("werewolf_vote_tie_break", breaker=breaker.name)
                 + "\n狼刀平票，请从并列目标中选定最终刀口。",
                 fallback_random=False,
                 round_number=self.game_state.round_number,

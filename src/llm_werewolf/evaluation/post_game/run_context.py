@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
+from pathlib import Path
+from dataclasses import field, dataclass
 
-from llm_werewolf.game_runtime.roles.registry import build_catalog_to_runtime_map
-from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG, get_definition
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG, get_definition
+from llm_werewolf.game_runtime.roles.registry import build_catalog_to_runtime_map
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 
 
@@ -80,7 +80,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
     rows: list[dict[str, Any]] = []
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for _line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         line = line.strip()
         if not line:
             continue
@@ -102,10 +102,7 @@ def _apply_role(
     camp = role_name_to_camp(role_name)
     entry = roster.get(player_id)
     if entry is None:
-        entry = PlayerRosterEntry(
-            player_id=player_id,
-            player_name=player_name or player_id,
-        )
+        entry = PlayerRosterEntry(player_id=player_id, player_name=player_name or player_id)
         roster[player_id] = entry
     if player_name:
         entry.player_name = player_name
@@ -114,18 +111,13 @@ def _apply_role(
 
 
 def _apply_player_name(
-    roster: dict[str, PlayerRosterEntry],
-    player_id: str,
-    player_name: str,
+    roster: dict[str, PlayerRosterEntry], player_id: str, player_name: str
 ) -> None:
     if not player_id or not player_name:
         return
     entry = roster.get(player_id)
     if entry is None:
-        roster[player_id] = PlayerRosterEntry(
-            player_id=player_id,
-            player_name=player_name,
-        )
+        roster[player_id] = PlayerRosterEntry(player_id=player_id, player_name=player_name)
     else:
         entry.player_name = player_name
 
@@ -191,8 +183,7 @@ def roster_from_events(events: list[dict[str, Any]]) -> dict[str, PlayerRosterEn
             pid = str(data.get("player_id", ""))
             if pid and pid not in roster:
                 roster[pid] = PlayerRosterEntry(
-                    player_id=pid,
-                    player_name=str(data.get("player_name", pid)),
+                    player_id=pid, player_name=str(data.get("player_name", pid))
                 )
 
         if etype == "player_speech":
@@ -213,9 +204,7 @@ def roster_from_events(events: list[dict[str, Any]]) -> dict[str, PlayerRosterEn
     return roster
 
 
-def merge_rosters(
-    *rosters: dict[str, PlayerRosterEntry],
-) -> dict[str, PlayerRosterEntry]:
+def merge_rosters(*rosters: dict[str, PlayerRosterEntry]) -> dict[str, PlayerRosterEntry]:
     """合并多个 roster；后出现的 role_name 覆盖先前的空角色条目。"""
     merged: dict[str, PlayerRosterEntry] = {}
     for roster in rosters:

@@ -33,13 +33,13 @@ uv sync
 cp .env.example .env
 ```
 
-2. 复制对局配置：
+1. 复制对局配置：
 
 ```bash
 cp configs/example.yaml configs/my_game.yaml
 ```
 
-3. 编辑 `configs/my_game.yaml` 与 `.env`（YAML 里用 `api_key_env` / `model_env` 引用环境变量名，密钥与接入点 ID 只写进 `.env`）：
+1. 编辑 `configs/my_game.yaml` 与 `.env`（YAML 里用 `api_key_env` / `model_env` 引用环境变量名，密钥与接入点 ID 只写进 `.env`）：
 
 ```yaml
 language: en-US
@@ -71,11 +71,11 @@ uv run werewolf configs/demo.yaml
 
 `llm-werewolf` 与 `werewolf-tui` 支持以下可选参数（缺省时行为与原来完全一致）：
 
-| 参数 | 作用 | 默认 |
-|------|------|------|
-| `--human_seat 1`（或 `1,3`） | 指定 1-based 座位为**人类玩家**（可多座位） | 无（纯 Agent 局） |
-| `--players N` | 覆盖**总座位数（含人类）**，范围 6–20 | 沿用 YAML 名单 |
-| `--badge_flow` / `--nobadge_flow` | 开 / 关**警长·警徽流** | 关 |
+| 参数                              | 作用                                        | 默认              |
+| --------------------------------- | ------------------------------------------- | ----------------- |
+| `--human_seat 1`（或 `1,3`）      | 指定 1-based 座位为**人类玩家**（可多座位） | 无（纯 Agent 局） |
+| `--players N`                     | 覆盖**总座位数（含人类）**，范围 6–20       | 沿用 YAML 名单    |
+| `--badge_flow` / `--nobadge_flow` | 开 / 关**警长·警徽流**                      | 关                |
 
 ```bash
 # 纯 LLM 对战
@@ -92,7 +92,7 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
 
 > Windows 本机运行前请前置 `PYTHONUTF8=1 PYTHONIOENCODING=utf-8`（GBK 控制台渲染 emoji 的兼容问题）。
 > API Key 仅 LLM 玩家需要（写入 `.env`）；`human` / `demo` 座位无需 Key。详见
-> [docs/reports/人机对战与命令行模式.md](docs/reports/人机对战与命令行模式.md)。
+> [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)。
 
 ## 项目架构
 
@@ -115,18 +115,18 @@ src/llm_werewolf/
 - [x] Demo 模式验证
 - [x] AgentScope 接入（ReAct + agent_team + InformationHub）
 - [x] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
-- [x] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/reports/人机对战与命令行模式.md](docs/reports/人机对战与命令行模式.md)）
+- [x] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)）
 - [ ] 结构化日志（JSON 事件流）
 - [ ] Web 前端观战 UI
 - [x] 评测与复盘（vote intention / swing 分析）
 
 ## 团队分工
 
-| 成员 | 负责模块 |
-|------|----------|
-| A | AgentScope 接入 + `agent_team` |
-| B | GameEngine 改造 + 异步化 |
-| C | 前端 + API + 日志 |
+| 成员 | 负责模块                       |
+| ---- | ------------------------------ |
+| A    | AgentScope 接入 + `agent_team` |
+| B    | GameEngine 改造 + 异步化       |
+| C    | 前端 + API + 日志              |
 
 ## 致谢
 
@@ -153,5 +153,5 @@ MIT
 
 - **Commit**: Use [Conventional Commits](https://www.conventionalcommits.org/) format. See [docs/archive/workflow.md](docs/archive/workflow.md).
 - **ADR**: For cross-module/interface/performance decisions, write a 5-minute ADR. See [docs/archive/adr/](docs/archive/adr/).
-- **Architecture**: See [docs/architecture/工程架构重构计划.md](docs/architecture/工程架构重构计划.md).
+- **Architecture**: See [docs/architecture/工程架构重构计划.md](docs/architecture/%E5%B7%A5%E7%A8%8B%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84%E8%AE%A1%E5%88%92.md).
 - **Roadmap**: See [docs/archive/roadmap.md](docs/archive/roadmap.md).

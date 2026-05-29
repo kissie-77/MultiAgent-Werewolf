@@ -1,4 +1,10 @@
-﻿from llm_werewolf.game_runtime.types import Camp, PlayerInfo, PlayerStatus, RoleProtocol, AgentProtocol
+from llm_werewolf.game_runtime.types import (
+    Camp,
+    PlayerInfo,
+    PlayerStatus,
+    RoleProtocol,
+    AgentProtocol,
+)
 
 
 class Player:

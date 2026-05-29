@@ -1,4 +1,4 @@
-﻿"""游戏流程 Prompt 与角色策略常量的测试。"""
+"""游戏流程 Prompt 与角色策略常量的测试。"""
 
 from llm_werewolf.strategy.role_prompts import GamePrompts, PlanStrategies
 from llm_werewolf.game_runtime.prompts.system import SYSTEM_PROMPT

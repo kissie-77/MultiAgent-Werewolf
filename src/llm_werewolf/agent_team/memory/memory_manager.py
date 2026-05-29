@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.agent_team.memory.base import SemanticBackend
 from llm_werewolf.agent_team.memory.config import MemoryConfig
-from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory, _KEY_EVENT_TYPES
-from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
-from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
-from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
-from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
 from llm_werewolf.game_runtime.roles.registry import get_werewolf_roles
+from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
+from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
+from llm_werewolf.agent_team.memory.episodic_memory import _KEY_EVENT_TYPES, EpisodicMemory
+from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
+from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
+
+if TYPE_CHECKING:
+    from llm_werewolf.agent_team.memory.base import SemanticBackend
 
 
 class MemoryManager:
@@ -47,7 +49,7 @@ class MemoryManager:
 
     async def aclose(self) -> None:
         """Compatibility hook for optional async resources."""
-        return None
+        return
 
     def on_game_start(self, role: str) -> None:
         """Inject role skills and procedural summaries at game start."""
@@ -93,20 +95,14 @@ class MemoryManager:
         if not self._prompt_context_enabled():
             return
         self.working.add_dynamic(
-            f"{speaker_name}发言：{speech}",
-            tag="speech",
-            round_number=round_number,
+            f"{speaker_name}发言：{speech}", tag="speech", round_number=round_number
         )
 
     def add_decision(self, decision: str) -> None:
         """Record the agent's own decision into working memory."""
         if not self._prompt_context_enabled():
             return
-        self.working.add_dynamic(
-            decision,
-            tag="decision",
-            round_number=self.working.current_round,
-        )
+        self.working.add_dynamic(decision, tag="decision", round_number=self.working.current_round)
 
     def add_event(self, event: Any) -> None:
         """Record visible key events into working memory."""
@@ -156,7 +152,10 @@ class MemoryManager:
     def _semantic_llm(self):
         if self._llm_compressor is not None:
             return self._llm_compressor
-        if not self.config.working_compression_api_key or not self.config.working_compression_base_url:
+        if (
+            not self.config.working_compression_api_key
+            or not self.config.working_compression_base_url
+        ):
             return None
         return LLMCompressor(
             api_key=self.config.working_compression_api_key,
@@ -174,11 +173,15 @@ class MemoryManager:
     def _event_key(event: Any) -> tuple[object, ...]:
         data = getattr(event, "data", {})
         if isinstance(data, dict):
-            data_key: object = tuple(sorted((str(key), repr(value)) for key, value in data.items()))
+            data_key: object = tuple(
+                sorted((str(key), repr(value)) for key, value in data.items())
+            )
         else:
             data_key = repr(data)
         visible_to = getattr(event, "visible_to", None)
-        visible_key = tuple(sorted(str(player_id) for player_id in visible_to)) if visible_to else ()
+        visible_key = (
+            tuple(sorted(str(player_id) for player_id in visible_to)) if visible_to else ()
+        )
         return (
             str(getattr(event, "event_type", "")),
             getattr(event, "round_number", None),
@@ -195,7 +198,9 @@ class MemoryManager:
             f"本局结果：{'胜利' if won else '失败'}",
         ]
         for episode in report.get("episodes", []):
-            messages = episode.get("key_event_messages", []) + episode.get("decision_event_messages", [])
+            messages = episode.get("key_event_messages", []) + episode.get(
+                "decision_event_messages", []
+            )
             if messages:
                 lines.append(f"第{episode.get('round_number')}轮：" + "；".join(messages[:4]))
         compressor = self._semantic_llm()

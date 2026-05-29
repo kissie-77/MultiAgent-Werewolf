@@ -44,8 +44,7 @@ _PHASE_TASK: dict[RoundtablePhase, str] = {
         "选刀目标在讨论结束后的单独步骤提交。"
     ),
     RoundtablePhase.SHERIFF_CAMPAIGN: (
-        "【任务】警长竞选发言。说明竞选理由与带队思路。"
-        "不得输出投票对象或 [[座位号]]。"
+        "【任务】警长竞选发言。说明竞选理由与带队思路。不得输出投票对象或 [[座位号]]。"
     ),
 }
 
@@ -58,9 +57,7 @@ _PHASE_FORBIDDEN: dict[RoundtablePhase, str] = {
         "【本阶段禁止】[[数字]]、仅「刀X」、seat 字段、choice 字段。"
         "讨论阶段只填 public_speech 与 private_thought。"
     ),
-    RoundtablePhase.SHERIFF_CAMPAIGN: (
-        "【本阶段禁止】[[数字]]、投票座位号、seat / choice 字段。"
-    ),
+    RoundtablePhase.SHERIFF_CAMPAIGN: ("【本阶段禁止】[[数字]]、投票座位号、seat / choice 字段。"),
 }
 
 
@@ -81,9 +78,7 @@ _ACTION_SCHEMA_HINT: dict[ActionPhase, str] = {
         "【本阶段输出】仅 VoteIntentionDecision：seat=意向放逐座位号；无明确意向 seat=0。"
         "禁止 SpeechDecision、禁止长段公开发言。"
     ),
-    ActionPhase.WITCH_YES_NO: (
-        "【本阶段输出】仅 YesNoDecision：choice=true/false。"
-    ),
+    ActionPhase.WITCH_YES_NO: ("【本阶段输出】仅 YesNoDecision：choice=true/false。"),
     ActionPhase.WITCH_NIGHT: (
         "【本阶段输出】仅 WitchNightDecision：action=save|poison|none；"
         "poison 时 seat=毒药目标座位号。"
@@ -91,12 +86,8 @@ _ACTION_SCHEMA_HINT: dict[ActionPhase, str] = {
     ActionPhase.SHERIFF_RUN: (
         "【本阶段输出】仅 SeatChoiceDecision：seat=[[1]] 参加竞选，[[0]] 不参加。"
     ),
-    ActionPhase.SHERIFF_VOTE: (
-        "【本阶段输出】仅 SeatChoiceDecision：seat=候选人座位号。"
-    ),
-    ActionPhase.DEATH_SHOOT: (
-        "【本阶段输出】仅 SeatChoiceDecision：seat=开枪目标座位号。"
-    ),
+    ActionPhase.SHERIFF_VOTE: ("【本阶段输出】仅 SeatChoiceDecision：seat=候选人座位号。"),
+    ActionPhase.DEATH_SHOOT: ("【本阶段输出】仅 SeatChoiceDecision：seat=开枪目标座位号。"),
     ActionPhase.BADGE_TRANSFER: (
         "【本阶段输出】仅 SeatChoiceDecision：seat=继承警徽座位号，撕毁 [[0]]。"
     ),

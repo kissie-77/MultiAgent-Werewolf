@@ -1,4 +1,4 @@
-﻿from pydantic import Field, BaseModel, field_validator
+from pydantic import Field, BaseModel, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from llm_werewolf.game_runtime.roles.registry import validate_role_names

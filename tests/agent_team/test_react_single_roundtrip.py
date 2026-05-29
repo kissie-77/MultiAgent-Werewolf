@@ -10,13 +10,13 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from agentscope.formatter import OpenAIChatFormatter
-from agentscope.message import Msg
 from agentscope.model import ChatResponse
+from agentscope.message import Msg
+from agentscope.formatter import OpenAIChatFormatter
 
-from llm_werewolf.agent_team.agents.factory import create_react_agent
-from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.strategy.decisions import SeatChoiceDecision
+from llm_werewolf.game_runtime.config import PlayerConfig
+from llm_werewolf.agent_team.agents.factory import create_react_agent
 
 
 class CountingFakeModel:
@@ -40,24 +40,16 @@ class CountingFakeModel:
 def _make_agent():
     os.environ.setdefault("WW_TEST_KEY", "test-key")
     config = PlayerConfig(
-        name="P1",
-        model="fake-model",
-        base_url="http://localhost:1",
-        api_key_env="WW_TEST_KEY",
+        name="P1", model="fake-model", base_url="http://localhost:1", api_key_env="WW_TEST_KEY"
     )
     return create_react_agent(config, agent_name="P1", sys_prompt="You are a player.")
 
 
-async def test_tool_call_without_text_makes_single_round_trip():
+async def test_tool_call_without_text_makes_single_round_trip() -> None:
     """只吐 generate_response 工具调用、不吐文本时，应只发生 1 次模型调用。"""
     agent = _make_agent()
     tool_only = [
-        {
-            "type": "tool_use",
-            "id": "call_1",
-            "name": "generate_response",
-            "input": {"seat": 4},
-        },
+        {"type": "tool_use", "id": "call_1", "name": "generate_response", "input": {"seat": 4}}
     ]
     # 第二条罐装响应模拟 doubao 当前被浪费的"纯文本"第二次往返——修复后不应被触发。
     wasted_text = [{"type": "text", "text": "我选择 4 号玩家。"}]
@@ -73,16 +65,11 @@ async def test_tool_call_without_text_makes_single_round_trip():
     assert result.metadata.get("seat") == 4
 
 
-async def test_tool_call_with_text_is_unchanged_single_round_trip():
+async def test_tool_call_with_text_is_unchanged_single_round_trip() -> None:
     """模型同一步同时吐 tool_use + text 时，基类本就单次往返——修复不得破坏该路径。"""
     agent = _make_agent()
     tool_and_text = [
-        {
-            "type": "tool_use",
-            "id": "call_1",
-            "name": "generate_response",
-            "input": {"seat": 7},
-        },
+        {"type": "tool_use", "id": "call_1", "name": "generate_response", "input": {"seat": 7}},
         {"type": "text", "text": "我建议出 7 号。"},
     ]
     agent.model = CountingFakeModel([tool_and_text, [{"type": "text", "text": "未使用"}]])
@@ -96,19 +83,14 @@ async def test_tool_call_with_text_is_unchanged_single_round_trip():
     assert result.metadata.get("seat") == 7
 
 
-async def test_post_decision_memory_is_well_formed_for_next_call():
+async def test_post_decision_memory_is_well_formed_for_next_call() -> None:
     """补的空 TextBlock 不得产生畸形 prompt：tool_call 仍被 tool_result 应答。
 
     关闭对抗校验提出的残留疑点（formatter 是否容忍"工具调用轮无尾随 assistant 文本"）。
     """
     agent = _make_agent()
     tool_only = [
-        {
-            "type": "tool_use",
-            "id": "call_1",
-            "name": "generate_response",
-            "input": {"seat": 4},
-        },
+        {"type": "tool_use", "id": "call_1", "name": "generate_response", "input": {"seat": 4}}
     ]
     agent.model = CountingFakeModel([tool_only])
 
@@ -119,7 +101,7 @@ async def test_post_decision_memory_is_well_formed_for_next_call():
 
     history = await agent.memory.get_memory()
     formatted = await OpenAIChatFormatter().format(
-        msgs=[Msg(name="system", content="sys", role="system"), *history],
+        msgs=[Msg(name="system", content="sys", role="system"), *history]
     )
     assistant_tool_msgs = [
         m for m in formatted if m.get("role") == "assistant" and m.get("tool_calls")
@@ -128,7 +110,8 @@ async def test_post_decision_memory_is_well_formed_for_next_call():
     # 关键不变式：每个 tool_call 都必须被 tool_result 应答，否则下一轮 prompt 非法。
     call_ids = {tc["id"] for m in assistant_tool_msgs for tc in m["tool_calls"]}
     answered = {m.get("tool_call_id") for m in formatted if m.get("role") == "tool"}
-    assert call_ids and call_ids <= answered
+    assert call_ids
+    assert call_ids <= answered
     # 记忆与基类首轮一致：补的空 TextBlock 只作用于返回消息以触发 break，不写入 memory；
     # 且末尾不残留任何"纯文本 assistant 轮"（即被消除的第二次往返产物）。
     trailing_text_turns = [

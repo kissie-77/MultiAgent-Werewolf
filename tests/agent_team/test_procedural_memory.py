@@ -1,7 +1,7 @@
 from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
 
 
-def test_procedural_memory_exposes_role_rules_and_plans():
+def test_procedural_memory_exposes_role_rules_and_plans() -> None:
     memory = ProceduralMemory()
 
     rules = memory.get_role_rules("villager")

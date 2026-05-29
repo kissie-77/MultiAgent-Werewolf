@@ -21,10 +21,10 @@
 
 ## 分支说明
 
-| 分支 | 用途 |
-|------|------|
+| 分支               | 用途                                      |
+| ------------------ | ----------------------------------------- |
 | **`lvyihan_test`** | **当前集成开发分支**（推荐 clone 此分支） |
-| `main` | 稳定基线 |
+| `main`             | 稳定基线                                  |
 
 ## 特色功能
 
@@ -95,7 +95,6 @@ YAML 配置文件选项：
 ```bash
 uv run werewolf-eval --help
 ```
-
 
 ### 环境配置
 
@@ -269,11 +268,11 @@ players:
 
 `create_agent()` **默认**创建 **AgentScope** 玩家（需配置 API 密钥）。另支持：
 
-| 类型 | 说明 |
-|------|------|
-| **AgentScopeWerewolfAgent** | 默认；`adapter/factory` + `bind_agentscope_roles()`；结构化输出见 `core/decisions.py` |
-| **LLMAgent** | 直连 OpenAI 兼容 API（`use_agentscope=False`） |
-| **HumanAgent** / **DemoAgent** | 真人输入 / 无 API 随机回应 |
+| 类型                           | 说明                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| **AgentScopeWerewolfAgent**    | 默认；`adapter/factory` + `bind_agentscope_roles()`；结构化输出见 `core/decisions.py` |
+| **LLMAgent**                   | 直连 OpenAI 兼容 API（`use_agentscope=False`）                                        |
+| **HumanAgent** / **DemoAgent** | 真人输入 / 无 API 随机回应                                                            |
 
 **提示词**：引擎在 `setup_game` 后为支持 `bind_role()` 的代理注入 `core/prompts` 身份文案；AgentScope 路径同时使用 `adapter/prompts.py` 策略计划（`PlanStrategies`）。详见 [docs/README.md](docs/README.md)。
 

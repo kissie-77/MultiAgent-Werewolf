@@ -17,19 +17,11 @@ def test_use_agentscope_backend_default() -> None:
 def test_rejects_removed_single_call_llm_backends() -> None:
     for backend in ("openai", "OPENAI", "legacy", "llm"):
         with pytest.raises(ValueError, match="agent_backend only supports 'agentscope'"):
-            PlayersConfig(
-                language="zh-CN",
-                agent_backend=backend,
-                players=_six_demo_players(),
-            )
+            PlayersConfig(language="zh-CN", agent_backend=backend, players=_six_demo_players())
 
 
 def test_accepts_agentscope_backend_value() -> None:
-    cfg = PlayersConfig(
-        language="zh-CN",
-        agent_backend="agentscope",
-        players=_six_demo_players(),
-    )
+    cfg = PlayersConfig(language="zh-CN", agent_backend="agentscope", players=_six_demo_players())
     assert cfg.use_agentscope_backend is True
 
 
@@ -39,21 +31,13 @@ def test_prompt_version_defaults_to_v2() -> None:
 
 
 def test_prompt_version_normalizes_case() -> None:
-    cfg = PlayersConfig(
-        language="zh-CN",
-        prompt_version="V2",
-        players=_six_demo_players(),
-    )
+    cfg = PlayersConfig(language="zh-CN", prompt_version="V2", players=_six_demo_players())
     assert cfg.prompt_version == "v2"
 
 
 def test_rejects_invalid_prompt_version() -> None:
     with pytest.raises(ValueError, match="prompt_version must look like"):
-        PlayersConfig(
-            language="zh-CN",
-            prompt_version="2",
-            players=_six_demo_players(),
-        )
+        PlayersConfig(language="zh-CN", prompt_version="2", players=_six_demo_players())
 
 
 def test_vote_intention_concurrency_defaults_to_serial_on_players_config() -> None:
@@ -64,9 +48,7 @@ def test_vote_intention_concurrency_defaults_to_serial_on_players_config() -> No
 
 def test_vote_intention_concurrency_accepts_parallel_value() -> None:
     cfg = PlayersConfig(
-        language="zh-CN",
-        vote_intention_concurrency=6,
-        players=_six_demo_players(),
+        language="zh-CN", vote_intention_concurrency=6, players=_six_demo_players()
     )
 
     assert cfg.vote_intention_concurrency == 6

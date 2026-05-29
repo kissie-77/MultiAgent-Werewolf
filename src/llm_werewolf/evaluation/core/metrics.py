@@ -1,6 +1,6 @@
 from collections import Counter
 
-from llm_werewolf.evaluation.core.models import EvaluationSummary, GameRunResult
+from llm_werewolf.evaluation.core.models import GameRunResult, EvaluationSummary
 
 
 def build_summary(results: list[GameRunResult]) -> EvaluationSummary:
@@ -14,9 +14,7 @@ def build_summary(results: list[GameRunResult]) -> EvaluationSummary:
         check.checker for result in results for check in result.checks if not check.passed
     )
     # 顶部错误同时纳入“单局崩溃错误”和“checker 失败摘要”。
-    error_messages = Counter(
-        result.error_message for result in results if result.error_message
-    )
+    error_messages = Counter(result.error_message for result in results if result.error_message)
     failed_messages = Counter(
         check.message for result in results for check in result.checks if not check.passed
     )
@@ -27,9 +25,7 @@ def build_summary(results: list[GameRunResult]) -> EvaluationSummary:
         if not check.passed and check.checker == "RuntimeErrorEventChecker"
     ]
     top_errors = [
-        message
-        for message, _count in (error_messages + failed_messages).most_common(5)
-        if message
+        message for message, _count in (error_messages + failed_messages).most_common(5) if message
     ]
 
     total_games = len(results)

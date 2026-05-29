@@ -1,4 +1,4 @@
-﻿"""各角色身份提示词（仅中文，仅注入匹配角色）。"""
+"""各角色身份提示词（仅中文，仅注入匹配角色）。"""
 
 from llm_werewolf.game_runtime.types.enums import VictoryGoal
 
@@ -116,10 +116,7 @@ def get_identity_template(role_name: str) -> dict[str, str]:
 
 
 def format_identity_prompt(
-    display_name: str,
-    role_name: str,
-    camp_label: str,
-    victory_goal: VictoryGoal,
+    display_name: str, role_name: str, camp_label: str, victory_goal: VictoryGoal
 ) -> str:
     """构建仅含身份的提示词块。"""
     fields = get_identity_template(role_name)

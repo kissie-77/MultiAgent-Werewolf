@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
@@ -67,11 +67,7 @@ class GameState:
 
     def get_alive_witch_player_ids(self) -> list[str]:
         """返回存活女巫的玩家 ID 列表（用于刀口等仅女巫可见的事件）。"""
-        return [
-            p.player_id
-            for p in self.get_alive_players()
-            if p.get_role_name() == "Witch"
-        ]
+        return [p.player_id for p in self.get_alive_players() if p.get_role_name() == "Witch"]
 
     def require_phase_interaction(self) -> PhaseInteraction:
         """返回为本局游戏注入的阶段交互 API。"""
@@ -116,11 +112,7 @@ class GameState:
             self.round_number = 1
         elif self.phase == GamePhase.NIGHT:
             # 首夜结束后，若开启警长且尚未完成选举则进入警长竞选
-            if (
-                self.round_number == 1
-                and self.enable_sheriff
-                and not self.sheriff_election_done
-            ):
+            if self.round_number == 1 and self.enable_sheriff and not self.sheriff_election_done:
                 self.phase = GamePhase.SHERIFF_ELECTION
             else:
                 self.phase = GamePhase.DAY_DISCUSSION

@@ -1,11 +1,4 @@
-﻿from llm_werewolf.game_runtime.types import (
-    Camp,
-    RoleConfig,
-    ActionPriority,
-    ActionProtocol,
-    PlayerProtocol,
-    GameStateProtocol,
-)
+from llm_werewolf.game_runtime.types import Camp, RoleConfig, ActionPriority, PlayerProtocol
 from llm_werewolf.game_runtime.roles.base import Role
 
 
@@ -21,7 +14,6 @@ class Thief(Role):
         super().__init__(player)
         self.available_roles: list[Role] = []
         self.has_chosen = False
-
 
     def get_config(self) -> RoleConfig:
         """获取盗贼角色的配置。"""
@@ -51,7 +43,6 @@ class Lover(Role):
         super().__init__(player)
         self.partner_id: str | None = None
         self.original_role: Role | None = None
-
 
     def get_config(self) -> RoleConfig:
         """获取情侣角色的配置。
@@ -83,7 +74,6 @@ class WhiteLoverWolf(Role):
     def __init__(self, player: PlayerProtocol) -> None:
         """初始化白狼情侣角色。"""
         super().__init__(player)
-
 
     def get_config(self) -> RoleConfig:
         """获取白狼情侣角色的配置。"""

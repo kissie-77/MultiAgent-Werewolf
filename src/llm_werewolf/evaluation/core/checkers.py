@@ -1,7 +1,9 @@
-﻿from llm_werewolf.strategy.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
 from llm_werewolf.game_runtime.types import Camp, Event, EventType
+from llm_werewolf.strategy.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
 
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
+import itertools
+
 from llm_werewolf.evaluation.core.models import CheckResult, CheckSeverity
 
 
@@ -146,10 +148,7 @@ class PromptBadCaseChecker:
         return results
 
     def _check_harmful_power_targets(
-        self,
-        events: list[Event],
-        player_roles: dict[str, str],
-        player_camps: dict[str, Camp],
+        self, events: list[Event], player_roles: dict[str, str], player_camps: dict[str, Camp]
     ) -> list[CheckResult]:
         results: list[CheckResult] = []
         for event in events:
@@ -189,17 +188,10 @@ class InformationIsolationChecker:
     检测 message 全文与 data 内敏感字段（如验人 result、狼票明细）是否出现在他人 observation。
     """
 
-    _SENSITIVE_DATA_KEYS = frozenset({
-        "result",
-        "werewolf_votes",
-        "private_thought",
-        "decision",
-    })
+    _SENSITIVE_DATA_KEYS = frozenset({"result", "werewolf_votes", "private_thought", "decision"})
 
     def check(
-        self,
-        events: list[Event],
-        observations_by_player: dict[str, str] | None = None,
+        self, events: list[Event], observations_by_player: dict[str, str] | None = None
     ) -> list[CheckResult]:
         observations_by_player = observations_by_player or {}
         results: list[CheckResult] = []
@@ -226,7 +218,9 @@ class InformationIsolationChecker:
                                     "player_id": player_id,
                                     "event_type": event.event_type.value,
                                     "round_number": event.round_number,
-                                    "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
+                                    "phase": event.phase.value
+                                    if hasattr(event.phase, "value")
+                                    else str(event.phase),
                                     "leaked_fragment": fragment[:80],
                                 },
                             )
@@ -277,9 +271,13 @@ class AsyncFlowChecker:
         results: list[CheckResult] = []
 
         # 逐对比较相邻阶段事件；只要出现不在白名单里的跳转就记录违规。
-        for previous, current in zip(phase_events, phase_events[1:], strict=False):
-            prev_phase = previous.phase.value if hasattr(previous.phase, "value") else str(previous.phase)
-            curr_phase = current.phase.value if hasattr(current.phase, "value") else str(current.phase)
+        for previous, current in itertools.pairwise(phase_events):
+            prev_phase = (
+                previous.phase.value if hasattr(previous.phase, "value") else str(previous.phase)
+            )
+            curr_phase = (
+                current.phase.value if hasattr(current.phase, "value") else str(current.phase)
+            )
             allowed = self._allowed_transitions.get(prev_phase, set())
             if curr_phase not in allowed:
                 results.append(
@@ -369,7 +367,9 @@ class RoleSkillChecker:
                         severity=CheckSeverity.WARNING,
                         data={
                             "event_type": event.event_type.value,
-                            "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
+                            "phase": event.phase.value
+                            if hasattr(event.phase, "value")
+                            else str(event.phase),
                             "round_number": event.round_number,
                             "missing_fields": missing,
                         },
@@ -390,10 +390,7 @@ class DecisionConsistencyChecker:
         EventType.VOTE_CAST,
     }
 
-    _public_speech_events = {
-        EventType.PLAYER_SPEECH,
-        EventType.PLAYER_DISCUSSION,
-    }
+    _public_speech_events = {EventType.PLAYER_SPEECH, EventType.PLAYER_DISCUSSION}
 
     def check(self, events: list[Event]) -> list[CheckResult]:
         results: list[CheckResult] = []

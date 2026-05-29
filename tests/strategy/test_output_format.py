@@ -1,4 +1,4 @@
-﻿"""发言与仅座位 [[...]] 解析的测试。"""
+"""发言与仅座位 [[...]] 解析的测试。"""
 
 import pytest
 
@@ -89,9 +89,9 @@ def test_kill_vote_format_rejected() -> None:
 
 def test_wrong_schema_metadata_for_speech() -> None:
     assert metadata_looks_like_wrong_schema_for_speech({"seat": 7})
-    assert not metadata_looks_like_wrong_schema_for_speech(
-        {"public_speech": "我觉得七号玩家发言前后矛盾需要再听解释"}
-    )
+    assert not metadata_looks_like_wrong_schema_for_speech({
+        "public_speech": "我觉得七号玩家发言前后矛盾需要再听解释"
+    })
 
 
 def test_roundtable_phase_instruction_forbids_seat() -> None:
@@ -102,13 +102,9 @@ def test_roundtable_phase_instruction_forbids_seat() -> None:
 
 
 def test_normalize_speech_repairs_structured_seat_only() -> None:
-    broken = SpeechDecision.model_construct(
-        public_speech="7",
-        private_thought="真预",
-    )
+    broken = SpeechDecision.model_construct(public_speech="7", private_thought="真预")
     fixed = normalize_speech_decision(
-        broken,
-        raw_fallback="[[7]] [[我是预言家，昨晚验了5号是狼。]]",
+        broken, raw_fallback="[[7]] [[我是预言家，昨晚验了5号是狼。]]"
     )
     assert is_valid_public_speech(fixed.public_speech)
     assert "预言家" in fixed.public_speech

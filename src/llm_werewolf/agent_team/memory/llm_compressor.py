@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
+import logging
 
 import httpx
 
@@ -31,11 +31,7 @@ class LLMCompressor:
     """用 LLM API 压缩工作记忆动态区。"""
 
     def __init__(
-        self,
-        api_key: str,
-        base_url: str,
-        model: str = "default",
-        timeout: float = 30.0,
+        self, api_key: str, base_url: str, model: str = "default", timeout: float = 30.0
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
@@ -53,9 +49,7 @@ class LLMCompressor:
         except Exception as exc:
             if not self._warned_failure:
                 logger.warning(
-                    "LLM compression failed, using fallback: %s: %s",
-                    type(exc).__name__,
-                    exc,
+                    "LLM compression failed, using fallback: %s: %s", type(exc).__name__, exc
                 )
                 self._warned_failure = True
             return self._fallback_compress(items)
@@ -66,10 +60,7 @@ class LLMCompressor:
         return self._call_llm_text(prompt, max_tokens=300)
 
     def _call_llm_text(self, prompt: str, max_tokens: int = 300) -> str:
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": [{"role": "user", "content": prompt}],
@@ -88,12 +79,7 @@ class LLMCompressor:
 
     @staticmethod
     def _group_items(items: list[MemoryItem]) -> str:
-        groups: dict[str, list[str]] = {
-            "decision": [],
-            "speech": [],
-            "event": [],
-            "other": [],
-        }
+        groups: dict[str, list[str]] = {"decision": [], "speech": [], "event": [], "other": []}
         for item in items:
             groups.get(item.tag, groups["other"]).append(item.content)
 

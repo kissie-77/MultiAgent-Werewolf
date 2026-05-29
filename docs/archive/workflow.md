@@ -4,27 +4,28 @@
 
 ## 三类常见动作
 
-| 你在做什么 | 要做什么文档动作 |
-|---|---|
-| 写代码、修 bug | commit 规范 + PR 模板 |
-| 做了一个跨多模块/接口的决定 | 加一篇 ADR |
-| 完成一个阶段目标 | 划掉 `roadmap.md` 里的 checkbox |
+| 你在做什么                  | 要做什么文档动作                |
+| --------------------------- | ------------------------------- |
+| 写代码、修 bug              | commit 规范 + PR 模板           |
+| 做了一个跨多模块/接口的决定 | 加一篇 ADR                      |
+| 完成一个阶段目标            | 划掉 `roadmap.md` 里的 checkbox |
 
 ## Commit 规范（Conventional Commits）
 
 格式：`<type>(<scope>): <一句话>`
 
-| 类型 | 用在哪 |
-|---|---|
-| `feat` | 新功能 |
-| `fix` | bug 修复 |
-| `refactor` | 重构（不改外部行为） |
-| `docs` | 改文档 |
-| `test` | 加/改测试 |
-| `chore` | 杂活（依赖升级、配置） |
+| 类型              | 用在哪                                    |
+| ----------------- | ----------------------------------------- |
+| `feat`            | 新功能                                    |
+| `fix`             | bug 修复                                  |
+| `refactor`        | 重构（不改外部行为）                      |
+| `docs`            | 改文档                                    |
+| `test`            | 加/改测试                                 |
+| `chore`           | 杂活（依赖升级、配置）                    |
 | `feat!` 或 `fix!` | **破坏性变更**（自动归到 CHANGELOG 顶层） |
 
 例：
+
 - `feat(engine): add sheriff badge transfer on death`
 - `fix(roles): correct AlphaWolf super() chain`
 - `refactor(actions): extract priority into ActionProcessorMixin`
@@ -32,12 +33,14 @@
 ## 什么时候写 ADR
 
 写：
+
 - 引入/换掉核心依赖
 - 跨多个模块的接口变更
 - 性能/安全的关键取舍
 - 重大架构变更
 
 不写：
+
 - bug 修复、重命名、文档改进
 - 依赖小版本升级（除非 breaking）
 

@@ -1,12 +1,12 @@
-﻿import json
-import traceback
-from datetime import datetime
-from pathlib import Path
+import json
 from typing import Any
+from pathlib import Path
+from datetime import datetime
+import traceback
 
-from llm_werewolf.game_runtime.state.serialization import serialize_game_state
 from llm_werewolf.game_runtime.types import Event, GameStateProtocol
 from llm_werewolf.evaluation.core.models import CheckResult
+from llm_werewolf.game_runtime.state.serialization import serialize_game_state
 
 
 class EvaluationRecorder:
@@ -83,7 +83,9 @@ class EvaluationRecorder:
         checks 用 JSON 数组保存，因为它通常较小，而且报告页面会一次性读取。
         """
         payload = [result.model_dump(mode="json") for result in results]
-        self.checks_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.checks_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def _append_jsonl(self, path: Path, payload: dict[str, Any]) -> None:
         """以 UTF-8 JSONL 形式追加一条记录。"""

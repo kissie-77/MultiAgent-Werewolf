@@ -1,8 +1,14 @@
-﻿from datetime import datetime
+from datetime import datetime
 
 from pydantic import Field, BaseModel, ConfigDict
 
-from llm_werewolf.game_runtime.types.enums import Camp, EventType, GamePhase, PlayerStatus, ActionPriority
+from llm_werewolf.game_runtime.types.enums import (
+    Camp,
+    EventType,
+    GamePhase,
+    PlayerStatus,
+    ActionPriority,
+)
 
 
 class RoleConfig(BaseModel):

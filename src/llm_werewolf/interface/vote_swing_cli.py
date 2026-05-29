@@ -1,7 +1,5 @@
 """CLI：从游戏目录或 JSONL 文件分析投票意向摇摆。"""
 
-from pathlib import Path
-
 import fire
 
 from llm_werewolf.evaluation.core.vote_swing_analysis import (
@@ -11,11 +9,7 @@ from llm_werewolf.evaluation.core.vote_swing_analysis import (
 )
 
 
-def main(
-    source: str,
-    output_dir: str = "",
-    print_report: bool = True,
-) -> str:
+def main(source: str, output_dir: str = "", print_report: bool = True) -> str:
     """分析 vote_intentions.jsonl（或 events.jsonl）并写入说服效果报告。
 
     Args:

@@ -1,18 +1,14 @@
-﻿"""单轨提示构建器：系统提示 + 各角色身份（中文）。"""
+"""单轨提示构建器：系统提示 + 各角色身份（中文）。"""
 
 import re
 
-from llm_werewolf.game_runtime.roles.catalog import VICTORY_GOAL_DESCRIPTIONS
-from llm_werewolf.game_runtime.roles.definition import RoleDefinition
 from llm_werewolf.game_runtime.types.enums import Camp
-from llm_werewolf.game_runtime.prompts.identity import format_identity_prompt
+from llm_werewolf.game_runtime.roles.catalog import VICTORY_GOAL_DESCRIPTIONS
 from llm_werewolf.game_runtime.prompts.system import SYSTEM_PROMPT
+from llm_werewolf.game_runtime.prompts.identity import format_identity_prompt
+from llm_werewolf.game_runtime.roles.definition import RoleDefinition
 
-_CAMP_LABELS = {
-    Camp.WEREWOLF: "狼人阵营",
-    Camp.VILLAGER: "好人阵营",
-    Camp.NEUTRAL: "中立",
-}
+_CAMP_LABELS = {Camp.WEREWOLF: "狼人阵营", Camp.VILLAGER: "好人阵营", Camp.NEUTRAL: "中立"}
 
 
 class PromptManager:
@@ -46,11 +42,7 @@ class PromptManager:
     @staticmethod
     def build_system_prompt(player_name: str, seat_number: int, plan: str = "自由发挥") -> str:
         """所有角色共用的系统提示。"""
-        return SYSTEM_PROMPT.format(
-            player_name=player_name,
-            seat_number=seat_number,
-            plan=plan,
-        )
+        return SYSTEM_PROMPT.format(player_name=player_name, seat_number=seat_number, plan=plan)
 
     @staticmethod
     def get_prompt_role_key(game_role_name: str) -> str:
@@ -59,15 +51,13 @@ class PromptManager:
 
     @staticmethod
     def get_role_strategy_config(
-        prompt_role_key: str,
-        prompt_version: str = "v2",
+        prompt_role_key: str, prompt_version: str = "v2"
     ) -> dict[str, str]:
         """返回角色策略 prompt 配置。"""
         from llm_werewolf.strategy.prompt_registry import get_registry
 
         return get_registry(prompt_version).role_card_by_prompt_key(
-            prompt_role_key,
-            version=prompt_version,
+            prompt_role_key, version=prompt_version
         )
 
     @staticmethod
@@ -89,10 +79,7 @@ class PromptManager:
 
     @staticmethod
     def build_prompt_key_strategy_prompt(
-        seat_number: int,
-        prompt_role_key: str,
-        plan_text: str,
-        prompt_version: str = "v2",
+        seat_number: int, prompt_role_key: str, plan_text: str, prompt_version: str = "v2"
     ) -> str:
         """根据角色策略键构建 AgentScope 系统 prompt。"""
         from llm_werewolf.strategy.prompt_registry import get_registry
@@ -110,18 +97,12 @@ class PromptManager:
 
     @staticmethod
     def build_role_strategy_prompt(
-        seat_number: int,
-        game_role_name: str,
-        plan_text: str,
-        prompt_version: str = "v2",
+        seat_number: int, game_role_name: str, plan_text: str, prompt_version: str = "v2"
     ) -> str:
         """根据运行时角色名构建 AgentScope 系统 prompt。"""
         prompt_role_key = PromptManager.get_prompt_role_key(game_role_name)
         return PromptManager.build_prompt_key_strategy_prompt(
-            seat_number,
-            prompt_role_key,
-            plan_text,
-            prompt_version=prompt_version,
+            seat_number, prompt_role_key, plan_text, prompt_version=prompt_version
         )
 
     @staticmethod
@@ -137,10 +118,7 @@ class PromptManager:
 
     @staticmethod
     def build_initial_chat_history(
-        definition: RoleDefinition,
-        player_name: str,
-        seat_number: int,
-        plan: str = "自由发挥",
+        definition: RoleDefinition, player_name: str, seat_number: int, plan: str = "自由发挥"
     ) -> list[dict[str, str]]:
         """初始消息：system（全局）+ system（该角色专属身份）。"""
         return [
@@ -148,10 +126,7 @@ class PromptManager:
                 "role": "system",
                 "content": PromptManager.build_system_prompt(player_name, seat_number, plan),
             },
-            {
-                "role": "system",
-                "content": PromptManager.build_identity_prompt(definition),
-            },
+            {"role": "system", "content": PromptManager.build_identity_prompt(definition)},
         ]
 
     @staticmethod
@@ -185,10 +160,7 @@ class PromptManager:
             parts.append(f"{idx}. {target.name}")
         if allow_skip:
             parts.append(f"{len(possible_targets) + 1}. 跳过本技能")
-        parts.extend([
-            "",
-            "请仅回复目标编号，放在 [[]] 中，例如 [[2]]。不要输出其他内容。",
-        ])
+        parts.extend(["", "请仅回复目标编号，放在 [[]] 中，例如 [[2]]。不要输出其他内容。"])
         return "\n".join(parts)
 
     @staticmethod
@@ -205,10 +177,7 @@ class PromptManager:
             parts.append(f"当前：第 {round_number} 轮 · {phase}")
         if context:
             parts.extend(["", context])
-        parts.extend([
-            "",
-            "请仅回复 [[1]] 表示是/使用，[[0]] 表示否/跳过。",
-        ])
+        parts.extend(["", "请仅回复 [[1]] 表示是/使用，[[0]] 表示否/跳过。"])
         return "\n".join(parts)
 
     @staticmethod

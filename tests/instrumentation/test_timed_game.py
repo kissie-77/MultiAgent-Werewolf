@@ -17,26 +17,44 @@ if str(_SCRIPTS) not in sys.path:
 import timed_game  # noqa: E402
 
 
-def test_pct_linear_interpolation():
+def test_pct_linear_interpolation() -> None:
     assert timed_game._pct([], 0.5) is None
     assert timed_game._pct([10.0], 0.5) == 10.0
     assert timed_game._pct([10.0, 20.0, 30.0, 40.0], 0.5) == 25.0
     assert timed_game._pct([10.0, 20.0, 30.0, 40.0], 1.0) == 40.0
 
 
-def test_report_counts_http_rounds_and_no_tool_call_fraction():
+def test_report_counts_http_rounds_and_no_tool_call_fraction() -> None:
     timer = timed_game.GameTimer()
     timer._t0 = 1000.0
     timer._t_stop = 1100.0  # total_wall_s = 100.0
     timer.meta = {"label": "after"}
     # 三次 HTTP：两次带工具调用（结构化首轮），一次不带（"纯文本第二次往返"画像）。
     timer.http_calls = [
-        {"wall_s": 8.0, "n_tool_calls": 1, "prompt_tokens": 100, "completion_tokens": 20,
-         "finish_reason": "tool_calls", "rel_start": 1.0},
-        {"wall_s": 5.0, "n_tool_calls": 1, "prompt_tokens": 120, "completion_tokens": 15,
-         "finish_reason": "tool_calls", "rel_start": 30.0},
-        {"wall_s": 12.0, "n_tool_calls": 0, "prompt_tokens": 130, "completion_tokens": 700,
-         "finish_reason": "stop", "rel_start": 60.0},
+        {
+            "wall_s": 8.0,
+            "n_tool_calls": 1,
+            "prompt_tokens": 100,
+            "completion_tokens": 20,
+            "finish_reason": "tool_calls",
+            "rel_start": 1.0,
+        },
+        {
+            "wall_s": 5.0,
+            "n_tool_calls": 1,
+            "prompt_tokens": 120,
+            "completion_tokens": 15,
+            "finish_reason": "tool_calls",
+            "rel_start": 30.0,
+        },
+        {
+            "wall_s": 12.0,
+            "n_tool_calls": 0,
+            "prompt_tokens": 130,
+            "completion_tokens": 700,
+            "finish_reason": "stop",
+            "rel_start": 60.0,
+        },
     ]
     timer.events = [
         {"t": 0.5, "type": "x", "round": 1, "phase": "day"},

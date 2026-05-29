@@ -1,6 +1,6 @@
-﻿from llm_werewolf.game_runtime.types import ActionType, Camp, PlayerProtocol, GameStateProtocol
+from llm_werewolf.game_runtime.types import Camp, ActionType, PlayerProtocol, GameStateProtocol
+from llm_werewolf.game_runtime.roles.names import RoleNames, role_name_is, player_camp_is
 from llm_werewolf.game_runtime.actions.base import Action
-from llm_werewolf.game_runtime.roles.names import RoleNames, player_camp_is, role_name_is
 
 
 class WerewolfVoteAction(Action):

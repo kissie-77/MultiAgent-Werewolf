@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from pydantic import ValidationError
 
 from llm_werewolf.game_runtime.config import GameConfig, create_game_config_from_player_count

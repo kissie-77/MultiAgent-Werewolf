@@ -1,11 +1,11 @@
-﻿"""向后兼容的重导出；请优先使用 ``llm_werewolf.game_runtime.roles.registry``。"""
+"""向后兼容的重导出；请优先使用 ``llm_werewolf.game_runtime.roles.registry``。"""
 
 from llm_werewolf.game_runtime.roles.registry import (
     create_roles,
-    get_role_definitions,
     get_role_map,
     get_werewolf_roles,
     validate_role_names,
+    get_role_definitions,
 )
 
 

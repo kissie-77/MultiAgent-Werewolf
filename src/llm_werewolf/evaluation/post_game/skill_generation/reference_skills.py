@@ -3,34 +3,31 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
+from pathlib import Path
+from datetime import datetime, timezone
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
+from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.evaluation.post_game.run_context import RunContext, load_run_context
-from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
-    SkillCardContent,
-    build_night_action_skill_card,
-    build_persuasion_skill_card,
-    build_wolf_night_coordination_card,
-)
+from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     build_role_skills,
     write_skill_markdown_files,
 )
-from llm_werewolf.game_runtime.prompts.manager import PromptManager
-from llm_werewolf.paths import RUNS_DIR
+from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
+    SkillCardContent,
+    build_persuasion_skill_card,
+    build_night_action_skill_card,
+    build_wolf_night_coordination_card,
+)
 
 # 无真实说服素材时的白天范例（网规常见逻辑，非伪造对局结果）
 _VILLAGER_REFERENCE_SPEECH = (
-    "我梳理一下：3号前两轮站边1号，投票却跟到5号，前后不一致。"
-    "今天先把3号放上票型，看他怎么解释。"
+    "我梳理一下：3号前两轮站边1号，投票却跟到5号，前后不一致。今天先把3号放上票型，看他怎么解释。"
 )
 
 _WOLF_DAY_REFERENCE_SPEECH = (
-    "3号刚才说信预言家，转头又踩6号，逻辑对不上。"
-    "今天先出3号，票型对齐，别分票。"
+    "3号刚才说信预言家，转头又踩6号，逻辑对不上。今天先出3号，票型对齐，别分票。"
 )
 
 
@@ -148,10 +145,7 @@ def _build_wolf_night_skill(ctx: RunContext, *, round_number: int = 1) -> dict[s
         usable = speeches[:2]
 
     card = build_wolf_night_coordination_card(
-        round_number=round_number,
-        speeches=usable,
-        kill_target_id=kill_target,
-        ctx=ctx,
+        round_number=round_number, speeches=usable, kill_target_id=kill_target, ctx=ctx
     )
     return _skill_dict(
         skill_id=f"wolf_r{round_number}_night_knife_align",
@@ -195,8 +189,7 @@ def _build_villager_day_skill(ctx: RunContext) -> dict[str, Any]:
     card = SkillCardContent(
         title_zh="第2轮平民逻辑归票",
         when_to_use=card.when_to_use.replace(
-            "本局发言后产生 0 次同阵营意向摇摆",
-            "场上出现发言与投票不一致、需平民带逻辑链归票时",
+            "本局发言后产生 0 次同阵营意向摇摆", "场上出现发言与投票不一致、需平民带逻辑链归票时"
         ),
         public_behavior=card.public_behavior,
         avoid=card.avoid,
@@ -276,9 +269,7 @@ def _from_extracted_skill(raw: dict[str, Any], *, ctx: RunContext) -> dict[str, 
             },
         }
         card = build_night_action_skill_card(
-            role_key=str(raw.get("prompt_role_key", "villager")),
-            event=event,
-            ctx=ctx,
+            role_key=str(raw.get("prompt_role_key", "villager")), event=event, ctx=ctx
         )
         card_data = {
             "title_zh": card.title_zh,
@@ -361,7 +352,9 @@ def sync_agent_skill_library(
 ) -> Path:
     """清理 agent_team/skills 旧卡片，写入最新参考 Skill 集。"""
     if agent_skills_root is None:
-        from llm_werewolf.agent_team.skill_support.skill_loader import agent_skills_root as default_root
+        from llm_werewolf.agent_team.skill_support.skill_loader import (
+            agent_skills_root as default_root,
+        )
 
         agent_skills_root = default_root()
 
@@ -380,9 +373,7 @@ def sync_agent_skill_library(
             _prune_role_dir(role_dir, keep_by_role.get(role_dir.name, set()))
 
     md_files = write_skill_markdown_files(
-        skills,
-        run_skills_dir=source / "skills_reference",
-        agent_skills_root=agent_skills_root,
+        skills, run_skills_dir=source / "skills_reference", agent_skills_root=agent_skills_root
     )
 
     payload = {

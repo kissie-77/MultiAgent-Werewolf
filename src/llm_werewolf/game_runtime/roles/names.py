@@ -1,4 +1,4 @@
-﻿"""与 ``Role.get_config().name`` 一致的角色名常量与判定辅助。"""
+"""与 ``Role.get_config().name`` 一致的角色名常量与判定辅助。"""
 
 from __future__ import annotations
 

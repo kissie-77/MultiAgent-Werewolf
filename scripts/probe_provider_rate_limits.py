@@ -7,17 +7,17 @@ It never prints API keys.
 
 from __future__ import annotations
 
-import argparse
-import asyncio
-import json
-import math
 import os
 import sys
+import json
+import math
 import time
-from dataclasses import asdict, dataclass
-from datetime import datetime
+from typing import TYPE_CHECKING, Any
+import asyncio
 from pathlib import Path
-from typing import Any
+import argparse
+from datetime import datetime
+from dataclasses import asdict, dataclass
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -27,8 +27,10 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.game_runtime.utils import load_config
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.config import PlayerConfig
 
 
 @dataclass
@@ -123,7 +125,9 @@ def _summarize_level(
     }
 
 
-def _provider_from_config(config_path: Path, provider_label: str | None) -> tuple[str, PlayerConfig]:
+def _provider_from_config(
+    config_path: Path, provider_label: str | None
+) -> tuple[str, PlayerConfig]:
     players_config = load_config(config_path)
     for player in players_config.players:
         if player.model in {"demo", "human"}:
@@ -136,24 +140,14 @@ def _provider_from_config(config_path: Path, provider_label: str | None) -> tupl
 
 
 async def _run_request(
-    *,
-    client: AsyncOpenAI,
-    model: str,
-    prompt: str,
-    max_tokens: int,
-    request_timeout: float,
+    *, client: AsyncOpenAI, model: str, prompt: str, max_tokens: int, request_timeout: float
 ) -> ProbeResult:
     started = time.perf_counter()
     try:
         await asyncio.wait_for(
             client.chat.completions.create(
                 model=model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
                 temperature=0,
             ),
@@ -223,11 +217,7 @@ async def _main_async(args: argparse.Namespace) -> None:
         msg = f"API key not found in environment variable {player.api_key_env}"
         raise RuntimeError(msg)
 
-    client = AsyncOpenAI(
-        api_key=api_key,
-        base_url=player.base_url,
-        timeout=args.request_timeout,
-    )
+    client = AsyncOpenAI(api_key=api_key, base_url=player.base_url, timeout=args.request_timeout)
 
     summaries: list[dict[str, Any]] = []
     raw_results: dict[str, list[dict[str, Any]]] = {}
@@ -293,8 +283,7 @@ def main() -> None:
     parser.add_argument("--request-timeout", type=float, default=90.0)
     parser.add_argument("--max-tokens", type=int, default=32)
     parser.add_argument(
-        "--prompt",
-        default="Reply with exactly one short sentence: rate limit probe ok.",
+        "--prompt", default="Reply with exactly one short sentence: rate limit probe ok."
     )
     asyncio.run(_main_async(parser.parse_args()))
 

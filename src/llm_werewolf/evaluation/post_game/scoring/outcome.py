@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Any
+from collections import defaultdict
 
-from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 
 
 def _eliminations_by_round(events: list[dict[str, Any]]) -> dict[int, str]:
@@ -59,8 +59,7 @@ def _kills_by_round(events: list[dict[str, Any]]) -> dict[int, str]:
 
 
 def build_outcome_scores(
-    ctx: RunContext,
-    events: list[dict[str, Any]] | None = None,
+    ctx: RunContext, events: list[dict[str, Any]] | None = None
 ) -> dict[str, dict[str, Any]]:
     """返回 player_id -> {attributed_vote, attributed_kill, survival, team_outcome, total, details}."""
     source = events if events is not None else ctx.events

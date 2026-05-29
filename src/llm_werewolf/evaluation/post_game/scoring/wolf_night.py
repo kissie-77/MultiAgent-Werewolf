@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
-from typing import Any
+import json
+from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 from llm_werewolf.game_runtime.types.enums import Camp
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
 
 _PLAN_KEYWORDS = (
     "刀",
@@ -40,11 +43,7 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def _wolf_player_ids(ctx: RunContext) -> set[str]:
-    return {
-        pid
-        for pid, entry in ctx.roster.items()
-        if entry.camp == Camp.WEREWOLF.value
-    }
+    return {pid for pid, entry in ctx.roster.items() if entry.camp == Camp.WEREWOLF.value}
 
 
 def _kills_by_round(ctx: RunContext) -> dict[int, str]:
@@ -92,20 +91,14 @@ def _plan_clarity_score(speech: str) -> float:
 
 
 def load_wolf_team_records(
-    run_dir: Path,
-    *,
-    wolf_ids: set[str] | None = None,
+    run_dir: Path, *, wolf_ids: set[str] | None = None
 ) -> list[dict[str, Any]]:
     """从 vote_intentions 或 events 中提取狼队频道记录。"""
     if wolf_ids is None:
         from llm_werewolf.evaluation.post_game.run_context import roster_from_events
 
         roster = roster_from_events(_read_jsonl(run_dir / "events.jsonl"))
-        wolf_ids = {
-            pid
-            for pid, entry in roster.items()
-            if entry.camp == Camp.WEREWOLF.value
-        }
+        wolf_ids = {pid for pid, entry in roster.items() if entry.camp == Camp.WEREWOLF.value}
 
     rows = [
         row
@@ -143,28 +136,25 @@ def load_wolf_team_records(
         vis = {str(v) for v in visible}
         if not wolf_ids or not vis.issubset(wolf_ids) or len(vis) < 2:
             continue
-        rows.append(
-            {
-                "channel": "wolf_team",
-                "round_number": line.get("round_number"),
-                "phase": line.get("phase"),
-                "speaker_id": data.get("speaker_id") or data.get("player_id"),
-                "speaker_name": data.get("speaker_name") or data.get("player_name"),
-                "public_speech": (
-                    data.get("public_speech")
-                    or data.get("speech")
-                    or data.get("message")
-                    or line.get("message")
-                    or ""
-                ),
-            }
-        )
+        rows.append({
+            "channel": "wolf_team",
+            "round_number": line.get("round_number"),
+            "phase": line.get("phase"),
+            "speaker_id": data.get("speaker_id") or data.get("player_id"),
+            "speaker_name": data.get("speaker_name") or data.get("player_name"),
+            "public_speech": (
+                data.get("public_speech")
+                or data.get("speech")
+                or data.get("message")
+                or line.get("message")
+                or ""
+            ),
+        })
     return _normalize_wolf_records(rows, ctx_for_norm)
 
 
 def _normalize_wolf_records(
-    records: list[dict[str, Any]],
-    ctx: RunContext | None,
+    records: list[dict[str, Any]], ctx: RunContext | None
 ) -> list[dict[str, Any]]:
     """补全 speaker 字段，统一 speech 文本键。"""
     if ctx is None:
@@ -185,14 +175,13 @@ def _normalize_wolf_records(
 
 
 def build_wolf_night_scores(
-    ctx: RunContext,
-    *,
-    wolf_records: list[dict[str, Any]] | None = None,
+    ctx: RunContext, *, wolf_records: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
     """返回 {by_player, speeches, has_wolf_channel}。"""
-    records = wolf_records if wolf_records is not None else load_wolf_team_records(
-        ctx.run_dir,
-        wolf_ids=_wolf_player_ids(ctx),
+    records = (
+        wolf_records
+        if wolf_records is not None
+        else load_wolf_team_records(ctx.run_dir, wolf_ids=_wolf_player_ids(ctx))
     )
     records = _normalize_wolf_records(records, ctx)
     kills = _kills_by_round(ctx)
@@ -236,22 +225,16 @@ def build_wolf_night_scores(
         if kill_bonus:
             row["details"].append(f"R{rnd}:kill_match")
 
-        speeches_out.append(
-            {
-                "speaker_id": speaker,
-                "speaker_name": rec.get("speaker_name"),
-                "round_number": rnd,
-                "public_speech": speech,
-                "plan_clarity": plan,
-                "teammate_follow": follow,
-                "kill_match_bonus": kill_bonus,
-                "total": total,
-            }
-        )
+        speeches_out.append({
+            "speaker_id": speaker,
+            "speaker_name": rec.get("speaker_name"),
+            "round_number": rnd,
+            "public_speech": speech,
+            "plan_clarity": plan,
+            "teammate_follow": follow,
+            "kill_match_bonus": kill_bonus,
+            "total": total,
+        })
 
     speeches_out.sort(key=lambda s: s.get("total", 0), reverse=True)
-    return {
-        "by_player": by_player,
-        "speeches": speeches_out,
-        "has_wolf_channel": bool(records),
-    }
+    return {"by_player": by_player, "speeches": speeches_out, "has_wolf_channel": bool(records)}

@@ -6,14 +6,14 @@
 
 ## 已完成的迁移（2026-05-20）
 
-| 项 | 结果 |
-|----|------|
+| 项                        | 结果                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------- |
 | 旧版英文 `ActionSelector` | 引擎主路径改为 Hub/Bridge/Plans；保留 `core/prompts/selector.py` 中文选目标与兼容导出 |
-| 讨论双写 history | 已删除；观察仅从 `Event` 重建 |
-| `InformationHub._active` | 已移除；`GameEngine` 显式注入 |
-| 座位号解析 | `WerewolfAdapterBridge` 按全局座位 `player_N` |
-| 夜间技能顺序 | `NightSkillScheduler`：守卫等 → 狼票结算 → 女巫 → 其余 |
-| Event 可见性 | `event_visibility.resolve_visible_to` + `_log_event` 默认 |
+| 讨论双写 history          | 已删除；观察仅从 `Event` 重建                                                         |
+| `InformationHub._active`  | 已移除；`GameEngine` 显式注入                                                         |
+| 座位号解析                | `WerewolfAdapterBridge` 按全局座位 `player_N`                                         |
+| 夜间技能顺序              | `NightSkillScheduler`：守卫等 → 狼票结算 → 女巫 → 其余                                |
+| Event 可见性              | `event_visibility.resolve_visible_to` + `_log_event` 默认                             |
 
 ## 仍待办（见 master-plan）
 

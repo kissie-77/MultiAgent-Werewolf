@@ -1,4 +1,4 @@
-﻿from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 
 from llm_werewolf.game_runtime.types import ActionType, PlayerProtocol, GameStateProtocol
 

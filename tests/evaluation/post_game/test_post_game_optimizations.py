@@ -3,18 +3,18 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
-from llm_werewolf.evaluation.post_game.game_quality_report import build_game_quality_report
+from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.scoring.intention import build_intention_scores
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
 from llm_werewolf.evaluation.post_game.scoring.mvp import build_mvp_scores
-from llm_werewolf.evaluation.post_game.scoring.wolf_night import build_wolf_night_scores
-from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
-    collect_skill_generation_candidates,
-    evaluate_persuasion_speech,
-)
 from llm_werewolf.evaluation.post_game.turning_points import build_turning_points
-from llm_werewolf.evaluation.scoring.intention import build_intention_scores
-from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
+from llm_werewolf.evaluation.post_game.scoring.wolf_night import build_wolf_night_scores
+from llm_werewolf.evaluation.post_game.game_quality_report import build_game_quality_report
+from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
+    evaluate_persuasion_speech,
+    collect_skill_generation_candidates,
+)
 
 
 def test_wolf_night_parses_player_discussion_speech() -> None:
@@ -90,7 +90,7 @@ def test_turning_points_include_winner() -> None:
             "round_number": 2,
             "phase": "ended",
             "data": {"winner_camp": Camp.WEREWOLF.value},
-        },
+        }
     ]
     ctx = RunContext(
         run_dir=Path("."),

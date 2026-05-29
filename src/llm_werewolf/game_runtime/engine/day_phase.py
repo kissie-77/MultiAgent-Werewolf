@@ -1,12 +1,12 @@
-﻿"""游戏引擎的白天阶段逻辑。"""
+"""游戏引擎的白天阶段逻辑。"""
 
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
-from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
+from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
 
 
 class DayPhaseMixin:
@@ -28,7 +28,7 @@ class DayPhaseMixin:
                 include_visible_events=True,
                 include_private_notes=True,
                 for_agent_decision=True,
-            ),
+            )
         ]
 
         if player.agent:
@@ -42,11 +42,7 @@ class DayPhaseMixin:
         context_parts.append(EngineContexts.day_discussion_prompt())
         return "\n".join(context_parts)
 
-    def _log_public_speech(
-        self,
-        speaker: PlayerProtocol,
-        decision: SpeechDecision,
-    ) -> None:
+    def _log_public_speech(self, speaker: PlayerProtocol, decision: SpeechDecision) -> None:
         """记录白天发言；可见性为 PUBLIC（由引擎决定，而非 agent）。"""
         if not self.game_state:
             return
@@ -88,7 +84,9 @@ class DayPhaseMixin:
                 for pid in self.game_state.night_deaths
                 if self.game_state.get_player(pid)
             )
-            opening_announcement = self.locale.get("daybreak_announcement", death_lines=death_lines)
+            opening_announcement = self.locale.get(
+                "daybreak_announcement", death_lines=death_lines
+            )
         else:
             opening_announcement = self.locale.get("peaceful_night_announcement")
 
@@ -98,20 +96,16 @@ class DayPhaseMixin:
         alive_players = self.game_state.get_alive_players()
         interaction = self.game_state.require_phase_interaction()
 
-        def on_speech(
-            speaker: PlayerProtocol,
-            decision: SpeechDecision,
-            _routed: object,
-        ) -> None:
+        def on_speech(speaker: PlayerProtocol, decision: SpeechDecision, _routed: object) -> None:
             self._log_public_speech(speaker, decision)
             if speaker.agent and getattr(speaker.agent, "memory_manager", None):
                 speaker.agent.memory_manager.add_public_speech(
-                    speaker.name,
-                    decision.public_speech,
-                    self.game_state.round_number,
+                    speaker.name, decision.public_speech, self.game_state.round_number
                 )
             messages.append(
-                self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech)
+                self.locale.get(
+                    "player_speech", player=speaker.name, speech=decision.public_speech
+                )
             )
 
         tracker = (

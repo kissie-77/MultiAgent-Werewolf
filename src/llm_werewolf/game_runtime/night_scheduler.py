@@ -1,19 +1,20 @@
-﻿"""按顺序编排夜间技能（预狼阶段 → 狼票 → 女巫 → 其余角色）。"""
+"""按顺序编排夜间技能（预狼阶段 → 狼票 → 女巫 → 其余角色）。"""
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from llm_werewolf.game_runtime.registries.role_night_plans import dispatch_night_plan
-from llm_werewolf.game_runtime.registries.role_registry import get_werewolf_roles
-from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.types import EventType
+from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
+from llm_werewolf.game_runtime.registries.role_registry import get_werewolf_roles
+from llm_werewolf.game_runtime.registries.role_night_plans import dispatch_night_plan
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from llm_werewolf.game_runtime.types import PlayerProtocol
     from llm_werewolf.game_runtime.actions.base import Action
     from llm_werewolf.game_runtime.state.game_state import GameState
-    from llm_werewolf.game_runtime.types import PlayerProtocol
 
 # 在狼刀目标确定前行动的角色（固定顺序）。
 PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
@@ -27,11 +28,7 @@ PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
 WITCH_ROLE_NAMES: frozenset[str] = frozenset({"Witch"})
 
 # 狼刀目标已知后：先女巫，再按此顺序处理其余夜间角色。
-POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = (
-    "Seer",
-    "Graveyard Keeper",
-    "Raven",
-)
+POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = ("Seer", "Graveyard Keeper", "Raven")
 
 
 class NightSkillScheduler:
@@ -103,8 +100,7 @@ class NightSkillScheduler:
         return [
             p
             for p in self.game_state.get_alive_players()
-            if p.get_role_name() in WITCH_ROLE_NAMES
-            and p.role.has_night_action(self.game_state)
+            if p.get_role_name() in WITCH_ROLE_NAMES and p.role.has_night_action(self.game_state)
         ]
 
     def _players_post_witch_ordered(self) -> list[PlayerProtocol]:

@@ -1,10 +1,9 @@
 """对局质量报告。"""
 
-import json
 from pathlib import Path
 
+from llm_werewolf.evaluation.post_game.run_context import RunContext, PlayerRosterEntry
 from llm_werewolf.evaluation.post_game.game_quality_report import write_game_quality_report
-from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry, RunContext
 
 
 def test_game_quality_report_contains_mvp_and_golden(tmp_path: Path) -> None:
@@ -23,7 +22,7 @@ def test_game_quality_report_contains_mvp_and_golden(tmp_path: Path) -> None:
                     "round_number": 2,
                     "excerpt": "今天必须出五号，他发言前后矛盾。",
                     "score": 40,
-                },
+                }
             ],
             "top_evidence": [{"kind": "wolf_night", "why": "夜间计划与刀口一致"}],
         },
@@ -37,14 +36,19 @@ def test_game_quality_report_contains_mvp_and_golden(tmp_path: Path) -> None:
         winner_camp="villager",
         roster={
             "player_2": PlayerRosterEntry(
-                player_id="player_2",
-                player_name="狼王",
-                role_name="Werewolf",
-                camp="werewolf",
-            ),
+                player_id="player_2", player_name="狼王", role_name="Werewolf", camp="werewolf"
+            )
         },
     )
-    steps = [{"step_id": "mvp_scores", "status": "ok", "duration_ms": 12.0, "error": None, "artifacts": []}]
+    steps = [
+        {
+            "step_id": "mvp_scores",
+            "status": "ok",
+            "duration_ms": 12.0,
+            "error": None,
+            "artifacts": [],
+        }
+    ]
 
     path = write_game_quality_report(ctx, mvp_payload, steps=steps)
     text = path.read_text(encoding="utf-8")

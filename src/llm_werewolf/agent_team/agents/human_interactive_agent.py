@@ -18,8 +18,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import re
+import asyncio
 
 from pydantic import Field
 from rich.console import Console
@@ -131,10 +131,16 @@ class HumanInteractiveAgent(BaseAgent):
             return text, ""
 
         if kind == _KIND_YESNO:
-            if text == "0" or low in {"n", "no"} or any(k in text for k in ("否", "不", "拒绝", "弃")):
+            if (
+                text == "0"
+                or low in {"n", "no"}
+                or any(k in text for k in ("否", "不", "拒绝", "弃"))
+            ):
                 return "0", ""
-            if text == "1" or low in {"y", "yes"} or any(
-                k in text for k in ("是", "好", "同意", "参加", "愿意", "要")
+            if (
+                text == "1"
+                or low in {"y", "yes"}
+                or any(k in text for k in ("是", "好", "同意", "参加", "愿意", "要"))
             ):
                 return "1", ""
             return None, "请输入 1 表示「是」，0 表示「否」。"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field, BaseModel
 
 
 class ReplayAnalysisDecision(BaseModel):
@@ -10,8 +10,7 @@ class ReplayAnalysisDecision(BaseModel):
 
     summary_zh: str = Field(..., description="300字内中文复盘摘要")
     prompt_suggestions: list[str] = Field(
-        default_factory=list,
-        description="2-3 条可写入角色 Prompt 的改进建议要点",
+        default_factory=list, description="2-3 条可写入角色 Prompt 的改进建议要点"
     )
     risks: list[str] = Field(default_factory=list, description="风险或待观察点")
 

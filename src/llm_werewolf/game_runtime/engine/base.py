@@ -1,27 +1,35 @@
-﻿import random
+import random
 from typing import TYPE_CHECKING, Any
 from pathlib import Path
 
 from rich.console import Console
 
-from llm_werewolf.game_runtime.types import Event, EventType, GamePhase, RoleProtocol, AgentProtocol
+from llm_werewolf.game_runtime.types import (
+    Event,
+    EventType,
+    GamePhase,
+    RoleProtocol,
+    AgentProtocol,
+)
 from llm_werewolf.game_runtime.config import GameConfig
-from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.observation import ObservationBuilder
-from llm_werewolf.game_runtime.events.event_visibility import HUB_DIALOGUE_EVENT_TYPES, resolve_visible_to
-from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction, PhaseInteractionHub
-from llm_werewolf.game_runtime.types import Camp
-from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.victory import VictoryChecker
+from llm_werewolf.game_runtime.observation import ObservationBuilder
+from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
+from llm_werewolf.game_runtime.state.player import Player
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.state.game_state import GameState
+from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction, PhaseInteractionHub
 from llm_werewolf.game_runtime.state.serialization import (
     load_game_state,
-    restore_event_logger,
     save_game_state,
+    restore_event_logger,
 )
 from llm_werewolf.game_runtime.events.event_formatter import EventFormatter
+from llm_werewolf.game_runtime.events.event_visibility import (
+    HUB_DIALOGUE_EVENT_TYPES,
+    resolve_visible_to,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -97,18 +105,17 @@ class GameEngineBase:
             1 if self.config is None else self.config.vote_intention_concurrency
         )
         if self.information_hub is not None:
-            self.information_hub.configure_vote_intention_concurrency(
-                vote_intention_concurrency
-            )
-        if self.config is not None:
-            self.game_state.track_vote_intentions = track_intentions
-        elif not getattr(self.game_state, "track_vote_intentions", False):
+            self.information_hub.configure_vote_intention_concurrency(vote_intention_concurrency)
+        if self.config is not None or not getattr(self.game_state, "track_vote_intentions", False):
             self.game_state.track_vote_intentions = track_intentions
 
         if not self.game_state.enable_sheriff and not self.game_state.sheriff_election_done:
             self.game_state.sheriff_election_done = True
 
-        if self.game_state.track_vote_intentions and self.game_state.vote_intention_tracker is None:
+        if (
+            self.game_state.track_vote_intentions
+            and self.game_state.vote_intention_tracker is None
+        ):
             from llm_werewolf.strategy.vote_intention import VoteIntentionTracker
 
             self.game_state.vote_intention_tracker = VoteIntentionTracker()
@@ -131,17 +138,14 @@ class GameEngineBase:
                 build_observation=lambda player: self.build_player_observation(
                     player, for_agent_decision=True
                 ),
-                get_alive_players=lambda: self.game_state.get_alive_players()
-                if self.game_state
-                else [],
+                get_alive_players=lambda: (
+                    self.game_state.get_alive_players() if self.game_state else []
+                ),
             )
 
     @staticmethod
     def _attach_agent_to_player(
-        player: Player,
-        agent: AgentProtocol,
-        seat_number: int,
-        role_class: type | None = None,
+        player: Player, agent: AgentProtocol, seat_number: int, role_class: type | None = None
     ) -> None:
         """为玩家绑定 agent 并同步角色信息。"""
         player.agent = agent
@@ -263,11 +267,7 @@ class GameEngineBase:
                 f"听完 {record.speaker_name} 发言后意向："
                 f"[{before_line}] → [{after_line}]；{len(record.swings)} 人改意向"
             )
-        self._log_event(
-            EventType.VOTE_INTENTION_SNAPSHOT,
-            message,
-            data=record.to_dict(),
-        )
+        self._log_event(EventType.VOTE_INTENTION_SNAPSHOT, message, data=record.to_dict())
 
     def _on_round_end(self, round_number: int) -> None:
         """在白天投票结束并进入下一夜前沉淀各 Agent 的工作记忆。"""
@@ -306,10 +306,7 @@ class GameEngineBase:
             ]
             witch_ids = self.game_state.get_alive_witch_player_ids()
             visible_to = resolve_visible_to(
-                event_type,
-                data,
-                wolf_player_ids=wolf_ids,
-                witch_player_ids=witch_ids,
+                event_type, data, wolf_player_ids=wolf_ids, witch_player_ids=witch_ids
             )
 
         event = self.event_logger.create_event(
@@ -348,9 +345,7 @@ class GameEngineBase:
         visible_events = self.event_logger.get_events_for_player(player.player_id)
         if merged_exclude:
             visible_events = [
-                event
-                for event in visible_events
-                if event.event_type not in merged_exclude
+                event for event in visible_events if event.event_type not in merged_exclude
             ]
         private_notes = player.get_private_notes(self.game_state)
         observation = self.observation_builder.build(
@@ -379,15 +374,15 @@ class GameEngineBase:
         if not self.game_state or not players:
             return ""
 
-        shared_events = self.event_logger.get_events_for_players([player.player_id for player in players])
+        shared_events = self.event_logger.get_events_for_players([
+            player.player_id for player in players
+        ])
         merged_exclude = exclude_event_types
         if for_agent_decision:
             merged_exclude = (merged_exclude or frozenset()) | HUB_DIALOGUE_EVENT_TYPES
         if merged_exclude:
             shared_events = [
-                event
-                for event in shared_events
-                if event.event_type not in merged_exclude
+                event for event in shared_events if event.event_type not in merged_exclude
             ]
         from llm_werewolf.game_runtime.observation import flatten_private_notes
 

@@ -1,9 +1,9 @@
-from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import EventType, GamePhase
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory
 
 
-def test_episodic_memory_returns_visible_timeline_and_key_events():
+def test_episodic_memory_returns_visible_timeline_and_key_events() -> None:
     logger = EventLogger()
     logger.create_event(
         EventType.PLAYER_SPEECH,
@@ -30,7 +30,7 @@ def test_episodic_memory_returns_visible_timeline_and_key_events():
     assert key_events[0].event_type == EventType.VOTE_CAST
 
 
-def test_episodic_memory_summarize_and_export():
+def test_episodic_memory_summarize_and_export() -> None:
     logger = EventLogger()
     logger.create_event(
         EventType.PLAYER_ELIMINATED,
@@ -50,7 +50,7 @@ def test_episodic_memory_summarize_and_export():
     assert exported["events"][0]["message"] == "4号被投票淘汰"
 
 
-def test_episodic_memory_builds_episode_report():
+def test_episodic_memory_builds_episode_report() -> None:
     logger = EventLogger()
     logger.create_event(
         EventType.VOTE_CAST,
@@ -76,7 +76,7 @@ def test_episodic_memory_builds_episode_report():
     assert "2号投给5号" in report["episodes"][0]["decision_event_messages"]
 
 
-def test_episode_decision_events_only_include_current_player_votes():
+def test_episode_decision_events_only_include_current_player_votes() -> None:
     logger = EventLogger()
     own_vote = "2号投给5号"
     other_visible_vote = "3号投给5号"

@@ -1,4 +1,4 @@
-﻿"""投票意向追踪辅助函数。"""
+"""投票意向追踪辅助函数。"""
 
 from llm_werewolf.strategy.vote_intention import (
     VoteIntentionEntry,
@@ -18,7 +18,7 @@ def _entry(player_id: str, name: str, seat: int, target: str | None = None) -> V
     )
 
 
-def test_compute_vote_swings_detects_changes():
+def test_compute_vote_swings_detects_changes() -> None:
     before = {
         "player_1": _entry("player_1", "A", 3, "3"),
         "player_2": _entry("player_2", "B", 3, "3"),
@@ -34,7 +34,7 @@ def test_compute_vote_swings_detects_changes():
     assert swings[0].to_seat == 2
 
 
-def test_compute_vote_swings_none_to_target():
+def test_compute_vote_swings_none_to_target() -> None:
     before = {"player_1": _entry("player_1", "A", 0)}
     after = {"player_1": _entry("player_1", "A", 2, "2")}
     swings = compute_vote_swings(before, after)
@@ -42,7 +42,7 @@ def test_compute_vote_swings_none_to_target():
     assert swings[0].to_seat == 2
 
 
-def test_tracker_record_speech_block():
+def test_tracker_record_speech_block() -> None:
     tracker = VoteIntentionTracker()
     before = {"player_1": _entry("player_1", "A", 0)}
     after = {"player_1": _entry("player_1", "A", 2, "2")}
@@ -67,7 +67,7 @@ def test_tracker_record_speech_block():
     assert exported["swing_count"] == 1
 
 
-def test_format_intentions_line():
+def test_format_intentions_line() -> None:
     intentions = {
         "player_1": _entry("player_1", "A", 0),
         "player_2": _entry("player_2", "B", 3, "3"),

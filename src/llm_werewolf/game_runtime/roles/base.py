@@ -1,6 +1,5 @@
-﻿from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 
-from llm_werewolf.game_runtime.roles.catalog import get_definition_by_role_class
 from llm_werewolf.game_runtime.types import (
     Camp,
     RoleConfig,
@@ -9,6 +8,9 @@ from llm_werewolf.game_runtime.types import (
     PlayerProtocol,
     GameStateProtocol,
 )
+from llm_werewolf.game_runtime.roles.catalog import get_definition_by_role_class
+
+
 class Role(ABC):
     """狼人杀游戏中所有角色的抽象基类。"""
 

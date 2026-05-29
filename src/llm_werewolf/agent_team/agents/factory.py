@@ -1,4 +1,4 @@
-﻿"""根据玩家配置构建 AgentScope ReAct Agent 的工厂。"""
+"""根据玩家配置构建 AgentScope ReAct Agent 的工厂。"""
 
 from __future__ import annotations
 
@@ -10,18 +10,19 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 load_project_dotenv()
 from typing import TYPE_CHECKING, Any
 
-from agentscope.agent import ReActAgent
-from agentscope.formatter import OpenAIChatFormatter
-from agentscope.memory import InMemoryMemory
-from agentscope.model import OpenAIChatModel
 from agentscope.tool import Toolkit
+from agentscope.model import OpenAIChatModel
+from agentscope.memory import InMemoryMemory
+from agentscope.formatter import OpenAIChatFormatter
 
-from llm_werewolf.agent_team.fast_react_agent import FastReActAgent
 from llm_werewolf.agent_team.memory import MemoryManager
 from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
+from llm_werewolf.agent_team.fast_react_agent import FastReActAgent
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 if TYPE_CHECKING:
+    from agentscope.agent import ReActAgent
+
     from llm_werewolf.game_runtime.state.player import Player
 
 GAME_ROLE_TO_PROMPT_KEY = PromptManager.GAME_ROLE_TO_PROMPT_KEY
@@ -65,7 +66,7 @@ def _wrap_memory_add_without_thinking(agent: ReActAgent) -> ReActAgent:
         return await original_add(sanitized_msg, *args, **kwargs)
 
     memory.add = MethodType(_sanitized_add, memory)
-    setattr(memory, "_llm_werewolf_strip_thinking_wrapped", True)
+    memory._llm_werewolf_strip_thinking_wrapped = True
     return agent
 
 
@@ -108,9 +109,7 @@ def _register_structured_tool_reply_completion_hook(agent: ReActAgent) -> ReActA
         return msg
 
     agent.register_instance_hook(
-        "post_reasoning",
-        "complete_structured_generate_response_reply",
-        _post_reasoning,
+        "post_reasoning", "complete_structured_generate_response_reply", _post_reasoning
     )
     return agent
 
@@ -142,10 +141,7 @@ def build_system_prompt(
 ) -> str:
     """为已知角色的就座玩家构建系统 prompt。"""
     base = PromptManager.build_role_strategy_prompt(
-        seat_number,
-        game_role_name,
-        plan_text,
-        prompt_version=prompt_version,
+        seat_number, game_role_name, plan_text, prompt_version=prompt_version
     )
     if not include_role_skills:
         return base
@@ -158,12 +154,7 @@ def build_system_prompt(
     return base
 
 
-def create_react_agent(
-    config: PlayerConfig,
-    *,
-    agent_name: str,
-    sys_prompt: str,
-) -> ReActAgent:
+def create_react_agent(config: PlayerConfig, *, agent_name: str, sys_prompt: str) -> ReActAgent:
     """创建接入 OpenAI 兼容端点的 AgentScope ReActAgent。"""
     api_key = None
     if config.api_key_env:
@@ -276,11 +267,7 @@ def configure_agents_for_players(
             bind_prompt(role_name, seat, plan_text, prompt_version=prompt_version)
             if hasattr(agent, "memory_manager"):
                 agent.memory_manager = _build_memory_manager(
-                    player,
-                    role_name,
-                    plan_name,
-                    memory_config,
-                    event_logger=event_logger,
+                    player, role_name, plan_name, memory_config, event_logger=event_logger
                 )
             continue
 
@@ -296,9 +283,5 @@ def configure_agents_for_players(
         )
         if hasattr(agent, "memory_manager"):
             agent.memory_manager = _build_memory_manager(
-                player,
-                role_name,
-                plan_name,
-                memory_config,
-                event_logger=event_logger,
+                player, role_name, plan_name, memory_config, event_logger=event_logger
             )

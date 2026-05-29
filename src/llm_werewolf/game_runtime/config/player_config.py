@@ -1,9 +1,9 @@
 import os
 
 from pydantic import Field, BaseModel, computed_field, field_validator, model_validator
+from typing_extensions import Self
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
-from typing_extensions import Self
 
 from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
 
@@ -96,17 +96,13 @@ class PlayersConfig(BaseModel):
         description="Language code for the game.",
         examples=["en-US", "zh-TW"],
     )
-    agent_backend: str = Field(
-        default="agentscope",
-        description="Agent backend: 'agentscope'.",
-    )
+    agent_backend: str = Field(default="agentscope", description="Agent backend: 'agentscope'.")
     default_plan: str = Field(
         default="default",
         description="Default plan strategy for AgentScope RolePrompts / PlanStrategies",
     )
     memory: MemoryConfig = Field(
-        default_factory=MemoryConfig,
-        description="Memory framework configuration.",
+        default_factory=MemoryConfig, description="Memory framework configuration."
     )
     prompt_version: str = Field(
         default="v2",

@@ -3,32 +3,32 @@
 本模块封装 AgentScope 的 AgentBase，
 使其符合 LLMWerewolf 的 AgentProtocol 接口。
 """
+
 import logging
 
 logging.getLogger("agentscope.formatter").setLevel(logging.ERROR)
 import re
+from typing import Any
 import asyncio
-from typing import Any, Optional, Type
 
-from pydantic import BaseModel, Field
 from openai import RateLimitError
+from pydantic import Field, BaseModel
 
 # 使用AgentScope原生的Msg类
 from agentscope.message import Msg as AgentScopeMsg
 
-from llm_werewolf.agent_team.agents.base import BaseAgent
 from llm_werewolf.strategy.decisions import (
     SpeechDecision,
     extract_public_text,
     is_valid_public_speech,
 )
+from llm_werewolf.agent_team.agents.base import BaseAgent
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
 from llm_werewolf.agent_team.invocation.structured_invoke import (
     parse_structured_from_text,
     unwrap_structured_metadata,
 )
-from llm_werewolf.agent_team.communication.message import MessageAdapter, Msg
-from llm_werewolf.game_runtime.prompts.manager import PromptManager
-from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +37,7 @@ def _structured_tool_choice_unsupported(exc: Exception) -> bool:
     """Return True when a provider rejects forced structured tool choice."""
     text = str(exc).lower()
     return "tool_choice" in text and (
-        "does not support" in text
-        or "not support" in text
-        or "unsupported" in text
+        "does not support" in text or "not support" in text or "unsupported" in text
     )
 
 
@@ -115,7 +113,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
         prompt_version: str | None = None,
     ) -> None:
         """引擎分配角色后应用角色专属系统 prompt。"""
-        from llm_werewolf.agent_team.agents.factory import GAME_ROLE_TO_PROMPT_KEY, build_system_prompt, create_react_agent
+        from llm_werewolf.agent_team.agents.factory import (
+            GAME_ROLE_TO_PROMPT_KEY,
+            create_react_agent,
+            build_system_prompt,
+        )
 
         if prompt_version is not None:
             self.prompt_version = prompt_version
@@ -125,22 +127,16 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.plan = plan_text
 
         sys_prompt = build_system_prompt(
-            seat_number,
-            game_role_name,
-            plan_text,
-            prompt_version=self.prompt_version,
+            seat_number, game_role_name, plan_text, prompt_version=self.prompt_version
         )
         if self.player_config is not None:
             self.agentscope_agent = create_react_agent(
-                self.player_config,
-                agent_name=self.name,
-                sys_prompt=sys_prompt,
+                self.player_config, agent_name=self.name, sys_prompt=sys_prompt
             )
 
         self.decision_history = []
         self.chat_history = []
         self._init_system_prompt()
-
 
     def bind_role_prompt(
         self,
@@ -165,17 +161,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
         if self.game_role_name:
             sys_prompt = build_system_prompt(
-                self.number,
-                self.game_role_name,
-                self.plan,
-                prompt_version=self.prompt_version,
+                self.number, self.game_role_name, self.plan, prompt_version=self.prompt_version
             )
         else:
             sys_prompt = PromptManager.build_prompt_key_strategy_prompt(
-                self.number,
-                self.role,
-                self.plan,
-                prompt_version=self.prompt_version,
+                self.number, self.role, self.plan, prompt_version=self.prompt_version
             )
             from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
 
@@ -188,8 +178,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     def _get_role_config(self) -> dict:
         """获取角色配置。"""
         return PromptManager.get_role_strategy_config(
-            self.role,
-            prompt_version=self.prompt_version,
+            self.role, prompt_version=self.prompt_version
         )
 
     @property
@@ -245,9 +234,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                     response_text = self._generate_fallback_response(message, "空内容")
                 elif not self._message_expects_seat_only(message):
                     if not is_valid_public_speech(extract_public_text(response_text)):
-                        response_text = self._generate_fallback_response(
-                            message, "invalid_speech"
-                        )
+                        response_text = self._generate_fallback_response(message, "invalid_speech")
                 last_error = None
                 break
             except RateLimitError as exc:
@@ -279,9 +266,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         return extract_public_text(response_text)
 
     async def get_structured_response(
-        self,
-        message: str,
-        structured_model: Type[BaseModel],
+        self, message: str, structured_model: type[BaseModel]
     ) -> BaseModel | None:
         """在后端支持时从 AgentScope 获取结构化类型回复。"""
         self.chat_history.append({"role": "user", "content": message})
@@ -297,24 +282,18 @@ class AgentScopeWerewolfAgent(BaseAgent):
             if not text.strip():
                 return None
             if structured_model is SpeechDecision:
-                self.chat_history.append(
-                    {"role": "assistant", "content": text}
-                )
+                self.chat_history.append({"role": "assistant", "content": text})
                 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 
                 return WerewolfAdapterBridge.parse_speech(text)
             recovered = parse_structured_from_text(text, structured_model)
             if recovered is not None:
-                self.chat_history.append(
-                    {
-                        "role": "assistant",
-                        "content": recovered.model_dump_json(),
-                    }
-                )
+                self.chat_history.append({
+                    "role": "assistant",
+                    "content": recovered.model_dump_json(),
+                })
                 return recovered
-            self.chat_history.append(
-                {"role": "assistant", "content": text}
-            )
+            self.chat_history.append({"role": "assistant", "content": text})
             logger.warning(
                 "structured_text_recovery_failed agent=%s model=%s text=%s",
                 self.name,
@@ -326,16 +305,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
         for attempt in range(3):
             try:
                 response_msg = await run_serial_agent_call(
-                    lambda: self.agentscope_agent(
-                        input_msg,
-                        structured_model=structured_model,
-                    )
+                    lambda: self.agentscope_agent(input_msg, structured_model=structured_model)
                 )
                 response_msg = self._sanitize_agentscope_response_msg(response_msg)
                 text = self._extract_agentscope_text(response_msg)
-                metadata = unwrap_structured_metadata(
-                    getattr(response_msg, "metadata", None)
-                )
+                metadata = unwrap_structured_metadata(getattr(response_msg, "metadata", None))
                 if metadata:
                     if structured_model is SpeechDecision:
                         from llm_werewolf.strategy.decisions import (
@@ -353,21 +327,16 @@ class AgentScopeWerewolfAgent(BaseAgent):
                             from llm_werewolf.strategy.decisions import normalize_speech_decision
 
                             decision = normalize_speech_decision(
-                                decision,
-                                raw_fallback=text or decision.model_dump_json(),
+                                decision, raw_fallback=text or decision.model_dump_json()
                             )
-                            if (
-                                not is_valid_public_speech(decision.public_speech)
-                                and text.strip()
-                            ):
-                                from llm_werewolf.agent_team.bridge import (
-                                    WerewolfAdapterBridge,
-                                )
+                            if not is_valid_public_speech(decision.public_speech) and text.strip():
+                                from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 
                                 decision = WerewolfAdapterBridge.parse_speech(text)
-                        self.chat_history.append(
-                            {"role": "assistant", "content": decision.model_dump_json()}
-                        )
+                        self.chat_history.append({
+                            "role": "assistant",
+                            "content": decision.model_dump_json(),
+                        })
                         return decision
                 decision = parse_text_decision(text)
                 if decision is not None:
@@ -398,9 +367,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 break
 
         if last_error is not None:
-            self.chat_history.append(
-                {"role": "assistant", "content": f"structured_output_failed: {last_error}"}
-            )
+            self.chat_history.append({
+                "role": "assistant",
+                "content": f"structured_output_failed: {last_error}",
+            })
         return None
 
     @staticmethod
@@ -610,11 +580,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
         """
         if not self.decision_history:
             return ""
-        return "\n\nYour previous actions:\n" + "\n".join(
-            f"- {d}" for d in self.decision_history
-        )
+        return "\n\nYour previous actions:\n" + "\n".join(f"- {d}" for d in self.decision_history)
 
-    def extract_target(self, text: str) -> Optional[int]:
+    def extract_target(self, text: str) -> int | None:
         """从 [[...]] 模式中解析目标座位号。
 
         Args:
@@ -670,11 +638,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
         )
         if any(m in message for m in markers):
             return True
-        if "vote" in lowered and "speech" not in lowered:
-            return True
-        return False
+        return bool("vote" in lowered and "speech" not in lowered)
 
-    def extract_content(self, text: str) -> Optional[str]:
+    def extract_content(self, text: str) -> str | None:
         """从 [[...]] 提取公开发言（遗留辅助方法）。"""
         extracted = extract_public_text(text)
         if is_valid_public_speech(extracted):

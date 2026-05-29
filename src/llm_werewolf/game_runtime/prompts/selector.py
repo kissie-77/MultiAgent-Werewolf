@@ -1,5 +1,5 @@
-﻿import random
 import re
+import random
 
 from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
@@ -164,11 +164,7 @@ class ActionSelector:
         display = _role_display_name(agent, role_name or "玩家")
 
         prompt = PromptManager.build_yes_no_prompt(
-            display,
-            question,
-            context,
-            round_number=round_number,
-            phase=phase or "夜晚",
+            display, question, context, round_number=round_number, phase=phase or "夜晚"
         )
 
         try:

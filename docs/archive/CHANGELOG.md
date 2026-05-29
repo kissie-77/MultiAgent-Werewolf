@@ -1,4 +1,5 @@
 ## What's Changed
+
 ### 🐛 Bug Fixes
 
 - *(roles)* Correct AlphaWolf super() chain by inheriting Werewolf
@@ -17,7 +18,6 @@
 - Add PR template
 - Add Conventions section pointing to docs/
 
-
 ### New Contributors
-* @kissie-77 made their first contribution
 
+- @kissie-77 made their first contribution

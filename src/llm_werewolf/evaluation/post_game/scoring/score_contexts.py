@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from dataclasses import field, dataclass
 
-from llm_werewolf.evaluation.log_views.filters import estimate_tokens, event_line
-from llm_werewolf.evaluation.post_game.run_context import RunContext
-from llm_werewolf.evaluation.post_game.scoring.wolf_night import load_wolf_team_records
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.log_views.filters import event_line, estimate_tokens
+from llm_werewolf.evaluation.post_game.scoring.wolf_night import load_wolf_team_records
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
 
 DIM_PERSUASION = "persuasion"
 DIM_STRATEGY = "strategy"
@@ -74,14 +77,12 @@ class ScoreContextBundle:
 
 
 def _wolf_ids(ctx: RunContext) -> set[str]:
-    return {
-        pid
-        for pid, entry in ctx.roster.items()
-        if entry.camp == Camp.WEREWOLF.value
-    }
+    return {pid for pid, entry in ctx.roster.items() if entry.camp == Camp.WEREWOLF.value}
 
 
-def _read_intentions(run_dir: Path, events: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+def _read_intentions(
+    run_dir: Path, events: list[dict[str, Any]] | None = None
+) -> list[dict[str, Any]]:
     from llm_werewolf.evaluation.core.vote_swing_analysis import (
         _records_from_events,
         ensure_vote_intentions_jsonl,
@@ -158,10 +159,7 @@ def _filter_wolf_night(ctx: RunContext, intentions: list[dict[str, Any]]) -> Sco
     wolves = _wolf_ids(ctx)
     wolf_intentions = [r for r in intentions if str(r.get("channel", "")) == "wolf_team"]
     if not wolf_intentions:
-        wolf_intentions = load_wolf_team_records(
-            ctx.run_dir,
-            wolf_ids=wolves,
-        )
+        wolf_intentions = load_wolf_team_records(ctx.run_dir, wolf_ids=wolves)
 
     events = [e for e in ctx.events if _is_wolf_team_event(e, wolves)]
     kills = [
@@ -203,9 +201,7 @@ def _filter_strategy(ctx: RunContext) -> ScoreContextBundle:
 
 
 def _filter_outcome(ctx: RunContext) -> ScoreContextBundle:
-    events = [
-        e for e in ctx.events if str(e.get("event_type", "")) in _OUTCOME_EVENT_TYPES
-    ]
+    events = [e for e in ctx.events if str(e.get("event_type", "")) in _OUTCOME_EVENT_TYPES]
     return ScoreContextBundle(
         dimension=DIM_OUTCOME,
         title="结果与归因",
@@ -301,15 +297,13 @@ def write_score_contexts(ctx: RunContext) -> dict[str, Any]:
         )
         rel_md = str(md_path.relative_to(ctx.run_dir))
         paths[dim] = rel_md
-        entries.append(
-            {
-                "dimension": dim,
-                "path_md": rel_md,
-                "path_json": str(json_path.relative_to(ctx.run_dir)),
-                "token_estimate": estimate_tokens(text),
-                **bundle.to_dict(),
-            }
-        )
+        entries.append({
+            "dimension": dim,
+            "path_md": rel_md,
+            "path_json": str(json_path.relative_to(ctx.run_dir)),
+            "token_estimate": estimate_tokens(text),
+            **bundle.to_dict(),
+        })
 
     manifest = {
         "schema": "score_contexts_v1",

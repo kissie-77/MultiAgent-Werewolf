@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
 
-from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 from llm_werewolf.evaluation.scoring.models import SpeechIntentionScore
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
 
 def _final_votes_by_round(events: list[dict[str, Any]]) -> dict[int, dict[str, str]]:
-    """round -> {voter_id: target_id}"""
+    """Round -> {voter_id: target_id}"""
     by_round: dict[int, dict[str, str]] = {}
     for event in events:
         if event.get("event_type") != "vote_cast":
@@ -28,9 +31,7 @@ def _final_votes_by_round(events: list[dict[str, Any]]) -> dict[int, dict[str, s
 
 
 def _swing_to_final_vote_count(
-    speech_round: int,
-    swings: list[Any],
-    final_votes: dict[int, dict[str, str]],
+    speech_round: int, swings: list[Any], final_votes: dict[int, dict[str, str]]
 ) -> int:
     """发言后意向变更是否与同轮最终投票一致。"""
     votes = final_votes.get(speech_round, {})
@@ -62,19 +63,12 @@ def _persuasion_net(speech: Any, ctx: RunContext) -> int:
     return total
 
 
-def build_intention_scores(
-    ctx: RunContext,
-    camp_report: CampPersuasionReport,
-) -> dict[str, Any]:
+def build_intention_scores(ctx: RunContext, camp_report: CampPersuasionReport) -> dict[str, Any]:
     final_votes = _final_votes_by_round(ctx.events)
     speech_dicts: list[dict[str, Any]] = []
 
     for speech in camp_report.speeches:
-        swing_final = _swing_to_final_vote_count(
-            speech.round_number,
-            speech.swings,
-            final_votes,
-        )
+        swing_final = _swing_to_final_vote_count(speech.round_number, speech.swings, final_votes)
         net = _persuasion_net(speech, ctx)
         row = SpeechIntentionScore(
             speaker_id=speech.speaker_id,
@@ -93,8 +87,8 @@ def build_intention_scores(
 
     by_player: dict[str, int] = {}
     for item in speech_dicts:
-        by_player[item["speaker_id"]] = (
-            by_player.get(item["speaker_id"], 0) + item.get("intention_total", 0)
+        by_player[item["speaker_id"]] = by_player.get(item["speaker_id"], 0) + item.get(
+            "intention_total", 0
         )
 
     return {
@@ -106,10 +100,7 @@ def build_intention_scores(
     }
 
 
-def write_intention_scores(
-    ctx: RunContext,
-    camp_report: CampPersuasionReport,
-) -> Path:
+def write_intention_scores(ctx: RunContext, camp_report: CampPersuasionReport) -> Path:
     payload = build_intention_scores(ctx, camp_report)
     path = ctx.run_dir / "intention_scores.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

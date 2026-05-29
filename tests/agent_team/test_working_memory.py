@@ -1,12 +1,14 @@
+from typing import NoReturn
+
 from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
 
 
 class FailingCompressor:
-    def compress(self, items):
+    def compress(self, items) -> NoReturn:
         raise RuntimeError("compression service unavailable")
 
 
-def test_working_memory_tracks_dynamic_and_summaries():
+def test_working_memory_tracks_dynamic_and_summaries() -> None:
     memory = WorkingMemory(max_rounds=3, max_dynamic_items=5)
 
     memory.add_dynamic("我投了3号", tag="decision")
@@ -23,7 +25,7 @@ def test_working_memory_tracks_dynamic_and_summaries():
     assert "【历史回顾】" in memory.get_context()
 
 
-def test_working_memory_limits_dynamic_items():
+def test_working_memory_limits_dynamic_items() -> None:
     memory = WorkingMemory(max_dynamic_items=2)
 
     memory.add_dynamic("a", tag="event")
@@ -36,7 +38,7 @@ def test_working_memory_limits_dynamic_items():
     assert "- c" in context
 
 
-def test_dynamic_overflow_keeps_high_priority():
+def test_dynamic_overflow_keeps_high_priority() -> None:
     memory = WorkingMemory(max_dynamic_items=2)
 
     memory.add_dynamic("普通发言", tag="speech", priority=1)
@@ -49,7 +51,7 @@ def test_dynamic_overflow_keeps_high_priority():
     assert "普通发言" not in context
 
 
-def test_persistent_area_trims_by_char_limit():
+def test_persistent_area_trims_by_char_limit() -> None:
     memory = WorkingMemory(max_persistent_chars=20)
 
     memory.add_persistent("短内容", tag="identity", priority=3)
@@ -60,7 +62,7 @@ def test_persistent_area_trims_by_char_limit():
     assert total <= 20
 
 
-def test_persistent_area_keeps_at_least_one():
+def test_persistent_area_keeps_at_least_one() -> None:
     memory = WorkingMemory(max_persistent_chars=5)
 
     memory.add_persistent("超出限制的长内容非常多", tag="identity", priority=3)
@@ -68,7 +70,7 @@ def test_persistent_area_keeps_at_least_one():
     assert len(memory._persistent) == 1
 
 
-def test_working_memory_falls_back_when_compressor_raises():
+def test_working_memory_falls_back_when_compressor_raises() -> None:
     memory = WorkingMemory(compressor=FailingCompressor())
     memory.add_dynamic("我投了3号", tag="decision")
     memory.add_dynamic("听到2号强跳预言家", tag="speech")

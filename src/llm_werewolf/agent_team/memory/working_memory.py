@@ -63,11 +63,7 @@ class WorkingMemory:
             total -= len(weakest.content)
 
     def add_dynamic(
-        self,
-        content: str,
-        tag: str,
-        round_number: int | None = None,
-        priority: int = 1,
+        self, content: str, tag: str, round_number: int | None = None, priority: int = 1
     ) -> None:
         """添加当前轮动态记忆。"""
         if not content.strip():

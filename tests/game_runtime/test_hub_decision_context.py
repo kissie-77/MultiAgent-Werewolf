@@ -1,17 +1,17 @@
-﻿"""决策提示使用 Hub 记忆；事件日志排除对话类型。"""
+"""决策提示使用 Hub 记忆；事件日志排除对话类型。"""
 
 import pytest
 
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.agent_team.agents.base import DemoAgent
-from llm_werewolf.game_runtime.config import create_game_config_from_player_count
-from llm_werewolf.game_runtime.events.event_visibility import HUB_DIALOGUE_EVENT_TYPES
-from llm_werewolf.game_runtime.roles.registry import create_roles
 from llm_werewolf.game_runtime.types import EventType
+from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 from llm_werewolf.interface.bootstrap import create_information_hub
+from llm_werewolf.agent_team.agents.base import DemoAgent
+from llm_werewolf.game_runtime.roles.registry import create_roles
+from llm_werewolf.game_runtime.events.event_visibility import HUB_DIALOGUE_EVENT_TYPES
 
 
-def test_hub_dialogue_event_types_cover_speech_channels():
+def test_hub_dialogue_event_types_cover_speech_channels() -> None:
     assert EventType.PLAYER_SPEECH in HUB_DIALOGUE_EVENT_TYPES
     assert EventType.PLAYER_DISCUSSION in HUB_DIALOGUE_EVENT_TYPES
     assert EventType.SHERIFF_CANDIDATE_SPEECH in HUB_DIALOGUE_EVENT_TYPES
@@ -38,7 +38,7 @@ def engine_with_speech_event():
     return engine, player
 
 
-def test_for_agent_decision_excludes_dialogue_from_observation(engine_with_speech_event):
+def test_for_agent_decision_excludes_dialogue_from_observation(engine_with_speech_event) -> None:
     """发言事件保留在日志中，但不进入 LLM 决策观察文本。"""
     engine, player = engine_with_speech_event
     full = engine.build_player_observation(player, for_agent_decision=False)

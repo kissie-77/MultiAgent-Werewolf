@@ -1,9 +1,9 @@
-﻿"""game_runtime/game_state.py 的测试。"""
+"""game_runtime/game_state.py 的测试。"""
 
-from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.roles import Raven, Villager, Werewolf
+from llm_werewolf.game_runtime.roles import Villager, Werewolf
 from llm_werewolf.game_runtime.types import GamePhase
+from llm_werewolf.game_runtime.state.player import Player
+from llm_werewolf.game_runtime.state.game_state import GameState
 
 
 def _players() -> list[Player]:

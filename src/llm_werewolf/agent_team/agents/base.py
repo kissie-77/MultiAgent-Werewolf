@@ -1,10 +1,10 @@
-import random
 import re
+import random
 
-from pydantic import BaseModel, Field
+from pydantic import Field, BaseModel
 
-from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
 from llm_werewolf.game_runtime.config import PlayerConfig
+from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
 
 
 class BaseAgent(BaseModel):
@@ -71,11 +71,7 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
             ]
             return random.choice(speeches)  # noqa: S311
 
-        responses = [
-            "[[我同意]]",
-            "[[我还需要再观察]]",
-            "[[这个观点值得讨论]]",
-        ]
+        responses = ["[[我同意]]", "[[我还需要再观察]]", "[[这个观点值得讨论]]"]
         return random.choice(responses)  # noqa: S311
 
 

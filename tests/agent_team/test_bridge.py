@@ -1,6 +1,6 @@
-﻿from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.game_runtime.state.player import Player
+from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.game_runtime.roles import Villager, Werewolf
+from llm_werewolf.game_runtime.state.player import Player
 
 
 def test_parse_speech_splits_public_and_private() -> None:
@@ -13,9 +13,6 @@ def test_parse_speech_splits_public_and_private() -> None:
 
 
 def test_bridge_seat_resolution_uses_global_seat_numbers() -> None:
-    targets = [
-        Player("player_2", "玩家2", Villager),
-        Player("player_4", "玩家4", Werewolf),
-    ]
+    targets = [Player("player_2", "玩家2", Villager), Player("player_4", "玩家4", Werewolf)]
     selected = WerewolfAdapterBridge.parse_target_selection("[[4]]", targets)
     assert selected is targets[1]

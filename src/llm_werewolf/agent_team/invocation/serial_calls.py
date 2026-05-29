@@ -7,22 +7,20 @@ instead of removing the global lock for every call site.
 
 from __future__ import annotations
 
+import os
+from typing import TYPE_CHECKING, TypeVar
 import asyncio
 import inspect
-import os
-from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
-from collections.abc import Iterator
-from typing import TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 T = TypeVar("T")
 
 _AGENT_CALL_LOCK = asyncio.Lock()
-_SERIALIZE_AGENT_CALLS: ContextVar[bool] = ContextVar(
-    "SERIALIZE_AGENT_CALLS",
-    default=True,
-)
+_SERIALIZE_AGENT_CALLS: ContextVar[bool] = ContextVar("SERIALIZE_AGENT_CALLS", default=True)
 
 
 def _delay_seconds() -> float:

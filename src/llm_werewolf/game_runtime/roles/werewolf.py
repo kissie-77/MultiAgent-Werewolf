@@ -1,4 +1,4 @@
-﻿from llm_werewolf.game_runtime.types import (
+from llm_werewolf.game_runtime.types import (
     Camp,
     RoleConfig,
     ActionPriority,
@@ -9,20 +9,23 @@ from llm_werewolf.game_runtime.roles.base import Role
 
 
 def build_werewolf_team_context(
-    role: Role,
-    game_state: GameStateProtocol,
-    werewolf_names: list[str],
+    role: Role, game_state: GameStateProtocol, werewolf_names: list[str]
 ) -> str:
     private_notes = role.get_private_notes(game_state)
     role_name = role.name
-    return "\n\n".join(filter(None, [
-        *private_notes,
-        (
-            f"你的狼队友：{', '.join(werewolf_names)}。\n"
-            f"所有狼人将在今晚投票决定击杀目标。\n"
-            f"作为{role_name}，请选择要投票击杀的目标。"
-        ),
-    ]))
+    return "\n\n".join(
+        filter(
+            None,
+            [
+                *private_notes,
+                (
+                    f"你的狼队友：{', '.join(werewolf_names)}。\n"
+                    f"所有狼人将在今晚投票决定击杀目标。\n"
+                    f"作为{role_name}，请选择要投票击杀的目标。"
+                ),
+            ],
+        )
+    )
 
 
 class Werewolf(Role):
@@ -61,14 +64,12 @@ class Werewolf(Role):
         )
 
 
-
 class AlphaWolf(Werewolf):
     """狼王（Alpha Wolf）角色。
 
     与普通狼人类似，但被放逐或猎人带走时，
     可以再带走一名玩家。
     """
-
 
     def get_config(self) -> RoleConfig:
         """获取狼王角色的配置。"""
@@ -91,7 +92,6 @@ class WhiteWolf(Role):
     每两夜可击杀一名狼队友的狼人。
     白狼王往往试图成为最后存活的狼人。
     """
-
 
     def get_config(self) -> RoleConfig:
         """获取白狼王角色的配置。"""
@@ -121,7 +121,6 @@ class WolfBeauty(Role):
         super().__init__(player)
         self.charmed_player: str | None = None
 
-
     def get_config(self) -> RoleConfig:
         """获取狼美人角色的配置。"""
         return RoleConfig(
@@ -143,7 +142,6 @@ class GuardianWolf(Role):
     每晚可保护一名狼队友免受击杀的狼人。
     """
 
-
     def get_config(self) -> RoleConfig:
         """获取守卫狼角色的配置。"""
         return RoleConfig(
@@ -164,7 +162,6 @@ class HiddenWolf(Role):
 
     被预言家查验时显示为好人的狼人。
     """
-
 
     def get_config(self) -> RoleConfig:
         """获取隐狼角色的配置。"""
@@ -193,7 +190,6 @@ class BloodMoonApostle(Role):
         super().__init__(player)
         self.transformed = False
 
-
     def get_config(self) -> RoleConfig:
         """获取血月使徒角色的配置。"""
         return RoleConfig(
@@ -216,7 +212,6 @@ class NightmareWolf(Role):
 
     可封锁一名玩家使其当夜无法使用技能的狼人。
     """
-
 
     def get_config(self) -> RoleConfig:
         """获取梦魇狼角色的配置。"""

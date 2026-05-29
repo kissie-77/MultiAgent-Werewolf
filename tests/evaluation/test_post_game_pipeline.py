@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 
+from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
+from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 from llm_werewolf.evaluation.post_game.prompt_proposal import build_prompt_proposals
-from llm_werewolf.evaluation.post_game.run_context import load_run_context
-from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
-from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 
 
 def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
@@ -36,7 +36,7 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
                         "seat": 0,
                         "target_id": None,
                         "target_name": None,
-                    },
+                    }
                 },
                 "after": {
                     "player_1": {
@@ -45,7 +45,7 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
                         "seat": 5,
                         "target_id": "player_5",
                         "target_name": "E",
-                    },
+                    }
                 },
                 "swings": [
                     {
@@ -57,7 +57,7 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
                         "to_target_id": "player_5",
                         "from_target_name": None,
                         "to_target_name": "E",
-                    },
+                    }
                 ],
                 "swing_count": 1,
             },
@@ -76,13 +76,11 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
         },
     ]
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     records = _records_from_events(events)
     (tmp_path / "vote_intentions.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in records),
-        encoding="utf-8",
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in records), encoding="utf-8"
     )
 
     result = run_post_game_pipeline_sync(tmp_path, skip_llm=True)
@@ -114,4 +112,9 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
     mvp_payload = json.loads((tmp_path / "mvp_scores.json").read_text(encoding="utf-8"))
     proposals = build_prompt_proposals(ctx, camp, mvp_payload=mvp_payload)
     kinds = {p["kind"] for p in proposals["proposals"]}
-    assert kinds & {"positive_persuasion", "bad_case_rule", "mvp_golden_quote", "mvp_strategy_highlight"}
+    assert kinds & {
+        "positive_persuasion",
+        "bad_case_rule",
+        "mvp_golden_quote",
+        "mvp_strategy_highlight",
+    }

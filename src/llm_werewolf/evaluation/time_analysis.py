@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -65,11 +65,7 @@ def estimate_roundtable_time(
     speech_seconds = num_players * logical_call_seconds
     initial_intention_seconds = batch_waves * logical_call_seconds
     after_speech_intention_seconds = num_players * batch_waves * logical_call_seconds
-    wall_seconds = (
-        speech_seconds
-        + initial_intention_seconds
-        + after_speech_intention_seconds
-    )
+    wall_seconds = speech_seconds + initial_intention_seconds + after_speech_intention_seconds
     return RoundtableTimeEstimate(
         num_players=num_players,
         vote_intention_concurrency=vote_intention_concurrency,
@@ -104,8 +100,7 @@ def compare_roundtable_parallelism(
 
 
 def compare_event_log_durations(
-    before_events_path: str | Path,
-    after_events_path: str | Path,
+    before_events_path: str | Path, after_events_path: str | Path
 ) -> EventLogDurationComparison:
     """Compare measured durations using first and last event timestamps."""
     before_seconds = event_log_duration_seconds(before_events_path)
@@ -140,14 +135,11 @@ def event_log_duration_seconds(events_path: str | Path) -> float:
 
 
 def _roundtable_comparison(
-    before: RoundtableTimeEstimate,
-    after: RoundtableTimeEstimate,
+    before: RoundtableTimeEstimate, after: RoundtableTimeEstimate
 ) -> RoundtableTimeComparison:
     saved_seconds = before.wall_seconds - after.wall_seconds
     speedup = before.wall_seconds / after.wall_seconds if after.wall_seconds else math.inf
-    saved_percent = (
-        saved_seconds / before.wall_seconds * 100 if before.wall_seconds else 0.0
-    )
+    saved_percent = saved_seconds / before.wall_seconds * 100 if before.wall_seconds else 0.0
     return RoundtableTimeComparison(
         before=before,
         after=after,

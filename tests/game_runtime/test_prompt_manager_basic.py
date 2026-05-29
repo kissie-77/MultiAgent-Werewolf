@@ -1,7 +1,7 @@
-﻿"""统一提示管理器的测试。"""
+"""统一提示管理器的测试。"""
 
-from llm_werewolf.game_runtime.roles.catalog import get_definition
 from llm_werewolf.game_runtime.prompts import PromptManager
+from llm_werewolf.game_runtime.roles.catalog import get_definition
 
 
 def test_system_and_identity_messages() -> None:

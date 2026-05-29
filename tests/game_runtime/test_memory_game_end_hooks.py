@@ -1,11 +1,11 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from llm_werewolf.agent_team.agents.base import BaseAgent
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.config import create_game_config_from_player_count
-from llm_werewolf.game_runtime.roles.registry import create_roles
 from llm_werewolf.game_runtime.types import Camp
+from llm_werewolf.game_runtime.config import create_game_config_from_player_count
+from llm_werewolf.agent_team.agents.base import BaseAgent
+from llm_werewolf.game_runtime.roles.registry import create_roles
 
 
 class MemoryAwareDemoAgent(BaseAgent):
@@ -17,10 +17,12 @@ class MemoryAwareDemoAgent(BaseAgent):
         return "[[0]]"
 
 
-def test_check_victory_triggers_memory_game_end_hooks():
+def test_check_victory_triggers_memory_game_end_hooks() -> None:
     config = create_game_config_from_player_count(6)
     engine = GameEngine(config)
-    players = [MemoryAwareDemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)]
+    players = [
+        MemoryAwareDemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)
+    ]
     roles = create_roles(role_names=config.role_names)
     engine.setup_game(players=players, roles=roles)
 

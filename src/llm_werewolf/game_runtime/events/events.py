@@ -1,4 +1,4 @@
-﻿from llm_werewolf.game_runtime.types import Event, EventType
+from llm_werewolf.game_runtime.types import Event, EventType
 from llm_werewolf.game_runtime.types.enums import GamePhase
 
 
@@ -72,7 +72,9 @@ class EventLogger:
     ) -> list[Event]:
         """获取一组玩家均可见的所有事件。"""
         shared_events = [
-            event for event in self.events if all(event.is_visible_to(player_id) for player_id in player_ids)
+            event
+            for event in self.events
+            if all(event.is_visible_to(player_id) for player_id in player_ids)
         ]
 
         if since_round is not None:

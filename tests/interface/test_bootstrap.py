@@ -2,13 +2,13 @@
 
 from unittest.mock import MagicMock, patch
 
-from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
 from llm_werewolf.interface.bootstrap import (
-    create_players_from_config,
     prepare_game_roster,
+    create_players_from_config,
     wire_agentscope_after_setup,
 )
+from llm_werewolf.agent_team.agents.base import DemoAgent
 
 
 def _six_demo_players() -> list[PlayerConfig]:
@@ -61,9 +61,7 @@ def test_players_config_has_default_memory_config() -> None:
 
 def test_prepare_game_roster_copies_vote_intention_concurrency() -> None:
     cfg = PlayersConfig(
-        language="zh-CN",
-        vote_intention_concurrency=6,
-        players=_six_demo_players(),
+        language="zh-CN", vote_intention_concurrency=6, players=_six_demo_players()
     )
 
     _, _, game_config = prepare_game_roster(cfg)

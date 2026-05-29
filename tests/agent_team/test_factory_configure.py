@@ -5,19 +5,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
+from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
 from llm_werewolf.agent_team.agents.factory import (
     _build_compressor,
-    _disable_agentscope_console_output,
-    _register_no_thinking_print_hook,
-    _register_structured_tool_reply_completion_hook,
-    _wrap_memory_add_without_thinking,
     configure_agents_for_players,
+    _register_no_thinking_print_hook,
+    _wrap_memory_add_without_thinking,
+    _disable_agentscope_console_output,
+    _register_structured_tool_reply_completion_hook,
 )
-from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
-from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.state.player import Player
+from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.roles.villager import Seer
+from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
 
 def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
@@ -28,11 +28,7 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
         api_key_env="OPENAI_API_KEY",
         plan="bold",
     )
-    agent = AgentScopeWerewolfAgent(
-        name="P1",
-        player_config=config,
-        plan_name="bold",
-    )
+    agent = AgentScopeWerewolfAgent(name="P1", player_config=config, plan_name="bold")
     player = Player("player_3", "P1", Seer, agent=agent, ai_model="gpt-test")
 
     with patch("llm_werewolf.agent_team.agents.factory.create_react_agent") as mock_create:
@@ -56,7 +52,7 @@ def test_configure_agents_skips_agents_without_configure_role() -> None:
     player = Player("player_1", "P1", Seer, agent=agent, ai_model="demo")
 
     configure_agents_for_players([player], default_plan="default", event_logger=EventLogger())
-    assert not hasattr(agent, "agentscope_agent") or agent.agentscope_agent is None  # noqa: SLF001
+    assert not hasattr(agent, "agentscope_agent") or agent.agentscope_agent is None
 
 
 def test_agent_uses_structured_output_requires_react_backend() -> None:
@@ -140,7 +136,7 @@ async def test_wrap_memory_add_without_thinking_strips_blocks_before_store() -> 
     recorded: list[object] = []
 
     class DummyMemory:
-        async def add(self, msg, *args, **kwargs):
+        async def add(self, msg, *args, **kwargs) -> None:
             del args, kwargs
             recorded.append(msg)
 
@@ -194,9 +190,7 @@ def test_structured_tool_reply_completion_hook_adds_terminal_text() -> None:
 
     class DummyMsg:
         def __init__(self) -> None:
-            self.content = [
-                {"type": "tool_use", "name": "generate_response", "id": "call_1"}
-            ]
+            self.content = [{"type": "tool_use", "name": "generate_response", "id": "call_1"}]
 
         def get_content_blocks(self, block_type: str):
             return [block for block in self.content if block.get("type") == block_type]
@@ -210,10 +204,7 @@ def test_structured_tool_reply_completion_hook_adds_terminal_text() -> None:
     assert registered["hook_type"] == "post_reasoning"
     assert registered["hook_name"] == "complete_structured_generate_response_reply"
     assert result is msg
-    assert msg.content[-1] == {
-        "type": "text",
-        "text": "Structured response submitted.",
-    }
+    assert msg.content[-1] == {"type": "text", "text": "Structured response submitted."}
 
 
 def test_structured_tool_reply_completion_hook_ignores_non_structured_turn() -> None:

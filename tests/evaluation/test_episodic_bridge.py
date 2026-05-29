@@ -4,12 +4,12 @@ import json
 from pathlib import Path
 
 from llm_werewolf.evaluation.post_game.coach.coach import Coach
+from llm_werewolf.evaluation.post_game.run_context import load_run_context
 from llm_werewolf.evaluation.post_game.episodic_bridge import (
     episodic_memory_for_run,
-    export_player_episode_reports,
     write_episodic_artifacts,
+    export_player_episode_reports,
 )
-from llm_werewolf.evaluation.post_game.run_context import load_run_context
 
 
 def _fixture_events() -> list[dict]:
@@ -52,8 +52,7 @@ def _fixture_events() -> list[dict]:
 def test_episodic_memory_from_run_context(tmp_path: Path) -> None:
     events = _fixture_events()
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     episodic = episodic_memory_for_run(ctx)
@@ -67,8 +66,7 @@ def test_episodic_memory_from_run_context(tmp_path: Path) -> None:
 def test_write_episodic_artifacts_and_coach_enrich(tmp_path: Path) -> None:
     events = _fixture_events()
     (tmp_path / "events.jsonl").write_text(
-        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
-        encoding="utf-8",
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
     )
     ctx = load_run_context(tmp_path)
     path = write_episodic_artifacts(ctx)
@@ -91,9 +89,6 @@ def test_write_episodic_artifacts_and_coach_enrich(tmp_path: Path) -> None:
     from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 
     coach.write_coach_artifacts(
-        ctx,
-        build_camp_persuasion_report(ctx),
-        skills_payload,
-        coach_result=result,
+        ctx, build_camp_persuasion_report(ctx), skills_payload, coach_result=result
     )
     assert (tmp_path / "coach_summary.json").is_file()

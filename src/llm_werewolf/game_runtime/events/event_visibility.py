@@ -1,4 +1,4 @@
-﻿"""默认 Event.visible_to 规则（标准狼人杀信息模型）。"""
+"""默认 Event.visible_to 规则（标准狼人杀信息模型）。"""
 
 from __future__ import annotations
 
@@ -17,18 +17,12 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
 })
 
 # 仅写入复盘/评测日志，不向任何玩家 observation 暴露。
-REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({
-    EventType.VOTE_INTENTION_SNAPSHOT,
-})
+REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({EventType.VOTE_INTENTION_SNAPSHOT})
 
-WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({
-    EventType.PLAYER_DISCUSSION,
-})
+WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({EventType.PLAYER_DISCUSSION})
 
 # 刀口结算：写入事件日志，但仅存活女巫在 observation 中可见。
-WITCH_ONLY_TYPES: frozenset[EventType] = frozenset({
-    EventType.WEREWOLF_KILLED,
-})
+WITCH_ONLY_TYPES: frozenset[EventType] = frozenset({EventType.WEREWOLF_KILLED})
 
 # 对话写入 Event 仅供复盘/UI——LLM 决策提示从 MsgHub 读取。
 HUB_DIALOGUE_EVENT_TYPES: frozenset[EventType] = frozenset({

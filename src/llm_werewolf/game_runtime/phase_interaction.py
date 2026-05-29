@@ -1,17 +1,22 @@
-﻿"""对局内所有智能体交互的统一入口（InformationHub 门面）。"""
+"""对局内所有智能体交互的统一入口（InformationHub 门面）。"""
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Protocol
 import asyncio
-from typing import TYPE_CHECKING, Callable, Protocol
 
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
-from llm_werewolf.strategy.decisions import SpeechDecision, WitchNightDecision
-from llm_werewolf.strategy.vote_intention import SpeechVoteIntentionRecord, VoteIntentionTracker
-from llm_werewolf.strategy.phase_outputs import ActionPhase
-from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
+    from llm_werewolf.strategy.decisions import SpeechDecision, WitchNightDecision
+    from llm_werewolf.strategy.phase_outputs import ActionPhase
+    from llm_werewolf.strategy.vote_intention import (
+        VoteIntentionTracker,
+        SpeechVoteIntentionRecord,
+    )
     from llm_werewolf.game_runtime.events.visibility import RoutedMessage
 
 
@@ -23,8 +28,7 @@ class PhaseInteractionHub(Protocol):
         *,
         build_observation: Callable[[PlayerProtocol], str],
         get_alive_players: Callable[[], list[PlayerProtocol]],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     async def request_private_seat_choice(
         self,
@@ -39,8 +43,7 @@ class PhaseInteractionHub(Protocol):
         round_number: int | None = None,
         phase: str | None = None,
         action_phase: ActionPhase | None = None,
-    ) -> PlayerProtocol | None:
-        ...
+    ) -> PlayerProtocol | None: ...
 
     async def request_private_witch_night(
         self,
@@ -54,8 +57,7 @@ class PhaseInteractionHub(Protocol):
         additional_context: str = "",
         round_number: int | None = None,
         phase: str | None = None,
-    ) -> WitchNightDecision:
-        ...
+    ) -> WitchNightDecision: ...
 
     async def request_private_yes_no(
         self,
@@ -66,8 +68,7 @@ class PhaseInteractionHub(Protocol):
         context: str = "",
         round_number: int | None = None,
         phase: str | None = None,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     async def request_private_multi_target(
         self,
@@ -80,8 +81,7 @@ class PhaseInteractionHub(Protocol):
         additional_context: str = "",
         round_number: int | None = None,
         phase: str | None = None,
-    ) -> list[PlayerProtocol] | None:
-        ...
+    ) -> list[PlayerProtocol] | None: ...
 
     async def collect_speech(
         self,
@@ -93,8 +93,7 @@ class PhaseInteractionHub(Protocol):
         phase: str = "",
         round_number: int = 0,
         audience: list[PlayerProtocol] | None = None,
-    ) -> SpeechDecision:
-        ...
+    ) -> SpeechDecision: ...
 
     async def announce(
         self,
@@ -104,8 +103,7 @@ class PhaseInteractionHub(Protocol):
         audience: list[PlayerProtocol] | None = None,
         phase: str = "",
         round_number: int = 0,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     async def run_roundtable(
         self,
@@ -118,15 +116,11 @@ class PhaseInteractionHub(Protocol):
         round_number: int,
         audience: list[PlayerProtocol] | None = None,
         opening_announcement: str = "",
-        on_speech: Callable[
-            [PlayerProtocol, SpeechDecision, RoutedMessage | None], None
-        ]
+        on_speech: Callable[[PlayerProtocol, SpeechDecision, RoutedMessage | None], None]
         | None = None,
         vote_intention_tracker: VoteIntentionTracker | None = None,
-        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
-        | None = None,
-    ) -> list[RoutedMessage]:
-        ...
+        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None] | None = None,
+    ) -> list[RoutedMessage]: ...
 
 
 class PhaseInteraction:
@@ -305,11 +299,7 @@ class PhaseInteraction:
         round_number: int = 0,
     ) -> None:
         await self._hub.announce(
-            content,
-            channel=channel,
-            audience=audience,
-            phase=phase,
-            round_number=round_number,
+            content, channel=channel, audience=audience, phase=phase, round_number=round_number
         )
 
     async def run_roundtable(
@@ -323,13 +313,10 @@ class PhaseInteraction:
         round_number: int,
         audience: list[PlayerProtocol] | None = None,
         opening_announcement: str = "",
-        on_speech: Callable[
-            [PlayerProtocol, SpeechDecision, RoutedMessage | None], None
-        ]
+        on_speech: Callable[[PlayerProtocol, SpeechDecision, RoutedMessage | None], None]
         | None = None,
         vote_intention_tracker: VoteIntentionTracker | None = None,
-        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
-        | None = None,
+        on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None] | None = None,
     ) -> list:
         return await self._await_with_timeout(
             self._hub.run_roundtable(

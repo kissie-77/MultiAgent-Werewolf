@@ -1,12 +1,12 @@
-﻿"""游戏引擎的死亡处理逻辑。"""
+"""游戏引擎的死亡处理逻辑。"""
 
 import random
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.death_abilities import DEATH_ABILITY_ROLE_NAMES
-from llm_werewolf.game_runtime.roles.names import RoleNames
 from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
 from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.roles.names import RoleNames
+from llm_werewolf.game_runtime.death_abilities import DEATH_ABILITY_ROLE_NAMES
 from llm_werewolf.game_runtime.state.game_state import GameState
 
 
@@ -48,7 +48,9 @@ class DeathHandlerMixin:
         if not self.game_state:
             return
 
-        charmed_id = self.game_state.wolf_beauty_charmed or getattr(wolf_beauty.role, "charmed_player", None)
+        charmed_id = self.game_state.wolf_beauty_charmed or getattr(
+            wolf_beauty.role, "charmed_player", None
+        )
         if not charmed_id:
             return
 
@@ -96,9 +98,10 @@ class DeathHandlerMixin:
 
         messages: list[str] = []
 
-        if self.game_state.witch_saved_target == target.player_id:
-            pass
-        elif self.game_state.guard_protected == target.player_id:
+        if target.player_id in (
+            self.game_state.witch_saved_target,
+            self.game_state.guard_protected,
+        ):
             pass
         elif hasattr(target.role, "lives") and target.role.lives > 1:
             target.role.lives -= 1
@@ -160,13 +163,18 @@ class DeathHandlerMixin:
                 )
                 return messages
 
-            from llm_werewolf.game_runtime.prompts.actions import ActionDescriptions, EngineContexts
+            from llm_werewolf.game_runtime.prompts.actions import (
+                EngineContexts,
+                ActionDescriptions,
+            )
 
             context = (
                 EngineContexts.sheriff_died(sheriff.name)
                 + self.locale.get("sheriff_transfer_note")
                 + "\n"
-                + self.locale.get("sheriff_transfer_targets", targets=", ".join(p.name for p in possible_targets))
+                + self.locale.get(
+                    "sheriff_transfer_targets", targets=", ".join(p.name for p in possible_targets)
+                )
                 + "\n"
             )
 
@@ -383,9 +391,7 @@ class DeathHandlerMixin:
             self.game_state.night_deaths.add(charmed.player_id)
             self._log_event(
                 EventType.PLAYER_DIED,
-                self.locale.get(
-                    "died_from_charm", player=charmed.name, wolf_beauty=charmed.name
-                ),
+                self.locale.get("died_from_charm", player=charmed.name, wolf_beauty=charmed.name),
                 data={"player_id": charmed.player_id, "reason": "wolf_beauty_charm"},
             )
 

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 from typing import Any
+from pathlib import Path
+from functools import lru_cache
+from dataclasses import dataclass
 
 import yaml
 
@@ -110,7 +110,9 @@ class PromptRegistry:
         template = self.get_text(variable_id)
         return template.format(**slots)
 
-    def role_card_by_prompt_key(self, prompt_role_key: str, *, version: str | None = None) -> dict[str, str]:
+    def role_card_by_prompt_key(
+        self, prompt_role_key: str, *, version: str | None = None
+    ) -> dict[str, str]:
         prefix = version or self.version
         var_id = ROLE_KEY_TO_VARIABLE.get(prompt_role_key)
         if var_id is None:

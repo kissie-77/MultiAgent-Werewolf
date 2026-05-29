@@ -57,7 +57,6 @@ class Locale:
             "witch_poisoned": "☠️ Witch poisoned {target}",
             "guard_protected": "🛡️ Guard protected {target}",
             "seer_checked": "🔮 Seer checked {target}: {result}",
-            "seer_checked_public": "🔮 Seer checked {target}",
             "hunter_shoots": "🏹 Hunter {hunter} shoots {target}",
             "alpha_wolf_shoots": "🐺👑 Alpha Wolf {alpha} shoots {target}",
             "lovers_linked": "💕 Lovers linked: {player1} and {player2}",

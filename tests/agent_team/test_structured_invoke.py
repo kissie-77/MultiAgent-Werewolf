@@ -1,4 +1,4 @@
-﻿"""generate_response 元数据解包与结构化检测的测试。"""
+"""generate_response 元数据解包与结构化检测的测试。"""
 
 import pytest
 

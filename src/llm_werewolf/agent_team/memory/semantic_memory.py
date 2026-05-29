@@ -4,27 +4,34 @@ from __future__ import annotations
 
 import re
 import uuid
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 from pathlib import Path
+from datetime import datetime, timezone
+from dataclasses import field, asdict, dataclass
 
 from llm_werewolf.agent_team.skill_support import skill_loader
-from llm_werewolf.agent_team.memory.base import SemanticBackend
+from llm_werewolf.agent_team.memory.semantic_matching import (
+    similarity,
+    normalize_content,
+    merge_card_contents,
+)
+from llm_werewolf.agent_team.memory.semantic_matching import (
+    merge_reflections as merge_reflection_texts,
+)
 from llm_werewolf.agent_team.memory.semantic_matching import (
     deduplicate_candidates as deduplicate_candidate_texts,
-    merge_card_contents,
-    merge_reflections as merge_reflection_texts,
-    normalize_content,
-    similarity,
 )
 from llm_werewolf.agent_team.skill_support.skill_markdown import (
-    ensure_description_format,
     extract_description,
     extract_when_to_use,
     read_skill_markdown,
-    render_frontmatter_markdown,
     split_description_line,
+    ensure_description_format,
+    render_frontmatter_markdown,
 )
+
+if TYPE_CHECKING:
+    from llm_werewolf.agent_team.memory.base import SemanticBackend
 
 
 @dataclass
@@ -75,16 +82,17 @@ class SemanticMemory:
     """Manages cross-game strategy skills and their learning weights."""
 
     def __init__(
-        self,
-        backend: SemanticBackend | None = None,
-        compressor: object | None = None,
+        self, backend: SemanticBackend | None = None, compressor: object | None = None
     ) -> None:
         self._backend = backend
         self._compressor = compressor
 
     def retrieve_for_role(self, role: str, top_k: int = 3) -> list[StrategyCard]:
         if self._backend is not None:
-            return [self._normalize_card(StrategyCard(**data)) for data in self._backend.retrieve(role, top_k)]
+            return [
+                self._normalize_card(StrategyCard(**data))
+                for data in self._backend.retrieve(role, top_k)
+            ]
         return [
             self._card_from_skill(skill, role)
             for skill in skill_loader.load_role_skills(role, max_skills=top_k)
@@ -93,9 +101,7 @@ class SemanticMemory:
     def add_card(self, role: str, content: str) -> StrategyCard:
         description, body = self._split_description_line(content)
         card = StrategyCard(
-            role=role,
-            description=description or self._extract_description(content),
-            content=body,
+            role=role, description=description or self._extract_description(content), content=body
         )
         if self._backend is not None:
             self._backend.store(card.id, asdict(card))
@@ -173,7 +179,10 @@ class SemanticMemory:
             retrieve_all = getattr(self._backend, "retrieve_all", None)
             if retrieve_all is not None:
                 return [self._normalize_card(StrategyCard(**data)) for data in retrieve_all(role)]
-            return [self._normalize_card(StrategyCard(**data)) for data in self._backend.retrieve(role, 10_000)]
+            return [
+                self._normalize_card(StrategyCard(**data))
+                for data in self._backend.retrieve(role, 10_000)
+            ]
         return [
             self._card_from_skill({"path": str(path)}, role)
             for path in skill_loader.list_role_skill_files(role)
@@ -191,13 +200,19 @@ class SemanticMemory:
 
     @classmethod
     def _normalize_card(cls, card: StrategyCard) -> StrategyCard:
-        card.description = cls._ensure_description_format(card.description or cls._extract_description(card.content))
+        card.description = cls._ensure_description_format(
+            card.description or cls._extract_description(card.content)
+        )
         return card
 
     @staticmethod
     def _card_from_skill(skill: dict, role: str) -> StrategyCard:
         path = str(skill.get("path", ""))
-        meta, body = SemanticMemory._read_skill_file(Path(path)) if path else ({}, str(skill.get("body", "")))
+        meta, body = (
+            SemanticMemory._read_skill_file(Path(path))
+            if path
+            else ({}, str(skill.get("body", "")))
+        )
         raw_body = str(skill.get("body") or body)
         body_description, body_content = SemanticMemory._split_description_line(raw_body)
         description = str(skill.get("description") or meta.get("description") or body_description)
@@ -208,7 +223,9 @@ class SemanticMemory:
             role=str(meta.get("prompt_role_key") or role),
             description=SemanticMemory._ensure_description_format(description),
             content=body_content,
-            weight=SemanticMemory._float(meta.get("weight", skill.get("weight", 1.0)), default=1.0),
+            weight=SemanticMemory._float(
+                meta.get("weight", skill.get("weight", 1.0)), default=1.0
+            ),
             win_count=SemanticMemory._int(meta.get("win_count", 0), default=0),
             use_count=SemanticMemory._int(meta.get("use_count", 0), default=0),
             created_at=str(meta.get("created_at", "")),
@@ -303,7 +320,9 @@ class SemanticMemory:
             raise RuntimeError("No LLM compressor configured")
         return self._compressor._call_llm_text(prompt, max_tokens=max_tokens)
 
-    def find_similar_card(self, role: str, content: str, threshold: float = 0.78) -> StrategyCard | None:
+    def find_similar_card(
+        self, role: str, content: str, threshold: float = 0.78
+    ) -> StrategyCard | None:
         description = self._extract_description(content)
         existing_cards = self._retrieve_all_for_role(role)
         if not existing_cards:
@@ -327,7 +346,9 @@ class SemanticMemory:
                     return None
                 match = re.search(r"\d+", response)
                 if match is None:
-                    return self._find_similar_by_sequence_matcher(description, existing_cards, threshold)
+                    return self._find_similar_by_sequence_matcher(
+                        description, existing_cards, threshold
+                    )
                 idx = int(match.group(0)) - 1
                 if 0 <= idx < len(existing_cards):
                     return existing_cards[idx]
@@ -336,15 +357,14 @@ class SemanticMemory:
         return self._find_similar_by_sequence_matcher(description, existing_cards, threshold)
 
     def _find_similar_by_sequence_matcher(
-        self,
-        description: str,
-        existing_cards: list[StrategyCard],
-        threshold: float = 0.78,
+        self, description: str, existing_cards: list[StrategyCard], threshold: float = 0.78
     ) -> StrategyCard | None:
         best_match: StrategyCard | None = None
         best_score = 0.0
         for existing in existing_cards:
-            existing_description = existing.description or self._extract_description(existing.content)
+            existing_description = existing.description or self._extract_description(
+                existing.content
+            )
             score = self._similarity(existing_description, description)
             if score >= threshold and score > best_score:
                 best_match = existing

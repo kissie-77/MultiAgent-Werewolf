@@ -2,7 +2,7 @@ import csv
 import json
 from pathlib import Path
 
-from llm_werewolf.evaluation.core.models import EvaluationSummary, GameRunResult
+from llm_werewolf.evaluation.core.models import GameRunResult, EvaluationSummary
 
 
 class EvaluationReporter:

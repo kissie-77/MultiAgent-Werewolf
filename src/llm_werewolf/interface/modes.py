@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -17,28 +17,19 @@ class GameMode:
 
 
 _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
-    (
-        "all_agent",
-        "basic",
-    ): GameMode(
+    ("all_agent", "basic"): GameMode(
         participation="all_agent",
         rules="basic",
         config_path=Path("configs/demo-6.yaml"),
         description="基础全自动对局：用于无 API 的本地 smoke run。",
     ),
-    (
-        "all_agent",
-        "badge_flow",
-    ): GameMode(
+    ("all_agent", "badge_flow"): GameMode(
         participation="all_agent",
         rules="badge_flow",
         config_path=Path("configs/llm-12p-agentscope.yaml"),
         description="12 人 AgentScope 对局：主展示路线，包含警长/警徽相关流程。",
     ),
-    (
-        "all_agent",
-        "extended_roles",
-    ): GameMode(
+    ("all_agent", "extended_roles"): GameMode(
         participation="all_agent",
         rules="extended_roles",
         config_path=Path("configs/agentscope.yaml"),
@@ -48,10 +39,7 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
 
 
 def resolve_config_path(
-    config: str | None = None,
-    *,
-    participation: str = "all_agent",
-    rules: str = "badge_flow",
+    config: str | None = None, *, participation: str = "all_agent", rules: str = "badge_flow"
 ) -> Path:
     """Resolve CLI mode arguments to a concrete config path."""
     if config:

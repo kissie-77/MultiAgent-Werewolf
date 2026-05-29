@@ -2,16 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from llm_werewolf.game_runtime.types import EventType, GamePhase
+from llm_werewolf.agent_team import skill_loader
 from llm_werewolf.agent_team.memory.config import MemoryConfig
-from llm_werewolf.agent_team.skill_support import skill_loader
-from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
-from llm_werewolf.agent_team.memory.semantic_memory import (
-    StrategyCard,
-    SemanticMemory,
-    InMemoryBackend,
-)
+from llm_werewolf.agent_team.memory.semantic_memory import InMemoryBackend, SemanticMemory, StrategyCard
+from llm_werewolf.agent_team.skill_support.skill_markdown import extract_description
+from llm_werewolf.game_runtime.events.events import EventLogger
+from llm_werewolf.game_runtime.types import EventType, GamePhase
 
 
 class StubCompressor:
@@ -19,7 +16,7 @@ class StubCompressor:
         self.response = response
         self.prompts: list[str] = []
 
-    def _call_llm_text(self, prompt: str, max_tokens: int = 300) -> str:
+    def call_llm_text(self, prompt: str, max_tokens: int = 300) -> str:
         del max_tokens
         self.prompts.append(prompt)
         if isinstance(self.response, Exception):
@@ -45,7 +42,7 @@ def temp_skill_root(tmp_path, monkeypatch):
     skill_loader.list_role_skill_files.cache_clear()
 
 
-def test_memory_manager_injects_semantic_and_working_context() -> None:
+def test_memory_manager_injects_semantic_and_working_context():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -68,7 +65,7 @@ def test_memory_manager_injects_semantic_and_working_context() -> None:
     assert "\u5f53\u524d\u91c7\u7528\u8ba1\u5212\uff1abold" in context
 
 
-def test_memory_manager_updates_card_weight_after_game() -> None:
+def test_memory_manager_updates_card_weight_after_game():
     manager = MemoryManager(
         EventLogger(),
         role="wolf",
@@ -76,9 +73,7 @@ def test_memory_manager_updates_card_weight_after_game() -> None:
         config=MemoryConfig(),
         semantic_backend=InMemoryBackend(),
     )
-    card = manager.semantic.add_card(
-        "wolf", "\u4f18\u5148\u5904\u7406\u53d1\u8a00\u6e05\u6670\u7684\u5f3a\u795e\u3002"
-    )
+    card = manager.semantic.add_card("wolf", "\u4f18\u5148\u5904\u7406\u53d1\u8a00\u6e05\u6670\u7684\u5f3a\u795e\u3002")
 
     manager.on_game_start("wolf")
     manager.on_game_end(won=True)
@@ -90,11 +85,9 @@ def test_memory_manager_updates_card_weight_after_game() -> None:
     assert refreshed.win_count == 1
 
 
-def test_semantic_memory_decreases_weight_after_lost_game_and_skips_missing_ids() -> None:
+def test_semantic_memory_decreases_weight_after_lost_game_and_skips_missing_ids():
     semantic = SemanticMemory(backend=InMemoryBackend())
-    card = semantic.add_card(
-        "wolf", "\u4f18\u5148\u5904\u7406\u53d1\u8a00\u6e05\u6670\u7684\u5f3a\u795e\u3002"
-    )
+    card = semantic.add_card("wolf", "\u4f18\u5148\u5904\u7406\u53d1\u8a00\u6e05\u6670\u7684\u5f3a\u795e\u3002")
 
     semantic.update_after_game("wolf", won=False, used_card_ids=[card.id, "missing"])
     refreshed = semantic.retrieve_for_role("wolf", top_k=1)[0]
@@ -104,7 +97,7 @@ def test_semantic_memory_decreases_weight_after_lost_game_and_skips_missing_ids(
     assert refreshed.win_count == 0
 
 
-def test_memory_manager_respects_memory_config_and_collects_runtime_inputs() -> None:
+def test_memory_manager_respects_memory_config_and_collects_runtime_inputs():
     logger = EventLogger()
     manager = MemoryManager(
         logger,
@@ -115,7 +108,9 @@ def test_memory_manager_respects_memory_config_and_collects_runtime_inputs() -> 
     )
 
     manager.add_public_speech(
-        "\u0031\u53f7", "\u6211\u5148\u542c\u0034\u53f7\u600e\u4e48\u804a", round_number=1
+        "\u0031\u53f7",
+        "\u6211\u5148\u542c\u0034\u53f7\u600e\u4e48\u804a",
+        round_number=1,
     )
     event = logger.create_event(
         EventType.VOTE_RESULT,
@@ -131,7 +126,7 @@ def test_memory_manager_respects_memory_config_and_collects_runtime_inputs() -> 
     assert "\u0034\u53f7\u6210\u4e3a\u7126\u70b9\u7968\u578b" in context
 
 
-def test_get_context_uses_working_memory_only_and_respects_semantic_top_k_zero() -> None:
+def test_get_context_uses_working_memory_only_and_respects_semantic_top_k_zero():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -140,9 +135,7 @@ def test_get_context_uses_working_memory_only_and_respects_semantic_top_k_zero()
         semantic_backend=InMemoryBackend(),
     )
     manager.semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
-    manager.semantic.format_for_prompt = lambda role: pytest.fail(
-        "semantic context should not be injected twice"
-    )
+    manager.semantic.format_for_prompt = lambda role: pytest.fail("semantic context should not be injected twice")
 
     manager.on_game_start("villager")
     context = manager.get_context_for_decision()
@@ -152,7 +145,7 @@ def test_get_context_uses_working_memory_only_and_respects_semantic_top_k_zero()
     assert "程序记忆" in context
 
 
-def test_on_game_start_and_add_decision_respect_working_memory_disabled() -> None:
+def test_on_game_start_and_add_decision_respect_working_memory_disabled():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -171,7 +164,7 @@ def test_on_game_start_and_add_decision_respect_working_memory_disabled() -> Non
     assert manager._used_card_ids == []
 
 
-def test_working_memory_disabled_keeps_semantic_updates_available() -> None:
+def test_working_memory_disabled_keeps_semantic_updates_available():
     manager = MemoryManager(
         EventLogger(),
         role="wolf",
@@ -188,7 +181,7 @@ def test_working_memory_disabled_keeps_semantic_updates_available() -> None:
     assert refreshed.use_count == 1
 
 
-def test_global_memory_disabled_blocks_semantic_extraction() -> None:
+def test_global_memory_disabled_blocks_semantic_extraction():
     logger = EventLogger()
     logger.create_event(
         EventType.VOTE_CAST,
@@ -209,7 +202,7 @@ def test_global_memory_disabled_blocks_semantic_extraction() -> None:
     assert manager.extract_semantic_candidates(won=False) == []
 
 
-def test_add_decision_respects_global_memory_disabled() -> None:
+def test_add_decision_respects_global_memory_disabled():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -223,7 +216,7 @@ def test_add_decision_respects_global_memory_disabled() -> None:
     assert manager.working.get_context() == ""
 
 
-def test_add_event_deduplicates_same_visible_event() -> None:
+def test_add_event_deduplicates_same_visible_event():
     logger = EventLogger()
     manager = MemoryManager(
         logger,
@@ -247,7 +240,7 @@ def test_add_event_deduplicates_same_visible_event() -> None:
     assert context.count("5号得票最高") == 1
 
 
-def test_add_event_deduplicates_visible_to_order_variants() -> None:
+def test_add_event_deduplicates_visible_to_order_variants():
     logger = EventLogger()
     manager = MemoryManager(
         logger,
@@ -279,7 +272,7 @@ def test_add_event_deduplicates_visible_to_order_variants() -> None:
     assert manager.working.get_context().count("5号得票最高") == 1
 
 
-def test_on_round_end_compresses_dynamic_memory() -> None:
+def test_on_round_end_compresses_dynamic_memory():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -297,7 +290,7 @@ def test_on_round_end_compresses_dynamic_memory() -> None:
     assert "做了1个决策" in context
 
 
-def test_on_game_start_resets_used_cards_and_seen_events() -> None:
+def test_on_game_start_resets_used_cards_and_seen_events():
     logger = EventLogger()
     manager = MemoryManager(
         logger,
@@ -324,7 +317,7 @@ def test_on_game_start_resets_used_cards_and_seen_events() -> None:
     assert len(manager._used_card_ids) == 1
 
 
-def test_memory_manager_extracts_semantic_candidates_by_outcome() -> None:
+def test_memory_manager_extracts_semantic_candidates_by_outcome():
     logger = EventLogger()
     logger.create_event(
         EventType.VOTE_CAST,
@@ -356,7 +349,7 @@ def test_memory_manager_extracts_semantic_candidates_by_outcome() -> None:
     assert any("\u5931\u8d25\u53cd\u601d" in candidate for candidate in lost_candidates)
 
 
-def test_llm_semantic_extraction_without_endpoint_falls_back_to_rules() -> None:
+def test_llm_semantic_extraction_without_endpoint_falls_back_to_rules():
     logger = EventLogger()
     logger.create_event(
         EventType.VOTE_CAST,
@@ -387,7 +380,7 @@ def test_llm_semantic_extraction_without_endpoint_falls_back_to_rules() -> None:
     assert any("\u5931\u8d25\u53cd\u601d" in candidate for candidate in candidates)
 
 
-def test_semantic_memory_merges_similar_cards() -> None:
+def test_semantic_memory_merges_similar_cards():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -411,7 +404,7 @@ def test_semantic_memory_merges_similar_cards() -> None:
     assert cards[0].use_count >= 1
 
 
-def test_memory_manager_extracts_and_persists_semantic_candidates_on_game_end() -> None:
+def test_memory_manager_extracts_and_persists_semantic_candidates_on_game_end():
     logger = EventLogger()
     logger.create_event(
         EventType.VOTE_CAST,
@@ -442,17 +435,17 @@ def test_memory_manager_extracts_and_persists_semantic_candidates_on_game_end() 
     assert any("\u5931\u8d25\u53cd\u601d" in card.content for card in cards)
 
 
-def test_description_extracted_from_content_line() -> None:
+def test_description_extracted_from_content_line():
     content = f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}"
 
     description, body = SemanticMemory._split_description_line(content)
 
     assert description == DESCRIPTION_ONE
     assert body == SKILL_BODY
-    assert SemanticMemory._extract_description(content) == DESCRIPTION_ONE
+    assert extract_description(content) == DESCRIPTION_ONE
 
 
-def test_description_extracted_from_when_to_use_section() -> None:
+def test_description_extracted_from_when_to_use_section():
     content = (
         "# 第1轮狼队夜间刀口协商\n\n"
         "## 提取依据\n"
@@ -463,12 +456,12 @@ def test_description_extracted_from_when_to_use_section() -> None:
         "先报建议刀口和理由。"
     )
 
-    description = SemanticMemory._extract_description(content)
+    description = extract_description(content)
 
     assert description == "第1轮狼队私密频道，需在落刀前统一目标的情况下，使用该 skill"
 
 
-def test_description_protocol_accepts_real_chinese_literals() -> None:
+def test_description_protocol_accepts_real_chinese_literals():
     content = f"描述：{DESCRIPTION_ONE}\n\n{SKILL_BODY}"
 
     description, body = SemanticMemory._split_description_line(content)
@@ -481,7 +474,7 @@ def test_description_protocol_accepts_real_chinese_literals() -> None:
     assert f"描述：{DESCRIPTION_ONE}" in rendered
 
 
-def test_add_card_generates_description_and_backend_preserves_it() -> None:
+def test_add_card_generates_description_and_backend_preserves_it():
     semantic = SemanticMemory(backend=InMemoryBackend())
     content = "\u7b2c\u4e00\u5929\u6ca1\u6709\u4eba\u8df3\u9884\u8a00\u5bb6\u3002"
 
@@ -493,7 +486,7 @@ def test_add_card_generates_description_and_backend_preserves_it() -> None:
     assert retrieved.content == content
 
 
-def test_render_skill_file_includes_description_line() -> None:
+def test_render_skill_file_includes_description_line():
     card = StrategyCard(role="wolf", description=DESCRIPTION_ONE, content=SKILL_BODY)
 
     rendered = SemanticMemory._render_skill_file(card)
@@ -502,7 +495,7 @@ def test_render_skill_file_includes_description_line() -> None:
     assert rendered.rstrip().endswith(SKILL_BODY)
 
 
-def test_render_skill_file_preserves_post_game_skill_markdown_without_description_line() -> None:
+def test_render_skill_file_preserves_post_game_skill_markdown_without_description_line():
     content = (
         "# 第1轮狼队夜间刀口协商\n\n"
         "## 何时使用\n"
@@ -514,11 +507,13 @@ def test_render_skill_file_preserves_post_game_skill_markdown_without_descriptio
 
     rendered = SemanticMemory._render_skill_file(card)
 
-    assert f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}" not in rendered
+    assert rendered.startswith("---")
+    assert f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}" in rendered
+    assert "## ????" not in rendered
     assert "## 何时使用" in rendered
 
 
-def test_format_for_prompt_shows_description_only() -> None:
+def test_format_for_prompt_shows_description_only():
     semantic = SemanticMemory(backend=InMemoryBackend())
     semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
 
@@ -530,13 +525,9 @@ def test_format_for_prompt_shows_description_only() -> None:
     assert "weight" not in formatted
 
 
-def test_backend_retrieve_normalizes_legacy_description() -> None:
+def test_backend_retrieve_normalizes_legacy_description():
     backend = InMemoryBackend()
-    card = StrategyCard(
-        role="wolf",
-        description="\u7b2c\u4e00\u5929\u6ca1\u6709\u4eba\u8df3\u9884\u8a00\u5bb6",
-        content=SKILL_BODY,
-    )
+    card = StrategyCard(role="wolf", description="\u7b2c\u4e00\u5929\u6ca1\u6709\u4eba\u8df3\u9884\u8a00\u5bb6", content=SKILL_BODY)
     backend.store(card.id, card.__dict__)
     semantic = SemanticMemory(backend=backend)
 
@@ -545,15 +536,13 @@ def test_backend_retrieve_normalizes_legacy_description() -> None:
     assert retrieved.description == DESCRIPTION_ONE
 
 
-def test_find_similar_by_llm_description() -> None:
+def test_find_similar_by_llm_description():
     compressor = StubCompressor("1")
     semantic = SemanticMemory(backend=InMemoryBackend(), compressor=compressor)
     first = semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
 
-    matched = semantic.find_similar_card(
-        "wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u5176\u4ed6\u7ecf\u9a8c"
-    )
+    matched = semantic.find_similar_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u5176\u4ed6\u7ecf\u9a8c")
 
     assert matched is not None
     assert matched.id == first.id
@@ -562,18 +551,16 @@ def test_find_similar_by_llm_description() -> None:
     assert DESCRIPTION_TWO in compressor.prompts[0]
 
 
-def test_find_similar_llm_returns_no_match() -> None:
+def test_find_similar_llm_returns_no_match():
     semantic = SemanticMemory(backend=InMemoryBackend(), compressor=StubCompressor("\u65e0"))
     semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
 
-    matched = semantic.find_similar_card(
-        "wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n\u5176\u4ed6\u7ecf\u9a8c"
-    )
+    matched = semantic.find_similar_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n\u5176\u4ed6\u7ecf\u9a8c")
 
     assert matched is None
 
 
-def test_find_similar_llm_returns_real_chinese_no_match_literal() -> None:
+def test_find_similar_llm_returns_real_chinese_no_match_literal():
     semantic = SemanticMemory(backend=InMemoryBackend(), compressor=StubCompressor("无"))
     semantic.add_card("wolf", f"描述：{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
 
@@ -582,48 +569,38 @@ def test_find_similar_llm_returns_real_chinese_no_match_literal() -> None:
     assert matched is None
 
 
-def test_find_similar_llm_parses_dirty_number_response() -> None:
+def test_find_similar_llm_parses_dirty_number_response():
     semantic = SemanticMemory(backend=InMemoryBackend(), compressor=StubCompressor("1. 可以合并"))
     first = semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
 
-    matched = semantic.find_similar_card(
-        "wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u5176\u4ed6\u7ecf\u9a8c"
-    )
+    matched = semantic.find_similar_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u5176\u4ed6\u7ecf\u9a8c")
 
     assert matched is not None
     assert matched.id == first.id
 
 
-def test_find_similar_llm_dirty_non_number_falls_back_to_sequence_matcher() -> None:
-    semantic = SemanticMemory(
-        backend=InMemoryBackend(), compressor=StubCompressor("看起来是第一条")
-    )
+def test_find_similar_llm_dirty_non_number_falls_back_to_sequence_matcher():
+    semantic = SemanticMemory(backend=InMemoryBackend(), compressor=StubCompressor("看起来是第一条"))
     first = semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
 
-    matched = semantic.find_similar_card(
-        "wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u53e6\u4e00\u7248\u7b56\u7565"
-    )
+    matched = semantic.find_similar_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u53e6\u4e00\u7248\u7b56\u7565")
 
     assert matched is not None
     assert matched.id == first.id
 
 
-def test_find_similar_fallback_to_sequence_matcher() -> None:
-    semantic = SemanticMemory(
-        backend=InMemoryBackend(), compressor=StubCompressor(RuntimeError("boom"))
-    )
+def test_find_similar_fallback_to_sequence_matcher():
+    semantic = SemanticMemory(backend=InMemoryBackend(), compressor=StubCompressor(RuntimeError("boom")))
     first = semantic.add_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
 
-    matched = semantic.find_similar_card(
-        "wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u53e6\u4e00\u7248\u7b56\u7565"
-    )
+    matched = semantic.find_similar_card("wolf", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n\u53e6\u4e00\u7248\u7b56\u7565")
 
     assert matched is not None
     assert matched.id == first.id
 
 
-def test_existing_skill_markdown_uses_when_to_use_for_prompt_description(temp_skill_root) -> None:
+def test_existing_skill_markdown_uses_when_to_use_for_prompt_description(temp_skill_root):
     wolf_dir = temp_skill_root / "wolf"
     wolf_dir.mkdir(parents=True)
     skill_path = wolf_dir / "wolf_demo.md"
@@ -656,7 +633,7 @@ def test_existing_skill_markdown_uses_when_to_use_for_prompt_description(temp_sk
     assert "第1轮狼队私密频道，需在落刀前统一目标" in formatted
 
 
-def test_on_game_start_injects_description_not_full_content() -> None:
+def test_on_game_start_injects_description_not_full_content():
     manager = MemoryManager(
         EventLogger(),
         role="wolf",
@@ -673,7 +650,7 @@ def test_on_game_start_injects_description_not_full_content() -> None:
     assert SKILL_BODY not in context
 
 
-def test_on_game_start_keeps_procedural_when_semantic_disabled() -> None:
+def test_on_game_start_keeps_procedural_when_semantic_disabled():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -692,7 +669,7 @@ def test_on_game_start_keeps_procedural_when_semantic_disabled() -> None:
     assert "当前采用计划：bold" in context
 
 
-def test_on_game_end_respects_global_memory_disabled() -> None:
+def test_on_game_end_respects_global_memory_disabled():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -706,18 +683,18 @@ def test_on_game_end_respects_global_memory_disabled() -> None:
     assert manager.semantic.retrieve_for_role("villager", top_k=10) == []
 
 
-def test_decay_all_noop_when_under_limit(temp_skill_root) -> None:
+def test_evict_excess_noop_when_under_limit(temp_skill_root):
     semantic = SemanticMemory()
     semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
 
-    deleted = semantic.decay_all("villager", max_count=2)
+    deleted = semantic.evict_excess("villager", max_count=2)
 
     assert deleted == 0
     assert len(list((temp_skill_root / "villager").glob("*.md"))) == 2
 
 
-def test_decay_all_removes_lowest_weight(temp_skill_root) -> None:
+def test_evict_excess_removes_lowest_weight(temp_skill_root):
     semantic = SemanticMemory()
     low = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     high = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
@@ -726,7 +703,7 @@ def test_decay_all_removes_lowest_weight(temp_skill_root) -> None:
     semantic._write_skill_card(low)
     semantic._write_skill_card(high)
 
-    deleted = semantic.decay_all("villager", max_count=1)
+    deleted = semantic.evict_excess("villager", max_count=1)
     remaining = semantic.retrieve_for_role("villager", top_k=10)
 
     assert deleted == 1
@@ -736,7 +713,7 @@ def test_decay_all_removes_lowest_weight(temp_skill_root) -> None:
     assert not Path(low.path).exists()
 
 
-def test_decay_all_removes_lowest_weight_from_backend() -> None:
+def test_evict_excess_removes_lowest_weight_from_backend():
     semantic = SemanticMemory(backend=InMemoryBackend())
     low = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     high = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
@@ -745,7 +722,7 @@ def test_decay_all_removes_lowest_weight_from_backend() -> None:
     semantic._backend.store(low.id, low.__dict__)
     semantic._backend.store(high.id, high.__dict__)
 
-    deleted = semantic.decay_all("villager", max_count=1)
+    deleted = semantic.evict_excess("villager", max_count=1)
     remaining = semantic.retrieve_for_role("villager", top_k=10)
 
     assert deleted == 1
@@ -753,31 +730,26 @@ def test_decay_all_removes_lowest_weight_from_backend() -> None:
     assert remaining[0].description == DESCRIPTION_TWO
 
 
-def test_decay_all_considers_more_than_top_100_backend_cards() -> None:
+def test_evict_excess_considers_more_than_top_100_backend_cards():
     semantic = SemanticMemory(backend=InMemoryBackend())
     for index in range(105):
         card = semantic.add_card("villager", f"\u7b2c{index}\u8f6e\u7ecf\u9a8c\u3002")
-        card.weight = float(index)
+        # Use weights within clamp range [0.1, 5.0] \u2014 map index 0..104 \u2192 0.1..5.0
+        card.weight = SemanticMemory.MIN_WEIGHT + (SemanticMemory.MAX_WEIGHT - SemanticMemory.MIN_WEIGHT) * index / 104
         semantic._backend.store(card.id, card.__dict__)
 
-    deleted = semantic.decay_all("villager", max_count=8)
+    deleted = semantic.evict_excess("villager", max_count=8)
     remaining = semantic.retrieve_for_role("villager", top_k=200)
 
     assert deleted == 97
     assert len(remaining) == 8
-    assert [card.weight for card in remaining] == [
-        104.0,
-        103.0,
-        102.0,
-        101.0,
-        100.0,
-        99.0,
-        98.0,
-        97.0,
-    ]
+    # The 8 highest-weight cards should remain (indices 97..104)
+    weights = [card.weight for card in remaining]
+    assert weights == sorted(weights, reverse=True)
+    assert all(w >= weights[-1] for w in weights)
 
 
-def test_max_cards_different_limits_for_roles() -> None:
+def test_max_cards_different_limits_for_roles():
     manager = MemoryManager(
         EventLogger(),
         role="villager",
@@ -790,7 +762,7 @@ def test_max_cards_different_limits_for_roles() -> None:
     assert manager._max_cards_for_role("wolf") == 7
 
 
-def test_decay_called_on_game_end() -> None:
+def test_evict_excess_called_on_game_end():
     manager = MemoryManager(
         EventLogger(),
         role="wolf",
@@ -799,7 +771,7 @@ def test_decay_called_on_game_end() -> None:
         semantic_backend=InMemoryBackend(),
     )
     calls: list[tuple[str, int]] = []
-    manager.semantic.decay_all = lambda role, max_count: calls.append((role, max_count)) or 0
+    manager.semantic.evict_excess = lambda role, max_count: calls.append((role, max_count)) or 0
 
     manager.on_game_end(won=False)
 

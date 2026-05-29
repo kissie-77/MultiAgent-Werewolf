@@ -2,42 +2,42 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
-from typing import TYPE_CHECKING
-from pathlib import Path
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from dataclasses import field, asdict, dataclass
+from pathlib import Path
 
-from llm_werewolf.agent_team.skill_support import skill_loader
-from llm_werewolf.agent_team.memory.semantic_matching import (
-    similarity,
-    normalize_content,
-    merge_card_contents,
-)
-from llm_werewolf.agent_team.memory.semantic_matching import (
-    merge_reflections as merge_reflection_texts,
-)
+from llm_werewolf.agent_team.memory.base import CompressorProtocol, SemanticBackend
 from llm_werewolf.agent_team.memory.semantic_matching import (
     deduplicate_candidates as deduplicate_candidate_texts,
+    merge_card_contents,
+    merge_reflections as merge_reflection_texts,
+    normalize_content,
+    similarity,
 )
+from llm_werewolf.agent_team.skill_support import skill_loader
 from llm_werewolf.agent_team.skill_support.skill_markdown import (
-    extract_description,
-    extract_when_to_use,
-    read_skill_markdown,
-    split_description_line,
     ensure_description_format,
+    extract_description,
+    read_skill_markdown,
     render_frontmatter_markdown,
 )
 
-if TYPE_CHECKING:
-    from llm_werewolf.agent_team.memory.base import SemanticBackend
+logger = logging.getLogger(__name__)
+
+_WEIGHT_MIN = 0.1
+_WEIGHT_MAX = 5.0
+
+
+def clamp_weight(weight: float) -> float:
+    """将权重限制在 [_WEIGHT_MIN, _WEIGHT_MAX] 范围内。"""
+    return max(_WEIGHT_MIN, min(_WEIGHT_MAX, weight))
 
 
 @dataclass
 class StrategyCard:
-    """A long-term role experience card."""
-
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     role: str = ""
     description: str = ""
@@ -51,8 +51,6 @@ class StrategyCard:
 
 
 class InMemoryBackend:
-    """Test-only in-memory backend kept for isolated memory tests."""
-
     def __init__(self) -> None:
         self._cards: dict[str, StrategyCard] = {}
 
@@ -75,49 +73,41 @@ class InMemoryBackend:
     def update_weight(self, card_id: str, delta: float) -> None:
         card = self._cards.get(card_id)
         if card is not None:
-            card.weight += delta
+            card.weight = clamp_weight(card.weight + delta)
 
 
 class SemanticMemory:
-    """Manages cross-game strategy skills and their learning weights."""
+    MIN_WEIGHT = 0.1
+    MAX_WEIGHT = 5.0
 
     def __init__(
-        self, backend: SemanticBackend | None = None, compressor: object | None = None
+        self,
+        backend: SemanticBackend | None = None,
+        compressor: CompressorProtocol | None = None,
     ) -> None:
         self._backend = backend
         self._compressor = compressor
 
     def retrieve_for_role(self, role: str, top_k: int = 3) -> list[StrategyCard]:
         if self._backend is not None:
-            return [
-                self._normalize_card(StrategyCard(**data))
-                for data in self._backend.retrieve(role, top_k)
-            ]
-        return [
-            self._card_from_skill(skill, role)
-            for skill in skill_loader.load_role_skills(role, max_skills=top_k)
-        ]
+            return [self._normalize_card(StrategyCard(**data)) for data in self._backend.retrieve(role, top_k)]
+        return [self._card_from_skill(skill, role) for skill in skill_loader.load_role_skills(role, max_skills=top_k)]
 
     def add_card(self, role: str, content: str) -> StrategyCard:
-        description, body = self._split_description_line(content)
-        card = StrategyCard(
-            role=role, description=description or self._extract_description(content), content=body
-        )
+        card = StrategyCard(role=role, description=extract_description(content), content=content.strip())
         if self._backend is not None:
             self._backend.store(card.id, asdict(card))
             return card
         return self._write_skill_card(card)
 
     def add_or_merge_card(self, role: str, content: str) -> StrategyCard:
-        """Add a skill, or merge it into a similar existing card."""
         existing = self.find_similar_card(role, content)
         if existing is not None:
             existing.use_count += 1
             existing.updated_at = self._now()
-            description, body = self._split_description_line(content)
             if not existing.description:
-                existing.description = description or self._extract_description(content)
-            existing.content = self._merge_card_contents(existing.content, body)
+                existing.description = extract_description(content)
+            existing.content = self._merge_card_contents(existing.content, content.strip())
             if self._backend is not None:
                 self._backend.store(existing.id, asdict(existing))
                 return existing
@@ -136,7 +126,7 @@ class SemanticMemory:
                 if won:
                     card.win_count += 1
                 card.updated_at = self._now()
-                card.weight += delta
+                card.weight = clamp_weight(card.weight + delta)
                 self._backend.store(card.id, asdict(card))
             return
 
@@ -146,23 +136,19 @@ class SemanticMemory:
             card.use_count += 1
             if won:
                 card.win_count += 1
-            card.weight += delta
+            card.weight = clamp_weight(card.weight + delta)
             card.updated_at = self._now()
             self._write_skill_card(card)
 
-    def decay_all(self, role: str, max_count: int = 8) -> int:
-        """Delete lowest-weight skill files when a role exceeds max_count cards."""
+    def evict_excess(self, role: str, max_count: int = 8) -> int:
         cards = self._retrieve_all_for_role(role)
         if len(cards) <= max_count:
             return 0
         cards.sort(key=lambda card: card.weight)
         to_delete = cards[: len(cards) - max_count]
         if self._backend is not None:
-            delete = getattr(self._backend, "delete", None)
-            if delete is None:
-                return 0
             for card in to_delete:
-                delete(card.id)
+                self._backend.delete(card.id)
             return len(to_delete)
         deleted = 0
         for card in to_delete:
@@ -176,17 +162,8 @@ class SemanticMemory:
 
     def _retrieve_all_for_role(self, role: str) -> list[StrategyCard]:
         if self._backend is not None:
-            retrieve_all = getattr(self._backend, "retrieve_all", None)
-            if retrieve_all is not None:
-                return [self._normalize_card(StrategyCard(**data)) for data in retrieve_all(role)]
-            return [
-                self._normalize_card(StrategyCard(**data))
-                for data in self._backend.retrieve(role, 10_000)
-            ]
-        return [
-            self._card_from_skill({"path": str(path)}, role)
-            for path in skill_loader.list_role_skill_files(role)
-        ]
+            return [self._normalize_card(StrategyCard(**data)) for data in self._backend.retrieve_all(role)]
+        return [self._card_from_skill({"path": str(path)}, role) for path in skill_loader.list_role_skill_files(role)]
 
     def format_for_prompt(self, role: str) -> str:
         cards = self.retrieve_for_role(role)
@@ -194,38 +171,27 @@ class SemanticMemory:
             return ""
         lines = ["【跨局经验】"]
         for card in cards:
-            description = card.description or self._extract_description(card.content)
-            lines.append(f"- {description}")
+            lines.append(f"- {card.description or extract_description(card.content)}")
         return "\n".join(lines)
 
     @classmethod
     def _normalize_card(cls, card: StrategyCard) -> StrategyCard:
-        card.description = cls._ensure_description_format(
-            card.description or cls._extract_description(card.content)
-        )
+        card.description = cls._ensure_description_format(card.description or extract_description(card.content))
+        card.weight = clamp_weight(card.weight)
         return card
 
     @staticmethod
     def _card_from_skill(skill: dict, role: str) -> StrategyCard:
         path = str(skill.get("path", ""))
-        meta, body = (
-            SemanticMemory._read_skill_file(Path(path))
-            if path
-            else ({}, str(skill.get("body", "")))
-        )
+        meta, body = SemanticMemory._read_skill_file(Path(path)) if path else ({}, str(skill.get("body", "")))
         raw_body = str(skill.get("body") or body)
-        body_description, body_content = SemanticMemory._split_description_line(raw_body)
-        description = str(skill.get("description") or meta.get("description") or body_description)
-        if not description:
-            description = SemanticMemory._extract_description(body_content)
+        description = str(skill.get("description") or meta.get("description") or extract_description(raw_body))
         return StrategyCard(
             id=str(skill.get("skill_id") or meta.get("skill_id") or Path(path).stem),
             role=str(meta.get("prompt_role_key") or role),
             description=SemanticMemory._ensure_description_format(description),
-            content=body_content,
-            weight=SemanticMemory._float(
-                meta.get("weight", skill.get("weight", 1.0)), default=1.0
-            ),
+            content=raw_body,
+            weight=SemanticMemory._float(meta.get("weight", skill.get("weight", 1.0)), default=1.0),
             win_count=SemanticMemory._int(meta.get("win_count", 0), default=0),
             use_count=SemanticMemory._int(meta.get("use_count", 0), default=0),
             created_at=str(meta.get("created_at", "")),
@@ -250,10 +216,7 @@ class SemanticMemory:
             "created_at": meta.get("created_at") or card.created_at or SemanticMemory._now(),
             "updated_at": card.updated_at or SemanticMemory._now(),
         })
-        body_parts: list[str] = []
-        if card.description and not SemanticMemory._extract_when_to_use(card.content):
-            body_parts.extend([f"描述：{card.description}", ""])
-        body_parts.append(card.content.strip())
+        body_parts = [f"描述：{card.description}", "", card.content.strip()]
         return render_frontmatter_markdown(meta, "\n".join(body_parts))
 
     def _write_skill_card(self, card: StrategyCard) -> StrategyCard:
@@ -300,16 +263,9 @@ class SemanticMemory:
 
     @staticmethod
     def _split_description_line(content: str) -> tuple[str, str]:
+        from llm_werewolf.agent_team.skill_support.skill_markdown import split_description_line
+
         return split_description_line(content)
-
-    @classmethod
-    def _extract_description(cls, content: str) -> str:
-        return extract_description(content)
-
-    @staticmethod
-    def _extract_when_to_use(content: str) -> str:
-        """Extract the first useful line from a Skill markdown '何时使用' section."""
-        return extract_when_to_use(content)
 
     @staticmethod
     def _ensure_description_format(text: str) -> str:
@@ -318,12 +274,10 @@ class SemanticMemory:
     def _call_llm(self, prompt: str, max_tokens: int = 10) -> str:
         if self._compressor is None:
             raise RuntimeError("No LLM compressor configured")
-        return self._compressor._call_llm_text(prompt, max_tokens=max_tokens)
+        return self._compressor.call_llm_text(prompt, max_tokens=max_tokens)
 
-    def find_similar_card(
-        self, role: str, content: str, threshold: float = 0.78
-    ) -> StrategyCard | None:
-        description = self._extract_description(content)
+    def find_similar_card(self, role: str, content: str, threshold: float = 0.78) -> StrategyCard | None:
+        description = extract_description(content)
         existing_cards = self._retrieve_all_for_role(role)
         if not existing_cards:
             return None
@@ -331,7 +285,7 @@ class SemanticMemory:
         if self._compressor is not None:
             options = []
             for idx, card in enumerate(existing_cards, start=1):
-                card_description = card.description or self._extract_description(card.content)
+                card_description = card.description or extract_description(card.content)
                 options.append(f"{idx}. {card_description}")
             prompt = (
                 f"新经验的触发条件：{description}\n\n"
@@ -346,25 +300,24 @@ class SemanticMemory:
                     return None
                 match = re.search(r"\d+", response)
                 if match is None:
-                    return self._find_similar_by_sequence_matcher(
-                        description, existing_cards, threshold
-                    )
+                    return self._find_similar_by_sequence_matcher(description, existing_cards, threshold)
                 idx = int(match.group(0)) - 1
                 if 0 <= idx < len(existing_cards):
                     return existing_cards[idx]
-            except (Exception, ValueError):
-                pass
+            except Exception:
+                logger.debug("LLM similarity match failed, falling back to sequence matcher", exc_info=True)
         return self._find_similar_by_sequence_matcher(description, existing_cards, threshold)
 
     def _find_similar_by_sequence_matcher(
-        self, description: str, existing_cards: list[StrategyCard], threshold: float = 0.78
+        self,
+        description: str,
+        existing_cards: list[StrategyCard],
+        threshold: float = 0.78,
     ) -> StrategyCard | None:
         best_match: StrategyCard | None = None
         best_score = 0.0
         for existing in existing_cards:
-            existing_description = existing.description or self._extract_description(
-                existing.content
-            )
+            existing_description = existing.description or extract_description(existing.content)
             score = self._similarity(existing_description, description)
             if score >= threshold and score > best_score:
                 best_match = existing

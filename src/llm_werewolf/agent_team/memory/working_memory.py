@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from collections import deque
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from llm_werewolf.agent_team.memory.base import CompressorProtocol
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -24,7 +31,7 @@ class WorkingMemory:
         max_rounds: int = 5,
         max_dynamic_items: int = 20,
         max_persistent_chars: int = 4000,
-        compressor: object | None = None,
+        compressor: CompressorProtocol | None = None,
     ):
         self._persistent: list[MemoryItem] = []
         self._dynamic: list[MemoryItem] = []
@@ -113,6 +120,8 @@ class WorkingMemory:
 
     def _compress_dynamic(self) -> str:
         """压缩当前轮动态信息。有 LLM 压缩器时用语义压缩，否则用规则式摘要。"""
+        from llm_werewolf.agent_team.memory.llm_compressor import fallback_compress
+
         round_label = self._current_round + 1
         if not self._dynamic:
             return f"第{round_label}轮：无重要事件"
@@ -122,18 +131,6 @@ class WorkingMemory:
                 compressed = self._compressor.compress(self._dynamic)
                 return f"第{round_label}轮：{compressed}"
             except Exception:
-                pass
+                logger.warning("Working memory LLM compression failed, using fallback", exc_info=True)
 
-        decisions = [item for item in self._dynamic if item.tag == "decision"]
-        speeches = [item for item in self._dynamic if item.tag == "speech"]
-        events = [item for item in self._dynamic if item.tag == "event"]
-        summary_parts: list[str] = []
-        if decisions:
-            summary_parts.append(f"做了{len(decisions)}个决策")
-        if speeches:
-            summary_parts.append(f"听到{len(speeches)}段发言")
-        if events:
-            summary_parts.append(f"记录了{len(events)}条事件")
-        if not summary_parts:
-            summary_parts.append(f"保留了{len(self._dynamic)}条动态信息")
-        return f"第{round_label}轮：{'，'.join(summary_parts)}"
+        return f"第{round_label}轮：{fallback_compress(self._dynamic, separator='，')}"

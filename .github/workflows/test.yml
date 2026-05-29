@@ -1,6 +1,9 @@
 name: Tests
 
+# Re-run by pushing any change under .github/workflows/
+
 on:
+  workflow_dispatch:
   push:
     branches:
       - main

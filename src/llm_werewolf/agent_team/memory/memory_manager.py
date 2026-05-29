@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from llm_werewolf.agent_team.memory.base import SemanticBackend
+from llm_werewolf.agent_team.memory.base import CompressorProtocol, SemanticBackend
 from llm_werewolf.agent_team.memory.config import MemoryConfig
-from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory, _KEY_EVENT_TYPES
+from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory, KEY_EVENT_TYPES
 from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
 from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
 from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
+from llm_werewolf.agent_team.skill_support.skill_markdown import extract_description
 from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
 from llm_werewolf.game_runtime.roles.registry import get_werewolf_roles
 
@@ -25,7 +26,7 @@ class MemoryManager:
         plan_name: str = "default",
         config: MemoryConfig | None = None,
         semantic_backend: SemanticBackend | None = None,
-        compressor: object | None = None,
+        compressor: CompressorProtocol | None = None,
     ):
         self.config = config or MemoryConfig()
         self.player_id = player_id
@@ -76,7 +77,7 @@ class MemoryManager:
             for candidate in self.extract_semantic_candidates(won):
                 self.semantic.add_or_merge_card(self.role, candidate)
         if self._semantic_enabled():
-            self.semantic.decay_all(self.role, self._max_cards_for_role(self.role))
+            self.semantic.evict_excess(self.role, self._max_cards_for_role(self.role))
 
     def get_context_for_decision(self) -> str:
         """Return memory context for private decision prompts."""
@@ -114,7 +115,7 @@ class MemoryManager:
             return
         event_type = getattr(event, "event_type", None)
         message = getattr(event, "message", "")
-        if event_type in _KEY_EVENT_TYPES and message:
+        if event_type in KEY_EVENT_TYPES and message:
             event_key = self._event_key(event)
             if event_key in self._seen_event_keys:
                 return
@@ -149,7 +150,7 @@ class MemoryManager:
 
     def _inject_semantic_context(self, role: str) -> None:
         for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
-            description = card.description or self.semantic._extract_description(card.content)
+            description = card.description or extract_description(card.content)
             self.working.add_persistent(f"[经验] {description}", tag="semantic")
             self._used_card_ids.append(card.id)
 
@@ -202,8 +203,9 @@ class MemoryManager:
         if compressor is None:
             return []
         try:
-            response = compressor._call_llm_text("\n".join(lines), max_tokens=300)
+            response = compressor.call_llm_text("\n".join(lines), max_tokens=300)
         except Exception:
+            logger.warning("Semantic candidate extraction via LLM failed", exc_info=True)
             response = ""
         candidates = []
         for raw_line in response.splitlines():

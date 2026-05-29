@@ -10,6 +10,7 @@ __all__ = [
     "ProceduralMemory",
     "PromptAgentMixin",
     "SemanticMemory",
+    "skill_loader",
     "WorkingMemory",
     "configure_agents_for_players",
     "create_react_agent",
@@ -36,6 +37,10 @@ def __getattr__(name: str):
         from llm_werewolf.agent_team import memory
 
         return getattr(memory, name)
+    if name == "skill_loader":
+        from llm_werewolf.agent_team.skill_support import skill_loader
+
+        return skill_loader
     if name == "PromptAgentMixin":
         from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
 

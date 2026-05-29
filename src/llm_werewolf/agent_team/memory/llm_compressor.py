@@ -1,12 +1,9 @@
-"""工作记忆 LLM 语义压缩器。
-
-用 OpenAI 兼容端点将本轮动态记忆压缩为 2-3 句摘要。
-不依赖 ReMe，不处理语义记忆。
-"""
+"""Working-memory LLM compressor with retry and fallback behavior."""
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -16,19 +13,46 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MAX_RETRIES = 3
+_INITIAL_BACKOFF_SECONDS = 0.5
+_WARNING_INTERVAL = 5
+
 _PROMPT_TEMPLATE = (
     "请将以下狼人杀本轮动态记忆压缩为 2-3 句中文摘要。\n"
     "必须保留：\n"
-    "1. 谁说了什么关键判断\n"
-    "2. 谁投票/被投票/死亡/使用技能\n"
+    "1. 谁说了什么关键信息\n"
+    "2. 谁投票、被投票、死亡或使用技能\n"
     "3. 我的关键决策和理由\n"
     "4. 不要引入未出现的信息\n\n"
     "{grouped_content}"
 )
 
 
+def fallback_compress(items: list[MemoryItem], separator: str = "；") -> str:
+    """Rule-based compression by counting items per tag.
+
+    Shared by LLMCompressor (primary fallback) and WorkingMemory (when no
+    compressor is configured).  ``separator` controls the join character so
+    callers can match their surrounding formatting conventions.
+    """
+    decisions = [item for item in items if item.tag == "decision"]
+    speeches = [item for item in items if item.tag == "speech"]
+    events = [item for item in items if item.tag == "event"]
+
+    parts: list[str] = []
+    if decisions:
+        parts.append(f"做了{len(decisions)}个决策")
+    if speeches:
+        parts.append(f"听到{len(speeches)}段发言")
+    if events:
+        parts.append(f"记录了{len(events)}条事件")
+    if not parts:
+        parts.append(f"保留了{len(items)}条动态信息")
+    return separator.join(parts)
+
+
 class LLMCompressor:
-    """用 LLM API 压缩工作记忆动态区。"""
+    """Use an OpenAI-compatible endpoint to compress working memory."""
 
     def __init__(
         self,
@@ -41,31 +65,34 @@ class LLMCompressor:
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
-        self._warned_failure = False
+        self._failure_count = 0
 
     def compress(self, items: list[MemoryItem]) -> str:
         if not items:
-            return "无重要事件"
+            return "无重要事件。"
         if not self._api_key or not self._base_url:
-            return self._fallback_compress(items)
+            return fallback_compress(items)
         try:
-            return self._call_llm(items)
+            compressed = self._call_llm(items)
         except Exception as exc:
-            if not self._warned_failure:
+            self._failure_count += 1
+            if self._failure_count == 1 or self._failure_count % _WARNING_INTERVAL == 0:
                 logger.warning(
-                    "LLM compression failed, using fallback: %s: %s",
+                    "LLM compression failed %s time(s), using fallback: %s: %s",
+                    self._failure_count,
                     type(exc).__name__,
                     exc,
                 )
-                self._warned_failure = True
-            return self._fallback_compress(items)
+            return fallback_compress(items)
+        self._failure_count = 0
+        return compressed
 
     def _call_llm(self, items: list[MemoryItem]) -> str:
         grouped = self._group_items(items)
         prompt = _PROMPT_TEMPLATE.format(grouped_content=grouped)
-        return self._call_llm_text(prompt, max_tokens=300)
+        return self.call_llm_text(prompt, max_tokens=300)
 
-    def _call_llm_text(self, prompt: str, max_tokens: int = 300) -> str:
+    def call_llm_text(self, prompt: str, max_tokens: int = 300) -> str:
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
@@ -76,15 +103,27 @@ class LLMCompressor:
             "max_tokens": max_tokens,
             "temperature": 0.2,
         }
-        resp = httpx.post(
-            f"{self._base_url}/chat/completions",
-            json=payload,
-            headers=headers,
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+
+        last_error: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                resp = httpx.post(
+                    f"{self._base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=self._timeout,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"].strip()
+            except Exception as exc:
+                last_error = exc
+                if attempt == _MAX_RETRIES - 1:
+                    break
+                time.sleep(_INITIAL_BACKOFF_SECONDS * (2**attempt))
+
+        assert last_error is not None
+        raise last_error
 
     @staticmethod
     def _group_items(items: list[MemoryItem]) -> str:
@@ -107,17 +146,3 @@ class LLMCompressor:
         if groups["other"]:
             parts.append("【其他信息】" + "；".join(groups["other"]))
         return "\n".join(parts)
-
-    @staticmethod
-    def _fallback_compress(items: list[MemoryItem]) -> str:
-        decisions = [i for i in items if i.tag == "decision"]
-        speeches = [i for i in items if i.tag == "speech"]
-        events = [i for i in items if i.tag == "event"]
-        parts: list[str] = []
-        if decisions:
-            parts.append(f"做了{len(decisions)}个决策")
-        if speeches:
-            parts.append(f"听到{len(speeches)}段发言")
-        if events:
-            parts.append(f"记录了{len(events)}条事件")
-        return "，".join(parts) if parts else f"保留了{len(items)}条动态信息"

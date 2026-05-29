@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import Event, EventType
 
-_KEY_EVENT_TYPES = {
+KEY_EVENT_TYPES = {
     EventType.VOTE_CAST,
     EventType.VOTE_RESULT,
     EventType.PLAYER_DIED,
@@ -62,7 +62,7 @@ class EpisodicMemory:
 
     def get_global_key_events(self) -> list[Event]:
         """返回全局关键决策和结果事件。"""
-        return [e for e in self._logger.events if e.event_type in _KEY_EVENT_TYPES]
+        return [e for e in self._logger.events if e.event_type in KEY_EVENT_TYPES]
 
     def get_thought_events(
         self,
@@ -87,7 +87,7 @@ class EpisodicMemory:
     def get_key_events(self, player_id: str) -> list[Event]:
         """返回某玩家可见的关键决策和结果事件。"""
         all_events = self._logger.get_events_for_player(player_id)
-        return [event for event in all_events if event.event_type in _KEY_EVENT_TYPES]
+        return [event for event in all_events if event.event_type in KEY_EVENT_TYPES]
 
     # ── 摘要与导出 ──
 
@@ -110,7 +110,7 @@ class EpisodicMemory:
             for event in self.get_player_timeline(player_id, since_round=round_number)
             if event.round_number == round_number
         ]
-        key_events = [event.message for event in events if event.event_type in _KEY_EVENT_TYPES]
+        key_events = [event.message for event in events if event.event_type in KEY_EVENT_TYPES]
         decision_events = [
             event.message
             for event in events

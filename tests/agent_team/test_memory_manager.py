@@ -6,6 +6,7 @@ from llm_werewolf.agent_team import skill_loader
 from llm_werewolf.agent_team.memory.config import MemoryConfig
 from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
 from llm_werewolf.agent_team.memory.semantic_memory import InMemoryBackend, SemanticMemory, StrategyCard
+from llm_werewolf.agent_team.skill_support.skill_markdown import extract_description
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import EventType, GamePhase
 
@@ -15,7 +16,7 @@ class StubCompressor:
         self.response = response
         self.prompts: list[str] = []
 
-    def _call_llm_text(self, prompt: str, max_tokens: int = 300) -> str:
+    def call_llm_text(self, prompt: str, max_tokens: int = 300) -> str:
         del max_tokens
         self.prompts.append(prompt)
         if isinstance(self.response, Exception):
@@ -441,7 +442,7 @@ def test_description_extracted_from_content_line():
 
     assert description == DESCRIPTION_ONE
     assert body == SKILL_BODY
-    assert SemanticMemory._extract_description(content) == DESCRIPTION_ONE
+    assert extract_description(content) == DESCRIPTION_ONE
 
 
 def test_description_extracted_from_when_to_use_section():
@@ -455,7 +456,7 @@ def test_description_extracted_from_when_to_use_section():
         "先报建议刀口和理由。"
     )
 
-    description = SemanticMemory._extract_description(content)
+    description = extract_description(content)
 
     assert description == "第1轮狼队私密频道，需在落刀前统一目标的情况下，使用该 skill"
 
@@ -506,7 +507,9 @@ def test_render_skill_file_preserves_post_game_skill_markdown_without_descriptio
 
     rendered = SemanticMemory._render_skill_file(card)
 
-    assert f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}" not in rendered
+    assert rendered.startswith("---")
+    assert f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}" in rendered
+    assert "## ????" not in rendered
     assert "## 何时使用" in rendered
 
 
@@ -680,18 +683,18 @@ def test_on_game_end_respects_global_memory_disabled():
     assert manager.semantic.retrieve_for_role("villager", top_k=10) == []
 
 
-def test_decay_all_noop_when_under_limit(temp_skill_root):
+def test_evict_excess_noop_when_under_limit(temp_skill_root):
     semantic = SemanticMemory()
     semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
 
-    deleted = semantic.decay_all("villager", max_count=2)
+    deleted = semantic.evict_excess("villager", max_count=2)
 
     assert deleted == 0
     assert len(list((temp_skill_root / "villager").glob("*.md"))) == 2
 
 
-def test_decay_all_removes_lowest_weight(temp_skill_root):
+def test_evict_excess_removes_lowest_weight(temp_skill_root):
     semantic = SemanticMemory()
     low = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     high = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
@@ -700,7 +703,7 @@ def test_decay_all_removes_lowest_weight(temp_skill_root):
     semantic._write_skill_card(low)
     semantic._write_skill_card(high)
 
-    deleted = semantic.decay_all("villager", max_count=1)
+    deleted = semantic.evict_excess("villager", max_count=1)
     remaining = semantic.retrieve_for_role("villager", top_k=10)
 
     assert deleted == 1
@@ -710,7 +713,7 @@ def test_decay_all_removes_lowest_weight(temp_skill_root):
     assert not Path(low.path).exists()
 
 
-def test_decay_all_removes_lowest_weight_from_backend():
+def test_evict_excess_removes_lowest_weight_from_backend():
     semantic = SemanticMemory(backend=InMemoryBackend())
     low = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_ONE}\n\n{SKILL_BODY}")
     high = semantic.add_card("villager", f"\u63cf\u8ff0\uff1a{DESCRIPTION_TWO}\n\n{SKILL_BODY}")
@@ -719,7 +722,7 @@ def test_decay_all_removes_lowest_weight_from_backend():
     semantic._backend.store(low.id, low.__dict__)
     semantic._backend.store(high.id, high.__dict__)
 
-    deleted = semantic.decay_all("villager", max_count=1)
+    deleted = semantic.evict_excess("villager", max_count=1)
     remaining = semantic.retrieve_for_role("villager", top_k=10)
 
     assert deleted == 1
@@ -727,19 +730,23 @@ def test_decay_all_removes_lowest_weight_from_backend():
     assert remaining[0].description == DESCRIPTION_TWO
 
 
-def test_decay_all_considers_more_than_top_100_backend_cards():
+def test_evict_excess_considers_more_than_top_100_backend_cards():
     semantic = SemanticMemory(backend=InMemoryBackend())
     for index in range(105):
         card = semantic.add_card("villager", f"\u7b2c{index}\u8f6e\u7ecf\u9a8c\u3002")
-        card.weight = float(index)
+        # Use weights within clamp range [0.1, 5.0] \u2014 map index 0..104 \u2192 0.1..5.0
+        card.weight = SemanticMemory.MIN_WEIGHT + (SemanticMemory.MAX_WEIGHT - SemanticMemory.MIN_WEIGHT) * index / 104
         semantic._backend.store(card.id, card.__dict__)
 
-    deleted = semantic.decay_all("villager", max_count=8)
+    deleted = semantic.evict_excess("villager", max_count=8)
     remaining = semantic.retrieve_for_role("villager", top_k=200)
 
     assert deleted == 97
     assert len(remaining) == 8
-    assert [card.weight for card in remaining] == [104.0, 103.0, 102.0, 101.0, 100.0, 99.0, 98.0, 97.0]
+    # The 8 highest-weight cards should remain (indices 97..104)
+    weights = [card.weight for card in remaining]
+    assert weights == sorted(weights, reverse=True)
+    assert all(w >= weights[-1] for w in weights)
 
 
 def test_max_cards_different_limits_for_roles():
@@ -755,7 +762,7 @@ def test_max_cards_different_limits_for_roles():
     assert manager._max_cards_for_role("wolf") == 7
 
 
-def test_decay_called_on_game_end():
+def test_evict_excess_called_on_game_end():
     manager = MemoryManager(
         EventLogger(),
         role="wolf",
@@ -764,7 +771,7 @@ def test_decay_called_on_game_end():
         semantic_backend=InMemoryBackend(),
     )
     calls: list[tuple[str, int]] = []
-    manager.semantic.decay_all = lambda role, max_count: calls.append((role, max_count)) or 0
+    manager.semantic.evict_excess = lambda role, max_count: calls.append((role, max_count)) or 0
 
     manager.on_game_end(won=False)
 

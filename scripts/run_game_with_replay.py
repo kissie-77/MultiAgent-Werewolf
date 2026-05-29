@@ -24,24 +24,13 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 
+from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscope_after_setup, create_information_hub
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.ui.console_presenter import ConsolePresenter
-
-
-def _event_to_dict(event) -> dict:
-    return {
-        "event_type": event.event_type.value,
-        "timestamp": event.timestamp.isoformat(),
-        "round_number": event.round_number,
-        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
-        "message": event.message,
-        "data": event.data,
-        "visible_to": event.visible_to,
-    }
 
 
 async def run(config_path: Path, run_dir: Path) -> None:
@@ -69,7 +58,7 @@ async def run(config_path: Path, run_dir: Path) -> None:
     events_path = run_dir / "events.jsonl"
     with events_path.open("w", encoding="utf-8") as fh:
         for event in engine.event_logger.events:
-            fh.write(json.dumps(_event_to_dict(event), ensure_ascii=False) + "\n")
+            fh.write(json.dumps(event_to_dict(event), ensure_ascii=False) + "\n")
 
     replay_md = run_dir / "game_replay.md"
     lines = [

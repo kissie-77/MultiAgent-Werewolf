@@ -1,38 +1,47 @@
-# This workflow finds which files were changed, prints them,
-# and runs `pre-commit` on those files.
-
-# Inspired by the sktime library:
-# https://github.com/alan-turing-institute/sktime/blob/main/.github/workflows/test.yml
-
 name: Code Quality Check
 
 on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
 
-permissions: write-all
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.11.15"
 
 jobs:
   code-quality-check:
-    name: Code Quality Check
+    name: Pre-commit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "latest"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: true
 
-      - name: Run pre-commits
-        run: |
-          uv tool install pre-commit
-          uv tool run pre-commit run -a
+      - name: Install dev tools
+        run: uv sync --frozen --group dev
+
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure

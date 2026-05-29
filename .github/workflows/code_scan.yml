@@ -5,24 +5,31 @@ on:
     branches:
       - main
       - master
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
 
-permissions: write-all
+concurrency:
+  group: scan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   secret-scanning:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: GitLeaks Scanning
         uses: gitleaks/gitleaks-action@v2.3.9
@@ -37,41 +44,39 @@ jobs:
   codeql-scanning:
     name: CodeQL Scanning
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: CodeQL Initialize
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@v4.32.6
+        with:
+          languages: python
 
-      - name: CodeQL Analyze
+      - name: Analyze with CodeQL
         uses: github/codeql-action/analyze@v4.32.6
 
   trivy-scanning:
     name: Trivy Scanning
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@v0.2.6
 
-      - name: Trivy Scanning
+      - name: Trivy SARIF report
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
@@ -82,18 +87,17 @@ jobs:
           severity: HIGH,CRITICAL
           skip-setup-trivy: true
 
-      - name: Trivy Scanning Result
+      - name: Trivy table (fail on CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           ignore-unfixed: true
           format: table
-          exit-code: 0
-          severity: HIGH,CRITICAL
+          exit-code: 1
+          severity: CRITICAL
           skip-setup-trivy: true
 
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@v4.32.6
         with:
-          # Path to SARIF file relative to the root of the repository
           sarif_file: trivy-results.sarif

@@ -4,7 +4,6 @@ __all__ = [
     "AgentScopeWerewolfAgent",
     "BaseAgent",
     "DemoAgent",
-    "HumanAgent",
     "MemoryConfig",
     "MemoryManager",
     "ProceduralMemory",
@@ -22,7 +21,7 @@ def __getattr__(name: str):
         from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
         return AgentScopeWerewolfAgent
-    if name in {"BaseAgent", "DemoAgent", "HumanAgent", "create_agent"}:
+    if name in {"BaseAgent", "DemoAgent", "create_agent"}:
         from llm_werewolf.agent_team.agents import base
 
         return getattr(base, name)

@@ -8,6 +8,7 @@ on:
       - release/*
     paths-ignore:
       - "**/*.md"
+      - "docs/**"
   pull_request:
     branches:
       - main
@@ -15,73 +16,68 @@ on:
       - release/*
     paths-ignore:
       - "**/*.md"
+      - "docs/**"
 
-permissions: write-all
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  UV_VERSION: "0.11.15"
 
 jobs:
   run_tests:
-    name: Run Tests
+    name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    if: ${{ !(startsWith(github.head_ref, 'chore/') || startsWith(github.head_ref, 'ci/') || startsWith(github.head_ref, 'docs/')) }}
+    if: >-
+      github.event_name != 'pull_request' ||
+      !(
+        startsWith(github.head_ref, 'chore/') ||
+        startsWith(github.head_ref, 'ci/') ||
+        startsWith(github.head_ref, 'docs/')
+      )
 
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
         python-version:
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
 
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "latest"
+          version: ${{ env.UV_VERSION }}
           python-version: ${{ matrix.python-version }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          enable-cache: true
 
       - name: Install dependencies
         run: |
           uv python pin ${{ matrix.python-version }}
-          uv sync --group test
-
-      - name: Check for tests
-        id: check_tests
-        run: |
-          if [ -f tests/test_*.py ] || [ -d tests ]; then
-              echo "Tests exist, proceeding to run them."
-              echo "has_tests=true" >> $GITHUB_OUTPUT
-          else
-              echo "No tests to run."
-              echo "has_tests=false" >> $GITHUB_OUTPUT
-          fi
+          uv sync --frozen --group test
 
       - name: Run pytest
-        if: ${{ steps.check_tests.outputs.has_tests == 'true' }}
-        run: |
-          uv run pytest -vv | tee .coverage.txt
+        run: uv run pytest -vv | tee .coverage.txt
 
       - name: Pytest coverage comment
-        if: ${{ steps.check_tests.outputs.has_tests == 'true' }}
-        uses: MishaKav/pytest-coverage-comment@main
+        if: github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@v1
         with:
           pytest-coverage-path: ./.coverage.txt
           junitxml-path: ./.github/reports/.coverage.pytest.xml
           pytest-xml-coverage-path: ./.github/reports/coverage.xml
-          unique-id-for-comment: ${{ matrix.python-version }}-${{ matrix.os }}
-          title: Coverage for Python ${{ matrix.python-version }} on ${{ matrix.os }}
+          unique-id-for-comment: ${{ matrix.python-version }}
+          title: Coverage for Python ${{ matrix.python-version }}
           hide-emoji: true

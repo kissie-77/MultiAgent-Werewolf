@@ -10,6 +10,19 @@ from llm_werewolf.game_runtime.types import Event
 from llm_werewolf.game_runtime.types.enums import EventType, GamePhase
 
 
+def event_to_dict(event: Any) -> dict[str, Any]:
+    """Serialize a game_runtime Event for events.jsonl export."""
+    return {
+        "event_type": event.event_type.value,
+        "timestamp": event.timestamp.isoformat(),
+        "round_number": event.round_number,
+        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
+        "message": event.message,
+        "data": event.data,
+        "visible_to": event.visible_to,
+    }
+
+
 def event_from_dict(raw: dict[str, Any]) -> Event | None:
     """将 events.jsonl 单行 dict 转为 Event；无法解析时返回 None。"""
     try:

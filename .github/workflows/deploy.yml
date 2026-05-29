@@ -1,19 +1,21 @@
 name: Publish GitHub Pages
 
 on:
-  workflow_dispatch:  # Manual trigger only - enable Pages in repo settings first
+  workflow_dispatch:
+  # Disabled until mkdocs.yml and Makefile are added.
 
-permissions: write-all
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   deploy:
     name: Deploy
+    if: false
     runs-on: ubuntu-latest
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
         with:

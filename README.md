@@ -39,14 +39,14 @@ cp .env.example .env
 cp configs/example.yaml configs/my_game.yaml
 ```
 
-3. 编辑 `configs/my_game.yaml` 与 `.env`（YAML 里用 `api_key_env` 引用环境变量名）：
+3. 编辑 `configs/my_game.yaml` 与 `.env`（YAML 里用 `api_key_env` / `model_env` 引用环境变量名，密钥与接入点 ID 只写进 `.env`）：
 
 ```yaml
 language: en-US
 
 players:
   - name: Player1
-    model: your-model-name        # 如 qwen3.5-plus, deepseek-chat, gpt-4o 等
+    model: your-model-name        # 或直接写 model_env: ARK_EP（Doubao）
     base_url: https://your-api-url/v1
     api_key_env: OPENAI_API_KEY     # 对应 .env 中的变量名
   # ... 6-20 个玩家

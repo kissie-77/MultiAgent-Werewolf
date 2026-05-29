@@ -8,20 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
+from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 
 logger = logging.getLogger(__name__)
-
-
-def _event_to_dict(event: Any) -> dict:
-    return {
-        "event_type": event.event_type.value,
-        "timestamp": event.timestamp.isoformat(),
-        "round_number": event.round_number,
-        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
-        "message": event.message,
-        "data": event.data,
-        "visible_to": event.visible_to,
-    }
 
 
 def persist_run_artifacts(engine: Any, run_dir: Path) -> None:
@@ -32,7 +21,7 @@ def persist_run_artifacts(engine: Any, run_dir: Path) -> None:
     if not events_path.is_file() and hasattr(engine, "event_logger"):
         with events_path.open("w", encoding="utf-8") as fh:
             for event in engine.event_logger.events:
-                fh.write(json.dumps(_event_to_dict(event), ensure_ascii=False) + "\n")
+                fh.write(json.dumps(event_to_dict(event), ensure_ascii=False) + "\n")
 
     state = getattr(engine, "game_state", None)
     if state is not None and state.vote_intention_tracker is not None:

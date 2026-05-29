@@ -31,6 +31,7 @@ if str(SRC_PATH) not in sys.path:
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.state.serialization import serialize_game_state
 from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.interface.bootstrap import (
     create_information_hub,
     prepare_game_roster,
@@ -52,16 +53,10 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
-def _event_to_dict(event: Any) -> dict[str, Any]:
-    return {
-        "event_type": event.event_type.value,
-        "timestamp": event.timestamp.isoformat(),
-        "round_number": event.round_number,
-        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
-        "message": event.message,
-        "data": _jsonable(event.data),
-        "visible_to": event.visible_to,
-    }
+def _serialize_event(event: Any) -> dict[str, Any]:
+    row = event_to_dict(event)
+    row["data"] = _jsonable(event.data)
+    return row
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -181,7 +176,7 @@ async def _run_one(
 
     with (run_dir / "events.jsonl").open("w", encoding="utf-8") as fh:
         for event in events:
-            fh.write(json.dumps(_event_to_dict(event), ensure_ascii=False) + "\n")
+            fh.write(json.dumps(_serialize_event(event), ensure_ascii=False) + "\n")
 
     if state is not None:
         _write_json(run_dir / "final_snapshot.json", serialize_game_state(state))

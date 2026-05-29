@@ -10,6 +10,7 @@ from typing import Any
 from llm_werewolf.game_runtime.roles.registry import build_catalog_to_runtime_map
 from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG, get_definition
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 
 
 def _runtime_role_camp_map() -> dict[str, str]:
@@ -276,7 +277,7 @@ def load_run_context(
 
     if engine is not None and hasattr(engine, "event_logger"):
         if not events and engine.event_logger.events:
-            events = [_event_to_dict(e) for e in engine.event_logger.events]
+            events = [event_to_dict(e) for e in engine.event_logger.events]
 
     from llm_werewolf.evaluation.core.vote_swing_analysis import ensure_vote_intentions_jsonl
 
@@ -307,18 +308,6 @@ def load_run_context(
         game_result_text=game_result_text,
         prompt_version=prompt_version,
     )
-
-
-def _event_to_dict(event: Any) -> dict[str, Any]:
-    return {
-        "event_type": event.event_type.value,
-        "timestamp": event.timestamp.isoformat(),
-        "round_number": event.round_number,
-        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
-        "message": event.message,
-        "data": event.data,
-        "visible_to": event.visible_to,
-    }
 
 
 def target_id_to_camp(target_id: str | None, roster: dict[str, PlayerRosterEntry]) -> str | None:

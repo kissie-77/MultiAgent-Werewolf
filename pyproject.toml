@@ -67,13 +67,10 @@ dependencies = [
     "agentscope>=1.0.20",
     "fire>=0.7.1",
     "logfire>=4.27.0",
-    "onnxruntime<1.20",
     "openai>=2.26.0",
     "pydantic>=2.12.5",
-    "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
-    "reme-ai>=0.3.1.9",
     "rich>=14.3.3",
     "textual>=8.0.2",
 ]

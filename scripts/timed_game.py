@@ -283,30 +283,16 @@ async def run_timed_game(
     return report
 
 
-def _event_to_dict(event: Any) -> dict[str, Any]:
-    """与 finalize_run._event_to_dict 一致的事件序列化。"""
-    phase = getattr(event, "phase", None)
-    etype = getattr(event, "event_type", None)
-    ts = getattr(event, "timestamp", None)
-    return {
-        "event_type": getattr(etype, "value", str(etype)),
-        "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else None,
-        "round_number": getattr(event, "round_number", None),
-        "phase": getattr(phase, "value", str(phase)),
-        "message": getattr(event, "message", None),
-        "data": getattr(event, "data", None),
-        "visible_to": getattr(event, "visible_to", None),
-    }
-
-
 def _dump_transcript(engine: Any, path: Path) -> None:
+    from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
+
     logger = getattr(engine, "event_logger", None)
     if logger is None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
         for event in getattr(logger, "events", []):
-            fh.write(json.dumps(_event_to_dict(event), ensure_ascii=False) + "\n")
+            fh.write(json.dumps(event_to_dict(event), ensure_ascii=False) + "\n")
 
 
 def main() -> None:

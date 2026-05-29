@@ -2,13 +2,9 @@ import random
 import re
 
 from pydantic import BaseModel, Field
-from rich.console import Console
 
 from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
 from llm_werewolf.game_runtime.config import PlayerConfig
-
-
-console = Console()
 
 
 class BaseAgent(BaseModel):
@@ -83,14 +79,6 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
         return random.choice(responses)  # noqa: S311
 
 
-class HumanAgent(BaseAgent):
-    model: str = Field(default="human")
-
-    async def get_response(self, message: str) -> str:
-        console.print(f"\n{message}")
-        return input("请输入: ")
-
-
 def create_agent(
     config: PlayerConfig,
     language: str = "zh-CN",
@@ -102,7 +90,6 @@ def create_agent(
     model = config.model.lower()
 
     if model == "human":
-        # 路由到交互式人类 Agent（保留下方旧 HumanAgent 类以兼容历史引用）。
         from llm_werewolf.agent_team.agents.human_interactive_agent import HumanInteractiveAgent
 
         return HumanInteractiveAgent(name=config.name, model="human")

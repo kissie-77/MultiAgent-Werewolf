@@ -10,14 +10,12 @@
 name: Publish Docker image
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    tags:
-      - v*
+  workflow_dispatch:
+  # Disabled until docker/Dockerfile exists. Re-enable push/tags when image assets land.
 
-permissions: write-all
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build_images:
@@ -32,9 +30,6 @@ jobs:
             tag: ghcr.io/${{ github.repository }}
 
     steps:
-      - name: Disable SSL Verify
-        run: git config --global http.sslVerify false
-
       - name: Checkout
         uses: actions/checkout@v6
         with:

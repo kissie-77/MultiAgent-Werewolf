@@ -200,6 +200,32 @@ def _records_from_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return records
 
 
+def ensure_vote_intentions_jsonl(
+    run_dir: str | Path,
+    *,
+    records: list[dict[str, Any]] | None = None,
+    events: list[dict[str, Any]] | None = None,
+) -> bool:
+    """若 vote_intentions.jsonl 缺失或为空，从 tracker 记录或 events 回写。"""
+    path = Path(run_dir) / "vote_intentions.jsonl"
+    if path.is_file() and path.stat().st_size > 0:
+        return True
+
+    rows = list(records or [])
+    if not rows:
+        if events is None:
+            events = _read_jsonl(path.parent / "events.jsonl")
+        rows = _records_from_events(events)
+    if not rows:
+        return False
+
+    path.write_text(
+        "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+        encoding="utf-8",
+    )
+    return True
+
+
 def analyze_path(source: str | Path) -> VoteSwingReport:
     """加载并分析投票意向产物。"""
     return analyze_speech_records(load_speech_records(source))

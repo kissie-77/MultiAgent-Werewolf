@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.agent_team.information_hub import InformationHub
+from llm_werewolf.agent_team.communication.information_hub import InformationHub
 from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
 
 

@@ -21,3 +21,4 @@ def test_runner_writes_artifacts_for_smoke_scenario(tmp_path: Path) -> None:
     assert (game_dir / "events.jsonl").exists()
     assert (game_dir / "snapshots.jsonl").exists()
     assert (game_dir / "checks.json").exists()
+    assert (game_dir / "post_game_manifest.json").exists()

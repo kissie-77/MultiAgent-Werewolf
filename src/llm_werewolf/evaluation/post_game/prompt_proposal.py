@@ -92,21 +92,100 @@ def _proposal_from_bad_case(
     }
 
 
+def _proposal_from_golden_quote(
+    golden: dict[str, Any],
+    ctx: RunContext,
+    *,
+    rank: int,
+) -> dict[str, Any]:
+    speaker_id = str(golden.get("player_id") or "")
+    entry = ctx.roster.get(speaker_id)
+    role_key = (
+        PromptManager.get_prompt_role_key(entry.role_name)
+        if entry and entry.role_name
+        else "villager"
+    )
+    kind = str(golden.get("kind") or "public_persuasion")
+    proposal_kind = "mvp_golden_quote" if kind == "public_persuasion" else "mvp_strategy_highlight"
+    return {
+        "proposal_id": f"mvp_{kind}_r{golden.get('round_number')}_{speaker_id}",
+        "prompt_role_key": role_key,
+        "target_variable": f"{ctx.prompt_version}.role.{role_key}.suggestion",
+        "prompt_version_base": ctx.prompt_version,
+        "status": "draft",
+        "kind": proposal_kind,
+        "priority": rank,
+        "suggested_patch": {
+            "section": "day_speech_strategy" if kind == "public_persuasion" else "night_strategy",
+            "action": "append_guidance",
+            "text_zh": (
+                "参考本局 MVP 公开说服金句：在可见信息内给出明确票型与理由。"
+                if kind == "public_persuasion"
+                else "参考本局 MVP 夜间策略：在狼队频道给出可执行的刀口/集火计划。"
+            ),
+        },
+        "evidence": {
+            "source": "mvp_scores.json",
+            "speaker_id": speaker_id,
+            "round_number": golden.get("round_number"),
+            "excerpt": golden.get("excerpt"),
+            "mvp_score": golden.get("score"),
+            "matched_elimination": golden.get("matched_elimination"),
+            "kill_match_bonus": golden.get("kill_match_bonus"),
+        },
+        "rationale": "来自 MVP 规则评分的金句/策略片段（golden_speech_candidates）。",
+    }
+
+
 def build_prompt_proposals(
     ctx: RunContext,
     camp_report: CampPersuasionReport,
     *,
     llm_notes: str | None = None,
+    mvp_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    proposals: list[dict[str, Any]] = []
+
+    mvp = (mvp_payload or {}).get("mvp") or {}
+    seen_excerpts: set[str] = set()
+    for rank, golden in enumerate(mvp.get("golden_speech_candidates") or [], start=1):
+        excerpt = str(golden.get("excerpt") or "").strip()
+        if not excerpt or excerpt in seen_excerpts:
+            continue
+        seen_excerpts.add(excerpt)
+        proposals.append(
+            _proposal_from_golden_quote(
+                {**golden, "player_id": mvp.get("player_id")},
+                ctx,
+                rank=rank,
+            )
+        )
+        excerpt = str(golden.get("excerpt") or "").strip()
+        if proposals and excerpt:
+            proposals[-1]["suggested_patch"]["text_zh"] = (
+                f"参考 MVP 金句：「{excerpt[:180]}」"
+            )
+
     positive = sorted(
         [s for s in camp_report.speeches if s.camp_aligned_score > 0],
         key=lambda s: s.camp_aligned_score,
         reverse=True,
     )[:8]
 
-    proposals: list[dict[str, Any]] = []
-    for rank, speech in enumerate(positive, start=1):
-        proposals.append(_proposal_from_speech(speech, ctx, rank=rank))
+    seen_proposal_keys: set[str] = set()
+    for rank, speech in enumerate(positive, start=len(proposals) + 1):
+        excerpt = (speech.public_speech or "").strip()[:120]
+        dedupe_key = excerpt or speech.speaker_id
+        if dedupe_key in seen_proposal_keys:
+            continue
+        seen_proposal_keys.add(dedupe_key)
+        proposal = _proposal_from_speech(speech, ctx, rank=rank)
+        proposal["suggested_patch"]["text_zh"] = (
+            f"参考本局发言：「{excerpt}…」"
+            if excerpt
+            else proposal["suggested_patch"]["text_zh"]
+        )
+        proposals.append(proposal)
 
     events = _events_from_dicts(ctx.events)
     if events:
@@ -138,8 +217,14 @@ def write_prompt_proposals(
     camp_report: CampPersuasionReport,
     *,
     llm_notes: str | None = None,
+    mvp_payload: dict[str, Any] | None = None,
 ) -> Path:
-    payload = build_prompt_proposals(ctx, camp_report, llm_notes=llm_notes)
+    payload = build_prompt_proposals(
+        ctx,
+        camp_report,
+        llm_notes=llm_notes,
+        mvp_payload=mvp_payload,
+    )
     path = ctx.run_dir / "prompt_proposals.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path

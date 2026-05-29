@@ -6,14 +6,12 @@ source_run: runs\20260527-204513
 source_player_id: player_11
 camp: villager
 quality_passed: True
-weight: 1.0
+weight: 0.95
 win_count: 0
-use_count: 0
+use_count: 1
 created_at: 2026-05-27T12:45:38+00:00
-updated_at: 2026-05-27T12:45:38+00:00
+updated_at: 2026-05-29T07:16:17+00:00
 ---
-
-描述：第2轮夜间：根据前几轮刀口规律，保护最可能被刀的存活核心。
 
 # 第2轮守卫守护决策
 

@@ -29,9 +29,10 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.serialization import serialize_game_state
+from llm_werewolf.game_runtime.state.serialization import serialize_game_state
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.interface.bootstrap import (
+    create_information_hub,
     prepare_game_roster,
     wire_agentscope_after_setup,
 )
@@ -147,7 +148,11 @@ async def _run_one(
             update={"vote_intention_concurrency": concurrency}
         )
         players, roles, game_config = prepare_game_roster(players_config)
-        engine = GameEngine(game_config, language=players_config.language)
+        engine = GameEngine(
+            game_config,
+            language=players_config.language,
+            information_hub=create_information_hub(),
+        )
         engine.on_event = lambda event: None
         engine.setup_game(players=players, roles=roles)
         wire_agentscope_after_setup(engine, players_config)

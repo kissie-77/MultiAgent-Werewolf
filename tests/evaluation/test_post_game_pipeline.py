@@ -13,6 +13,12 @@ from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_event
 def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
     events = [
         {
+            "event_type": "role_acting",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_2", "role": "Werewolf", "player_name": "B"},
+        },
+        {
             "event_type": "vote_intention_snapshot",
             "round_number": 1,
             "phase": "day_discussion",
@@ -63,12 +69,6 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
             "data": {"player_id": "player_5", "role": "Guard"},
         },
         {
-            "event_type": "player_eliminated",
-            "round_number": 1,
-            "phase": "day_voting",
-            "data": {"player_id": "player_2", "role": "Werewolf"},
-        },
-        {
             "event_type": "game_ended",
             "round_number": 1,
             "phase": "ended",
@@ -102,11 +102,16 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
     assert (tmp_path / "role_skills.json").is_file()
     assert (tmp_path / "intention_scores.json").is_file()
     assert (tmp_path / "benefit_scores.json").is_file()
+    assert (tmp_path / "mvp_scores.json").is_file()
+    assert (tmp_path / "game_quality_report.md").is_file()
+    assert (tmp_path / "post_game_steps.json").is_file()
     assert (tmp_path / "views_manifest.json").is_file()
     skills_payload = json.loads((tmp_path / "role_skills.json").read_text(encoding="utf-8"))
     assert skills_payload["schema"] == "role_skills_v1"
 
     ctx = load_run_context(tmp_path)
     camp = build_camp_persuasion_report(ctx)
-    proposals = build_prompt_proposals(ctx, camp)
-    assert proposals["proposals"][0]["kind"] in {"positive_persuasion", "bad_case_rule"}
+    mvp_payload = json.loads((tmp_path / "mvp_scores.json").read_text(encoding="utf-8"))
+    proposals = build_prompt_proposals(ctx, camp, mvp_payload=mvp_payload)
+    kinds = {p["kind"] for p in proposals["proposals"]}
+    assert kinds & {"positive_persuasion", "bad_case_rule", "mvp_golden_quote", "mvp_strategy_highlight"}

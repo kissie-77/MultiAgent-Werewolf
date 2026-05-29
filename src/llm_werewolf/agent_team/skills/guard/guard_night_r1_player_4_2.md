@@ -6,11 +6,11 @@ source_run: runs/12p-doubao-20260526-143527
 source_player_id: player_4
 camp: villager
 quality_passed: True
-weight: 1.15
+weight: 1.10
 win_count: 0
-use_count: 1
+use_count: 2
 created_at: 2026-05-27T10:56:53+00:00
-updated_at: 2026-05-27T12:45:13+00:00
+updated_at: 2026-05-29T07:16:17+00:00
 ---
 
 # 第1轮守卫守护决策

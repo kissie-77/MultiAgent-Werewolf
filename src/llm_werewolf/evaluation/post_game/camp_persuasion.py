@@ -17,6 +17,7 @@ from llm_werewolf.evaluation.core.vote_swing_analysis import (
     analyze_path,
     format_markdown_report,
 )
+from llm_werewolf.game_runtime.types.enums import Camp
 
 
 @dataclass
@@ -54,6 +55,7 @@ class CampSpeechInfluence:
     camp_aligned_score: int
     matched_round_elimination: bool
     elimination_target_id: str | None = None
+    elimination_drive_swings: int = 0
     swings: list[CampAlignedSwing] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,6 +71,7 @@ class CampSpeechInfluence:
             "camp_aligned_score": self.camp_aligned_score,
             "matched_round_elimination": self.matched_round_elimination,
             "elimination_target_id": self.elimination_target_id,
+            "elimination_drive_swings": self.elimination_drive_swings,
             "swings": [s.to_dict() for s in self.swings],
         }
 
@@ -136,6 +139,45 @@ def _annotate_swings(
     return annotated
 
 
+def _matched_elimination_for_speaker(
+    *,
+    speaker_camp: str | None,
+    elim_target: str | None,
+    elim_target_camp: str | None,
+    camp_swings: list[CampAlignedSwing],
+    drive_count: int,
+) -> bool:
+    """按阵营判断「发言是否推动当轮实际放逐」。"""
+    if not elim_target or drive_count <= 0:
+        return False
+    if speaker_camp == Camp.WEREWOLF.value:
+        return elim_target_camp == Camp.VILLAGER.value
+    if speaker_camp == Camp.VILLAGER.value:
+        if elim_target_camp == Camp.WEREWOLF.value:
+            return True
+        return drive_count >= 1
+    return any(s.to_target_id == elim_target for s in camp_swings)
+
+
+def _persuasion_score_for_speech(
+    *,
+    aligned_count: int,
+    matched_elim: bool,
+    speaker_camp: str | None,
+    drive_count: int,
+    swing_to_final_vote: int = 0,
+) -> int:
+    """阵营感知的公开说服分。"""
+    base = aligned_count * 10
+    if matched_elim:
+        base += 20
+    if speaker_camp == Camp.VILLAGER.value:
+        base += drive_count * 8 + swing_to_final_vote * 12
+    elif speaker_camp == Camp.WEREWOLF.value:
+        base += drive_count * 5
+    return base
+
+
 def build_camp_persuasion_report(
     ctx: RunContext,
     swing_report: VoteSwingReport | None = None,
@@ -155,11 +197,23 @@ def build_camp_persuasion_report(
         camp_swings = _annotate_swings(speech.swings, speaker_camp, ctx)
         aligned_count = sum(1 for s in camp_swings if s.camp_aligned)
         elim_target = elim_by_round.get(speech.round_number)
-        matched_elim = False
-        if elim_target and aligned_count:
-            matched_elim = any(
-                s.camp_aligned and s.to_target_id == elim_target for s in camp_swings
-            )
+        elim_target_camp = target_id_to_camp(elim_target, ctx.roster) if elim_target else None
+        drive_count = sum(
+            1 for s in camp_swings if elim_target and s.to_target_id == elim_target
+        )
+        matched_elim = _matched_elimination_for_speaker(
+            speaker_camp=speaker_camp,
+            elim_target=elim_target,
+            elim_target_camp=elim_target_camp,
+            camp_swings=camp_swings,
+            drive_count=drive_count,
+        )
+        camp_score = _persuasion_score_for_speech(
+            aligned_count=aligned_count,
+            matched_elim=matched_elim,
+            speaker_camp=speaker_camp,
+            drive_count=drive_count,
+        )
 
         report.speeches.append(
             CampSpeechInfluence(
@@ -171,9 +225,10 @@ def build_camp_persuasion_report(
                 public_speech=speech.public_speech,
                 swing_count=speech.swing_count,
                 camp_aligned_swings=aligned_count,
-                camp_aligned_score=aligned_count * 10,
+                camp_aligned_score=camp_score,
                 matched_round_elimination=matched_elim,
                 elimination_target_id=elim_target,
+                elimination_drive_swings=drive_count,
                 swings=camp_swings,
             )
         )

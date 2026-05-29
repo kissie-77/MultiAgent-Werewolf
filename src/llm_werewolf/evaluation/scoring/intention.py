@@ -67,7 +67,7 @@ def build_intention_scores(
     camp_report: CampPersuasionReport,
 ) -> dict[str, Any]:
     final_votes = _final_votes_by_round(ctx.events)
-    speeches: list[SpeechIntentionScore] = []
+    speech_dicts: list[dict[str, Any]] = []
 
     for speech in camp_report.speeches:
         swing_final = _swing_to_final_vote_count(
@@ -76,29 +76,32 @@ def build_intention_scores(
             final_votes,
         )
         net = _persuasion_net(speech, ctx)
-        speeches.append(
-            SpeechIntentionScore(
-                speaker_id=speech.speaker_id,
-                speaker_name=speech.speaker_name,
-                round_number=speech.round_number,
-                swing_count=speech.swing_count,
-                camp_aligned_swings=speech.camp_aligned_swings,
-                camp_aligned_score=speech.camp_aligned_score,
-                matched_elimination=speech.matched_round_elimination,
-                swing_to_final_vote=swing_final,
-                persuasion_net=net,
-            )
+        row = SpeechIntentionScore(
+            speaker_id=speech.speaker_id,
+            speaker_name=speech.speaker_name,
+            round_number=speech.round_number,
+            swing_count=speech.swing_count,
+            camp_aligned_swings=speech.camp_aligned_swings,
+            camp_aligned_score=speech.camp_aligned_score,
+            matched_elimination=speech.matched_round_elimination,
+            swing_to_final_vote=swing_final,
+            persuasion_net=net,
         )
+        payload = row.to_dict()
+        payload["elimination_drive_swings"] = speech.elimination_drive_swings
+        speech_dicts.append(payload)
 
     by_player: dict[str, int] = {}
-    for item in speeches:
-        by_player[item.speaker_id] = by_player.get(item.speaker_id, 0) + item.to_dict()["intention_total"]
+    for item in speech_dicts:
+        by_player[item["speaker_id"]] = (
+            by_player.get(item["speaker_id"], 0) + item.get("intention_total", 0)
+        )
 
     return {
         "schema": "intention_scores_v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "run_dir": str(ctx.run_dir),
-        "speeches": [s.to_dict() for s in speeches],
+        "speeches": speech_dicts,
         "by_player": by_player,
     }
 

@@ -136,13 +136,32 @@ class EvaluationRunner:
         if engine.game_state and engine.game_state.vote_intention_tracker is not None:
             records = engine.game_state.vote_intention_tracker.export_records()
             recorder.record_vote_intentions(records)
-            if records:
-                from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
+            from llm_werewolf.evaluation.core.vote_swing_analysis import ensure_vote_intentions_jsonl
 
-                run_post_game_pipeline_sync(
+            events_for_intentions = [
+                event.model_dump(mode="json") for event in events
+            ]
+            ensure_vote_intentions_jsonl(
+                game_dir,
+                records=records,
+                events=events_for_intentions,
+            )
+
+        events_path = game_dir / "events.jsonl"
+        if events_path.is_file() and events_path.stat().st_size > 0:
+            try:
+                from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline
+
+                await run_post_game_pipeline(
                     game_dir,
                     engine=engine,
                     skip_llm=True,
+                )
+            except Exception as exc:
+                recorder.record_error(
+                    exc,
+                    phase=engine.game_state.phase.value if engine.game_state else None,
+                    round_number=engine.game_state.round_number if engine.game_state else None,
                 )
         checks = self._run_checkers(events, observations_by_player, engine)
         recorder.finalize_checks(checks)

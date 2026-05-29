@@ -6,11 +6,11 @@ source_run: runs\20260526-124233
 source_player_id: player_3
 camp: villager
 quality_passed: True
-weight: 1.0
+weight: 0.95
 win_count: 0
-use_count: 0
+use_count: 1
 created_at: 2026-05-26T04:42:35+00:00
-updated_at: 2026-05-26T04:42:35+00:00
+updated_at: 2026-05-29T07:16:17+00:00
 ---
 
 # 守卫守护决策

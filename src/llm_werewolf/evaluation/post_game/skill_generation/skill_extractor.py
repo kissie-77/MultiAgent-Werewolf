@@ -17,6 +17,7 @@ from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder impor
 from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     SkillGenerationCandidate,
     collect_skill_generation_candidates,
+    collect_skipped_candidates,
     generation_rules_summary,
 )
 from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
@@ -169,6 +170,7 @@ def build_role_skills(
         for idx, candidate in enumerate(candidates, start=1)
     ]
 
+    skipped = collect_skipped_candidates(ctx, camp_report)
     skipped_summary = _build_skipped_summary(ctx, camp_report, candidates)
 
     return {
@@ -182,7 +184,17 @@ def build_role_skills(
         "skill_count": len(skills),
         "skills": skills,
         "skipped_identities": skipped_summary,
-        "apply_policy": "md_and_agent_library_draft",
+        "skipped_candidates": [
+            {
+                "source_kind": s.source_kind,
+                "player_id": s.player_id,
+                "player_name": s.player_name,
+                "rule_id": s.rule_id,
+                "reason": s.reason,
+            }
+            for s in skipped
+        ],
+        "apply_policy": "run_scoped_md_only",
     }
 
 
@@ -213,7 +225,7 @@ def _build_skipped_summary(
         for speech in camp_report.speeches:
             if speech.speaker_id not in player_ids:
                 continue
-            result = evaluate_persuasion_speech(speech)
+            result = evaluate_persuasion_speech(speech, ctx)
             if not result.passed:
                 reasons.append(result.reason)
         skipped.append({
@@ -228,9 +240,9 @@ def write_skill_markdown_files(
     skills: list[dict[str, Any]],
     *,
     run_skills_dir: Path,
-    agent_skills_root: Path,
+    agent_skills_root: Path | None = None,
 ) -> list[str]:
-    """写入 run 目录与 agent_team/skills/<role>/ 下的 MD 文件。"""
+    """写入 run 目录下的 Skill MD；可选双写 agent_team/skills。"""
     written: list[str] = []
     for skill in skills:
         if skill.get("status") == "skipped":
@@ -244,14 +256,15 @@ def write_skill_markdown_files(
         run_skills_dir.mkdir(parents=True, exist_ok=True)
         run_path.write_text(body, encoding="utf-8")
         written.append(f"skills/{filename}")
-
-        role_dir = agent_skills_root / role_key
-        role_dir.mkdir(parents=True, exist_ok=True)
-        agent_path = role_dir / filename
-        agent_path.write_text(body, encoding="utf-8")
         skill["md_path"] = str(run_path)
-        skill["agent_skill_path"] = str(agent_path)
-        written.append(f"agent_team/skills/{role_key}/{filename}")
+
+        if agent_skills_root is not None:
+            role_dir = agent_skills_root / role_key
+            role_dir.mkdir(parents=True, exist_ok=True)
+            agent_path = role_dir / filename
+            agent_path.write_text(body, encoding="utf-8")
+            skill["agent_skill_path"] = str(agent_path)
+            written.append(f"agent_team/skills/{role_key}/{filename}")
 
     return written
 
@@ -261,8 +274,9 @@ def write_role_skills_artifacts(
     camp_report: CampPersuasionReport,
     *,
     agent_skills_root: Path | None = None,
+    write_agent_library: bool = False,
 ) -> Path:
-    """写出 role_skills.json 与 Skill MD（run + agent 双写）。"""
+    """写出 role_skills.json 与 Skill MD（默认仅 run 目录）。"""
     if agent_skills_root is None:
         from llm_werewolf.agent_team.skill_support.skill_loader import agent_skills_root as default_root
 
@@ -278,7 +292,7 @@ def write_role_skills_artifacts(
     md_files = write_skill_markdown_files(
         skills,
         run_skills_dir=ctx.run_dir / "skills",
-        agent_skills_root=agent_skills_root,
+        agent_skills_root=agent_skills_root if write_agent_library else None,
     )
     payload["md_files"] = md_files
 

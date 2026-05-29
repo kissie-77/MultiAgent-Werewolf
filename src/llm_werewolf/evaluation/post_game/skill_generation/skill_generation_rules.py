@@ -1,4 +1,4 @@
-"""Skill 生成规则（Phase 1）：判定「是否值得生成 Skill」，不做 benefit 分数筛选。"""
+"""Skill 生成规则（Phase 2）：阵营感知门控 + 夜间结果筛选。"""
 
 from __future__ import annotations
 
@@ -6,19 +6,18 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport, CampSpeechInfluence
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+from llm_werewolf.evaluation.post_game.run_context import RunContext, target_id_to_camp
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import dedupe_skill_candidates
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.game_runtime.types.enums import Camp
 
 MIN_PUBLIC_SPEECH_LEN = 8
 
-# 有效夜间决策事件（data 含 actor player_id + target_id）
 NIGHT_ACTION_EVENT_TYPES = frozenset({
     "seer_checked",
     "witch_saved",
     "witch_poisoned",
     "guard_protected",
-    "werewolf_killed",
 })
 
 SkillSourceKind = Literal["persuasion_speech", "night_action"]
@@ -26,8 +25,6 @@ SkillSourceKind = Literal["persuasion_speech", "night_action"]
 
 @dataclass(frozen=True)
 class GenerationRuleResult:
-    """单条素材的规则判定结果。"""
-
     passed: bool
     rule_id: str
     reason: str
@@ -35,8 +32,6 @@ class GenerationRuleResult:
 
 @dataclass
 class SkillGenerationCandidate:
-    """通过生成规则、待写入 role_skills / MD 的候选。"""
-
     source_kind: SkillSourceKind
     prompt_role_key: str
     player_id: str
@@ -49,6 +44,15 @@ class SkillGenerationCandidate:
     night_event: dict[str, Any] | None = field(default=None, repr=False)
 
 
+@dataclass(frozen=True)
+class SkippedCandidate:
+    source_kind: str
+    player_id: str
+    player_name: str
+    rule_id: str
+    reason: str
+
+
 def _role_key_for_player(ctx: RunContext, player_id: str) -> str:
     entry = ctx.roster.get(player_id)
     if entry and entry.role_name:
@@ -56,8 +60,18 @@ def _role_key_for_player(ctx: RunContext, player_id: str) -> str:
     return "villager"
 
 
-def evaluate_persuasion_speech(speech: CampSpeechInfluence) -> GenerationRuleResult:
-    """白天公开发言：有实质内容 + 产生阵营匹配说服效果（或命中当轮放逐）。"""
+def _elim_target_camp(speech: CampSpeechInfluence, ctx: RunContext) -> str | None:
+    target_id = speech.elimination_target_id
+    return target_id_to_camp(target_id, ctx.roster) if target_id else None
+
+
+def evaluate_persuasion_speech(
+    speech: CampSpeechInfluence,
+    ctx: RunContext,
+    *,
+    swing_to_final_vote: int = 0,
+) -> GenerationRuleResult:
+    """白天公开发言：阵营感知 + 推动有效放逐/归票。"""
     text = (speech.public_speech or "").strip()
     if len(text) < MIN_PUBLIC_SPEECH_LEN:
         return GenerationRuleResult(
@@ -66,25 +80,45 @@ def evaluate_persuasion_speech(speech: CampSpeechInfluence) -> GenerationRuleRes
             reason="insufficient_material: public_speech too short or empty",
         )
 
-    has_influence = speech.camp_aligned_swings >= 1 and speech.camp_aligned_score > 0
-    if speech.matched_round_elimination and speech.camp_aligned_swings >= 1:
+    elim_camp = _elim_target_camp(speech, ctx)
+    speaker_camp = speech.speaker_camp
+
+    if speaker_camp == Camp.WEREWOLF.value:
+        if speech.matched_round_elimination and elim_camp == Camp.VILLAGER.value:
+            return GenerationRuleResult(
+                passed=True,
+                rule_id="persuasion_speech",
+                reason="wolf drove villager elimination",
+            )
         return GenerationRuleResult(
-            passed=True,
+            passed=False,
             rule_id="persuasion_speech",
-            reason="matched_round_elimination with camp_aligned_swings",
+            reason="wolf speech did not drive villager elimination",
         )
 
-    if has_influence:
+    if speaker_camp == Camp.VILLAGER.value:
+        if elim_camp == Camp.WEREWOLF.value and speech.matched_round_elimination:
+            return GenerationRuleResult(
+                passed=True,
+                rule_id="persuasion_speech",
+                reason="villager drove werewolf elimination",
+            )
+        if swing_to_final_vote >= 2 and speech.elimination_drive_swings >= 1:
+            return GenerationRuleResult(
+                passed=True,
+                rule_id="persuasion_speech",
+                reason="villager speech aligned final votes",
+            )
         return GenerationRuleResult(
-            passed=True,
+            passed=False,
             rule_id="persuasion_speech",
-            reason="camp_aligned_swings >= 1 with non-empty public_speech",
+            reason="villager speech did not help eliminate wolf or align votes",
         )
 
     return GenerationRuleResult(
         passed=False,
         rule_id="persuasion_speech",
-        reason="insufficient_influence: no camp-aligned vote swing after speech",
+        reason="unknown speaker camp",
     )
 
 
@@ -92,7 +126,7 @@ def evaluate_night_action_event(
     event: dict[str, Any],
     ctx: RunContext,
 ) -> GenerationRuleResult | None:
-    """夜间技能事件：actor 在 roster 中且存在有效 target。"""
+    """夜间技能：有效目标 + 结果对己方有利。"""
     etype = str(event.get("event_type", ""))
     if etype not in NIGHT_ACTION_EVENT_TYPES:
         return None
@@ -109,10 +143,61 @@ def evaluate_night_action_event(
             reason=f"insufficient_material: {etype} without target_id",
         )
 
+    target_camp = target_id_to_camp(target_id, ctx.roster)
+    target_entry = ctx.roster.get(target_id)
+    target_role = (target_entry.role_name or "") if target_entry else ""
+    result = str(data.get("result") or "").lower()
+
+    if etype == "seer_checked":
+        if result in {"werewolf", "wolf"}:
+            return GenerationRuleResult(
+                passed=True,
+                rule_id="night_action",
+                reason="seer found werewolf",
+            )
+        return GenerationRuleResult(
+            passed=False,
+            rule_id="night_action",
+            reason="seer check did not find werewolf",
+        )
+
+    if etype == "witch_poisoned":
+        if target_camp == Camp.WEREWOLF.value:
+            return GenerationRuleResult(
+                passed=True,
+                rule_id="night_action",
+                reason="witch poisoned werewolf",
+            )
+        return GenerationRuleResult(
+            passed=False,
+            rule_id="night_action",
+            reason="witch poison did not hit werewolf",
+        )
+
+    if etype == "witch_saved":
+        if target_role in {"Seer", "Witch", "Guard", "Hunter"}:
+            return GenerationRuleResult(
+                passed=True,
+                rule_id="night_action",
+                reason="witch saved key role",
+            )
+        return GenerationRuleResult(
+            passed=False,
+            rule_id="night_action",
+            reason="witch save target not key role",
+        )
+
+    if etype == "guard_protected":
+        return GenerationRuleResult(
+            passed=True,
+            rule_id="night_action",
+            reason="guard protection recorded",
+        )
+
     return GenerationRuleResult(
-        passed=True,
+        passed=False,
         rule_id="night_action",
-        reason=f"valid night decision event: {etype}",
+        reason=f"night action not promoted: {etype}",
     )
 
 
@@ -120,17 +205,18 @@ def _speech_rank_score(speech: CampSpeechInfluence) -> int:
     score = speech.camp_aligned_score
     if speech.matched_round_elimination:
         score += 20
+    score += speech.elimination_drive_swings * 5
     return score
 
 
 def _night_rank_score(event: dict[str, Any]) -> int:
     etype = str(event.get("event_type", ""))
     data = event.get("data") or {}
-    if etype == "werewolf_killed":
-        base = 15
-    elif etype in {"witch_saved", "witch_poisoned"}:
-        base = 12
+    if etype == "witch_poisoned":
+        base = 14
     elif etype == "seer_checked":
+        base = 12
+    elif etype == "witch_saved":
         base = 10
     else:
         base = 8
@@ -140,13 +226,31 @@ def _night_rank_score(event: dict[str, Any]) -> int:
     return base
 
 
+def _swing_to_final_map(ctx: RunContext, camp_report: CampPersuasionReport) -> dict[tuple[str, int], int]:
+    from llm_werewolf.evaluation.scoring.intention import (
+        _final_votes_by_round,
+        _swing_to_final_vote_count,
+    )
+
+    final_votes = _final_votes_by_round(ctx.events)
+    out: dict[tuple[str, int], int] = {}
+    for speech in camp_report.speeches:
+        key = (speech.speaker_id, speech.round_number)
+        out[key] = _swing_to_final_vote_count(
+            speech.round_number,
+            speech.swings,
+            final_votes,
+        )
+    return out
+
+
 def collect_skill_generation_candidates(
     ctx: RunContext,
     camp_report: CampPersuasionReport,
 ) -> list[SkillGenerationCandidate]:
-    """按生成规则收集候选；未通过规则的 identity 不会出现在列表中。"""
     candidates: list[SkillGenerationCandidate] = []
     seen_speech: set[tuple[str, int]] = set()
+    swing_final = _swing_to_final_map(ctx, camp_report)
 
     for speech in camp_report.speeches:
         key = (speech.speaker_id, speech.round_number)
@@ -154,7 +258,11 @@ def collect_skill_generation_candidates(
             continue
         seen_speech.add(key)
 
-        rule = evaluate_persuasion_speech(speech)
+        rule = evaluate_persuasion_speech(
+            speech,
+            ctx,
+            swing_to_final_vote=swing_final.get(key, 0),
+        )
         if not rule.passed:
             continue
 
@@ -207,18 +315,66 @@ def collect_skill_generation_candidates(
     return dedupe_skill_candidates(candidates)
 
 
+def collect_skipped_candidates(
+    ctx: RunContext,
+    camp_report: CampPersuasionReport,
+) -> list[SkippedCandidate]:
+    """记录未通过门控的素材，便于审核。"""
+    skipped: list[SkippedCandidate] = []
+    swing_final = _swing_to_final_map(ctx, camp_report)
+
+    for speech in camp_report.speeches:
+        rule = evaluate_persuasion_speech(
+            speech,
+            ctx,
+            swing_to_final_vote=swing_final.get((speech.speaker_id, speech.round_number), 0),
+        )
+        if rule.passed:
+            continue
+        skipped.append(
+            SkippedCandidate(
+                source_kind="persuasion_speech",
+                player_id=speech.speaker_id,
+                player_name=speech.speaker_name,
+                rule_id=rule.rule_id,
+                reason=rule.reason,
+            )
+        )
+
+    for event in ctx.events:
+        rule = evaluate_night_action_event(event, ctx)
+        if rule is None:
+            continue
+        if rule.passed:
+            continue
+        data = event.get("data") or {}
+        actor_id = str(data.get("player_id") or data.get("voter_id") or "")
+        entry = ctx.roster.get(actor_id)
+        skipped.append(
+            SkippedCandidate(
+                source_kind="night_action",
+                player_id=actor_id,
+                player_name=entry.player_name if entry else actor_id,
+                rule_id=rule.rule_id,
+                reason=rule.reason,
+            )
+        )
+
+    return skipped
+
+
 def generation_rules_summary() -> dict[str, Any]:
-    """写入 role_skills.json 的规则说明（便于队友对照）。"""
     return {
-        "phase": "generation_only",
+        "phase": "camp_aware_gates",
         "score_filter": "disabled",
         "persuasion_speech": {
             "min_public_speech_len": MIN_PUBLIC_SPEECH_LEN,
-            "requires": "camp_aligned_swings >= 1 OR (matched_round_elimination AND swings >= 1)",
+            "wolf": "matched villager elimination",
+            "villager": "matched werewolf elimination OR swing_to_final_vote>=2 with drive",
         },
         "night_action": {
             "event_types": sorted(NIGHT_ACTION_EVENT_TYPES),
-            "requires": "actor in roster AND non-empty target_id",
+            "requires": "outcome beneficial (e.g. seer finds wolf, witch poisons wolf)",
         },
         "no_placeholder": "identities without passing material are omitted from skills[]",
         "dedupe": "per role: max 1 persuasion + 1 night event type; max 2 skills per role per run",

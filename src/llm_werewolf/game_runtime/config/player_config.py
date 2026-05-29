@@ -1,6 +1,9 @@
-from pydantic import Field, BaseModel, computed_field, field_validator
+import os
+
+from pydantic import Field, BaseModel, computed_field, field_validator, model_validator
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
+from typing_extensions import Self
 
 from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
 
@@ -15,11 +18,20 @@ class PlayerConfig(BaseModel):
     """
 
     name: str = Field(..., description="Display name for the player")
-    model: str = Field(
-        ...,
+    model: str | None = Field(
+        default=None,
         title="Model Name",
         description="The model name of your player",
         examples=["gpt-5", "human", "demo"],
+    )
+    model_env: str | None = Field(
+        default=None,
+        title="Model Environment Variable",
+        description=(
+            "Environment variable name containing the model or endpoint id "
+            "(e.g. ARK_EP for Volcengine Ark). Resolved at config load time."
+        ),
+        examples=["ARK_EP", "OPENAI_MODEL"],
     )
     base_url: str | None = Field(
         default=None,
@@ -45,11 +57,34 @@ class PlayerConfig(BaseModel):
     @classmethod
     def validate_base_url(cls, v: str | None, info: ValidationInfo) -> str | None:
         """校验 LLM 模型是否提供了 base_url。"""
-        model = info.data.get("model", "")
-        if model not in {"human", "demo"} and not v:
-            msg = f"base_url is required for LLM model '{model}'"
+        model = info.data.get("model") or ""
+        model_env = info.data.get("model_env")
+        is_builtin = model in {"human", "demo"}
+        is_llm = not is_builtin and (bool(model) or bool(model_env))
+        if is_llm and not v:
+            label = model or model_env
+            msg = f"base_url is required for LLM model '{label}'"
             raise ValueError(msg)
         return v
+
+    @model_validator(mode="after")
+    def resolve_model_from_env(self) -> Self:
+        """从 model_env 解析 endpoint / model id（密钥类配置不进 YAML）。"""
+        if self.model in {"human", "demo"}:
+            return self
+        if self.model_env:
+            resolved = os.getenv(self.model_env, "").strip()
+            if not resolved:
+                msg = (
+                    f"Environment variable '{self.model_env}' is not set "
+                    f"(required for player '{self.name}')"
+                )
+                raise ValueError(msg)
+            self.model = resolved
+        elif not self.model:
+            msg = f"Either model or model_env is required for player '{self.name}'"
+            raise ValueError(msg)
+        return self
 
 
 class PlayersConfig(BaseModel):

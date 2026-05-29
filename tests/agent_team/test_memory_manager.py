@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_werewolf.agent_team import skill_loader
+from llm_werewolf.agent_team.skill_support import skill_loader
 from llm_werewolf.agent_team.memory.config import MemoryConfig
 from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
 from llm_werewolf.agent_team.memory.semantic_memory import InMemoryBackend, SemanticMemory, StrategyCard

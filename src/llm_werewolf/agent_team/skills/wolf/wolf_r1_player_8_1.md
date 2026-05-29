@@ -6,14 +6,12 @@ source_run: runs\20260527-204513
 source_player_id: player_8
 camp: werewolf
 quality_passed: True
-weight: 1.0
-win_count: 0
-use_count: 0
+weight: 1.35
+win_count: 4
+use_count: 5
 created_at: 2026-05-27T12:45:38+00:00
-updated_at: 2026-05-27T12:45:38+00:00
+updated_at: 2026-05-29T07:16:17+00:00
 ---
-
-描述：白天讨论进入归票阶段，场上出现可抗推的「逻辑漏洞位」或需要统一狼队票型时；本局发言后 2 人改票且当轮放逐与归票一致
 
 # 第1轮说服并命中放逐
 

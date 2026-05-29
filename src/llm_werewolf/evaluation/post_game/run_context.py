@@ -278,6 +278,15 @@ def load_run_context(
         if not events and engine.event_logger.events:
             events = [_event_to_dict(e) for e in engine.event_logger.events]
 
+    from llm_werewolf.evaluation.core.vote_swing_analysis import ensure_vote_intentions_jsonl
+
+    tracker_records: list[dict[str, Any]] | None = None
+    if engine is not None and getattr(engine, "game_state", None) is not None:
+        tracker = getattr(engine.game_state, "vote_intention_tracker", None)
+        if tracker is not None:
+            tracker_records = tracker.export_records()
+    ensure_vote_intentions_jsonl(path, records=tracker_records, events=events)
+
     roster = roster_from_events(events)
     if engine is not None:
         roster = merge_rosters(roster, roster_from_engine(engine))

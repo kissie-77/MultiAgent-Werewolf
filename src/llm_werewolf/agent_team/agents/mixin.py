@@ -8,11 +8,6 @@ from llm_werewolf.game_runtime.prompts.manager import PromptManager
 class PromptAgentMixin:
     """角色分配后注入系统与身份 prompt。"""
 
-    role_definition: RoleDefinition | None = None
-    seat_number: int = 0
-    plan: str = "自由发挥"
-    chat_history: list[dict[str, str]]
-
     def bind_role(self, role_class: type, seat_number: int, plan: str | None = None) -> None:
         """绑定角色定义并重建 prompt 历史（系统 + 身份）。"""
         self.role_definition = get_definition_by_role_class(role_class)

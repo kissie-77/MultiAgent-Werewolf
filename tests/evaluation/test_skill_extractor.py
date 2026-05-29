@@ -24,6 +24,12 @@ from llm_werewolf.agent_team.skill_support.skill_loader import (
 def _fixture_events() -> list[dict]:
     return [
         {
+            "event_type": "role_acting",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_2", "role": "Werewolf", "player_name": "B"},
+        },
+        {
             "event_type": "vote_intention_snapshot",
             "round_number": 1,
             "phase": "day_discussion",
@@ -70,12 +76,6 @@ def _fixture_events() -> list[dict]:
             "data": {"player_id": "player_5", "role": "Guard"},
         },
         {
-            "event_type": "player_eliminated",
-            "round_number": 1,
-            "phase": "day_voting",
-            "data": {"player_id": "player_2", "role": "Werewolf"},
-        },
-        {
             "event_type": "game_ended",
             "round_number": 1,
             "phase": "ended",
@@ -105,6 +105,8 @@ def test_render_skill_markdown_has_frontmatter() -> None:
 
 
 def test_persuasion_rule_rejects_short_speech() -> None:
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+
     speech = CampSpeechInfluence(
         speaker_id="p1",
         speaker_name="A",
@@ -117,12 +119,15 @@ def test_persuasion_rule_rejects_short_speech() -> None:
         camp_aligned_score=10,
         matched_round_elimination=False,
     )
-    result = evaluate_persuasion_speech(speech)
+    ctx = RunContext(run_dir=Path("."))
+    result = evaluate_persuasion_speech(speech, ctx)
     assert not result.passed
     assert "insufficient_material" in result.reason
 
 
 def test_persuasion_rule_rejects_no_influence() -> None:
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+
     speech = CampSpeechInfluence(
         speaker_id="p1",
         speaker_name="A",
@@ -135,9 +140,10 @@ def test_persuasion_rule_rejects_no_influence() -> None:
         camp_aligned_score=0,
         matched_round_elimination=False,
     )
-    result = evaluate_persuasion_speech(speech)
+    ctx = RunContext(run_dir=Path("."))
+    result = evaluate_persuasion_speech(speech, ctx)
     assert not result.passed
-    assert "insufficient_influence" in result.reason
+    assert "did not help" in result.reason
 
 
 def test_write_role_skills_only_generates_passed_candidates(tmp_path: Path) -> None:
@@ -201,7 +207,7 @@ def test_night_action_generates_skill(tmp_path: Path) -> None:
             "round_number": 1,
             "phase": "night",
             "message": "预言家查验",
-            "data": {"player_id": "player_3", "target_id": "player_5", "result": "villager"},
+            "data": {"player_id": "player_3", "target_id": "player_5", "result": "werewolf"},
         },
         {
             "event_type": "player_eliminated",

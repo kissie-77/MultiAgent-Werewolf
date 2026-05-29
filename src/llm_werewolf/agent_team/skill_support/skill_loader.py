@@ -14,7 +14,8 @@ _SKILLS_DIR_NAME = "skills"
 
 
 def agent_skills_root() -> Path:
-    return Path(__file__).resolve().parent / _SKILLS_DIR_NAME
+    # 运行时 Skill 库在 agent_team/skills/，与 skill_support 模块目录分离
+    return Path(__file__).resolve().parent.parent / _SKILLS_DIR_NAME
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:

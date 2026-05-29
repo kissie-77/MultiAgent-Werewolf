@@ -1,55 +1,53 @@
 # 9 人标准局 — 火山方舟 Doubao-Seed-2.0-pro（OpenAI 兼容接口）
-# API Key 放在 .env 的 ARK_API_KEY，勿写入本文件
+# ARK_API_KEY、ARK_EP 放在 .env，勿写入本文件
 language: zh-CN
 agent_backend: agentscope
 default_plan: complicated
 
-# 推理接入点 ID（控制台 EP）
-doubao_ep: &doubao_ep ep-20260514115354-k4jz4
 doubao_base: &doubao_base https://ark.cn-beijing.volces.com/api/v3
 
 players:
   - name: 玩家1
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家2
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家3
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家4
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家5
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家6
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家7
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家8
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY
 
   - name: 玩家9
-    model: *doubao_ep
+    model_env: ARK_EP
     base_url: *doubao_base
     api_key_env: ARK_API_KEY

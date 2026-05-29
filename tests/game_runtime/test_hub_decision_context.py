@@ -8,6 +8,7 @@ from llm_werewolf.game_runtime.config import create_game_config_from_player_coun
 from llm_werewolf.game_runtime.events.event_visibility import HUB_DIALOGUE_EVENT_TYPES
 from llm_werewolf.game_runtime.roles.registry import create_roles
 from llm_werewolf.game_runtime.types import EventType
+from llm_werewolf.interface.bootstrap import create_information_hub
 
 
 def test_hub_dialogue_event_types_cover_speech_channels():
@@ -20,7 +21,7 @@ def test_hub_dialogue_event_types_cover_speech_channels():
 @pytest.fixture
 def engine_with_speech_event():
     config = create_game_config_from_player_count(6)
-    engine = GameEngine(config)
+    engine = GameEngine(config, information_hub=create_information_hub())
     players = [DemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)]
     roles = create_roles(role_names=config.role_names)
     engine.setup_game(players=players, roles=roles)

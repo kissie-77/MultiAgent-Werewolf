@@ -96,9 +96,10 @@ class GameEngineBase:
         vote_intention_concurrency = (
             1 if self.config is None else self.config.vote_intention_concurrency
         )
-        self.information_hub.configure_vote_intention_concurrency(
-            vote_intention_concurrency
-        )
+        if self.information_hub is not None:
+            self.information_hub.configure_vote_intention_concurrency(
+                vote_intention_concurrency
+            )
         if self.config is not None:
             self.game_state.track_vote_intentions = track_intentions
         elif not getattr(self.game_state, "track_vote_intentions", False):

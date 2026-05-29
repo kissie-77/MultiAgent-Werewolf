@@ -24,7 +24,7 @@ from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
 
-from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscope_after_setup
+from llm_werewolf.interface.bootstrap import prepare_game_roster, wire_agentscope_after_setup, create_information_hub
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
@@ -49,7 +49,11 @@ async def run(config_path: Path, run_dir: Path) -> None:
     players, roles, game_config = prepare_game_roster(players_config)
 
     locale = Locale(players_config.language)
-    engine = GameEngine(game_config, language=players_config.language)
+    engine = GameEngine(
+        game_config,
+        language=players_config.language,
+        information_hub=create_information_hub(),
+    )
     presenter = ConsolePresenter(locale)
     engine.on_event = presenter.present_event
 
@@ -117,9 +121,10 @@ async def run(config_path: Path, run_dir: Path) -> None:
 
 
 def main() -> None:
-    config = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("configs/llm-9p-doubao.yaml")
+    config = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("configs/llm-12p-doubao.yaml")
+    label = config.stem.replace("llm-", "")
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_dir = RUNS_DIR / f"doubao-9p-{ts}"
+    run_dir = RUNS_DIR / f"{label}-{ts}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     log_path = run_dir / "game_log.txt"

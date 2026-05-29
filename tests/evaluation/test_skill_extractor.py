@@ -386,7 +386,7 @@ def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
     wolf_dir = root / "wolf"
     wolf_dir.mkdir(parents=True)
     (wolf_dir / "wolf_demo.md").write_text(
-        "---\nskill_id: wolf_demo\nprompt_role_key: wolf\nstatus: draft\n---\n\n"
+        "---\nskill_id: wolf_demo\nprompt_role_key: wolf\nstatus: active\n---\n\n"
         "# 演示\n\n## 何时使用\n首夜\n",
         encoding="utf-8",
     )
@@ -410,15 +410,15 @@ def test_skill_loader_sorts_by_weight_descending(tmp_path: Path, monkeypatch) ->
     wolf_dir.mkdir(parents=True)
 
     (wolf_dir / "low.md").write_text(
-        "---\nskill_id: low\nprompt_role_key: wolf\nstatus: draft\nweight: 0.5\n---\n\n# 低权重\n",
+        "---\nskill_id: low\nprompt_role_key: wolf\nstatus: active\nweight: 0.5\n---\n\n# 低权重\n",
         encoding="utf-8",
     )
     (wolf_dir / "high.md").write_text(
-        "---\nskill_id: high\nprompt_role_key: wolf\nstatus: draft\nweight: 2.0\n---\n\n# 高权重\n",
+        "---\nskill_id: high\nprompt_role_key: wolf\nstatus: active\nweight: 2.0\n---\n\n# 高权重\n",
         encoding="utf-8",
     )
     (wolf_dir / "mid.md").write_text(
-        "---\nskill_id: mid\nprompt_role_key: wolf\nstatus: draft\nweight: 1.0\n---\n\n# 中权重\n",
+        "---\nskill_id: mid\nprompt_role_key: wolf\nstatus: active\nweight: 1.0\n---\n\n# 中权重\n",
         encoding="utf-8",
     )
 
@@ -440,7 +440,7 @@ def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> Non
     wolf_dir.mkdir(parents=True)
 
     (wolf_dir / "no_weight.md").write_text(
-        "---\nskill_id: no_weight\nprompt_role_key: wolf\nstatus: draft\n---\n\n# 无权重\n",
+        "---\nskill_id: no_weight\nprompt_role_key: wolf\nstatus: active\n---\n\n# 无权重\n",
         encoding="utf-8",
     )
 
@@ -461,7 +461,7 @@ def test_skill_loader_strips_legacy_description_line_from_prompt_body(
     prophet_dir = root / "prophet"
     prophet_dir.mkdir(parents=True)
     (prophet_dir / "prophet_demo.md").write_text(
-        "---\nskill_id: prophet_demo\nprompt_role_key: prophet\nstatus: draft\n---\n\n"
+        "---\nskill_id: prophet_demo\nprompt_role_key: prophet\nstatus: active\n---\n\n"
         "描述：# 预言家有效查验决策 ## 提取依据 噪声的情况下，使用该 skill\n\n"
         "# 预言家有效查验决策\n\n"
         "## 何时使用\n"
@@ -493,7 +493,7 @@ def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypat
         "---\n"
         "skill_id: wolf_demo\n"
         "prompt_role_key: wolf\n"
-        "status: draft\n"
+        "status: active\n"
         "weight: 1.0\n"
         "win_count: 0\n"
         "use_count: 0\n"
@@ -513,3 +513,76 @@ def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypat
     assert "win_count: 1" in text
     assert "use_count: 1" in text
     assert "updated_at:" in text
+
+
+def test_is_trusted_source_run_rejects_pytest_paths() -> None:
+    from llm_werewolf.agent_team.skill_support.skill_loader import is_trusted_source_run
+
+    assert is_trusted_source_run("runs/12p-doubao-20260526-143527")
+    assert not is_trusted_source_run("/tmp/pytest-of-user/test0/run")
+    assert not is_trusted_source_run("artifacts/runs/local")
+
+
+def test_is_eligible_for_agent_library_requires_quality_and_trusted_run() -> None:
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
+        is_eligible_for_agent_library,
+    )
+
+    assert is_eligible_for_agent_library({
+        "status": "draft",
+        "source_run": "runs/demo",
+        "quality_gate": {"passed": True},
+    })
+    assert not is_eligible_for_agent_library({
+        "status": "draft",
+        "source_run": "runs/demo",
+        "quality_gate": {"passed": False},
+    })
+    assert not is_eligible_for_agent_library({
+        "status": "draft",
+        "source_run": "/private/var/pytest-of-x",
+        "quality_gate": {"passed": True},
+    })
+
+
+def test_load_role_skills_excludes_draft_by_default(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team.skill_support import skill_loader
+
+    root = tmp_path / "skills"
+    role_dir = root / "wolf"
+    role_dir.mkdir(parents=True)
+    (role_dir / "active.md").write_text(
+        "---\nskill_id: active\nprompt_role_key: wolf\nstatus: active\n---\n\n# A\n",
+        encoding="utf-8",
+    )
+    (role_dir / "draft.md").write_text(
+        "---\nskill_id: draft\nprompt_role_key: wolf\nstatus: draft\n---\n\n# D\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    items = load_role_skills("wolf")
+    assert len(items) == 1
+    assert items[0]["skill_id"] == "active"
+
+
+def test_build_system_prompt_includes_active_skills(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team.agents.factory import build_system_prompt
+    from llm_werewolf.agent_team.skill_support import skill_loader
+
+    root = tmp_path / "skills"
+    wolf_dir = root / "wolf"
+    wolf_dir.mkdir(parents=True)
+    (wolf_dir / "wolf_demo.md").write_text(
+        "---\nskill_id: wolf_demo\nprompt_role_key: wolf\nstatus: active\n---\n\n"
+        "# Demo\n\n## 何时使用\n首夜统一刀口\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    prompt = build_system_prompt(3, "Werewolf", "default", prompt_version="v2")
+    assert "对局经验 Skill" in prompt
+    assert "wolf_demo" in prompt
+    assert "首夜统一刀口" in prompt

@@ -91,7 +91,16 @@ class SemanticMemory:
     def retrieve_for_role(self, role: str, top_k: int = 3) -> list[StrategyCard]:
         if self._backend is not None:
             return [self._normalize_card(StrategyCard(**data)) for data in self._backend.retrieve(role, top_k)]
-        return [self._card_from_skill(skill, role) for skill in skill_loader.load_role_skills(role, max_skills=top_k)]
+        return self._cards_from_skill_loader(role, top_k=top_k, include_draft=False)
+
+    @staticmethod
+    def _cards_from_skill_loader(
+        role: str, *, top_k: int = 3, include_draft: bool = False
+    ) -> list[StrategyCard]:
+        return [
+            SemanticMemory._card_from_skill(skill, role)
+            for skill in skill_loader.load_role_skills(role, max_skills=top_k, include_draft=include_draft)
+        ]
 
     def add_card(self, role: str, content: str) -> StrategyCard:
         card = StrategyCard(role=role, description=extract_description(content), content=content.strip())
@@ -130,7 +139,7 @@ class SemanticMemory:
                 self._backend.store(card.id, asdict(card))
             return
 
-        for card in self.retrieve_for_role(role, top_k=100):
+        for card in self._cards_from_skill_loader(role, top_k=100, include_draft=True):
             if card.id not in used_card_ids:
                 continue
             card.use_count += 1

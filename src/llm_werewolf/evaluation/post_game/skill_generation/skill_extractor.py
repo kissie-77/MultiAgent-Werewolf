@@ -7,6 +7,7 @@ import json
 from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
 
+from llm_werewolf.agent_team.skill_support.skill_loader import is_trusted_source_run
 from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
     build_persuasion_skill_card,
@@ -222,10 +223,20 @@ def _build_skipped_summary(
     return skipped
 
 
+def is_eligible_for_agent_library(skill: dict[str, Any]) -> bool:
+    """Gate auto-join into shared agent_team/skills (quality + trusted source_run)."""
+    if skill.get("status") == "skipped":
+        return False
+    quality_gate = skill.get("quality_gate") or {}
+    if not quality_gate.get("passed"):
+        return False
+    return is_trusted_source_run(str(skill.get("source_run") or ""))
+
+
 def write_skill_markdown_files(
     skills: list[dict[str, Any]], *, run_skills_dir: Path, agent_skills_root: Path | None = None
 ) -> list[str]:
-    """写入 run 目录下的 Skill MD；可选双写 agent_team/skills。"""
+    """写入 run 目录下的 Skill MD；可选将通过门控的 Skill 双写 agent_team/skills。"""
     written: list[str] = []
     for skill in skills:
         if skill.get("status") == "skipped":
@@ -241,7 +252,7 @@ def write_skill_markdown_files(
         written.append(f"skills/{filename}")
         skill["md_path"] = str(run_path)
 
-        if agent_skills_root is not None:
+        if agent_skills_root is not None and is_eligible_for_agent_library(skill):
             role_dir = agent_skills_root / role_key
             role_dir.mkdir(parents=True, exist_ok=True)
             agent_path = role_dir / filename
@@ -257,9 +268,9 @@ def write_role_skills_artifacts(
     camp_report: CampPersuasionReport,
     *,
     agent_skills_root: Path | None = None,
-    write_agent_library: bool = False,
+    write_agent_library: bool = True,
 ) -> Path:
-    """写出 role_skills.json 与 Skill MD（默认仅 run 目录）。"""
+    """写出 role_skills.json 与 Skill MD（默认同步门控通过的 Skill 到 agent 库）。"""
     if agent_skills_root is None:
         from llm_werewolf.agent_team.skill_support.skill_loader import (
             agent_skills_root as default_root,

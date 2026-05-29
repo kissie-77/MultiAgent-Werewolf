@@ -11,11 +11,25 @@ from llm_werewolf.agent_team.skill_support.skill_markdown import (
 )
 
 _SKILLS_DIR_NAME = "skills"
+_UNTRUSTED_SOURCE_RUN_MARKERS = (
+    "/pytest-of-",
+    "/private/",
+    "/tmp/",
+    "\\pytest-of-",
+    "artifacts/runs/",
+)
 
 
 def agent_skills_root() -> Path:
-    # 运行时 Skill 库在 agent_team/skills/，与 skill_support 模块目录分离
     return Path(__file__).resolve().parent.parent / _SKILLS_DIR_NAME
+
+
+def is_trusted_source_run(source_run: str) -> bool:
+    """Reject pytest/tmp paths when auto-joining skills into the shared library."""
+    normalized = source_run.replace("\\", "/").strip().lower()
+    if not normalized:
+        return False
+    return not any(marker in normalized for marker in _UNTRUSTED_SOURCE_RUN_MARKERS)
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -23,7 +37,6 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
 
 
 def _strip_legacy_description_line(body: str) -> str:
-    """兼容旧写入格式：标准 Skill MD 已用“何时使用”承载触发描述。"""
     return strip_legacy_description_line(body)
 
 
@@ -58,9 +71,9 @@ def list_role_skill_files(prompt_role_key: str) -> tuple[Path, ...]:
 
 
 def load_role_skills(
-    prompt_role_key: str, *, include_draft: bool = True, max_skills: int = 5
+    prompt_role_key: str, *, include_draft: bool = False, max_skills: int = 5
 ) -> list[dict[str, str | float]]:
-    """加载某身份目录下的 Skill MD（默认含 draft），按 weight 降序。"""
+    """加载某身份目录下的 Skill MD（默认仅 active），按 weight 降序。"""
     loaded: list[dict[str, str | float]] = []
     for path in list_role_skill_files(prompt_role_key):
         item = _load_skill_file(path)
@@ -74,7 +87,7 @@ def load_role_skills(
 
 
 def format_role_skills_section(
-    prompt_role_key: str, *, include_draft: bool = True, max_skills: int = 5
+    prompt_role_key: str, *, include_draft: bool = False, max_skills: int = 5
 ) -> str:
     """将 Skill 卡片格式化为可追加到系统 Prompt 的文本块。"""
     skills = load_role_skills(prompt_role_key, include_draft=include_draft, max_skills=max_skills)
@@ -87,9 +100,9 @@ def format_role_skills_section(
 
 
 def load_role_skills_text(
-    prompt_role_key: str, *, include_draft: bool = True, max_skills: int = 5
+    prompt_role_key: str, *, include_draft: bool = False, max_skills: int = 5
 ) -> str:
-    """供 PromptManager / Agent 调用的薄封装。"""
+    """供 factory / Agent 调用的薄封装。"""
     return format_role_skills_section(
         prompt_role_key, include_draft=include_draft, max_skills=max_skills
     )

@@ -42,6 +42,27 @@ def temp_skill_root(tmp_path, monkeypatch):
     skill_loader.list_role_skill_files.cache_clear()
 
 
+def test_memory_manager_skips_md_library_injection_without_backend(temp_skill_root):
+    manager = MemoryManager(
+        EventLogger(),
+        role="wolf",
+        player_id="p1",
+        config=MemoryConfig(),
+    )
+    wolf_dir = temp_skill_root / "wolf"
+    wolf_dir.mkdir(parents=True, exist_ok=True)
+    (wolf_dir / "wolf_demo.md").write_text(
+        "---\nskill_id: wolf_demo\nprompt_role_key: wolf\nstatus: active\n---\n\n# Demo\n",
+        encoding="utf-8",
+    )
+
+    manager.on_game_start("wolf")
+
+    context = manager.get_context_for_decision()
+    assert "[经验]" not in context
+    assert "wolf_demo" in manager._used_card_ids
+
+
 def test_memory_manager_injects_semantic_and_working_context():
     manager = MemoryManager(
         EventLogger(),
@@ -704,7 +725,7 @@ def test_evict_excess_removes_lowest_weight(temp_skill_root):
     semantic._write_skill_card(high)
 
     deleted = semantic.evict_excess("villager", max_count=1)
-    remaining = semantic.retrieve_for_role("villager", top_k=10)
+    remaining = semantic._retrieve_all_for_role("villager")
 
     assert deleted == 1
     assert len(remaining) == 1

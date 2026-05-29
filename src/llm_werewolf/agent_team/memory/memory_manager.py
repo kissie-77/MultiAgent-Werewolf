@@ -59,6 +59,7 @@ class MemoryManager:
             return
         if self._semantic_enabled():
             self._inject_semantic_context(role)
+            self._record_prompt_injected_skills(role)
         plan_summary = self.procedural.build_plan_summary(self.plan_name, role)
         self.working.add_persistent(f"[程序记忆] {plan_summary}", tag="procedural")
 
@@ -149,10 +150,24 @@ class MemoryManager:
         return self.config.enabled and self.config.enable_episodic_memory
 
     def _inject_semantic_context(self, role: str) -> None:
+        # Only ephemeral InMemory cards; shared Skill MD is injected via sys_prompt.
+        if self.semantic._backend is None:
+            return
         for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
             description = card.description or extract_description(card.content)
             self.working.add_persistent(f"[经验] {description}", tag="semantic")
             self._used_card_ids.append(card.id)
+
+    def _record_prompt_injected_skills(self, role: str) -> None:
+        """Track active Skill cards in sys_prompt for post-game weight updates."""
+        if self.semantic._backend is not None:
+            return
+        from llm_werewolf.agent_team.skill_support import skill_loader
+
+        for skill in skill_loader.load_role_skills(role, max_skills=5):
+            skill_id = str(skill.get("skill_id", ""))
+            if skill_id and skill_id not in self._used_card_ids:
+                self._used_card_ids.append(skill_id)
 
     def _semantic_llm(self):
         if self._llm_compressor is not None:

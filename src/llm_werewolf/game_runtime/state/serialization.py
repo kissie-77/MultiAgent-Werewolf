@@ -4,7 +4,8 @@ from pathlib import Path
 
 from pydantic import Field, BaseModel
 
-from llm_werewolf.game_runtime.types import GamePhase, PlayerStatus, PlayerProtocol, GameStateProtocol
+from llm_werewolf.game_runtime.events.events import EventLogger
+from llm_werewolf.game_runtime.types import Event, GamePhase, PlayerStatus, PlayerProtocol, GameStateProtocol
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.roles.registry import get_role_map
@@ -67,6 +68,9 @@ class GameStateSnapshot(BaseModel):
 
     # 获胜方
     winner: str | None = None
+
+    # 事件日志（与 EventLogger 同步，供读档恢复 observation）
+    events: list[dict[str, Any]] = Field(default_factory=list)
 
 
 def _extract_witch_data(role: Witch) -> dict[str, Any]:
@@ -174,14 +178,38 @@ def serialize_game_state(game_state: GameStateProtocol) -> GameStateSnapshot:
     )
 
 
-def save_game_state(game_state: GameStateProtocol, file_path: str | Path) -> None:
+def serialize_events(event_logger: EventLogger) -> list[dict[str, Any]]:
+    """将 EventLogger 中的事件序列化为可 JSON 存储的 dict 列表。"""
+    return [event.model_dump(mode="json") for event in event_logger.events]
+
+
+def restore_event_logger(events: list[dict[str, Any]]) -> EventLogger:
+    """从存档中的事件列表恢复 EventLogger。"""
+    logger = EventLogger()
+    for raw in events:
+        try:
+            logger.log_event(Event.model_validate(raw))
+        except (ValueError, TypeError):
+            continue
+    return logger
+
+
+def save_game_state(
+    game_state: GameStateProtocol,
+    file_path: str | Path,
+    *,
+    event_logger: EventLogger | None = None,
+) -> None:
     """将游戏状态保存到 JSON 文件。
 
     Args:
         game_state: 要保存的游戏状态。
         file_path: 存档文件路径。
+        event_logger: 可选，一并持久化事件日志。
     """
     snapshot = serialize_game_state(game_state)
+    if event_logger is not None:
+        snapshot.events = serialize_events(event_logger)
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 

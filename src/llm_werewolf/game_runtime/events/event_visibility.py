@@ -13,6 +13,12 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
     EventType.WITCH_POISONED,
     EventType.VOTE_CAST,
     EventType.SHERIFF_VOTE_CAST,
+    EventType.GRAVEYARD_KEEPER_CHECK,
+})
+
+# 仅写入复盘/评测日志，不向任何玩家 observation 暴露。
+REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({
+    EventType.VOTE_INTENTION_SNAPSHOT,
 })
 
 WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({
@@ -41,6 +47,7 @@ ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.WITCH_SAVED: "player_id",
     EventType.GUARD_PROTECTED: "player_id",
     EventType.WITCH_POISONED: "player_id",
+    EventType.GRAVEYARD_KEEPER_CHECK: "player_id",
     EventType.VOTE_CAST: "voter_id",
     EventType.SHERIFF_VOTE_CAST: "voter_id",
     EventType.ERROR: "player_id",
@@ -78,5 +85,8 @@ def resolve_visible_to(
         key = ACTOR_ID_KEYS.get(event_type, "player_id")
         actor_id = (data or {}).get(key) or (data or {}).get("player_id")
         return [actor_id] if actor_id else None
+
+    if event_type in REPLAY_ONLY_TYPES:
+        return []
 
     return None

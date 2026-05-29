@@ -47,3 +47,10 @@ def test_target_selection_allows_zero_skip() -> None:
 def test_yes_no_accepts_bracketed_binary_answers() -> None:
     assert WerewolfAdapterBridge.parse_yes_no("[[1]]")
     assert not WerewolfAdapterBridge.parse_yes_no("[[0]]")
+
+
+def test_yes_no_rejects_ambiguous_substrings() -> None:
+    import pytest
+
+    with pytest.raises(Exception):
+        WerewolfAdapterBridge.parse_yes_no("I know")

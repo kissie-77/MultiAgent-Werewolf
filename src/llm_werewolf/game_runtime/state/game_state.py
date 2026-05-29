@@ -59,6 +59,12 @@ class GameState:
         self.track_vote_intentions = False
         self.vote_intention_tracker = None
 
+        self.night_timeout: int | None = None
+        self.day_timeout: int | None = None
+        self.vote_timeout: int | None = None
+        self.allow_revote = False
+        self.show_role_on_death = True
+
     def get_alive_witch_player_ids(self) -> list[str]:
         """返回存活女巫的玩家 ID 列表（用于刀口等仅女巫可见的事件）。"""
         return [

@@ -1,6 +1,5 @@
 ﻿"""游戏引擎的夜晚阶段逻辑。"""
 
-import random
 from typing import TYPE_CHECKING
 from collections.abc import Callable
 
@@ -178,8 +177,8 @@ class NightPhaseMixin:
 
         return messages
 
-    def _resolve_werewolf_votes(self) -> list[str]:
-        """结算狼队投票以确定刀口目标。"""
+    async def _resolve_werewolf_votes(self) -> list[str]:
+        """结算狼队投票以确定刀口目标；平票时由狼队代表裁定而非随机。"""
         if not self.game_state:
             return []
 
@@ -200,10 +199,16 @@ class NightPhaseMixin:
         max_votes = max(vote_counts.values())
         candidates = [pid for pid, count in vote_counts.items() if count == max_votes]
 
-        if candidates:
-            selected_target_id = random.choice(candidates)  # noqa: S311
-            self.game_state.werewolf_target = selected_target_id
+        if not candidates:
+            return messages
 
+        if len(candidates) == 1:
+            selected_target_id = candidates[0]
+        else:
+            selected_target_id = await self._break_werewolf_vote_tie(candidates)
+
+        if selected_target_id:
+            self.game_state.werewolf_target = selected_target_id
             target = self.game_state.get_player(selected_target_id)
             if target:
                 self._log_event(
@@ -213,6 +218,51 @@ class NightPhaseMixin:
                 )
 
         return messages
+
+    async def _break_werewolf_vote_tie(self, candidate_ids: list[str]) -> str | None:
+        """狼刀平票：由一名存活狼人重新选定刀口（共识），否则按座位号确定性破平。"""
+        if not self.game_state:
+            return None
+
+        tie_targets = [
+            player
+            for pid in candidate_ids
+            if (player := self.game_state.get_player(pid)) is not None
+        ]
+        if not tie_targets:
+            return sorted(candidate_ids)[0]
+
+        wolves = [
+            p
+            for p in self.game_state.get_alive_players()
+            if participates_in_wolf_team(p) and p.agent
+        ]
+        breaker = wolves[0] if wolves else None
+        if breaker and breaker.agent:
+            interaction = self.game_state.require_phase_interaction()
+            from llm_werewolf.strategy.phase_outputs import ActionPhase
+            from llm_werewolf.strategy.role_prompts import GamePrompts
+
+            chosen = await interaction.request_seat_choice(
+                breaker,
+                breaker.agent,
+                role_name=breaker.get_role_name(),
+                action_description=GamePrompts.WOLF_OPEN,
+                possible_targets=tie_targets,
+                allow_skip=False,
+                additional_context=self.locale.get(
+                    "werewolf_vote_tie_break", breaker=breaker.name
+                )
+                + "\n狼刀平票，请从并列目标中选定最终刀口。",
+                fallback_random=False,
+                round_number=self.game_state.round_number,
+                phase="Night",
+                action_phase=ActionPhase.NIGHT_KILL_VOTE,
+            )
+            if chosen:
+                return chosen.player_id
+
+        return sorted(candidate_ids)[0]
 
     async def run_night_phase(self) -> list[str]:
         """执行夜晚阶段，各角色依次行动。"""
@@ -266,7 +316,7 @@ class NightPhaseMixin:
         wolf_vote_actions = await scheduler.run_wolf_vote_phase()
         messages.extend(self.process_actions(wolf_vote_actions))
 
-        werewolf_vote_messages = self._resolve_werewolf_votes()
+        werewolf_vote_messages = await self._resolve_werewolf_votes()
         messages.extend(werewolf_vote_messages)
 
         post_wolf_actions = await scheduler.run_post_wolf_resolution()

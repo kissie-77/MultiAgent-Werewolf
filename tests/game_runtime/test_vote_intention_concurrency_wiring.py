@@ -1,4 +1,4 @@
-from llm_werewolf.agent_team.base import DemoAgent
+from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 from llm_werewolf.game_runtime.roles.registry import create_roles

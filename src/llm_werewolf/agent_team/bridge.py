@@ -95,15 +95,9 @@ class WerewolfAdapterBridge:
 
     @staticmethod
     def parse_yes_no(response: str) -> bool:
-        response_lower = response.strip().lower()
-        bracketed_number = re.search(r"\[\[\s*([01])\s*\]\]", response)
-        if bracketed_number:
-            return bracketed_number.group(1) == "1"
-        if re.fullmatch(r"\s*[01]\s*", response):
-            return response.strip() == "1"
-        if "no" in response_lower or "否" in response_lower or "不" in response_lower:
-            return False
-        return "yes" in response_lower or "是" in response_lower
+        from llm_werewolf.game_runtime.prompts.yes_no_parse import parse_yes_no_strict
+
+        return parse_yes_no_strict(response)
 
     @staticmethod
     def parse_multi_target_selection(
@@ -337,7 +331,6 @@ class WerewolfAdapterBridge:
         object.__setattr__(agent, "_last_decision_metadata", metadata)
 
     @staticmethod
-    @staticmethod
     def build_witch_night_prompt(
         role_name: str,
         *,
@@ -426,8 +419,19 @@ class WerewolfAdapterBridge:
                 return WitchNightDecision(action="save", seat=0, reason=response[:200])
             if "poison" in lowered or "毒" in response:
                 seat_match = re.search(r"\[\[\s*(\d+)\s*\]\]", response)
-                seat = int(seat_match.group(1)) if seat_match else 0
-                return WitchNightDecision(action="poison", seat=seat, reason=response[:200])
+                if not seat_match:
+                    return default
+                seat = int(seat_match.group(1))
+                if seat <= 0:
+                    return default
+                poison_target = WerewolfAdapterBridge.resolve_player_by_seat(
+                    seat, poison_targets
+                )
+                if poison_target is None:
+                    return default
+                return WitchNightDecision(
+                    action="poison", seat=seat, reason=response[:200]
+                )
         except Exception:
             pass
         return default
@@ -680,8 +684,7 @@ class WerewolfAdapterBridge:
             response = await agent.get_response(prompt)
             return WerewolfAdapterBridge.parse_yes_no(response)
         except Exception:
-            pass
-        return False
+            return False
 
     @staticmethod
     async def request_multi_target(

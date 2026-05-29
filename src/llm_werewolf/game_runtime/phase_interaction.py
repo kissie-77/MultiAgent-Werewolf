@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Callable, Protocol
 
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
@@ -133,6 +134,34 @@ class PhaseInteraction:
 
     def __init__(self, hub: PhaseInteractionHub) -> None:
         self._hub = hub
+        self._night_timeout: float | None = None
+        self._day_timeout: float | None = None
+        self._vote_timeout: float | None = None
+
+    def configure_timeouts(
+        self,
+        *,
+        night_timeout: int | None = None,
+        day_timeout: int | None = None,
+        vote_timeout: int | None = None,
+    ) -> None:
+        """从 GameConfig 注入各阶段 LLM 调用超时（秒）。"""
+        self._night_timeout = float(night_timeout) if night_timeout else None
+        self._day_timeout = float(day_timeout) if day_timeout else None
+        self._vote_timeout = float(vote_timeout) if vote_timeout else None
+
+    def _timeout_for_phase(self, phase: str | None) -> float | None:
+        if phase in {"Voting", "SheriffVoting"}:
+            return self._vote_timeout
+        if phase in {"Day", "Sheriff", "Discussion"}:
+            return self._day_timeout
+        return self._night_timeout
+
+    async def _await_with_timeout(self, coro, phase: str | None):
+        timeout = self._timeout_for_phase(phase)
+        if timeout is None or timeout <= 0:
+            return await coro
+        return await asyncio.wait_for(coro, timeout=timeout)
 
     @property
     def hub(self) -> PhaseInteractionHub:
@@ -152,18 +181,21 @@ class PhaseInteraction:
         phase: str | None = None,
         action_phase: ActionPhase | None = None,
     ) -> PlayerProtocol | None:
-        return await self._hub.request_private_seat_choice(
-            actor,
-            agent,
-            role_name,
-            action_description,
-            possible_targets,
-            allow_skip,
-            additional_context,
-            fallback_random,
-            round_number,
+        return await self._await_with_timeout(
+            self._hub.request_private_seat_choice(
+                actor,
+                agent,
+                role_name,
+                action_description,
+                possible_targets,
+                allow_skip,
+                additional_context,
+                fallback_random,
+                round_number,
+                phase,
+                action_phase,
+            ),
             phase,
-            action_phase,
         )
 
     async def request_witch_night_choice(
@@ -179,16 +211,19 @@ class PhaseInteraction:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> WitchNightDecision:
-        return await self._hub.request_private_witch_night(
-            actor,
-            agent,
-            role_name,
-            can_see_victim=can_see_victim,
-            victim_line=victim_line,
-            poison_targets=poison_targets,
-            additional_context=additional_context,
-            round_number=round_number,
-            phase=phase,
+        return await self._await_with_timeout(
+            self._hub.request_private_witch_night(
+                actor,
+                agent,
+                role_name,
+                can_see_victim=can_see_victim,
+                victim_line=victim_line,
+                poison_targets=poison_targets,
+                additional_context=additional_context,
+                round_number=round_number,
+                phase=phase,
+            ),
+            phase,
         )
 
     async def request_yes_no(
@@ -201,8 +236,11 @@ class PhaseInteraction:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> bool:
-        return await self._hub.request_private_yes_no(
-            actor, agent, role_name, question, context, round_number, phase
+        return await self._await_with_timeout(
+            self._hub.request_private_yes_no(
+                actor, agent, role_name, question, context, round_number, phase
+            ),
+            phase,
         )
 
     async def request_multi_targets(
@@ -217,15 +255,18 @@ class PhaseInteraction:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> list[PlayerProtocol] | None:
-        return await self._hub.request_private_multi_target(
-            actor,
-            agent,
-            role_name,
-            action_description,
-            possible_targets,
-            num_targets,
-            additional_context,
-            round_number,
+        return await self._await_with_timeout(
+            self._hub.request_private_multi_target(
+                actor,
+                agent,
+                role_name,
+                action_description,
+                possible_targets,
+                num_targets,
+                additional_context,
+                round_number,
+                phase,
+            ),
             phase,
         )
 
@@ -241,14 +282,17 @@ class PhaseInteraction:
         round_number: int = 0,
         audience: list[PlayerProtocol] | None = None,
     ) -> SpeechDecision:
-        return await self._hub.collect_speech(
-            actor,
-            context,
-            channel=channel,
-            instruction=instruction,
-            phase=phase,
-            round_number=round_number,
-            audience=audience,
+        return await self._await_with_timeout(
+            self._hub.collect_speech(
+                actor,
+                context,
+                channel=channel,
+                instruction=instruction,
+                phase=phase,
+                round_number=round_number,
+                audience=audience,
+            ),
+            phase,
         )
 
     async def announce(
@@ -287,16 +331,19 @@ class PhaseInteraction:
         on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None]
         | None = None,
     ) -> list:
-        return await self._hub.run_roundtable(
-            speakers,
-            channel=channel,
-            context_builder=context_builder,
-            instruction=instruction,
-            phase=phase,
-            round_number=round_number,
-            audience=audience,
-            opening_announcement=opening_announcement,
-            on_speech=on_speech,
-            vote_intention_tracker=vote_intention_tracker,
-            on_vote_intention_record=on_vote_intention_record,
+        return await self._await_with_timeout(
+            self._hub.run_roundtable(
+                speakers,
+                channel=channel,
+                context_builder=context_builder,
+                instruction=instruction,
+                phase=phase,
+                round_number=round_number,
+                audience=audience,
+                opening_announcement=opening_announcement,
+                on_speech=on_speech,
+                vote_intention_tracker=vote_intention_tracker,
+                on_vote_intention_record=on_vote_intention_record,
+            ),
+            phase,
         )

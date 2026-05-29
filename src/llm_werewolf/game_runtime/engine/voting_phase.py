@@ -10,6 +10,7 @@ from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.actions import VoteAction
+from llm_werewolf.game_runtime.engine.death_messages import elimination_announcement
 from llm_werewolf.game_runtime.roles.names import RoleNames
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.events import EventLogger
@@ -197,13 +198,12 @@ class VotingPhaseMixin:
         self.game_state.day_deaths.add(eliminated_id)
         self.game_state.death_causes[eliminated_id] = "vote"
 
-        self._log_event(
-            EventType.PLAYER_ELIMINATED,
-            self.locale.get(
-                "player_eliminated", player=eliminated.name, role=eliminated.get_role_name()
-            ),
-            data={"player_id": eliminated_id, "role": eliminated.get_role_name()},
+        message, data = elimination_announcement(
+            self.locale,
+            eliminated,
+            show_role=self.show_role_on_death(),
         )
+        self._log_event(EventType.PLAYER_ELIMINATED, message, data=data)
 
         # 处理长老惩罚
         if eliminated.role.name == RoleNames.ELDER:
@@ -234,6 +234,27 @@ class VotingPhaseMixin:
             return messages
 
         tie_count = self.game_state.vote_tie_count
+
+        if tie_count == 0 and not self.game_state.allow_revote:
+            self._log_event(
+                EventType.VOTE_RESULT,
+                self.locale.get(
+                    "vote_tie_no_elimination",
+                    candidates=", ".join(
+                        self.game_state.get_player(cid).name
+                        for cid in tie_candidates
+                        if self.game_state.get_player(cid)
+                    ),
+                ),
+                data={"tie_candidates": tie_candidates, "revote_disabled": True},
+            )
+            tie_names = ", ".join(
+                self.game_state.get_player(cid).name
+                for cid in tie_candidates
+                if self.game_state.get_player(cid)
+            )
+            messages.append(self.locale.get("vote_tie_no_elimination", candidates=tie_names))
+            return messages
 
         if tie_count == 0:
             # 第一次平票：PK 发言 + 重新投票

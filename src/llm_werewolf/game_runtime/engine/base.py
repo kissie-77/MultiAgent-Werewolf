@@ -16,7 +16,11 @@ from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.victory import VictoryChecker
 from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.state.serialization import load_game_state, save_game_state
+from llm_werewolf.game_runtime.state.serialization import (
+    load_game_state,
+    restore_event_logger,
+    save_game_state,
+)
 from llm_werewolf.game_runtime.events.event_formatter import EventFormatter
 
 if TYPE_CHECKING:
@@ -108,6 +112,18 @@ class GameEngineBase:
 
             self.game_state.vote_intention_tracker = VoteIntentionTracker()
 
+        if self.config is not None:
+            self.game_state.night_timeout = self.config.night_timeout
+            self.game_state.day_timeout = self.config.day_timeout
+            self.game_state.vote_timeout = self.config.vote_timeout
+            self.game_state.allow_revote = self.config.allow_revote
+            self.game_state.show_role_on_death = self.config.show_role_on_death
+            self.phase_interaction.configure_timeouts(
+                night_timeout=self.config.night_timeout,
+                day_timeout=self.config.day_timeout,
+                vote_timeout=self.config.vote_timeout,
+            )
+
         self.victory_checker = VictoryChecker(self.game_state)
         if self.information_hub is not None:
             self.information_hub.set_context_provider(
@@ -183,6 +199,14 @@ class GameEngineBase:
             raise RuntimeError(msg)
 
         return {p.player_id: p.get_role_name() for p in self.game_state.players}
+
+    def show_role_on_death(self) -> bool:
+        """是否在对局公开信息中公布出局者身份。"""
+        if self.game_state is not None:
+            return bool(self.game_state.show_role_on_death)
+        if self.config is not None:
+            return self.config.show_role_on_death
+        return True
 
     def check_victory(self) -> bool:
         """检查是否满足任一胜利条件。
@@ -463,6 +487,10 @@ class GameEngineBase:
             phase_messages = await self.run_night_phase()
             if not self.check_victory():
                 self.game_state.next_phase()
+                if self.game_state.get_phase() == GamePhase.SHERIFF_ELECTION:
+                    await self.execute_sheriff_election()
+                    self.game_state.next_phase()
+                    phase_messages.append("Sheriff election completed.")
         elif current_phase == GamePhase.SHERIFF_ELECTION:
             await self.execute_sheriff_election()
             self.game_state.next_phase()
@@ -491,7 +519,7 @@ class GameEngineBase:
             msg = "Game not initialized"
             raise RuntimeError(msg)
 
-        save_game_state(self.game_state, file_path)
+        save_game_state(self.game_state, file_path, event_logger=self.event_logger)
 
     def load_game(
         self, file_path: str | Path, agent_factory: dict[str, Any] | None = None
@@ -507,6 +535,9 @@ class GameEngineBase:
             Agent 无法序列化，需手动重新创建。
             传入 player_id 到 agent 实例的映射字典以恢复 agent。
         """
+        from llm_werewolf.game_runtime.state.serialization import load_game_state_snapshot
+
+        snapshot = load_game_state_snapshot(file_path)
         self.game_state = load_game_state(file_path, agent_factory)
         if agent_factory:
             for idx, player in enumerate(self.game_state.players, start=1):
@@ -514,4 +545,7 @@ class GameEngineBase:
                 if agent is not None:
                     self._attach_agent_to_player(player, agent, idx)
         self._wire_game_state()
-        self.event_logger.clear_events()
+        if snapshot.events:
+            self.event_logger = restore_event_logger(snapshot.events)
+        else:
+            self.event_logger.clear_events()

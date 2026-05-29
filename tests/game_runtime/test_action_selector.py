@@ -42,8 +42,8 @@ def test_parse_target_selection(two_players: list[Player]) -> None:
 
 
 def test_parse_yes_no() -> None:
-    assert ActionSelector.parse_yes_no("YES") is True
-    assert ActionSelector.parse_yes_no("no") is False
+    assert ActionSelector.parse_yes_no("[[1]]") is True
+    assert ActionSelector.parse_yes_no("[[0]]") is False
     assert ActionSelector.parse_yes_no("是") is True
 
 

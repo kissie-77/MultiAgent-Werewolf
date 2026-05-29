@@ -111,6 +111,7 @@ class EventType(str, Enum):
     WITCH_POISONED = "witch_poisoned"
     SEER_CHECKED = "seer_checked"
     GUARD_PROTECTED = "guard_protected"
+    GRAVEYARD_KEEPER_CHECK = "graveyard_keeper_check"
 
     VOTE_CAST = "vote_cast"
     VOTE_INTENTION_SNAPSHOT = "vote_intention_snapshot"

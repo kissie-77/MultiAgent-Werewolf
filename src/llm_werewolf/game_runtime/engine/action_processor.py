@@ -212,9 +212,9 @@ class ActionProcessorMixin:
         )
 
     def _log_graveyard_keeper_action(self, action: GraveyardKeeperCheckAction) -> None:
-        """记录守墓人查验行动。"""
+        """记录守墓人查验行动（仅守墓人可见，不泄露真实身份）。"""
         self._log_event(
-            EventType.MESSAGE,
+            EventType.GRAVEYARD_KEEPER_CHECK,
             self.locale.get(
                 "graveyard_keeper_checked",
                 target=action.target.name,
@@ -224,6 +224,8 @@ class ActionProcessorMixin:
             data={
                 "player_id": action.actor.player_id,
                 "target_id": action.target.player_id,
+                "role": action.target.get_role_name(),
+                "camp": action.target.get_camp().value,
                 **self._decision_data(action),
             },
         )

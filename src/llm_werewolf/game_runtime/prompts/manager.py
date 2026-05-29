@@ -253,11 +253,7 @@ class PromptManager:
 
     @staticmethod
     def parse_yes_no(response: str) -> bool:
-        """解析 [[1]]/[[0]] 或 是/否。"""
-        match = re.search(r"\[\[\s*(\d+)\s*\]\]", response)
-        if match:
-            return match.group(1) == "1"
-        lower = response.strip().lower()
-        if "1" in lower or "yes" in lower or "是" in lower:
-            return True
-        return False
+        """解析 [[1]]/[[0]] 或 是/否（严格格式，与 Bridge 一致）。"""
+        from llm_werewolf.game_runtime.prompts.yes_no_parse import parse_yes_no_strict
+
+        return parse_yes_no_strict(response)

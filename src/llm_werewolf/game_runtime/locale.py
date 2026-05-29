@@ -29,6 +29,8 @@ class Locale:
             "killed_by_werewolves": "{player} was killed by werewolves",
             "voted_out": "{player} was voted out",
             "player_eliminated": "{player} was eliminated by vote. They were a {role}.",
+            "player_eliminated_hidden": "{player} was eliminated by vote.",
+            "werewolf_vote_tie_break": "Wolf pack tied on kill target; {breaker} breaks the tie.",
             "died_of_heartbreak": "{player} died of heartbreak (lover)!",
             "died_from_charm": "{player} died from Wolf Beauty's charm (Wolf Beauty {wolf_beauty} was eliminated)!",
             # 投票
@@ -165,6 +167,8 @@ class Locale:
             "killed_by_werewolves": "{player} 被狼人殺害",
             "voted_out": "{player} 被投票淘汰",
             "player_eliminated": "{player} 被投票淘汰，身分是 {role}。",
+            "player_eliminated_hidden": "{player} 被投票淘汰。",
+            "werewolf_vote_tie_break": "狼刀平票，由 {breaker} 裁定最终刀口。",
             "died_of_heartbreak": "{player} 因愛而死(戀人)!",
             "died_from_charm": "{player} 被狼美人魅惑而死(狼美人 {wolf_beauty} 被淘汰)!",
             # 投票
@@ -300,6 +304,8 @@ class Locale:
             "killed_by_werewolves": "{player} 被狼人杀害",
             "voted_out": "{player} 被投票淘汰",
             "player_eliminated": "{player} 被投票淘汰，身份是 {role}。",
+            "player_eliminated_hidden": "{player} 被投票淘汰。",
+            "werewolf_vote_tie_break": "狼刀平票，由 {breaker} 裁定最终刀口。",
             "died_of_heartbreak": "{player} 因爱而死(恋人)!",
             "died_from_charm": "{player} 被狼美人魅惑而死(狼美人 {wolf_beauty} 被淘汰)!",
             # 投票

@@ -33,6 +33,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
@@ -44,5 +46,22 @@ jobs:
       - name: Install dev tools
         run: uv sync --frozen --group dev
 
-      - name: Run pre-commit
-        run: uv run pre-commit run --all-files --show-diff-on-failure
+      - name: Pre-commit on changed files
+        env:
+          SKIP: mypy
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}"
+            FROM="origin/${{ github.base_ref }}"
+            TO="HEAD"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            FROM="${{ github.event.before }}"
+            TO="${{ github.sha }}"
+          else
+            echo "No diff base; running hygiene hooks on all files."
+            uv run pre-commit run --all-files --show-diff-on-failure
+            exit 0
+          fi
+          echo "Pre-commit from ${FROM} to ${TO}"
+          uv run pre-commit run --from-ref "${FROM}" --to-ref "${TO}" --show-diff-on-failure

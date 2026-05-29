@@ -7,11 +7,11 @@
 # To get a newer version, you will need to update the SHA.
 # You can also reference a tag or branch, but the action may change without warning.
 
+# DISABLED: needs docker/Dockerfile. Re-enable when container image is ready.
 name: Publish Docker image
 
 on:
   workflow_dispatch:
-  # Disabled until docker/Dockerfile exists. Re-enable push/tags when image assets land.
 
 permissions:
   contents: read
@@ -20,6 +20,7 @@ permissions:
 jobs:
   build_images:
     name: Build and Push Images
+    if: false
     runs-on: ubuntu-latest
 
     strategy:

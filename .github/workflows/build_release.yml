@@ -1,9 +1,7 @@
+# DISABLED: binary/PyPI release pipeline. Re-enable when tagging v* releases.
 name: Build and Release
 
 on:
-  push:
-    tags:
-      - v*
   workflow_dispatch:
 
 permissions:
@@ -16,6 +14,7 @@ concurrency:
 jobs:
   build:
     name: ${{ matrix.runner }} - ${{ matrix.target }}
+    if: false
     runs-on: ${{ matrix.runner }}
 
     timeout-minutes: 30
@@ -115,6 +114,7 @@ jobs:
 
   package:
     name: Build Package
+    if: false
     runs-on: ubuntu-latest
 
     strategy:
@@ -180,6 +180,7 @@ jobs:
 
   release:
     name: Release Package
+    if: false
     needs:
       - build
       - package

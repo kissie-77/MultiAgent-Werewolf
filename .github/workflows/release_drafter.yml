@@ -1,8 +1,8 @@
+# DISABLED: needs .github/cliff.toml. Re-enable for automated draft releases.
 name: Release Drafter
 
 on:
   workflow_dispatch:
-  # Disabled until .github/cliff.toml exists.
 
 permissions:
   contents: write
@@ -10,6 +10,7 @@ permissions:
 jobs:
   update_release_draft:
     name: Update Release Draft
+    if: false
     runs-on: ubuntu-latest
 
     steps:

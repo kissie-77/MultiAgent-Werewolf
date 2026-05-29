@@ -1,8 +1,8 @@
+# DISABLED: needs mkdocs.yml + docs site layout. Re-enable when ready to publish Pages.
 name: Publish GitHub Pages
 
 on:
   workflow_dispatch:
-  # Disabled until mkdocs.yml and Makefile are added.
 
 permissions:
   contents: read

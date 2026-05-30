@@ -4,7 +4,6 @@ from llm_werewolf.agent_team.skill_support.skill_markdown import (
     split_description_line,
     ensure_description_format,
     render_frontmatter_markdown,
-    strip_legacy_description_line,
 )
 
 
@@ -52,14 +51,6 @@ def test_extract_description_prefers_when_to_use_section() -> None:
         extract_description(content)
         == "首夜狼队私密频道，落刀前需要统一目标的情况下，使用该 skill"
     )
-
-
-def test_strip_legacy_description_only_when_when_to_use_exists():
-    legacy = "描述：旧描述\n\n# 技能\n## 何时使用\n首夜\n"
-    plain = "描述：旧描述\n\n# 技能"
-
-    assert not strip_legacy_description_line(legacy).startswith("描述：")
-    assert strip_legacy_description_line(plain).startswith("# 技能")
 
 
 def test_render_frontmatter_markdown_skips_empty_values() -> None:

@@ -6,9 +6,9 @@ from pathlib import Path
 from functools import lru_cache
 
 from llm_werewolf.agent_team.skill_support.skill_markdown import (
+    ensure_description_format,
     extract_description,
     parse_frontmatter,
-    strip_legacy_description_line,
 )
 
 _SKILLS_DIR_NAME = "skills"
@@ -43,11 +43,15 @@ def _load_skill_file(path: Path) -> dict[str, str | float] | None:
         return None
     text = path.read_text(encoding="utf-8")
     meta, body = _parse_frontmatter(text)
-    body = strip_legacy_description_line(body)
     status = meta.get("status", "draft")
     if status == "skipped":
         return None
-    description = extract_description(body)
+    # 优先从 frontmatter 读取 when_to_use，fallback 到 body 解析
+    when_to_use = meta.get("when_to_use", "").strip()
+    if when_to_use:
+        description = ensure_description_format(when_to_use)
+    else:
+        description = extract_description(body)
     try:
         weight = float(meta.get("weight", 1.0))
     except (ValueError, TypeError):

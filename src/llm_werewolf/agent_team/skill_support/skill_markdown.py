@@ -100,13 +100,3 @@ def ensure_description_format(text: str) -> str:
     if normalized.endswith("的情况下"):
         return f"{normalized}，使用该 skill"
     return f"{normalized}的情况下，使用该 skill"
-
-
-def strip_legacy_description_line(body: str) -> str:
-    lines = body.strip().splitlines()
-    if not lines:
-        return ""
-    first = lines[0].strip()
-    if first.startswith(DESCRIPTION_PREFIXES):
-        return "\n".join(lines[1:]).strip()
-    return body.strip()

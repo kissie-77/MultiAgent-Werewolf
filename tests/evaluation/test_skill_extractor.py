@@ -452,7 +452,7 @@ def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> Non
     assert items[0]["weight"] == 1.0
 
 
-def test_skill_loader_strips_legacy_description_line_from_prompt_body(
+def test_skill_loader_reads_when_to_use_from_frontmatter(
     tmp_path: Path, monkeypatch
 ) -> None:
     from llm_werewolf.agent_team.skill_support import skill_loader
@@ -461,11 +461,11 @@ def test_skill_loader_strips_legacy_description_line_from_prompt_body(
     prophet_dir = root / "prophet"
     prophet_dir.mkdir(parents=True)
     (prophet_dir / "prophet_demo.md").write_text(
-        "---\nskill_id: prophet_demo\nprompt_role_key: prophet\nstatus: active\n---\n\n"
-        "描述：# 预言家有效查验决策 ## 提取依据 噪声的情况下，使用该 skill\n\n"
+        "---\nskill_id: prophet_demo\nprompt_role_key: prophet\nstatus: active\n"
+        "when_to_use: 第1轮夜间，面临同类技能抉择且信息边界与当时一致时\n---\n\n"
         "# 预言家有效查验决策\n\n"
-        "## 何时使用\n"
-        "第1轮夜间，面临同类技能抉择且信息边界与当时一致时\n",
+        "## 提取依据\n"
+        "具体内容\n",
         encoding="utf-8",
     )
 
@@ -477,8 +477,6 @@ def test_skill_loader_strips_legacy_description_line_from_prompt_body(
 
     assert len(items) == 1
     assert items[0]["description"].endswith("的情况下，使用该 skill")
-    assert "描述：" not in str(items[0]["body"])
-    assert "## 何时使用" not in section
     assert items[0]["description"] in section
 
 

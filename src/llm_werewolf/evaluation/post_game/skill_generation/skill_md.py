@@ -15,6 +15,7 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     quality = skill.get("quality_gate") or {}
 
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    when_to_use = card.get("when_to_use", "")
     frontmatter = {
         "skill_id": skill.get("skill_id", ""),
         "prompt_role_key": skill.get("prompt_role_key", ""),
@@ -29,6 +30,8 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
         "created_at": skill.get("created_at", now_iso),
         "updated_at": skill.get("updated_at", now_iso),
     }
+    if when_to_use:
+        frontmatter["when_to_use"] = when_to_use
     lines = ["---"]
     for key, value in frontmatter.items():
         if value is not None and value != "":

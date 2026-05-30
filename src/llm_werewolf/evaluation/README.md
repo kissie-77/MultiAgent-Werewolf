@@ -41,6 +41,8 @@ uv run --with "pytest>=8.2" pytest -o addopts='' tests/evaluation -q
 eval_runs/<run-name>/
   manifest.json
   summary.json
+  experiment_meta.json
+  leaderboard_entry.json
   metrics.csv
   report.md
   games/<game_id>/events.jsonl
@@ -56,6 +58,8 @@ eval_runs/<run-name>/
 - `checks.json`：每局 checker 结果。
 - `errors.jsonl`：崩溃、超时或 observation 构建异常。
 - `summary.json`：机器可读的汇总指标。
+- `experiment_meta.json`：该次实验的版本元信息，以及上一版 skill 快照来源。
+- `leaderboard_entry.json`：用于 leaderboard / A-B 对比的一次实验汇总条目。
 - `metrics.csv`：表格格式指标。
 - `report.md`：人类可读报告。
 

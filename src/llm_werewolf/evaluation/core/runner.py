@@ -1,56 +1,67 @@
-import json
-import time
-import random
-from typing import Any
 import asyncio
-from pathlib import Path
+import json
+import random
+import time
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.types import Event, EventType
-from llm_werewolf.game_runtime.config import GameConfig
-from llm_werewolf.interface.bootstrap import create_information_hub
 from llm_werewolf.agent_team.agents.base import DemoAgent
-from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
-from llm_werewolf.evaluation.core.metrics import build_summary
 from llm_werewolf.evaluation.core.checkers import (
     AsyncFlowChecker,
-    RoleSkillChecker,
-    PromptBadCaseChecker,
-    VictoryCheckerEvaluator,
     DecisionConsistencyChecker,
     InformationIsolationChecker,
+    PromptBadCaseChecker,
+    RoleSkillChecker,
+    VictoryCheckerEvaluator,
 )
+from llm_werewolf.evaluation.core.metrics import build_summary
+from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
 from llm_werewolf.evaluation.core.recorder import EvaluationRecorder
 from llm_werewolf.evaluation.core.reporter import EvaluationReporter
 from llm_werewolf.evaluation.core.scenarios import EvaluationScenario
+from llm_werewolf.evaluation.leaderboard.entry_builder import build_entry, write_entry_bundle
+from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.game_runtime.config import GameConfig
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
+from llm_werewolf.game_runtime.types import Event, EventType
+from llm_werewolf.interface.bootstrap import create_information_hub
 
 
 class EvaluationRunner:
-    """离线评测运行器。
+    """离线评测运行器。"""
 
-    runner 是整个 evaluation 包的编排层：
-    1. 根据场景创建游戏。
-    2. 接管事件回调并写入 recorder。
-    3. 用超时保护运行 `play_game()`。
-    4. 跑 checker 并生成最终报告。
-    """
-
-    def __init__(self, output_dir: str | Path, scenarios: list[EvaluationScenario]) -> None:
+    def __init__(
+        self,
+        output_dir: str | Path,
+        scenarios: list[EvaluationScenario],
+        *,
+        version_id: str | None = None,
+        model: str = "unknown",
+        prompt_version: str = "unknown",
+        skill_version: str = "baseline",
+        notes: list[str] | None = None,
+        previous_run_dir: str | None = None,
+        previous_skill_snapshot_path: str | None = None,
+    ) -> None:
         self.output_dir = Path(output_dir)
         self.scenarios = scenarios
         self.games_dir = self.output_dir / "games"
+        self.version_id = version_id
+        self.model = model
+        self.prompt_version = prompt_version
+        self.skill_version = skill_version
+        self.notes = notes or []
+        self.previous_run_dir = previous_run_dir
+        self.previous_skill_snapshot_path = previous_skill_snapshot_path
 
     async def run(self) -> list[GameRunResult]:
-        """运行所有场景并写出批量报告。"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.games_dir.mkdir(parents=True, exist_ok=True)
         self._write_manifest()
 
         results: list[GameRunResult] = []
         for scenario in self.scenarios:
-            # repetition 用于同一场景跑多局；每局 seed 递增，保证既可复现又有变化。
             for repetition in range(scenario.repetitions):
                 seed = scenario.seed + repetition
                 game_id = f"{scenario.name}-{seed}-{repetition + 1}"
@@ -58,16 +69,15 @@ class EvaluationRunner:
 
         summary = build_summary(results)
         EvaluationReporter(self.output_dir).write(summary, results)
+        self._write_experiment_artifacts()
         return results
 
     async def run_scenario(
-        self, scenario: EvaluationScenario, game_id: str, seed: int
+        self,
+        scenario: EvaluationScenario,
+        game_id: str,
+        seed: int,
     ) -> GameRunResult:
-        """运行单局游戏并返回摘要结果。
-
-        这个方法必须保证“单局失败不影响整批评测”：
-        所有超时、崩溃和 observation 构建异常都会被记录，然后继续返回 GameRunResult。
-        """
         random.seed(seed)
         game_dir = self.games_dir / game_id
         recorder = EvaluationRecorder(game_dir)
@@ -81,16 +91,13 @@ class EvaluationRunner:
         error_message: str | None = None
 
         def on_event(event: Event) -> None:
-            # 接管 GameEngine 事件出口：内存中保留一份给 checker，磁盘写一份给复盘。
             events.append(event)
             recorder.record_event(event)
 
         engine.on_event = on_event
-        # setup 后立即保存快照，方便确认初始角色、玩家状态和配置。
         recorder.record_snapshot(engine.game_state, label="after_setup")
 
         try:
-            # wait_for 是异步流程正确性评测的安全网：游戏卡住会变成 timeout 产物。
             await asyncio.wait_for(engine.play_game(), timeout=scenario.timeout_seconds)
         except asyncio.TimeoutError as exc:
             timed_out = True
@@ -114,10 +121,7 @@ class EvaluationRunner:
         if engine.game_state is not None:
             for player in engine.game_state.players:
                 try:
-                    # 收集每个玩家最终 observation，用于检查私有事件是否泄露。
-                    observations_by_player[player.player_id] = engine.build_player_observation(
-                        player
-                    )
+                    observations_by_player[player.player_id] = engine.build_player_observation(player)
                 except Exception as exc:
                     if not crashed:
                         crashed = True
@@ -130,14 +134,11 @@ class EvaluationRunner:
                         role_name=player.get_role_name(),
                     )
 
-        # final 快照无论成功、崩溃还是超时都尽量保存，便于比较终局状态。
         recorder.record_snapshot(engine.game_state, label="final")
         if engine.game_state and engine.game_state.vote_intention_tracker is not None:
             records = engine.game_state.vote_intention_tracker.export_records()
             recorder.record_vote_intentions(records)
-            from llm_werewolf.evaluation.core.vote_swing_analysis import (
-                ensure_vote_intentions_jsonl,
-            )
+            from llm_werewolf.evaluation.core.vote_swing_analysis import ensure_vote_intentions_jsonl
 
             events_for_intentions = [event.model_dump(mode="json") for event in events]
             ensure_vote_intentions_jsonl(game_dir, records=records, events=events_for_intentions)
@@ -154,6 +155,7 @@ class EvaluationRunner:
                     phase=engine.game_state.phase.value if engine.game_state else None,
                     round_number=engine.game_state.round_number if engine.game_state else None,
                 )
+
         checks = self._run_checkers(events, observations_by_player, engine)
         recorder.finalize_checks(checks)
 
@@ -180,10 +182,6 @@ class EvaluationRunner:
         )
 
     def _build_engine(self, scenario: EvaluationScenario) -> GameEngine:
-        """按场景构建一局离线游戏。
-
-        第一版固定使用 DemoAgent，避免真实模型 API 成本和随机延迟影响系统正确性评测。
-        """
         config = GameConfig(num_players=scenario.num_players, role_names=scenario.role_names)
         agents = [
             DemoAgent(name=f"EvalPlayer{i}", model="demo")
@@ -191,18 +189,19 @@ class EvaluationRunner:
         ]
         roles = create_roles(config.role_names)
         engine = GameEngine(
-            config, language=scenario.language, information_hub=create_information_hub()
+            config,
+            language=scenario.language,
+            information_hub=create_information_hub(),
         )
         engine.setup_game(players=agents, roles=roles)
         return engine
 
     def _run_checkers(
-        self, events: list[Event], observations_by_player: dict[str, str], engine: GameEngine
+        self,
+        events: list[Event],
+        observations_by_player: dict[str, str],
+        engine: GameEngine,
     ) -> list[CheckResult]:
-        """运行所有正确性 checker。
-
-        checker 自身不应该让评测中断；如果 checker 代码抛异常，也会转成失败结果。
-        """
         final_winner = engine.game_state.winner if engine.game_state else None
         player_roles = {}
         player_camps = {}
@@ -213,6 +212,7 @@ class EvaluationRunner:
             player_camps = {
                 player.player_id: player.get_camp() for player in engine.game_state.players
             }
+
         checks: list[CheckResult] = []
         checkers: list[tuple[Any, dict[str, Any]]] = [
             (RoleSkillChecker(), {"events": events}),
@@ -245,11 +245,6 @@ class EvaluationRunner:
         return checks
 
     def _error_event_checks(self, events: list[Event]) -> list[CheckResult]:
-        """把游戏内部记录的 ERROR 事件转成评测失败。
-
-        有些角色动作异常会被引擎捕获并记录为 EventType.ERROR，不会导致 play_game 崩溃。
-        如果不把这些事件纳入 checks，报告会误以为该局完全健康。
-        """
         results: list[CheckResult] = []
         for event in events:
             if event.event_type != EventType.ERROR:
@@ -261,9 +256,7 @@ class EvaluationRunner:
                     passed=False,
                     message=event.data.get("error", event.message),
                     data={
-                        "phase": event.phase.value
-                        if hasattr(event.phase, "value")
-                        else str(event.phase),
+                        "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
                         "round_number": event.round_number,
                         "player_id": event.data.get("player_id"),
                         "role_name": role_name,
@@ -274,11 +267,29 @@ class EvaluationRunner:
         return results
 
     def _write_manifest(self) -> None:
-        """写本次评测批次的元数据，记录场景和创建时间。"""
         payload = {
             "created_at": datetime.now().isoformat(),
             "scenarios": [scenario.model_dump(mode="json") for scenario in self.scenarios],
         }
         (self.output_dir / "manifest.json").write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _write_experiment_artifacts(self) -> None:
+        scenario_name = self.scenarios[0].name if self.scenarios else "unknown"
+        entry = build_entry(
+            self.output_dir,
+            version_id=self.version_id,
+            model=self.model,
+            prompt_version=self.prompt_version,
+            skill_version=self.skill_version,
+            scenario=scenario_name,
+            notes=self.notes,
+        )
+        write_entry_bundle(
+            self.output_dir,
+            entry,
+            previous_run_dir=self.previous_run_dir,
+            previous_skill_snapshot_path=self.previous_skill_snapshot_path,
         )

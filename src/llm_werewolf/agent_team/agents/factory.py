@@ -15,7 +15,7 @@ from agentscope.model import OpenAIChatModel
 from agentscope.memory import InMemoryMemory
 from agentscope.formatter import OpenAIChatFormatter
 
-from llm_werewolf.agent_team.memory import MemoryManager
+from llm_werewolf.agent_team.memory import RuntimeMemoryManager
 from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
 from llm_werewolf.agent_team.fast_react_agent import FastReActAgent
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
@@ -224,7 +224,7 @@ def _build_memory_manager(
     plan_name: str,
     memory_config: MemoryConfig | None,
     event_logger=None,
-) -> MemoryManager | None:
+) -> RuntimeMemoryManager | None:
     """按玩家当前运行时上下文构建记忆管理器。"""
     if event_logger is None:
         return None
@@ -233,7 +233,7 @@ def _build_memory_manager(
     player_config = getattr(player.agent, "player_config", None)
     compressor = _build_compressor(config, player_config)
 
-    manager = MemoryManager(
+    manager = RuntimeMemoryManager(
         event_logger=event_logger,
         role=PromptManager.get_prompt_role_key(role_name),
         player_id=player.player_id,

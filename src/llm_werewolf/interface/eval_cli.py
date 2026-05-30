@@ -3,9 +3,9 @@ from pathlib import Path
 
 import fire
 
-from llm_werewolf.paths import EVAL_RUNS_DIR
 from llm_werewolf.evaluation.core.runner import EvaluationRunner
 from llm_werewolf.evaluation.core.scenarios import get_scenario
+from llm_werewolf.paths import EVAL_RUNS_DIR
 
 
 def main(
@@ -14,32 +14,37 @@ def main(
     games: int = 10,
     timeout_seconds: float = 30.0,
     seed: int = 1,
+    version_id: str | None = None,
+    model: str = "unknown",
+    prompt_version: str = "unknown",
+    skill_version: str = "baseline",
+    notes: list[str] | None = None,
+    previous_run_dir: str | None = None,
+    previous_skill_snapshot_path: str | None = None,
 ) -> str:
-    """运行离线游戏正确性评测。
-
-    Args:
-        output_dir: 评测产物输出目录。
-        scenario: 内置场景名，例如 smoke_6p_basic。
-        games: 要运行的局数。
-        timeout_seconds: 单局硬超时时间。
-        seed: 基础随机种子；多局运行时每局递增。
-
-    Returns:
-        str: 输出目录路径，便于 CLI 和测试读取。
-    """
     resolved_output = Path(output_dir)
-    # CLI 只负责把参数翻译成 EvaluationScenario，真正的运行逻辑交给 runner。
     eval_scenario = get_scenario(
-        name=scenario, games=games, seed=seed, timeout_seconds=timeout_seconds
+        name=scenario,
+        games=games,
+        seed=seed,
+        timeout_seconds=timeout_seconds,
     )
-    runner = EvaluationRunner(output_dir=resolved_output, scenarios=[eval_scenario])
-    # fire 入口是同步函数，因此这里用 asyncio.run 启动异步 runner。
+    runner = EvaluationRunner(
+        output_dir=resolved_output,
+        scenarios=[eval_scenario],
+        version_id=version_id,
+        model=model,
+        prompt_version=prompt_version,
+        skill_version=skill_version,
+        notes=notes,
+        previous_run_dir=previous_run_dir,
+        previous_skill_snapshot_path=previous_skill_snapshot_path,
+    )
     asyncio.run(runner.run())
     return str(resolved_output)
 
 
 def entry() -> None:
-    """`werewolf-eval` 命令入口。"""
     fire.Fire(main)
 
 

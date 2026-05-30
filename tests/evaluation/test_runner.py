@@ -7,7 +7,15 @@ from llm_werewolf.evaluation.core.scenarios import smoke_6p_basic
 
 def test_runner_writes_artifacts_for_smoke_scenario(tmp_path: Path) -> None:
     scenario = smoke_6p_basic(seed=3, repetitions=1, timeout_seconds=20)
-    runner = EvaluationRunner(output_dir=tmp_path, scenarios=[scenario])
+    runner = EvaluationRunner(
+        output_dir=tmp_path,
+        scenarios=[scenario],
+        version_id="smoke_v1",
+        model="demo",
+        prompt_version="prompt_v1",
+        skill_version="baseline",
+        notes=["auto-meta"],
+    )
 
     results = asyncio.run(runner.run())
 
@@ -16,6 +24,8 @@ def test_runner_writes_artifacts_for_smoke_scenario(tmp_path: Path) -> None:
     assert (tmp_path / "summary.json").exists()
     assert (tmp_path / "metrics.csv").exists()
     assert (tmp_path / "report.md").exists()
+    assert (tmp_path / "experiment_meta.json").exists()
+    assert (tmp_path / "leaderboard_entry.json").exists()
 
     game_dir = tmp_path / "games" / results[0].game_id
     assert (game_dir / "events.jsonl").exists()

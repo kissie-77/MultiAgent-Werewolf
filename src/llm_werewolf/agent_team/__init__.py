@@ -6,6 +6,7 @@ __all__ = [
     "DemoAgent",
     "MemoryConfig",
     "MemoryManager",
+    "RuntimeMemoryManager",
     "ProceduralMemory",
     "PromptAgentMixin",
     "SemanticMemory",
@@ -30,6 +31,7 @@ def __getattr__(name: str):
         "MemoryConfig",
         "MemoryManager",
         "ProceduralMemory",
+        "RuntimeMemoryManager",
         "SemanticMemory",
         "WorkingMemory",
     }:

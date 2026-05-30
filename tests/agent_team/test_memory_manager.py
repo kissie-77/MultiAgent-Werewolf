@@ -4,7 +4,7 @@ import pytest
 
 from llm_werewolf.agent_team import skill_loader
 from llm_werewolf.agent_team.memory.config import MemoryConfig
-from llm_werewolf.agent_team.memory.memory_manager import MemoryManager
+from llm_werewolf.agent_team.memory.runtime_memory_manager import RuntimeMemoryManager as MemoryManager
 from llm_werewolf.agent_team.memory.semantic_memory import InMemoryBackend, SemanticMemory, StrategyCard
 from llm_werewolf.agent_team.skill_support.skill_markdown import extract_description
 from llm_werewolf.game_runtime.events.events import EventLogger
@@ -454,6 +454,40 @@ def test_memory_manager_extracts_and_persists_semantic_candidates_on_game_end():
     cards = manager.semantic.retrieve_for_role("villager", top_k=10)
 
     assert any("\u5931\u8d25\u53cd\u601d" in card.content for card in cards)
+
+
+def test_memory_manager_delegates_runtime_extraction_to_coach():
+    logger = EventLogger()
+    logger.create_event(
+        EventType.VOTE_CAST,
+        round_number=1,
+        phase=GamePhase.DAY_VOTING,
+        message="2号投给5号",
+        data={"voter_id": "player_2"},
+        visible_to=["player_2"],
+    )
+    manager = MemoryManager(
+        logger,
+        role="villager",
+        player_id="player_2",
+        config=MemoryConfig(semantic_top_k=3),
+        semantic_backend=InMemoryBackend(),
+    )
+    calls: list[dict] = []
+
+    def fake_extract(report, **kwargs):
+        calls.append({"report": report, **kwargs})
+        return ["失败反思：第1轮不要过早依赖2号投给5号形成判断"]
+
+    manager._coach().extract_semantic_candidates = fake_extract
+
+    candidates = manager.extract_semantic_candidates(won=False)
+
+    assert candidates == ["失败反思：第1轮不要过早依赖2号投给5号形成判断"]
+    assert len(calls) == 1
+    assert calls[0]["won"] is False
+    assert calls[0]["top_k"] == 3
+    assert calls[0]["semantic"] is manager.semantic
 
 
 def test_description_extracted_from_content_line():

@@ -88,6 +88,8 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
     assert result.ok
     assert (tmp_path / "episodic_reports.json").is_file()
     assert (tmp_path / "coach_summary.json").is_file()
+    assert (tmp_path / "skill_snapshot.json").is_file()
+    assert (tmp_path / "skill_diff.json").is_file()
     assert (tmp_path / "prompt_proposals.json").is_file()
 
     payload = json.loads((tmp_path / "prompt_proposals.json").read_text(encoding="utf-8"))
@@ -106,6 +108,9 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
     assert (tmp_path / "views_manifest.json").is_file()
     skills_payload = json.loads((tmp_path / "role_skills.json").read_text(encoding="utf-8"))
     assert skills_payload["schema"] == "role_skills_v1"
+    coach_summary = json.loads((tmp_path / "coach_summary.json").read_text(encoding="utf-8"))
+    assert coach_summary["skill_snapshot"]["schema"] == "skill_snapshot_v1"
+    assert coach_summary["skill_diff"]["schema"] == "skill_diff_v1"
 
     ctx = load_run_context(tmp_path)
     camp = build_camp_persuasion_report(ctx)

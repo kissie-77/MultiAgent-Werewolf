@@ -73,6 +73,8 @@ dependencies = [
     "pyyaml>=6.0.3",
     "rich>=14.3.3",
     "textual>=8.0.2",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -88,6 +90,7 @@ werewolf = "llm_werewolf.interface.cli:entry"
 werewolf-tui = "llm_werewolf.interface.tui:entry"
 werewolf-eval = "llm_werewolf.interface.eval_cli:entry"
 werewolf-vote-swing = "llm_werewolf.interface.vote_swing_cli:entry"
+werewolf-api = "llm_werewolf.interface.api.app:main"
 
 [dependency-groups]
 dev = [

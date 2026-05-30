@@ -35,10 +35,6 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
             lines.append(f"{key}: {value}")
     lines.extend(["---", ""])
 
-    if card.get("when_to_use"):
-        lines.append(f"描述：{card['when_to_use']}")
-        lines.append("")
-
     title = card.get("title_zh") or skill.get("skill_id") or "未命名 Skill"
     lines.append(f"# {title}")
     lines.append("")
@@ -46,11 +42,6 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     if skill.get("rationale"):
         lines.append("## 提取依据")
         lines.append(str(skill["rationale"]))
-        lines.append("")
-
-    if card.get("when_to_use"):
-        lines.append("## 何时使用")
-        lines.append(str(card["when_to_use"]))
         lines.append("")
 
     if card.get("public_behavior"):

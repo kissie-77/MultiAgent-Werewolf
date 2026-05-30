@@ -39,11 +39,11 @@ def test_description_line_and_when_to_use_share_fixed_format() -> None:
 
 def test_extract_description_prefers_when_to_use_section() -> None:
     content = (
-        "# 技能\n\n"
+        "# 技能\n"
         "## 提取依据\n"
-        "这段不是触发条件。\n\n"
+        "这段不是触发条件。\n"
         "## 何时使用\n"
-        "- 首夜狼队私密频道，落刀前需要统一目标。\n\n"
+        "- 首夜狼队私密频道，落刀前需要统一目标。\n"
         "## 行动\n"
         "先报建议刀口。"
     )
@@ -54,12 +54,12 @@ def test_extract_description_prefers_when_to_use_section() -> None:
     )
 
 
-def test_strip_legacy_description_only_when_when_to_use_exists() -> None:
-    legacy = "描述：旧描述\n\n# 技能\n\n## 何时使用\n首夜\n"
-    plain = "描述：旧描述\n\n# 技能\n"
+def test_strip_legacy_description_only_when_when_to_use_exists():
+    legacy = "描述：旧描述\n\n# 技能\n## 何时使用\n首夜\n"
+    plain = "描述：旧描述\n\n# 技能"
 
     assert not strip_legacy_description_line(legacy).startswith("描述：")
-    assert strip_legacy_description_line(plain).startswith("描述：")
+    assert strip_legacy_description_line(plain).startswith("# 技能")
 
 
 def test_render_frontmatter_markdown_skips_empty_values() -> None:

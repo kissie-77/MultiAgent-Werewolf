@@ -1,4 +1,4 @@
-"""从 agent_team/skills/<身份>/ 加载 Skill Markdown，供系统 Prompt 引用。"""
+"""从 `agent_team/skills/<身份>/` 加载 Skill Markdown，供系统 Prompt 引用。"""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from pathlib import Path
 from functools import lru_cache
 
 from llm_werewolf.agent_team.skill_support.skill_markdown import (
+    extract_description,
     parse_frontmatter,
     strip_legacy_description_line,
 )
@@ -36,19 +37,17 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     return parse_frontmatter(text)
 
 
-def _strip_legacy_description_line(body: str) -> str:
-    return strip_legacy_description_line(body)
-
 
 def _load_skill_file(path: Path) -> dict[str, str | float] | None:
     if not path.is_file() or path.suffix.lower() != ".md":
         return None
     text = path.read_text(encoding="utf-8")
     meta, body = _parse_frontmatter(text)
-    body = _strip_legacy_description_line(body)
+    body = strip_legacy_description_line(body)
     status = meta.get("status", "draft")
     if status == "skipped":
         return None
+    description = extract_description(body)
     try:
         weight = float(meta.get("weight", 1.0))
     except (ValueError, TypeError):
@@ -57,7 +56,8 @@ def _load_skill_file(path: Path) -> dict[str, str | float] | None:
         "skill_id": meta.get("skill_id", path.stem),
         "status": status,
         "weight": weight,
-        "body": body,
+        "description": description,
+        "body": body.strip(),
         "path": str(path),
     }
 
@@ -95,7 +95,7 @@ def format_role_skills_section(
         return ""
     parts = ["【对局经验 Skill 卡片 — 可参考，须符合当前局面与信息边界】"]
     for idx, skill in enumerate(skills, start=1):
-        parts.append(f"\n### Skill {idx}（{skill['skill_id']}）\n{skill['body']}")
+        parts.append(f"\n### Skill {idx}（{skill['skill_id']}）\n{skill['description']}")
     return "\n".join(parts)
 
 

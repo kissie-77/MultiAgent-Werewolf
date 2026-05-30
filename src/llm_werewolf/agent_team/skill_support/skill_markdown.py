@@ -15,7 +15,6 @@ DESCRIPTION_SUFFIX = "的情况下，使用该 skill"
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
-    """Parse simple YAML-like frontmatter used by local Skill files."""
     match = FRONTMATTER_RE.match(text)
     if not match:
         return {}, text.strip()
@@ -68,7 +67,6 @@ def extract_description(content: str) -> str:
 
 
 def extract_when_to_use(content: str) -> str:
-    """Extract the first useful line from a Skill Markdown '何时使用' section."""
     lines = content.strip().splitlines()
     in_section = False
     collected: list[str] = []
@@ -86,7 +84,7 @@ def extract_when_to_use(content: str) -> str:
         normalized = line.strip()
         if not normalized:
             continue
-        normalized = re.sub(r"^[-*•\d.、)）\s]+", "", normalized).strip()
+        normalized = re.sub(r"^[-*\d.、\s]+", "", normalized).strip()
         if normalized:
             return normalized[:120]
     return ""
@@ -98,20 +96,17 @@ def ensure_description_format(text: str) -> str:
         return f"通用对局经验{DESCRIPTION_SUFFIX}"
     if normalized.endswith(DESCRIPTION_SUFFIX):
         return normalized
-    normalized = normalized.rstrip("。.!！")
+    normalized = normalized.rstrip("。！？!?;；")
     if normalized.endswith("的情况下"):
         return f"{normalized}，使用该 skill"
-    return f"{normalized}{DESCRIPTION_SUFFIX}"
+    return f"{normalized}的情况下，使用该 skill"
 
 
 def strip_legacy_description_line(body: str) -> str:
-    """Remove old leading description lines when '何时使用' already carries the trigger."""
     lines = body.strip().splitlines()
     if not lines:
         return ""
     first = lines[0].strip()
-    if first.startswith(DESCRIPTION_PREFIXES) and re.search(
-        r"^#+\s*何时使用\s*$", body, re.MULTILINE
-    ):
+    if first.startswith(DESCRIPTION_PREFIXES):
         return "\n".join(lines[1:]).strip()
     return body.strip()

@@ -476,9 +476,10 @@ def test_skill_loader_strips_legacy_description_line_from_prompt_body(
     section = format_role_skills_section("prophet")
 
     assert len(items) == 1
-    assert not str(items[0]["body"]).startswith("描述：")
-    assert "描述：# 预言家有效查验决策" not in section
-    assert "## 何时使用" in section
+    assert items[0]["description"].endswith("的情况下，使用该 skill")
+    assert "描述：" not in str(items[0]["body"])
+    assert "## 何时使用" not in section
+    assert items[0]["description"] in section
 
 
 def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypatch) -> None:

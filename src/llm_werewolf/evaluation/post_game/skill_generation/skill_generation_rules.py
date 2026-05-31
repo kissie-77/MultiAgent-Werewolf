@@ -353,4 +353,5 @@ def generation_rules_summary() -> dict[str, Any]:
         },
         "no_placeholder": "identities without passing material are omitted from skills[]",
         "dedupe": "per role: max 1 persuasion + 1 night event type; max 2 skills per role per run",
+        "belief_when_to_use": "when beliefs.jsonl exists, enrich when_to_use with B1/B2 distribution and vote intention",
     }

@@ -57,6 +57,14 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
         lines.append(str(card["avoid"]))
         lines.append("")
 
+    belief_context = evidence.get("belief_context")
+    if isinstance(belief_context, dict) and belief_context.get("when_clause"):
+        lines.append("## 信念分布依据")
+        lines.append(str(belief_context["when_clause"]))
+        if belief_context.get("pattern"):
+            lines.append(f"- 分布模式：{belief_context['pattern']}")
+        lines.append("")
+
     excerpt = evidence.get("public_speech_excerpt")
     if excerpt:
         lines.append("## 本局发言摘录")

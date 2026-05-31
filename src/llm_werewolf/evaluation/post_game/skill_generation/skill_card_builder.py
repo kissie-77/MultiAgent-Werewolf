@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import json
 
 if TYPE_CHECKING:
     from llm_werewolf.evaluation.post_game.run_context import RunContext
@@ -225,7 +226,11 @@ def build_wolf_night_coordination_card(
 
 
 def build_persuasion_skill_card(
-    *, role_key: str, speech: CampSpeechInfluence, ctx: RunContext
+    *,
+    role_key: str,
+    speech: CampSpeechInfluence,
+    ctx: RunContext,
+    belief_summary: BeliefDistributionSummary | None = None,
 ) -> SkillCardContent:
     base = _ROLE_DAY_PERSUASION.get(role_key, _ROLE_DAY_PERSUASION["villager"])
     rnd = speech.round_number
@@ -244,13 +249,20 @@ def build_persuasion_skill_card(
     if excerpt and len(excerpt) >= 12:
         behavior += f" ④ 表述上可先点出具体矛盾，再收束到单一归票（如摘录：「{excerpt[:80]}…」）。"
 
+    if belief_summary is not None and belief_summary.when_clause:
+        when += f"；{belief_summary.when_clause}"
+
     return SkillCardContent(
         title_zh=title, when_to_use=when, public_behavior=behavior, avoid=base["avoid"]
     )
 
 
 def build_night_action_skill_card(
-    *, role_key: str, event: dict[str, Any], ctx: RunContext
+    *,
+    role_key: str,
+    event: dict[str, Any],
+    ctx: RunContext,
+    belief_summary: BeliefDistributionSummary | None = None,
 ) -> SkillCardContent:
     etype = str(event.get("event_type", "night_action"))
     data = event.get("data") or {}
@@ -283,6 +295,9 @@ def build_night_action_skill_card(
         behavior += f" 本局守 {target_label}（{motive}）。"
     elif target_id:
         behavior += f" 本局选择目标 {target_label}。"
+
+    if belief_summary is not None and belief_summary.when_clause:
+        when += f" {belief_summary.when_clause}"
 
     return SkillCardContent(
         title_zh=f"第{rnd}轮{strat['title']}",
@@ -332,3 +347,272 @@ def dedupe_skill_candidates(candidates: list[Any], *, max_per_role: int = 2) -> 
         selected.append(candidate)
 
     return selected
+
+
+@dataclass
+class BeliefDistributionSummary:
+    """一局内某玩家某时刻的信念分布摘要。"""
+
+    round_number: int
+    phase: str
+    anchor: str
+    observer_seat: int
+    vote_seat: int
+    b1_top: list[tuple[int, float]] = field(default_factory=list)
+    b2_high: list[tuple[int, float]] = field(default_factory=list)
+    pattern: str = ""
+    when_clause: str = ""
+
+    def to_evidence(self) -> dict[str, Any]:
+        return {
+            "round_number": self.round_number,
+            "phase": self.phase,
+            "anchor": self.anchor,
+            "observer_seat": self.observer_seat,
+            "vote_seat": self.vote_seat,
+            "b1_top": [{"seat": s, "wolf_probability": p} for s, p in self.b1_top[:4]],
+            "b2_high": [{"seat": s, "suspects_me_as_wolf": p} for s, p in self.b2_high[:3]],
+            "pattern": self.pattern,
+            "when_clause": self.when_clause,
+        }
+
+
+def load_belief_rows(run_dir) -> list[dict[str, Any]]:
+    path = run_dir / "beliefs.jsonl"
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
+
+
+@dataclass
+class BeliefRunIndex:
+    """按 observer / 轮次 / 锚点索引 beliefs.jsonl。"""
+
+    rows: list[dict[str, Any]] = field(default_factory=list)
+
+    @classmethod
+    def from_run_dir(cls, run_dir) -> "BeliefRunIndex":
+        return cls(rows=load_belief_rows(run_dir))
+
+    def _matches(
+        self,
+        row: dict[str, Any],
+        *,
+        observer_id: str,
+        round_number: int | None = None,
+        phase: str | None = None,
+        anchor: str | None = None,
+        speaker_id: str | None = None,
+    ) -> bool:
+        if str(row.get("observer_id", "")) != observer_id:
+            return False
+        if round_number is not None and int(row.get("round", 0) or 0) != round_number:
+            return False
+        if phase is not None and str(row.get("phase", "")) != phase:
+            return False
+        if anchor is not None and str(row.get("anchor", "")) != anchor:
+            return False
+        if speaker_id is not None and str(row.get("speaker_id", "")) != speaker_id:
+            return False
+        return True
+
+    def find_persuasion_snapshot(
+        self,
+        *,
+        observer_id: str,
+        round_number: int,
+        phase: str = "day_discussion",
+    ) -> dict[str, Any] | None:
+        for row in reversed(self.rows):
+            if self._matches(
+                row,
+                observer_id=observer_id,
+                round_number=round_number,
+                phase=phase,
+                anchor="after_speech",
+                speaker_id=observer_id,
+            ):
+                return row
+        for row in reversed(self.rows):
+            if self._matches(
+                row,
+                observer_id=observer_id,
+                round_number=round_number,
+                phase=phase,
+                anchor="initial",
+            ):
+                return row
+        return None
+
+    def find_night_snapshot(
+        self,
+        *,
+        observer_id: str,
+        round_number: int,
+    ) -> dict[str, Any] | None:
+        if round_number <= 1:
+            return None
+        prior_round = round_number - 1
+        for row in reversed(self.rows):
+            if self._matches(row, observer_id=observer_id, round_number=prior_round):
+                return row
+        return None
+
+
+def _belief_b1_entries(snapshot: dict[str, Any], observer_seat: int) -> list[tuple[int, float]]:
+    entries: list[tuple[int, float]] = []
+    for row in snapshot.get("first_order") or []:
+        if not isinstance(row, dict):
+            continue
+        seat = int(row.get("target_seat", 0) or 0)
+        if seat <= 0 or seat == observer_seat:
+            continue
+        try:
+            prob = float(row.get("wolf_probability", 0.0))
+        except (TypeError, ValueError):
+            continue
+        entries.append((seat, prob))
+    entries.sort(key=lambda item: (-item[1], item[0]))
+    return entries
+
+
+def _belief_b2_entries(snapshot: dict[str, Any], *, min_prob: float = 0.25) -> list[tuple[int, float]]:
+    entries: list[tuple[int, float]] = []
+    for row in snapshot.get("second_order") or []:
+        if not isinstance(row, dict):
+            continue
+        seat = int(row.get("observer_seat", 0) or 0)
+        if seat <= 0:
+            continue
+        try:
+            prob = float(row.get("suspects_me_as_wolf", 0.0))
+        except (TypeError, ValueError):
+            continue
+        if prob < min_prob:
+            continue
+        entries.append((seat, prob))
+    entries.sort(key=lambda item: (-item[1], item[0]))
+    return entries
+
+
+def _belief_vote_seat(snapshot: dict[str, Any]) -> int:
+    vote = snapshot.get("vote_intention") or {}
+    try:
+        return int(vote.get("seat", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _belief_detect_pattern(
+    b1_top: list[tuple[int, float]],
+    b2_high: list[tuple[int, float]],
+    vote_seat: int,
+) -> str:
+    if not b1_top:
+        return "unknown"
+
+    top_prob = b1_top[0][1]
+    second_prob = b1_top[1][1] if len(b1_top) > 1 else 0.0
+
+    if len(b1_top) >= 2 and top_prob >= 0.45 and abs(top_prob - second_prob) <= 0.12:
+        return "split_focus"
+    if top_prob >= 0.7:
+        return "concentrated"
+    if top_prob >= 0.45 and (top_prob - second_prob) >= 0.12:
+        return "converging"
+    if len(b1_top) >= 3 and top_prob < 0.45:
+        spread = top_prob - b1_top[2][1]
+        if spread <= 0.12:
+            return "dispersed"
+    if vote_seat <= 0 and top_prob < 0.4:
+        return "undecided"
+    if b2_high and b2_high[0][1] >= 0.5:
+        return "self_exposed"
+    return "mixed"
+
+
+def _belief_format_b1(b1_top: list[tuple[int, float]], *, limit: int = 3) -> str:
+    if not b1_top:
+        return "-"
+    return ", ".join(f"{seat}:{prob:.2f}" for seat, prob in b1_top[:limit])
+
+
+def _belief_format_b2(b2_high: list[tuple[int, float]], *, limit: int = 2) -> str:
+    if not b2_high:
+        return ""
+    return ", ".join(f"{seat}:{prob:.2f}" for seat, prob in b2_high[:limit])
+
+
+def build_belief_when_clause(snapshot: dict[str, Any] | None) -> BeliefDistributionSummary | None:
+    """根据信念快照生成「何时使用」补充句；无快照时返回 None。"""
+    if not snapshot:
+        return None
+
+    observer_seat = int(snapshot.get("observer_seat", 0) or 0)
+    round_number = int(snapshot.get("round", 0) or 0)
+    phase = str(snapshot.get("phase", ""))
+    anchor = str(snapshot.get("anchor", ""))
+    vote_seat = _belief_vote_seat(snapshot)
+    b1_top = _belief_b1_entries(snapshot, observer_seat)
+    b2_high = _belief_b2_entries(snapshot)
+    pattern = _belief_detect_pattern(b1_top, b2_high, vote_seat)
+
+    parts: list[str] = [f"信念分布（第{round_number}轮·{anchor}）"]
+
+    if pattern == "dispersed":
+        parts.append(f"场上狼信分散（B1 top {_belief_format_b1(b1_top)}）")
+    elif pattern == "split_focus":
+        parts.append(f"怀疑焦点分散在 {_belief_format_b1(b1_top, limit=2)}")
+    elif pattern == "concentrated" and b1_top:
+        seat, prob = b1_top[0]
+        parts.append(f"高信{seat}号为狼（{prob:.2f}）")
+    elif pattern == "converging" and b1_top:
+        seat, prob = b1_top[0]
+        parts.append(f"怀疑收敛于{seat}号（狼信{prob:.2f}）")
+    elif pattern == "undecided":
+        parts.append(f"信息不足、狼信未收敛（B1 top {_belief_format_b1(b1_top)}）")
+    elif b1_top:
+        parts.append(f"B1 top {_belief_format_b1(b1_top)}")
+
+    if vote_seat > 0:
+        parts.append(f"意向已指向{vote_seat}号")
+    else:
+        parts.append("意向仍观望")
+
+    b2_text = _belief_format_b2(b2_high)
+    if b2_text:
+        parts.append(f"自身被高怀疑（B2 {b2_text}）")
+
+    usage_hints = {
+        "dispersed": "适合主动带节奏、收束票型",
+        "split_focus": "适合在双怀疑位中择一归票或拆局",
+        "concentrated": "适合顺势推动既有怀疑链",
+        "converging": "适合强化归票理由、避免分票",
+        "undecided": "适合先整理公开矛盾再定目标",
+        "self_exposed": "适合先洗清自身嫌疑再带票",
+        "mixed": "适合结合公开信息与票型缺口发言",
+    }
+    parts.append(usage_hints.get(pattern, usage_hints["mixed"]))
+
+    return BeliefDistributionSummary(
+        round_number=round_number,
+        phase=phase,
+        anchor=anchor,
+        observer_seat=observer_seat,
+        vote_seat=vote_seat,
+        b1_top=b1_top,
+        b2_high=b2_high,
+        pattern=pattern,
+        when_clause="；".join(parts),
+    )

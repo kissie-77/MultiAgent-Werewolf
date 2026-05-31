@@ -10,6 +10,9 @@ from datetime import datetime, timezone
 from llm_werewolf.agent_team.skill_support.skill_loader import is_trusted_source_run
 from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
+    BeliefDistributionSummary,
+    BeliefRunIndex,
+    build_belief_when_clause,
     build_persuasion_skill_card,
     build_night_action_skill_card,
 )
@@ -34,21 +37,57 @@ def _slug(text: str, *, max_len: int = 40) -> str:
 
 
 def _skill_from_candidate(
-    candidate: SkillGenerationCandidate, ctx: RunContext, *, rank: int
+    candidate: SkillGenerationCandidate,
+    ctx: RunContext,
+    *,
+    rank: int,
+    belief_index: BeliefRunIndex | None = None,
 ) -> dict[str, Any]:
     if candidate.source_kind == "persuasion_speech" and candidate.speech is not None:
-        return _skill_from_persuasion(candidate, ctx, rank=rank)
-    return _skill_from_night_action(candidate, ctx, rank=rank)
+        return _skill_from_persuasion(candidate, ctx, rank=rank, belief_index=belief_index)
+    return _skill_from_night_action(candidate, ctx, rank=rank, belief_index=belief_index)
+
+
+def _resolve_belief_summary(
+    candidate: SkillGenerationCandidate,
+    *,
+    belief_index: BeliefRunIndex | None,
+) -> BeliefDistributionSummary | None:
+    if belief_index is None or not belief_index.rows:
+        return None
+    if candidate.source_kind == "persuasion_speech" and candidate.speech is not None:
+        snapshot = belief_index.find_persuasion_snapshot(
+            observer_id=candidate.player_id,
+            round_number=candidate.speech.round_number,
+            phase=candidate.speech.phase or "day_discussion",
+        )
+    else:
+        event = candidate.night_event or {}
+        snapshot = belief_index.find_night_snapshot(
+            observer_id=candidate.player_id,
+            round_number=int(event.get("round_number", 0) or 0),
+        )
+    return build_belief_when_clause(snapshot)
 
 
 def _skill_from_persuasion(
-    candidate: SkillGenerationCandidate, ctx: RunContext, *, rank: int
+    candidate: SkillGenerationCandidate,
+    ctx: RunContext,
+    *,
+    rank: int,
+    belief_index: BeliefRunIndex | None = None,
 ) -> dict[str, Any]:
     speech = candidate.speech
     assert speech is not None
     role_key = candidate.prompt_role_key
     skill_id = _slug(f"{role_key}_r{speech.round_number}_{speech.speaker_id}_{rank}")
-    card = build_persuasion_skill_card(role_key=role_key, speech=speech, ctx=ctx)
+    belief_summary = _resolve_belief_summary(candidate, belief_index=belief_index)
+    card = build_persuasion_skill_card(
+        role_key=role_key,
+        speech=speech,
+        ctx=ctx,
+        belief_summary=belief_summary,
+    )
 
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return {
@@ -84,6 +123,7 @@ def _skill_from_persuasion(
             "camp_aligned_swings": speech.camp_aligned_swings,
             "camp_aligned_score": speech.camp_aligned_score,
             "matched_round_elimination": speech.matched_round_elimination,
+            "belief_context": belief_summary.to_evidence() if belief_summary else None,
             "scores": {"intention": speech.camp_aligned_score, "benefit": None},
         },
         "rationale": (
@@ -96,7 +136,11 @@ def _skill_from_persuasion(
 
 
 def _skill_from_night_action(
-    candidate: SkillGenerationCandidate, ctx: RunContext, *, rank: int
+    candidate: SkillGenerationCandidate,
+    ctx: RunContext,
+    *,
+    rank: int,
+    belief_index: BeliefRunIndex | None = None,
 ) -> dict[str, Any]:
     event = candidate.night_event or {}
     data = event.get("data") or {}
@@ -104,7 +148,13 @@ def _skill_from_night_action(
     rnd = int(event.get("round_number", 0))
     role_key = candidate.prompt_role_key
     skill_id = _slug(f"{role_key}_night_r{rnd}_{candidate.player_id}_{rank}")
-    card = build_night_action_skill_card(role_key=role_key, event=event, ctx=ctx)
+    belief_summary = _resolve_belief_summary(candidate, belief_index=belief_index)
+    card = build_night_action_skill_card(
+        role_key=role_key,
+        event=event,
+        ctx=ctx,
+        belief_summary=belief_summary,
+    )
     check_result = data.get("result")
 
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -141,6 +191,7 @@ def _skill_from_night_action(
             "target_id": data.get("target_id"),
             "check_result": check_result,
             "event_message_excerpt": str(event.get("message", ""))[:200],
+            "belief_context": belief_summary.to_evidence() if belief_summary else None,
             "scores": {"intention": None, "benefit": None},
         },
         "rationale": (
@@ -154,8 +205,9 @@ def _skill_from_night_action(
 def build_role_skills(ctx: RunContext, camp_report: CampPersuasionReport) -> dict[str, Any]:
     """构建 role_skills.json；仅包含通过生成规则的条目。"""
     candidates = collect_skill_generation_candidates(ctx, camp_report)
+    belief_index = BeliefRunIndex.from_run_dir(ctx.run_dir)
     skills = [
-        _skill_from_candidate(candidate, ctx, rank=idx)
+        _skill_from_candidate(candidate, ctx, rank=idx, belief_index=belief_index)
         for idx, candidate in enumerate(candidates, start=1)
     ]
 

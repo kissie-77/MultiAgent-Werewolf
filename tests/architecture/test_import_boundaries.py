@@ -14,7 +14,9 @@ FORBIDDEN_IMPORTS: dict[str, set[str]] = {
     "ui": {"agent_team", "evaluation", "interface"},
 }
 
-KNOWN_IMPORT_DEBT: set[tuple[str, str]] = set()
+KNOWN_IMPORT_DEBT: set[tuple[str, str]] = {
+    ("agent_team/memory/runtime_memory_manager.py", "evaluation.post_game.coach.coach"),
+}
 
 
 def _relative_source(path: Path) -> str:

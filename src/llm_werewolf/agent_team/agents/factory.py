@@ -263,6 +263,11 @@ def configure_agents_for_players(
         plan_text = resolve_plan_text(plan_name, prompt_key)
 
         bind_prompt = getattr(agent, "bind_role_prompt", None)
+        bind_role_fn = getattr(agent, "bind_role", None)
+        if callable(bind_role_fn) and not callable(bind_prompt):
+            bind_role_fn(type(player.role), seat, plan_name)
+            continue
+
         if callable(bind_prompt):
             bind_prompt(role_name, seat, plan_text, prompt_version=prompt_version)
             if hasattr(agent, "memory_manager"):

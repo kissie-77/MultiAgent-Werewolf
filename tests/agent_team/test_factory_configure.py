@@ -45,14 +45,17 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
     assert agent.memory_manager.plan_name == "bold"
 
 
-def test_configure_agents_skips_agents_without_configure_role() -> None:
+def test_configure_agents_binds_demo_agent_role() -> None:
     from llm_werewolf.agent_team.agents.base import DemoAgent
 
     agent = DemoAgent(name="P1")
     player = Player("player_1", "P1", Seer, agent=agent, ai_model="demo")
 
     configure_agents_for_players([player], default_plan="default", event_logger=EventLogger())
-    assert not hasattr(agent, "agentscope_agent") or agent.agentscope_agent is None
+
+    assert agent.seat_number == 1
+    assert agent.role_definition is not None
+    assert agent.chat_history
 
 
 def test_agent_uses_structured_output_requires_react_backend() -> None:

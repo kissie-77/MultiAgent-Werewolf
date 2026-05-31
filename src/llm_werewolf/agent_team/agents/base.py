@@ -1,10 +1,16 @@
-import re
-import random
+from random import Random
 
-from pydantic import Field, BaseModel
+from pydantic import Field, PrivateAttr, BaseModel
 
 from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
+from llm_werewolf.agent_team.agents.demo_policy import (
+    DEFAULT_SPEECH,
+    DemoPromptKind,
+    classify_prompt,
+    fallback_speech,
+    respond,
+)
 
 
 class BaseAgent(BaseModel):
@@ -27,52 +33,58 @@ class BaseAgent(BaseModel):
 
 
 class DemoAgent(PromptAgentMixin, BaseAgent):
-    """使用统一中文 prompt 与 [[n]] 回复的 Demo Agent。"""
+    """离线 smoke / 评测用 Agent，输出与 Bridge 解析兼容的确定性回复。"""
 
     model: str = Field(default="demo")
+    mode: str = Field(default="deterministic", description="deterministic 或 random")
+    seed: int | None = Field(default=None, description="全局随机种子，便于离线复现")
     chat_history: list[dict[str, str]] = Field(default_factory=list)
     role_definition: object | None = Field(default=None, exclude=True)
     seat_number: int = Field(default=0, exclude=True)
     plan: str = Field(default="自由发挥", exclude=True)
+    _decision_log: list[str] = PrivateAttr(default_factory=list)
+
+    def model_post_init(self, __context: object) -> None:
+        self._decision_log = []
+
+    @property
+    def random_mode(self) -> bool:
+        return self.mode.strip().lower() == "random"
+
+    def _rng(self) -> Random:
+        base = 0 if self.seed is None else int(self.seed)
+        return Random(base * 10007 + max(self.seat_number, 1))
 
     async def get_response(self, message: str) -> str:
-        if "[[1]]" in message and "[[0]]" in message:
-            return random.choice(["[[1]]", "[[0]]"])  # noqa: S311
+        body = respond(
+            message,
+            seat_number=self.seat_number,
+            rng=self._rng(),
+            role_display=self.get_role_display_name(),
+            random_mode=self.random_mode,
+        )
+        self.add_decision(body[:240])
+        return body
 
-        if "投票意向" in message or "VoteIntentionDecision" in message:
-            if "可选放逐目标" in message or "可选目标" in message:
-                lines = message.split("\n")
-                max_number = 0
-                for line in lines:
-                    match = re.match(r"^\s*-\s*座位\s*(\d+)", line)
-                    if match:
-                        max_number = max(max_number, int(match.group(1)))
-                if max_number > 0 and random.random() < 0.3:  # noqa: S311
-                    return "[[0]]"
-                if max_number > 0:
-                    return f"[[{random.randint(1, max_number)}]]"  # noqa: S311
-            return "[[0]]"
+    def _generate_fallback_response(self, prompt: str, reason: str) -> str:
+        _ = prompt, reason
+        return fallback_speech(
+            seat_number=self.seat_number or 1,
+            role_display=self.get_role_display_name(),
+        )
 
-        if "可选目标" in message or "请仅回复" in message or "编号" in message:
-            lines = message.split("\n")
-            max_number = 0
-            for line in lines:
-                match = re.match(r"^\s*(\d+)\.\s+", line)
-                if match:
-                    max_number = max(max_number, int(match.group(1)))
-            if max_number > 0:
-                return f"[[{random.randint(1, max_number)}]]"  # noqa: S311
+    def add_decision(self, decision: str) -> None:
+        if not decision:
+            return
+        self._decision_log.append(decision.strip())
+        if len(self._decision_log) > 24:
+            self._decision_log = self._decision_log[-24:]
 
-        if "警长" in message or "竞选" in message:
-            speeches = [
-                "[[我相信我能带好队]]",
-                "[[请投我，我会保护好人]]",
-                "[[我会根据发言找出狼人]]",
-            ]
-            return random.choice(speeches)  # noqa: S311
-
-        responses = ["[[我同意]]", "[[我还需要再观察]]", "[[这个观点值得讨论]]"]
-        return random.choice(responses)  # noqa: S311
+    def get_decision_context(self) -> str:
+        if not self._decision_log:
+            return ""
+        recent = self._decision_log[-3:]
+        return "最近离线决策摘要:\n" + "\n".join(f"- {line}" for line in recent)
 
 
 def create_agent(
@@ -81,9 +93,11 @@ def create_agent(
     use_agentscope: bool = True,
     default_plan: str = "default",
     prompt_version: str = "v2",
+    *,
+    demo_seed: int | None = None,
 ) -> BaseAgent:
     """根据玩家配置创建 Agent。"""
-    model = config.model.lower()
+    model = (config.model or "").lower()
 
     if model == "human":
         from llm_werewolf.agent_team.agents.human_interactive_agent import HumanInteractiveAgent
@@ -91,7 +105,12 @@ def create_agent(
         return HumanInteractiveAgent(name=config.name, model="human")
 
     if model == "demo":
-        return DemoAgent(name=config.name, model="demo")
+        return DemoAgent(
+            name=config.name,
+            model="demo",
+            plan=config.plan or "自由发挥",
+            seed=demo_seed,
+        )
 
     if not use_agentscope:
         msg = "Only AgentScope backend is supported for LLM players."
@@ -108,3 +127,13 @@ def create_agent(
         player_config=config,
         prompt_version=prompt_version,
     )
+
+
+__all__ = [
+    "BaseAgent",
+    "DemoAgent",
+    "create_agent",
+    "DEFAULT_SPEECH",
+    "DemoPromptKind",
+    "classify_prompt",
+]

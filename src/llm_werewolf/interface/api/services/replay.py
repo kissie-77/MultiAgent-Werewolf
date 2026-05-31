@@ -125,6 +125,8 @@ def get_share_replay_page(
         run_id=run_id,
         share_title=f"AI 狼人杀复盘 · {run_id}",
         share_summary=summary,
+        og_title=f"AI 狼人杀 · {winner_label} 阵营获胜",
+        og_description=summary,
         winner_camp=detail.winner_camp,
         highlight_players=highlights,
         share_url_path=f"/share/replay/{run_id}",

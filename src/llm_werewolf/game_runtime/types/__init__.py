@@ -1,5 +1,4 @@
 # 导出所有枚举
-from llm_werewolf.game_runtime.observation import PlayerObservation
 from llm_werewolf.game_runtime.types.enums import (
     Camp,
     EventType,
@@ -10,7 +9,7 @@ from llm_werewolf.game_runtime.types.enums import (
     ActionPriority,
 )
 
-# 导出所有模型
+# 导出所有模型（须在 PlayerObservation 之前，以便 Pydantic 解析前向引用）
 from llm_werewolf.game_runtime.types.models import (
     Event,
     PlayerInfo,
@@ -18,6 +17,10 @@ from llm_werewolf.game_runtime.types.models import (
     GameStateInfo,
     VictoryResult,
 )
+
+from llm_werewolf.game_runtime.observation import PlayerObservation
+
+PlayerObservation.model_rebuild()
 
 # 导出所有协议
 from llm_werewolf.game_runtime.types.protocols import (

@@ -208,10 +208,10 @@ def build_how_to_play_page() -> HowToPlayPageData:
     return HowToPlayPageData(
         **base.model_dump(),
         phase_flow=[
-            PhaseFlowStep(1, "night", "夜晚", "各角色按顺序私密行动", "moon"),
-            PhaseFlowStep(2, "day_discussion", "白天讨论", "存活玩家依次发言", "sun"),
-            PhaseFlowStep(3, "day_voting", "白天投票", "投票放逐，平票 PK", "vote"),
-            PhaseFlowStep(4, "sheriff", "警长竞选", "首夜后可选警长流程", "badge"),
+            PhaseFlowStep(order=1, phase_key="night", title="夜晚", description="各角色按顺序私密行动", icon="moon"),
+            PhaseFlowStep(order=2, phase_key="day_discussion", title="白天讨论", description="存活玩家依次发言", icon="sun"),
+            PhaseFlowStep(order=3, phase_key="day_voting", title="白天投票", description="投票放逐，平票 PK", icon="vote"),
+            PhaseFlowStep(order=4, phase_key="sheriff", title="警长竞选", description="首夜后可选警长流程", icon="badge"),
         ],
         victory_conditions=[
             base.sections[0],
@@ -244,9 +244,9 @@ def build_night_phase_page_enriched() -> NightPhasePageData:
 def build_strategy_page_enriched() -> StrategyPageData:
     base = get_strategy_page()
     phase_tips = [
-        StrategyTip(None, "首夜信息稀缺", "神职避免过早暴露；狼人统一刀口。", ["夜晚"]),
-        StrategyTip(None, "白天找矛盾", "对比前后发言与投票意向变化。", ["白天"]),
-        StrategyTip(None, "末轮票型", "关注警长 1.5 票与 PK 规则。", ["投票"]),
+        StrategyTip(role_key=None, title="首夜信息稀缺", content="神职避免过早暴露；狼人统一刀口。", tags=["夜晚"]),
+        StrategyTip(role_key=None, title="白天找矛盾", content="对比前后发言与投票意向变化。", tags=["白天"]),
+        StrategyTip(role_key=None, title="末轮票型", content="关注警长 1.5 票与 PK 规则。", tags=["投票"]),
     ]
     by_camp: dict[str, list[StrategyTip]] = {}
     for tip in base.role_tips:
@@ -337,7 +337,7 @@ def build_model_detail_page(
             pass
 
     return ModelDetailPageData(
-        **base.model_dump(),
+        **base.model_dump(exclude={"player_slots"}),
         player_slots=slots,
     )
 

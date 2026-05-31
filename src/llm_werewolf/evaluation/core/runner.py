@@ -184,7 +184,12 @@ class EvaluationRunner:
     def _build_engine(self, scenario: EvaluationScenario) -> GameEngine:
         config = GameConfig(num_players=scenario.num_players, role_names=scenario.role_names)
         agents = [
-            DemoAgent(name=f"EvalPlayer{i}", model="demo")
+            DemoAgent(
+                name=f"EvalPlayer{i}",
+                model="demo",
+                seed=scenario.seed,
+                mode="deterministic",
+            )
             for i in range(1, scenario.num_players + 1)
         ]
         roles = create_roles(config.role_names)

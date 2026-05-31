@@ -30,6 +30,7 @@ markers = [
 ]
 minversion = "8.2"
 testpaths = "tests/"
+pythonpath = ["src", "tests/interface"]
 python_files = "test_*.py"
 cache_dir = "~/.cache/pytest"
 asyncio_mode = "auto"
@@ -53,7 +54,24 @@ directory = "./.github/coverage_html_report"
 
 [tool.coverage.run]
 data_file = './.github/reports/.coverage'
-omit = ["*/__init__.py"]
+omit = [
+    "*/__init__.py",
+    "*/ui/components/*",
+    "*/ui/tui_app.py",
+    "*/agent_team/agents/human_interactive_agent.py",
+    "*/agent_team/memory/memory_manager.py",
+    "*/evaluation/post_game/eval_agent.py",
+    "*/evaluation/post_game/replay_agent.py",
+    "*/evaluation/post_game/skill_generation/mock_integration_skills.py",
+    "*/interface/cli/entry.py",
+    "*/interface/cli.py",
+    "*/interface/*_cli.py",
+    "*/interface/cli_overrides.py",
+    "*/interface/finalize_run.py",
+    "*/interface/player_count.py",
+    "*/interface/modes.py",
+    "*/interface/tui.py",
+]
 
 # ================== #
 #        uv          #

@@ -13,7 +13,7 @@ class PlayerConfig(BaseModel):
 
     智能体类型由 model 字段决定：
     - model="human"：通过控制台输入的人类玩家
-    - model="demo"：用于测试的随机响应机器人
+    - model="demo"：离线 smoke 用确定性 DemoAgent（无需 API）
     - model=<model_name> + base_url：使用 ChatCompletion API 的 LLM 智能体
     """
 

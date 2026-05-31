@@ -6,7 +6,15 @@ import re
 from enum import Enum
 from random import Random
 
-from llm_werewolf.strategy.decisions import is_valid_public_speech
+from llm_werewolf.strategy.decisions import (
+    BeliefEntry,
+    ExposureRadarDelta,
+    GodRoleDelta,
+    MindStateDecision,
+    SecondOrderEntry,
+    WolfCampDelta,
+    is_valid_public_speech,
+)
 
 _SEAT_LINE = re.compile(r"^\s*-\s*座位\s*(\d+)")
 
@@ -14,6 +22,7 @@ _SEAT_LINE = re.compile(r"^\s*-\s*座位\s*(\d+)")
 class DemoPromptKind(str, Enum):
     YES_NO = "yes_no"
     VOTE_INTENTION = "vote_intention"
+    MIND_STATE = "mind_state"
     WITCH = "witch"
     MULTI_SEAT = "multi_seat"
     SEAT_CHOICE = "seat_choice"
@@ -30,6 +39,8 @@ def classify_prompt(message: str) -> DemoPromptKind:
     """Map bridge-built prompts to a response strategy."""
     if "三选一" in message or "救人(save)" in message or "WitchNightDecision" in message:
         return DemoPromptKind.WITCH
+    if "MindStateDecision" in message or "心智状态采集" in message:
+        return DemoPromptKind.MIND_STATE
     if "投票意向采集" in message or "VoteIntentionDecision" in message:
         return DemoPromptKind.VOTE_INTENTION
     if "MultiSeatChoiceDecision" in message or re.search(r"选择\s*(\d+)\s*个不同目标", message):
@@ -81,6 +92,93 @@ def pick_seat(seats: list[int], seat_number: int, *, allow_skip: bool, rng: Rand
     return candidates[(seat_number - 1) % len(candidates)]
 
 
+def _extract_last_speaker_seat(message: str) -> int | None:
+    match = re.search(r"刚听完\s*(\S+)\s*的发言", message)
+    if not match:
+        return None
+    for line in message.splitlines():
+        if match.group(1) in line and (seat_match := _SEAT_LINE.match(line)):
+            return int(seat_match.group(1))
+    return None
+
+
+def _extract_previous_vote_seat(message: str) -> int | None:
+    match = re.search(r"上一帧投票意向:\s*(\d+)\s*号", message)
+    if match:
+        return int(match.group(1))
+    if "上一帧投票意向: 观望" in message:
+        return 0
+    return None
+
+
+def build_mind_state(
+    message: str,
+    *,
+    seat_number: int,
+    rng: Random,
+    random_mode: bool,
+    is_wolf: bool = False,
+) -> MindStateDecision:
+    seats = extract_seats(message)
+    vote_seat = pick_seat(seats, seat_number, allow_skip=True, rng=rng, random_mode=random_mode)
+    actor_seat = seat_number or 1
+    previous_vote_seat = _extract_previous_vote_seat(message)
+
+    first_order: list[BeliefEntry] = []
+    if vote_seat > 0:
+        first_order.append(
+            BeliefEntry(
+                target_seat=vote_seat,
+                wolf_probability=round(min(0.95, 0.45 + (vote_seat % 4) * 0.1), 2),
+                reason="demo: 当前投票意向对应座位可疑度上调",
+            )
+        )
+
+    second_order: list[SecondOrderEntry] = []
+    speaker_seat = _extract_last_speaker_seat(message)
+    if speaker_seat and speaker_seat != actor_seat:
+        second_order.append(
+            SecondOrderEntry(
+                observer_seat=speaker_seat,
+                suspects_me_as_wolf=round(0.12 + (actor_seat % 3) * 0.08, 2),
+                reason="demo: 刚听完发言后对暴露风险的估计",
+            )
+        )
+
+    vote_reason = "demo mind state"
+    if previous_vote_seat is not None and vote_seat != previous_vote_seat:
+        vote_reason = f"demo: 意向从 {previous_vote_seat} 调整为 {vote_seat}"
+
+    wolf_camp_delta: WolfCampDelta | None = None
+    if is_wolf and seats:
+        intel_target = next((s for s in seats if s != actor_seat), seats[0])
+        wolf_camp_delta = WolfCampDelta(
+            god_role_intel=[
+                GodRoleDelta(
+                    target_seat=intel_target,
+                    delta={"Seer": 0.35, "Villager": 0.65},
+                    reason="demo wolf intel",
+                )
+            ],
+            exposure_radar=[
+                ExposureRadarDelta(
+                    wolf_seat=actor_seat,
+                    observer_seat=intel_target,
+                    suspicion=0.18 + (actor_seat % 2) * 0.1,
+                    reason="demo wolf exposure",
+                )
+            ],
+        )
+
+    return MindStateDecision(
+        seat=vote_seat,
+        reason=vote_reason,
+        first_order=first_order,
+        second_order=second_order,
+        wolf_camp_delta=wolf_camp_delta,
+    )
+
+
 def respond(
     message: str,
     *,
@@ -101,6 +199,10 @@ def respond(
         return "[[1]]" if actor_seat % 2 == 1 else "[[0]]"
 
     if kind == DemoPromptKind.VOTE_INTENTION:
+        seat = pick_seat(seats, actor_seat, allow_skip=True, rng=rng, random_mode=random_mode)
+        return f"[[{seat}]]"
+
+    if kind == DemoPromptKind.MIND_STATE:
         seat = pick_seat(seats, actor_seat, allow_skip=True, rng=rng, random_mode=random_mode)
         return f"[[{seat}]]"
 

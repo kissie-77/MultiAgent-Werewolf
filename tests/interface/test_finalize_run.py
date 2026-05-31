@@ -38,6 +38,48 @@ def test_persist_run_artifacts_writes_events_and_intentions(tmp_path) -> None:
     tracker.save_jsonl.assert_called_once()
 
 
+def test_persist_run_artifacts_writes_beliefs(tmp_path) -> None:
+    mod = _finalize_module()
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    from llm_werewolf.strategy.belief_state import BeliefLog, BeliefSnapshotRecord
+    from llm_werewolf.strategy.wolf_camp_mind import init_wolf_camp_mind, merge_wolf_camp_delta
+    from llm_werewolf.strategy.decisions import WolfCampDelta, GodRoleDelta
+
+    belief_log = BeliefLog()
+    belief_log.append(
+        BeliefSnapshotRecord(
+            round_number=1,
+            phase="Day",
+            anchor="initial",
+            observer_id="player_1",
+            observer_seat=1,
+            speaker_id="",
+            vote_seat=0,
+            vote_reason=None,
+            first_order=[],
+            second_order=[],
+        )
+    )
+    wolf_model = init_wolf_camp_mind([])
+    merge_wolf_camp_delta(
+        wolf_model,
+        WolfCampDelta(god_role_intel=[GodRoleDelta(target_seat=2, delta={"Seer": 1.0})]),
+        contributor_seat=3,
+        round_number=1,
+    )
+
+    engine = MagicMock()
+    engine.event_logger.events = []
+    engine.game_state.vote_intention_tracker = None
+    engine.game_state.belief_log = belief_log
+    engine.game_state.wolf_camp_mind = wolf_model
+
+    mod.persist_run_artifacts(engine, run_dir)
+    assert (run_dir / "beliefs.jsonl").is_file()
+
+
 def test_persist_run_artifacts_skips_existing_files(tmp_path) -> None:
     mod = _finalize_module()
     run_dir = tmp_path / "run"

@@ -10,6 +10,7 @@ from llm_werewolf.game_runtime.types import (
     GamePhase,
     RoleProtocol,
     AgentProtocol,
+    PlayerProtocol,
 )
 from llm_werewolf.game_runtime.config import GameConfig
 from llm_werewolf.game_runtime.locale import Locale
@@ -119,6 +120,32 @@ class GameEngineBase:
             from llm_werewolf.strategy.vote_intention import VoteIntentionTracker
 
             self.game_state.vote_intention_tracker = VoteIntentionTracker()
+
+        if self.game_state.track_vote_intentions and self.game_state.belief_log is None:
+            from llm_werewolf.strategy.belief_state import BeliefLog
+            from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state
+            from llm_werewolf.strategy.wolf_camp_mind import init_wolf_camp_mind
+
+            self.game_state.belief_log = BeliefLog()
+            wolves = [p for p in self.game_state.players if participates_in_wolf_team(p)]
+            self.game_state.wolf_camp_mind = init_wolf_camp_mind(wolves)
+            alive = self.game_state.get_alive_players()
+            for player in alive:
+                if player.agent is not None:
+                    ensure_agent_belief_state(player, alive)
+            from llm_werewolf.strategy.belief_format import sync_all_belief_memories
+
+            sync_all_belief_memories(
+                alive,
+                alive=alive,
+                wolf_camp_mind=self.game_state.wolf_camp_mind,
+            )
+            if self.information_hub is not None:
+                self.information_hub.configure_belief_tracking(
+                    self.game_state.belief_log,
+                    self.game_state.wolf_camp_mind,
+                    on_belief_batch=self._log_belief_batch,
+                )
 
         if self.config is not None:
             self.game_state.night_timeout = self.config.night_timeout
@@ -268,6 +295,73 @@ class GameEngineBase:
                 f"[{before_line}] → [{after_line}]；{len(record.swings)} 人改意向"
             )
         self._log_event(EventType.VOTE_INTENTION_SNAPSHOT, message, data=record.to_dict())
+
+    def _log_belief_batch(
+        self,
+        records: list[object],
+        *,
+        anchor: object,
+        phase: str,
+        round_number: int,
+        speaker: PlayerProtocol | None,
+    ) -> None:
+        """记录一批心智状态快照，供控制台 / game_log 展示信念矩阵。"""
+        from llm_werewolf.strategy.belief_format import format_belief_batch_log
+        from llm_werewolf.strategy.belief_state import BeliefSnapshotRecord
+
+        from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor
+
+        if not isinstance(anchor, VoteIntentionAnchor):
+            return
+        if not self.game_state or not records:
+            return
+        typed = [record for record in records if isinstance(record, BeliefSnapshotRecord)]
+        if not typed:
+            return
+        player_names = {player.player_id: player.name for player in self.game_state.players}
+        message = format_belief_batch_log(
+            typed,
+            round_number=round_number,
+            phase=phase,
+            anchor=anchor.value,
+            speaker_name=speaker.name if speaker else None,
+            player_names=player_names,
+        )
+        self._log_event(
+            EventType.BELIEF_SNAPSHOT,
+            message,
+            data={
+                "round": round_number,
+                "phase": phase,
+                "anchor": anchor.value,
+                "speaker_id": speaker.player_id if speaker else "",
+                "speaker_name": speaker.name if speaker else "",
+                "snapshots": [record.to_dict() for record in typed],
+            },
+        )
+
+    def _sync_beliefs_after_public_death(self, player: PlayerProtocol) -> None:
+        """公开身份出局后，所有 Agent 信念矩阵塌缩该列。"""
+        if not self.game_state or self.game_state.belief_log is None:
+            return
+        from llm_werewolf.game_runtime.seat import get_player_seat
+        from llm_werewolf.strategy.belief_updater import apply_public_elimination_to_all_agents
+
+        seat = get_player_seat(player)
+        if seat is None:
+            return
+        apply_public_elimination_to_all_agents(
+            self.game_state.players,
+            eliminated_seat=seat,
+            is_werewolf=participates_in_wolf_team(player),
+        )
+        from llm_werewolf.strategy.belief_format import sync_all_belief_memories
+
+        sync_all_belief_memories(
+            self.game_state.players,
+            alive=self.game_state.get_alive_players(),
+            wolf_camp_mind=self.game_state.wolf_camp_mind,
+        )
 
     def _on_round_end(self, round_number: int) -> None:
         """在白天投票结束并进入下一夜前沉淀各 Agent 的工作记忆。"""

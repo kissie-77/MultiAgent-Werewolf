@@ -58,6 +58,8 @@ class GameState:
         self.phase_interaction: PhaseInteraction | None = None
         self.track_vote_intentions = False
         self.vote_intention_tracker = None
+        self.belief_log = None
+        self.wolf_camp_mind = None
 
         self.night_timeout: int | None = None
         self.day_timeout: int | None = None

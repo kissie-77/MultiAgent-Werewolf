@@ -17,7 +17,10 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
 })
 
 # 仅写入复盘/评测日志，不向任何玩家 observation 暴露。
-REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({EventType.VOTE_INTENTION_SNAPSHOT})
+REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({
+    EventType.VOTE_INTENTION_SNAPSHOT,
+    EventType.BELIEF_SNAPSHOT,
+})
 
 WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({EventType.PLAYER_DISCUSSION})
 

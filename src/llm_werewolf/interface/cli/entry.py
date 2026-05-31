@@ -1,4 +1,5 @@
 import asyncio
+import sys
 
 import fire
 import logfire
@@ -7,6 +8,12 @@ from rich.console import Console
 from llm_werewolf.game_runtime.env import load_project_dotenv
 
 load_project_dotenv()
+
+# Windows: keep Rich emoji / zh output UTF-8 when piping or logging.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.game_runtime import GameEngine

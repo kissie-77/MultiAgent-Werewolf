@@ -12,6 +12,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+PROTECTED_PERSISTENT_TAGS = frozenset({"belief", "wolf_camp", "belief_rules"})
+BELIEF_PERSISTENT_PRIORITY = 10
+_BELIEF_RULES_TEXT = "\n".join([
+    "【信念/意向更新规则】",
+    "- first_order / second_order 仅填写需要修改的条目；无变化则留空数组 []。",
+    "- 每条信念修改必须含 reason，说明依据。",
+    "- 若 seat 与上一帧不同，必须在顶层 reason 说明改票理由。",
+])
+
 
 @dataclass
 class MemoryItem:
@@ -60,14 +69,34 @@ class WorkingMemory:
         )
         self._trim_persistent()
 
+    def upsert_persistent(self, content: str, tag: str, priority: int = 3) -> None:
+        """Replace the persistent slot for ``tag`` (protected tags are never evicted)."""
+        self._persistent = [item for item in self._persistent if item.tag != tag]
+        if content.strip():
+            self._persistent.append(
+                MemoryItem(
+                    content=content.strip(),
+                    tag=tag,
+                    round_number=self._current_round,
+                    priority=priority,
+                )
+            )
+            self._trim_persistent()
+
+    def remove_persistent(self, tag: str) -> None:
+        self._persistent = [item for item in self._persistent if item.tag != tag]
+
     def _trim_persistent(self) -> None:
-        """确保常驻区总字符数不超过限制。"""
+        """Ensure non-protected persistent zone stays within char budget."""
         total = sum(len(item.content) for item in self._persistent)
-        while total > self._max_persistent_chars and len(self._persistent) > 1:
-            # 找 priority 最低且最早（round_number 最小）的条目
-            weakest = min(self._persistent, key=lambda x: (x.priority, x.round_number))
+        trimmable = [item for item in self._persistent if item.tag not in PROTECTED_PERSISTENT_TAGS]
+        while total > self._max_persistent_chars and trimmable:
+            if len(self._persistent) <= 1:
+                break
+            weakest = min(trimmable, key=lambda item: (item.priority, item.round_number))
             self._persistent.remove(weakest)
-            total -= len(weakest.content)
+            trimmable.remove(weakest)
+            total = sum(len(item.content) for item in self._persistent)
 
     def add_dynamic(
         self, content: str, tag: str, round_number: int | None = None, priority: int = 1
@@ -99,9 +128,27 @@ class WorkingMemory:
     def get_context(self) -> str:
         """格式化为可注入提示词的上下文片段。"""
         parts: list[str] = []
-        if self._persistent:
+        belief_items = [
+            item
+            for item in self._persistent
+            if item.tag in PROTECTED_PERSISTENT_TAGS
+        ]
+        stable_items = [
+            item
+            for item in self._persistent
+            if item.tag not in PROTECTED_PERSISTENT_TAGS
+        ]
+        if belief_items:
+            ordered = sorted(
+                belief_items,
+                key=lambda item: {"belief_rules": 0, "belief": 1, "wolf_camp": 2}.get(item.tag, 9),
+            )
             parts.append(
-                "【稳定经验】\n" + "\n".join(f"- {item.content}" for item in self._persistent)
+                "【内心信念】\n" + "\n".join(f"- {item.content}" for item in ordered)
+            )
+        if stable_items:
+            parts.append(
+                "【稳定经验】\n" + "\n".join(f"- {item.content}" for item in stable_items)
             )
         if self._summaries:
             parts.append("【历史回顾】\n" + "\n".join(self._summaries))

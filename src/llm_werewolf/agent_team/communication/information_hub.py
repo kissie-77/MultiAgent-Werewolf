@@ -28,6 +28,11 @@ from llm_werewolf.strategy.vote_intention import (
     VoteIntentionSnapshot,
     SpeechVoteIntentionRecord,
 )
+from llm_werewolf.strategy.belief_state import BeliefLog, BeliefSnapshotRecord
+from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state, merge_llm_beliefs
+from llm_werewolf.strategy.belief_format import sync_all_belief_memories, sync_player_belief_memory
+from llm_werewolf.strategy.wolf_camp_mind import WolfCampMindModel, is_wolf_player, merge_wolf_camp_delta
+from llm_werewolf.game_runtime.seat import get_player_seat
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.events.visibility import RoutedMessage, VisibilityChannel
 from llm_werewolf.agent_team.invocation.serial_calls import allow_parallel_agent_calls
@@ -49,6 +54,21 @@ class InformationHub:
         self._build_observation: Callable[[PlayerProtocol], str] | None = None
         self._get_alive_players: Callable[[], list[PlayerProtocol]] | None = None
         self._vote_intention_concurrency = 1
+        self._belief_log: BeliefLog | None = None
+        self._wolf_camp_mind: WolfCampMindModel | None = None
+        self._on_belief_batch: Callable[..., None] | None = None
+
+    def configure_belief_tracking(
+        self,
+        belief_log: BeliefLog | None,
+        wolf_camp_mind: WolfCampMindModel | None = None,
+        *,
+        on_belief_batch: Callable[..., None] | None = None,
+    ) -> None:
+        """Wire god-view belief log and wolf-team shared panel."""
+        self._belief_log = belief_log
+        self._wolf_camp_mind = wolf_camp_mind
+        self._on_belief_batch = on_belief_batch
 
     def set_context_provider(
         self,
@@ -210,6 +230,51 @@ class InformationHub:
                 hub, content, channel=channel, phase=phase, round_number=round_number
             )
 
+    def _record_mind_state(
+        self,
+        observer: PlayerProtocol,
+        *,
+        anchor: VoteIntentionAnchor,
+        phase: str,
+        round_number: int,
+        speaker: PlayerProtocol | None,
+        entry: VoteIntentionEntry,
+        mind_result: object,
+    ) -> BeliefSnapshotRecord | None:
+        if self._belief_log is None:
+            return None
+        from llm_werewolf.strategy.belief_state import MindStateResult
+
+        if not isinstance(mind_result, MindStateResult):
+            return None
+        observer_seat = get_player_seat(observer) or 0
+        state = getattr(observer.agent, "belief_state", None) if observer.agent else None
+        first_order = [e.model_dump() for e in mind_result.first_order]
+        second_order = [e.model_dump() for e in mind_result.second_order]
+        if state is not None and hasattr(state, "first_order"):
+            first_order = [e.model_dump() for e in state.first_order.values()]
+            second_order = [e.model_dump() for e in state.second_order.values()]
+        wolf_delta = (
+            mind_result.wolf_camp_delta.model_dump()
+            if mind_result.wolf_camp_delta is not None
+            else None
+        )
+        record = BeliefSnapshotRecord(
+            round_number=round_number,
+            phase=phase,
+            anchor=anchor.value,
+            observer_id=observer.player_id,
+            observer_seat=observer_seat,
+            speaker_id=speaker.player_id if speaker else "",
+            vote_seat=entry.seat,
+            vote_reason=entry.reason,
+            first_order=first_order,
+            second_order=second_order,
+            wolf_camp_delta=wolf_delta,
+        )
+        self._belief_log.append(record)
+        return record
+
     async def _collect_vote_intentions(
         self,
         observers: list[PlayerProtocol],
@@ -223,6 +288,8 @@ class InformationHub:
         """每位存活听众须经 LLM 输出投票意向（私密）。"""
         last_name = last_speaker.name if last_speaker else None
         alive = self._get_alive_players() if self._get_alive_players else []
+        alive_seats = {s for s in (get_player_seat(p) for p in alive) if s is not None}
+        use_mind_state = self._belief_log is not None
         jobs: list[tuple[PlayerProtocol, list[PlayerProtocol], str]] = []
 
         for observer in observers:
@@ -242,6 +309,7 @@ class InformationHub:
 
         semaphore = asyncio.Semaphore(self._vote_intention_concurrency)
         bypass_global_lock = self._vote_intention_concurrency > 1
+        batch_records: list[BeliefSnapshotRecord] = []
 
         async def _collect_one(
             observer: PlayerProtocol, possible_targets: list[PlayerProtocol], extra: str
@@ -251,8 +319,55 @@ class InformationHub:
                 obs: PlayerProtocol = observer,
                 targets: list[PlayerProtocol] = possible_targets,
                 ctx: str = extra,
-            ) -> VoteIntentionEntry:
-                return await WerewolfAdapterBridge.request_vote_intention(
+            ) -> tuple[VoteIntentionEntry, object | None]:
+                if use_mind_state:
+                    entry, mind = await WerewolfAdapterBridge.request_mind_state(
+                        obs.agent,
+                        obs.get_role_name(),
+                        obs,
+                        targets,
+                        ctx,
+                        anchor=anchor,
+                        last_speaker_name=last_name,
+                        round_number=round_number,
+                        phase=phase,
+                        belief_summary="",
+                        wolf_camp_context="",
+                    )
+                    state = ensure_agent_belief_state(obs, alive)
+                    merge_llm_beliefs(
+                        state,
+                        mind.first_order,
+                        mind.second_order,
+                        alive_seats=alive_seats,
+                    )
+                    state.last_vote_seat = mind.vote_seat
+                    if (
+                        is_wolf_player(obs)
+                        and self._wolf_camp_mind is not None
+                        and mind.wolf_camp_delta is not None
+                    ):
+                        merge_wolf_camp_delta(
+                            self._wolf_camp_mind,
+                            mind.wolf_camp_delta,
+                            contributor_seat=get_player_seat(obs) or 0,
+                            round_number=round_number,
+                        )
+                        sync_all_belief_memories(
+                            alive,
+                            alive=alive,
+                            wolf_camp_mind=self._wolf_camp_mind,
+                        )
+                    else:
+                        sync_player_belief_memory(
+                            obs,
+                            alive=alive,
+                            wolf_camp_mind=(
+                                self._wolf_camp_mind if is_wolf_player(obs) else None
+                            ),
+                        )
+                    return entry, mind
+                entry = await WerewolfAdapterBridge.request_vote_intention(
                     obs.agent,
                     obs.get_role_name(),
                     obs,
@@ -263,17 +378,30 @@ class InformationHub:
                     round_number=round_number,
                     phase=phase,
                 )
+                return entry, None
 
             async with semaphore:
                 if bypass_global_lock:
                     with allow_parallel_agent_calls():
-                        entry = await self._run_private_session(
+                        result = await self._run_private_session(
                             observer, VisibilityChannel.PRIVATE, phase, round_number, extra, _call
                         )
                 else:
-                    entry = await self._run_private_session(
+                    result = await self._run_private_session(
                         observer, VisibilityChannel.PRIVATE, phase, round_number, extra, _call
                     )
+            entry, mind = result
+            snapshot = self._record_mind_state(
+                observer,
+                anchor=anchor,
+                phase=phase,
+                round_number=round_number,
+                speaker=last_speaker,
+                entry=entry,
+                mind_result=mind,
+            )
+            if snapshot is not None:
+                batch_records.append(snapshot)
             return observer.player_id, entry
 
         results = await asyncio.gather(
@@ -292,6 +420,14 @@ class InformationHub:
                 continue
             player_id, entry = result
             intentions[player_id] = entry
+        if batch_records and self._on_belief_batch is not None:
+            self._on_belief_batch(
+                batch_records,
+                anchor=anchor,
+                phase=phase,
+                round_number=round_number,
+                speaker=last_speaker,
+            )
         return intentions
 
     async def run_roundtable(

@@ -46,6 +46,7 @@ class RuntimeMemoryManager:
         self.coach = None
         self._used_card_ids: list[str] = []
         self._seen_event_keys: set[tuple[object, ...]] = set()
+        self._belief_rules_initialized = False
 
     async def aclose(self) -> None:
         """Compatibility hook for optional async resources."""
@@ -90,6 +91,43 @@ class RuntimeMemoryManager:
         if working_context:
             parts.append(working_context)
         return "\n\n".join(parts)
+
+    def sync_belief_context(self, state: object, *, wolf_camp_text: str = "") -> None:
+        """Mirror belief matrix / vote intention into protected WorkingMemory slots."""
+        if not self._prompt_context_enabled():
+            return
+        from llm_werewolf.agent_team.memory.working_memory import (
+            BELIEF_PERSISTENT_PRIORITY,
+            _BELIEF_RULES_TEXT,
+        )
+        from llm_werewolf.strategy.belief_format import format_belief_context
+
+        if not self._belief_rules_initialized:
+            self.working.upsert_persistent(
+                _BELIEF_RULES_TEXT,
+                tag="belief_rules",
+                priority=BELIEF_PERSISTENT_PRIORITY,
+            )
+            self._belief_rules_initialized = True
+
+        belief_text = format_belief_context(state)  # type: ignore[arg-type]
+        if belief_text:
+            self.working.upsert_persistent(
+                belief_text,
+                tag="belief",
+                priority=BELIEF_PERSISTENT_PRIORITY,
+            )
+        else:
+            self.working.remove_persistent("belief")
+
+        if wolf_camp_text.strip():
+            self.working.upsert_persistent(
+                wolf_camp_text.strip(),
+                tag="wolf_camp",
+                priority=BELIEF_PERSISTENT_PRIORITY,
+            )
+        else:
+            self.working.remove_persistent("wolf_camp")
 
     def add_public_speech(self, speaker_name: str, speech: str, round_number: int) -> None:
         """Record public speech into working memory."""

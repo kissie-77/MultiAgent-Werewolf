@@ -145,9 +145,18 @@ class PhaseInteraction:
         self._vote_timeout = float(vote_timeout) if vote_timeout else None
 
     def _timeout_for_phase(self, phase: str | None) -> float | None:
-        if phase in {"Voting", "SheriffVoting"}:
+        if not phase:
+            return self._night_timeout
+        normalized = phase.strip().lower()
+        if normalized in {"voting", "sheriffvoting", "day_voting"}:
             return self._vote_timeout
-        if phase in {"Day", "Sheriff", "Discussion"}:
+        if normalized in {
+            "day",
+            "sheriff",
+            "discussion",
+            "day_discussion",
+            "sheriff_election",
+        }:
             return self._day_timeout
         return self._night_timeout
 
@@ -155,7 +164,12 @@ class PhaseInteraction:
         timeout = self._timeout_for_phase(phase)
         if timeout is None or timeout <= 0:
             return await coro
-        return await asyncio.wait_for(coro, timeout=timeout)
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except TimeoutError as exc:
+            label = phase or "unknown"
+            msg = f"{label} phase timed out after {int(timeout)}s"
+            raise TimeoutError(msg) from exc
 
     @property
     def hub(self) -> PhaseInteractionHub:

@@ -40,6 +40,22 @@ class DayPhaseMixin:
         from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 
         context_parts.append(EngineContexts.day_discussion_prompt())
+
+        if self.game_state.belief_log is not None:
+            from llm_werewolf.strategy.belief_format import (
+                append_belief_context_fallback,
+                append_working_memory_context,
+            )
+
+            append_working_memory_context(context_parts, player)
+            append_belief_context_fallback(
+                context_parts,
+                player,
+                alive=self.game_state.get_alive_players(),
+                wolf_camp_mind=self.game_state.wolf_camp_mind,
+                belief_enabled=True,
+            )
+
         return "\n".join(context_parts)
 
     def _log_public_speech(self, speaker: PlayerProtocol, decision: SpeechDecision) -> None:

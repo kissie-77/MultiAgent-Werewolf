@@ -3,7 +3,11 @@
 language: zh-CN
 agent_backend: agentscope
 default_plan: default
+# 信念矩阵采集：6 人局与座位数对齐，全并发；需配合 AGENT_SERIAL_DELAY_SECONDS=0
 vote_intention_concurrency: 6
+day_timeout: 600
+vote_timeout: 120
+night_timeout: 90
 
 doubao_base: &doubao_base https://ark.cn-beijing.volces.com/api/v3
 

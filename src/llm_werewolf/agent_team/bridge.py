@@ -18,6 +18,7 @@ from llm_werewolf.strategy.decisions import (
     SeatChoiceDecision,
     WitchNightDecision,
     VoteIntentionDecision,
+    MindStateDecision,
     MultiSeatChoiceDecision,
     extract_public_text,
     is_valid_public_speech,
@@ -27,7 +28,11 @@ from llm_werewolf.strategy.decisions import (
     seat_choice_schema_instruction,
     witch_night_schema_instruction,
     vote_intention_schema_instruction,
+    mind_state_schema_instruction,
+    validate_mind_state_decision,
+    validate_seat_choice_reason,
 )
+from llm_werewolf.strategy.belief_state import MindStateResult
 from llm_werewolf.strategy.role_prompts import ROLE_SEAT_ACTION, GamePrompts
 from llm_werewolf.strategy.phase_outputs import (
     ActionPhase,
@@ -146,6 +151,7 @@ class WerewolfAdapterBridge:
         *,
         structured: bool = False,
         action_phase: ActionPhase | None = None,
+        require_reason: bool = False,
     ) -> str:
         prompt_parts = [f"你是{role_name}。"]
 
@@ -173,7 +179,13 @@ class WerewolfAdapterBridge:
         if action_phase is not None:
             prompt_parts.extend(["", action_phase_instruction(action_phase)])
         if structured:
-            prompt_parts.extend(["", seat_choice_schema_instruction(allow_skip=allow_skip)])
+            prompt_parts.extend([
+                "",
+                seat_choice_schema_instruction(
+                    allow_skip=allow_skip,
+                    require_reason=require_reason or action_phase == ActionPhase.DAY_VOTE,
+                ),
+            ])
         else:
             prompt_parts.extend([
                 "",
@@ -378,7 +390,9 @@ class WerewolfAdapterBridge:
         phase: str | None = None,
     ) -> WitchNightDecision:
         """返回女巫夜间决策；失败时默认为 none。"""
-        structured = agent_uses_structured_output(agent)
+        structured = agent_uses_structured_output(agent) or callable(
+            getattr(agent, "get_structured_response", None)
+        )
         prompt = WerewolfAdapterBridge.build_witch_night_prompt(
             role_name,
             can_see_victim=can_see_victim,
@@ -497,7 +511,9 @@ class WerewolfAdapterBridge:
         phase: str | None = None,
     ) -> VoteIntentionEntry:
         """采集一名玩家的投票意向；始终调用模型（seat=0 表示明确无意向）。"""
-        structured = agent_uses_structured_output(agent)
+        structured = agent_uses_structured_output(agent) or callable(
+            getattr(agent, "get_structured_response", None)
+        )
         prompt = WerewolfAdapterBridge.build_vote_intention_prompt(
             role_name,
             possible_targets,
@@ -552,6 +568,204 @@ class WerewolfAdapterBridge:
         return _entry_from_seat(0, response[:500] or "seat=0（模型明示无意向）")
 
     @staticmethod
+    def _mind_state_from_decision(decision: MindStateDecision) -> MindStateResult:
+        return MindStateResult(
+            vote_seat=decision.seat,
+            vote_reason=decision.reason,
+            first_order=list(decision.first_order),
+            second_order=list(decision.second_order),
+            wolf_camp_delta=decision.wolf_camp_delta,
+        )
+
+    @staticmethod
+    def build_mind_state_prompt(
+        role_name: str,
+        possible_targets: list[PlayerProtocol],
+        additional_context: str,
+        *,
+        anchor: VoteIntentionAnchor,
+        last_speaker_name: str | None = None,
+        round_number: int | None = None,
+        phase: str | None = None,
+        structured: bool = False,
+        belief_summary: str = "",
+        wolf_camp_context: str = "",
+    ) -> str:
+        base = WerewolfAdapterBridge.build_vote_intention_prompt(
+            role_name,
+            possible_targets,
+            additional_context,
+            anchor=anchor,
+            last_speaker_name=last_speaker_name,
+            round_number=round_number,
+            phase=phase,
+            structured=False,
+        )
+        prompt_parts = [
+            base.replace("【投票意向采集 · 非正式投票】", "【心智状态采集 · 投票意向 + 信念矩阵 · 非正式投票】"),
+        ]
+        if belief_summary:
+            prompt_parts.extend(["", belief_summary])
+        if wolf_camp_context:
+            prompt_parts.extend(["", wolf_camp_context])
+        if structured:
+            prompt_parts.extend(["", mind_state_schema_instruction()])
+        return "\n".join(prompt_parts)
+
+    @staticmethod
+    async def request_mind_state(
+        agent: AgentProtocol,
+        role_name: str,
+        actor: PlayerProtocol,
+        possible_targets: list[PlayerProtocol],
+        additional_context: str,
+        *,
+        anchor: VoteIntentionAnchor,
+        last_speaker_name: str | None = None,
+        round_number: int | None = None,
+        phase: str | None = None,
+        belief_summary: str = "",
+        wolf_camp_context: str = "",
+    ) -> tuple[VoteIntentionEntry, MindStateResult]:
+        """采集投票意向与信念矩阵（单次 LLM 结构化调用）。"""
+        structured = agent_uses_structured_output(agent) or callable(
+            getattr(agent, "get_structured_response", None)
+        )
+        prompt = WerewolfAdapterBridge.build_mind_state_prompt(
+            role_name,
+            possible_targets,
+            additional_context,
+            anchor=anchor,
+            last_speaker_name=last_speaker_name,
+            round_number=round_number,
+            phase=phase,
+            structured=structured,
+            belief_summary=belief_summary,
+            wolf_camp_context=wolf_camp_context,
+        )
+
+        def _entry_from_mind(mind: MindStateResult) -> VoteIntentionEntry:
+            safe_seat = max(0, int(mind.vote_seat))
+            if (
+                safe_seat > 0
+                and WerewolfAdapterBridge.resolve_player_by_seat(safe_seat, possible_targets)
+                is None
+            ):
+                safe_seat = 0
+            return WerewolfAdapterBridge.build_vote_intention_entry(
+                actor, safe_seat, possible_targets, mind.vote_reason
+            )
+
+        def _finalize_mind(mind: MindStateResult) -> tuple[VoteIntentionEntry, MindStateResult]:
+            belief_state = getattr(agent, "belief_state", None)
+            previous_vote_seat = (
+                belief_state.last_vote_seat
+                if belief_state is not None and hasattr(belief_state, "last_vote_seat")
+                else None
+            )
+            decision = MindStateDecision(
+                seat=mind.vote_seat,
+                reason=mind.vote_reason,
+                first_order=mind.first_order,
+                second_order=mind.second_order,
+                wolf_camp_delta=mind.wolf_camp_delta,
+            )
+            errors = validate_mind_state_decision(
+                decision,
+                previous_vote_seat=previous_vote_seat,
+            )
+            if errors:
+                msg = "; ".join(errors)
+                raise ValueError(msg)
+            return _entry_from_mind(mind), mind
+
+        last_error: str | None = None
+        if structured:
+            try:
+                result = await invoke_structured(agent, prompt, MindStateDecision)
+                if isinstance(result, MindStateDecision):
+                    mind = WerewolfAdapterBridge._mind_state_from_decision(result)
+                    return _finalize_mind(mind)
+            except Exception as exc:
+                last_error = str(exc)
+
+        try:
+            response = await agent.get_response(prompt)
+        except Exception as exc:
+            msg = f"mind_state LLM failed: {last_error or exc}"
+            raise RuntimeError(msg) from exc
+
+        from llm_werewolf.agent_team.invocation.structured_invoke import parse_structured_from_text
+
+        parsed = parse_structured_from_text(response, MindStateDecision)
+        if parsed is not None:
+            mind = WerewolfAdapterBridge._mind_state_from_decision(parsed)
+            return _finalize_mind(mind)
+
+        target = WerewolfAdapterBridge.parse_target_selection(
+            response, possible_targets, allow_skip=True
+        )
+        if target is not None:
+            seat = WerewolfAdapterBridge.get_player_seat(target) or 0
+            belief_state = getattr(agent, "belief_state", None)
+            previous_vote_seat = (
+                belief_state.last_vote_seat
+                if belief_state is not None and hasattr(belief_state, "last_vote_seat")
+                else None
+            )
+            if previous_vote_seat is not None and seat != previous_vote_seat:
+                msg = "变更投票意向时必须填写结构化 MindStateDecision.reason"
+                raise ValueError(msg)
+            mind = MindStateResult(vote_seat=seat, vote_reason=response[:500], first_order=[], second_order=[])
+            return _entry_from_mind(mind), mind
+
+        numbers = re.findall(r"\[\[\s*(\d+)\s*\]\]", response)
+        if numbers:
+            seat = int(numbers[0])
+            belief_state = getattr(agent, "belief_state", None)
+            previous_vote_seat = (
+                belief_state.last_vote_seat
+                if belief_state is not None and hasattr(belief_state, "last_vote_seat")
+                else None
+            )
+            if previous_vote_seat is not None and seat != previous_vote_seat:
+                msg = "变更投票意向时必须填写结构化 MindStateDecision.reason"
+                raise ValueError(msg)
+            mind = MindStateResult(
+                vote_seat=seat,
+                vote_reason=response[:500],
+                first_order=[],
+                second_order=[],
+            )
+            return _entry_from_mind(mind), mind
+        loose = re.findall(r"\d+", response.strip())
+        if loose:
+            seat = int(loose[0])
+            belief_state = getattr(agent, "belief_state", None)
+            previous_vote_seat = (
+                belief_state.last_vote_seat
+                if belief_state is not None and hasattr(belief_state, "last_vote_seat")
+                else None
+            )
+            if previous_vote_seat is not None and seat != previous_vote_seat:
+                msg = "变更投票意向时必须填写结构化 MindStateDecision.reason"
+                raise ValueError(msg)
+            mind = MindStateResult(
+                vote_seat=seat,
+                vote_reason=response[:500],
+                first_order=[],
+                second_order=[],
+            )
+            return _entry_from_mind(mind), mind
+        mind = MindStateResult(
+            vote_seat=0,
+            vote_reason=response[:500] or "seat=0（模型明示无意向）",
+            first_order=[],
+            second_order=[],
+        )
+        return _entry_from_mind(mind), mind
+
+    @staticmethod
     async def request_seat_choice(
         agent: AgentProtocol,
         role_name: str,
@@ -567,7 +781,10 @@ class WerewolfAdapterBridge:
         if not possible_targets:
             return None
 
-        structured = agent_uses_structured_output(agent)
+        structured = agent_uses_structured_output(agent) or callable(
+            getattr(agent, "get_structured_response", None)
+        )
+        require_reason = action_phase == ActionPhase.DAY_VOTE
         prompt = WerewolfAdapterBridge.build_target_selection_prompt(
             role_name,
             action_description,
@@ -578,12 +795,17 @@ class WerewolfAdapterBridge:
             phase,
             structured=structured,
             action_phase=action_phase,
+            require_reason=require_reason,
         )
 
         try:
             if structured:
                 result = await invoke_structured(agent, prompt, SeatChoiceDecision)
                 if isinstance(result, SeatChoiceDecision):
+                    if require_reason:
+                        errors = validate_seat_choice_reason(result)
+                        if errors:
+                            raise ValueError(errors[0])
                     if allow_skip and result.seat == 0:
                         WerewolfAdapterBridge._store_decision_metadata(
                             agent, None, decision=result
@@ -638,7 +860,9 @@ class WerewolfAdapterBridge:
         round_number: int | None = None,
         phase: str | None = None,
     ) -> bool:
-        structured = agent_uses_structured_output(agent)
+        structured = agent_uses_structured_output(agent) or callable(
+            getattr(agent, "get_structured_response", None)
+        )
         prompt = WerewolfAdapterBridge.build_yes_no_prompt(
             role_name, question, context, round_number, phase, structured=structured
         )
@@ -668,7 +892,9 @@ class WerewolfAdapterBridge:
         if not possible_targets or num_targets < 1:
             return None
 
-        structured = agent_uses_structured_output(agent)
+        structured = agent_uses_structured_output(agent) or callable(
+            getattr(agent, "get_structured_response", None)
+        )
         prompt = WerewolfAdapterBridge.build_multi_target_prompt(
             role_name,
             action_description,
@@ -712,7 +938,9 @@ class WerewolfAdapterBridge:
         schema_retries: int = 3,
         roundtable_phase: RoundtablePhase | None = None,
     ) -> SpeechDecision:
-        structured = agent_uses_structured_output(agent)
+        structured = agent_uses_structured_output(agent) or callable(
+            getattr(agent, "get_structured_response", None)
+        )
         prompt = WerewolfAdapterBridge.build_speech_prompt(
             context, instruction, structured=structured, roundtable_phase=roundtable_phase
         )

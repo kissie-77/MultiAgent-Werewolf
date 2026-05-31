@@ -70,6 +70,38 @@ def test_persistent_area_keeps_at_least_one() -> None:
     assert len(memory._persistent) == 1
 
 
+def test_protected_persistent_not_evicted() -> None:
+    memory = WorkingMemory(max_persistent_chars=40)
+    memory.upsert_persistent("【当前信念矩阵】一阶狼概率内容占位" * 2, tag="belief", priority=10)
+    memory.add_persistent("skill-a", tag="semantic", priority=3)
+    memory.add_persistent("skill-b", tag="semantic", priority=2)
+    memory.add_persistent("skill-c", tag="semantic", priority=1)
+
+    assert any(item.tag == "belief" for item in memory._persistent)
+
+
+def test_upsert_persistent_replaces_same_tag() -> None:
+    memory = WorkingMemory()
+    memory.upsert_persistent("belief-v1", tag="belief", priority=10)
+    memory.upsert_persistent("belief-v2", tag="belief", priority=10)
+
+    belief_items = [item for item in memory._persistent if item.tag == "belief"]
+    assert len(belief_items) == 1
+    assert belief_items[0].content == "belief-v2"
+
+
+def test_get_context_groups_belief_separately() -> None:
+    memory = WorkingMemory()
+    memory.upsert_persistent("矩阵摘要", tag="belief", priority=10)
+    memory.add_persistent("程序记忆", tag="procedural", priority=3)
+
+    context = memory.get_context()
+    assert "【内心信念】" in context
+    assert "矩阵摘要" in context
+    assert "【稳定经验】" in context
+    assert "程序记忆" in context
+
+
 def test_working_memory_falls_back_when_compressor_raises() -> None:
     memory = WorkingMemory(compressor=FailingCompressor())
     memory.add_dynamic("我投了3号", tag="decision")

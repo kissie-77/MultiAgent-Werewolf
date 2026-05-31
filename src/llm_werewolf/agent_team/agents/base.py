@@ -1,12 +1,15 @@
 from random import Random
 
-from pydantic import Field, PrivateAttr, BaseModel
+from typing import Any
+
+from pydantic import Field, PrivateAttr, BaseModel, ConfigDict
 
 from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
 from llm_werewolf.agent_team.agents.demo_policy import (
     DEFAULT_SPEECH,
     DemoPromptKind,
+    build_mind_state,
     classify_prompt,
     fallback_speech,
     respond,
@@ -18,6 +21,7 @@ class BaseAgent(BaseModel):
 
     name: str = Field(...)
     model: str = Field(...)
+    belief_state: Any | None = Field(default=None, exclude=True)
 
     async def get_response(self, message: str) -> str:
         raise NotImplementedError("Subclass must implement get_response()")
@@ -34,6 +38,8 @@ class BaseAgent(BaseModel):
 
 class DemoAgent(PromptAgentMixin, BaseAgent):
     """离线 smoke / 评测用 Agent，输出与 Bridge 解析兼容的确定性回复。"""
+
+    model_config = ConfigDict(extra="allow")
 
     model: str = Field(default="demo")
     mode: str = Field(default="deterministic", description="deterministic 或 random")
@@ -65,6 +71,23 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
         )
         self.add_decision(body[:240])
         return body
+
+    async def get_structured_response(self, message: str, model: type) -> object | None:
+        if getattr(model, "__name__", "") != "MindStateDecision":
+            return None
+        is_wolf = False
+        role_def = getattr(self, "role_definition", None)
+        if role_def is not None:
+            from llm_werewolf.game_runtime.types import Camp
+
+            is_wolf = getattr(role_def, "camp", None) == Camp.WEREWOLF
+        return build_mind_state(
+            message,
+            seat_number=self.seat_number,
+            rng=self._rng(),
+            random_mode=self.random_mode,
+            is_wolf=is_wolf,
+        )
 
     def _generate_fallback_response(self, prompt: str, reason: str) -> str:
         _ = prompt, reason

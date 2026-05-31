@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from collections import Counter
 from pathlib import Path
 
@@ -37,6 +38,49 @@ def _load_markdown(path: Path) -> str | None:
         return path.read_text(encoding="utf-8")
     except OSError:
         return None
+
+
+def _load_jsonl(path: Path, *, limit: int = 500) -> list[dict]:
+    if not path.is_file():
+        return []
+    rows: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def load_belief_snapshots(run_dir: Path, *, limit: int = 500) -> list[dict]:
+    """Load god-view belief timeline from beliefs.jsonl."""
+    return _load_jsonl(run_dir / "beliefs.jsonl", limit=limit)
+
+
+def load_wolf_camp_snapshots(run_dir: Path, *, limit: int = 200) -> list[dict]:
+    """Load wolf-team shared panel history."""
+    return _load_jsonl(run_dir / "wolf_camp_mind.jsonl", limit=limit)
+
+
+def summarize_belief_heatmap(snapshots: list[dict]) -> dict[str, Any]:
+    """Summarize latest wolf-probability per observer/target seat."""
+    heatmap: dict[str, dict[str, float]] = {}
+    for row in snapshots:
+        observer = str(row.get("observer_seat", row.get("observer_id", "")))
+        bucket = heatmap.setdefault(observer, {})
+        for entry in row.get("first_order") or []:
+            if not isinstance(entry, dict):
+                continue
+            target = str(entry.get("target_seat", ""))
+            bucket[target] = float(entry.get("wolf_probability", 0.0))
+    return {"observers": heatmap, "snapshot_count": len(snapshots)}
 
 
 def build_timeline(run_dir: Path, *, limit: int = 500) -> list[ReplayEventItem]:
@@ -100,6 +144,9 @@ def get_replay_page(
         scores=_score_blocks(run_dir),
         views_available=views_available,
         report_markdown=report_md,
+        belief_snapshots=load_belief_snapshots(run_dir),
+        wolf_camp_snapshots=load_wolf_camp_snapshots(run_dir),
+        belief_heatmap=summarize_belief_heatmap(load_belief_snapshots(run_dir)),
     )
 
 

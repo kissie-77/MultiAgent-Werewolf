@@ -6,13 +6,21 @@ source_run: runs/12p-doubao-20260526-143527
 source_player_id: player_6
 camp: villager
 quality_passed: true
-weight: 1.05
+weight: 0.85
 win_count: 0
-use_count: 3
+use_count: 7
 created_at: 2026-05-27T10:56:53+00:00
-updated_at: 2026-05-29T07:16:17+00:00
+updated_at: 2026-05-31T03:23:37+00:00
 when_to_use: 第2轮夜间：中后局需验证站边摇摆者、跟票异常者或对跳位的情况下，使用该 skill
 ---
+
+描述：第2轮夜间：中后局需验证站边摇摆者、跟票异常者或对跳位的情况下，使用该 skill
+
+描述：第2轮夜间：中后局需验证站边摇摆者、跟票异常者或对跳位的情况下，使用该 skill
+
+描述：第2轮夜间：中后局需验证站边摇摆者、跟票异常者或对跳位的情况下，使用该 skill
+
+描述：第2轮夜间：中后局需验证站边摇摆者、跟票异常者或对跳位的情况下，使用该 skill
 
 # 第2轮预言家查验决策
 

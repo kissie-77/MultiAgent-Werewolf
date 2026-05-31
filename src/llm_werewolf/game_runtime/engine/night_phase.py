@@ -50,13 +50,22 @@ class NightPhaseMixin:
             include_visible_events=True,
             for_agent_decision=True,
         )
-        return (
+        wolf_panel = ""
+        wolf_camp_mind = getattr(self.game_state, "wolf_camp_mind", None)
+        if wolf_camp_mind is not None:
+            from llm_werewolf.strategy.belief_format import format_wolf_camp_context
+
+            wolf_panel = format_wolf_camp_context(wolf_camp_mind)
+        body = (
             shared
             + "\n"
             + EngineContexts.werewolf_discussion(
                 werewolf.name, self.game_state.round_number, werewolf_names, target_names, ""
             )
         )
+        if wolf_panel:
+            body = body + "\n\n" + wolf_panel
+        return body
 
     def _log_werewolf_speech(self, speaker: PlayerProtocol, decision: SpeechDecision) -> None:
         if not self.game_state:

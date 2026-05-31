@@ -131,6 +131,27 @@ class ActionProcessorMixin:
                 f"Round {self.game_state.round_number}: Checked {action.target.name}, "
                 f"result: {apparent.value}"
             )
+        if self.game_state and getattr(self.game_state, "belief_log", None) is not None:
+            from llm_werewolf.game_runtime.seat import get_player_seat
+            from llm_werewolf.game_runtime.types import Camp
+            from llm_werewolf.strategy.belief_updater import apply_seer_check, ensure_agent_belief_state
+
+            alive = self.game_state.get_alive_players()
+            state = ensure_agent_belief_state(action.actor, alive)
+            target_seat = get_player_seat(action.target)
+            if target_seat is not None:
+                apply_seer_check(
+                    state,
+                    target_seat=target_seat,
+                    is_werewolf=action.target.get_camp() == Camp.WEREWOLF,
+                )
+            from llm_werewolf.strategy.belief_format import sync_player_belief_memory
+
+            sync_player_belief_memory(
+                action.actor,
+                alive=alive,
+                wolf_camp_mind=getattr(self.game_state, "wolf_camp_mind", None),
+            )
 
     def _log_cupid_action(self, action: CupidLinkAction) -> None:
         """记录丘比特连线行动。"""

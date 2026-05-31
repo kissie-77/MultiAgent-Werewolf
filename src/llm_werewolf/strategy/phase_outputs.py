@@ -72,7 +72,7 @@ _ACTION_SCHEMA_HINT: dict[ActionPhase, str] = {
     ),
     ActionPhase.DAY_VOTE: (
         "【本阶段输出】仅 SeatChoiceDecision：seat=整数全局座位号（要放逐的玩家）；"
-        "弃票 seat=0。结合上文讨论记录投票，禁止 SpeechDecision。"
+        "弃票 seat=0；reason 必填。结合上文讨论记录投票，禁止 SpeechDecision。"
     ),
     ActionPhase.VOTE_INTENTION: (
         "【本阶段输出】仅 VoteIntentionDecision：seat=意向放逐座位号；无明确意向 seat=0。"

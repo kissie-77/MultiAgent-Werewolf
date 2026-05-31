@@ -15,6 +15,7 @@ from llm_werewolf.strategy.decisions import (
     seat_choice_schema_instruction,
     witch_night_schema_instruction,
     vote_intention_schema_instruction,
+    mind_state_schema_instruction,
     metadata_looks_like_wrong_schema_for_speech,
 )
 from llm_werewolf.strategy.phase_outputs import (
@@ -66,6 +67,7 @@ def test_speech_schema_instruction_mentions_fields() -> None:
 def test_non_speech_schema_instructions_do_not_claim_speech_schema() -> None:
     texts = [
         vote_intention_schema_instruction(),
+        mind_state_schema_instruction(),
         seat_choice_schema_instruction(),
         witch_night_schema_instruction(can_see_victim=True),
     ]

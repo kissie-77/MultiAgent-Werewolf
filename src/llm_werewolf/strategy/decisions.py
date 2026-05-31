@@ -149,23 +149,28 @@ def vote_intention_schema_instruction() -> str:
         "必须调用 generate_response，字段：",
         "- seat (integer, 必填): 若此刻正式投票会放逐的全局座位号；",
         "  尚无明确意向或观望则 seat=0（无投票意向）。",
-        "- reason (string, 可选): 私人推理，不广播。",
+        "- reason (string): 若 seat 与上一帧不同则必填；否则建议填写简要依据。",
         "这是投票意向采集，不是正式投票；禁止 SpeechDecision、禁止长段公开发言。",
         generate_response_instruction("VoteIntentionDecision"),
     ])
 
 
-def seat_choice_schema_instruction(*, allow_skip: bool = False) -> str:
+def seat_choice_schema_instruction(*, allow_skip: bool = False, require_reason: bool = False) -> str:
     """SeatChoiceDecision 的提示块（投票 / 夜间目标）。"""
     skip_line = (
         "不行动或弃票时 seat=0。" if allow_skip else "必须选择有效目标，seat 为全局座位号。"
+    )
+    reason_line = (
+        "- reason (string, 必填): 私人推理，说明选该目标或弃票的理由，不广播。"
+        if require_reason
+        else "- reason (string, 可选): 私人推理，不广播。"
     )
     return "\n".join([
         "【本任务输出 — 仅 SeatChoiceDecision Schema】",
         "必须调用 generate_response，字段：",
         "- seat (integer, 必填): 目标玩家的全局座位号（数字，不是列表序号）；",
         f"  {skip_line}",
-        "- reason (string, 可选): 私人推理，不广播。",
+        reason_line,
         "禁止 SpeechDecision、禁止 [[...]] 长段发言、禁止 public_speech 字段。",
         generate_response_instruction("SeatChoiceDecision"),
     ])
@@ -191,17 +196,130 @@ def witch_night_schema_instruction(*, can_see_victim: bool) -> str:
 
 
 class BeliefEntry(BaseModel):
-    """玩家信念矩阵中的单个单元格（未来 MetaMind 集成）。"""
+    """玩家信念矩阵中的单个单元格（B1）。"""
 
     target_seat: int = Field(..., ge=1, description="Observed player seat")
     wolf_probability: float = Field(..., ge=0.0, le=1.0)
+    reason: str | None = Field(
+        default=None,
+        description="Required when submitting a belief update in MindStateDecision.",
+    )
     note: str | None = Field(default=None)
 
 
+class SecondOrderEntry(BaseModel):
+    """B2：我认为 observer 怀疑我是狼的概率。"""
+
+    observer_seat: int = Field(..., ge=1, description="Other player seat")
+    suspects_me_as_wolf: float = Field(..., ge=0.0, le=1.0)
+    reason: str | None = Field(
+        default=None,
+        description="Required when submitting a B2 update in MindStateDecision.",
+    )
+    note: str | None = Field(default=None)
+
+
+class GodRoleDelta(BaseModel):
+    target_seat: int = Field(..., ge=1)
+    delta: dict[str, float] = Field(default_factory=dict)
+    reason: str | None = None
+
+
+class ExposureRadarDelta(BaseModel):
+    wolf_seat: int = Field(..., ge=1)
+    observer_seat: int = Field(..., ge=1)
+    suspicion: float = Field(..., ge=0.0, le=1.0)
+    reason: str | None = Field(
+        default=None,
+        description="Required when submitting an exposure radar update.",
+    )
+
+
+class WolfCampDelta(BaseModel):
+    """狼队共享面板增量（仅狼人填写）。"""
+
+    god_role_intel: list[GodRoleDelta] = Field(default_factory=list)
+    exposure_radar: list[ExposureRadarDelta] = Field(default_factory=list)
+
+
+class MindStateDecision(BaseModel):
+    """投票意向 + 一阶/二阶信念 + 可选狼队增量，一次 generate_response 提交。"""
+
+    seat: int = Field(
+        ...,
+        ge=0,
+        description="Vote intention seat; 0 = no clear target.",
+    )
+    reason: str | None = Field(default=None)
+    first_order: list[BeliefEntry] = Field(default_factory=list)
+    second_order: list[SecondOrderEntry] = Field(default_factory=list)
+    wolf_camp_delta: WolfCampDelta | None = Field(default=None)
+
+
 class BeliefMatrixDecision(BaseModel):
-    """结构化信念更新；接入后由 WerewolfAdapterBridge 解析。"""
+    """Deprecated: use MindStateDecision.first_order instead."""
 
     beliefs: list[BeliefEntry] = Field(default_factory=list)
+
+
+def mind_state_schema_instruction() -> str:
+    """MindStateDecision 的提示块（投票意向 + 信念矩阵）。"""
+    return "\n".join([
+        "【本任务输出 — 仅 MindStateDecision Schema】",
+        "必须调用 generate_response，字段：",
+        "- seat (integer, 必填): 若此刻正式投票会放逐的全局座位号；无明确意向填 0；",
+        "- reason (string): 若 seat 与上一帧不同则必填；否则可选；",
+        "- first_order (array): 仅需修改的 B1 条目（无变化则 []），",
+        "  每项含 target_seat、wolf_probability(0~1)、reason(必填)；",
+        "- second_order (array): 仅需修改的 B2 条目（无变化则 []），",
+        "  每项含 observer_seat、suspects_me_as_wolf(0~1)、reason(必填)；",
+        "- wolf_camp_delta (object, 可选, 仅狼人): 仅需修改的 god_role_intel / exposure_radar 增量；",
+        "  每项增量必须含 reason；",
+        "这是投票意向 + 信念增量更新，不是正式投票；禁止 SpeechDecision。",
+        generate_response_instruction("MindStateDecision"),
+    ])
+
+
+def _nonempty_reason(value: str | None) -> bool:
+    return bool(value and value.strip())
+
+
+def validate_mind_state_decision(
+    decision: MindStateDecision,
+    *,
+    previous_vote_seat: int | None,
+) -> list[str]:
+    """Validate partial belief updates and vote-intention change reasons."""
+    errors: list[str] = []
+    if previous_vote_seat is not None and decision.seat != previous_vote_seat:
+        if not _nonempty_reason(decision.reason):
+            errors.append("变更投票意向时必须填写顶层 reason")
+
+    for entry in decision.first_order:
+        if not _nonempty_reason(entry.reason):
+            errors.append(f"first_order 座位 {entry.target_seat} 的修改必须填写 reason")
+
+    for entry in decision.second_order:
+        if not _nonempty_reason(entry.reason):
+            errors.append(f"second_order 座位 {entry.observer_seat} 的修改必须填写 reason")
+
+    if decision.wolf_camp_delta is not None:
+        for delta in decision.wolf_camp_delta.god_role_intel:
+            if not _nonempty_reason(delta.reason):
+                errors.append(f"wolf_camp_delta.god_role_intel 座位 {delta.target_seat} 必须填写 reason")
+        for delta in decision.wolf_camp_delta.exposure_radar:
+            if not _nonempty_reason(delta.reason):
+                errors.append(
+                    "wolf_camp_delta.exposure_radar "
+                    f"({delta.wolf_seat}←{delta.observer_seat}) 必须填写 reason"
+                )
+    return errors
+
+
+def validate_seat_choice_reason(decision: SeatChoiceDecision) -> list[str]:
+    if _nonempty_reason(decision.reason):
+        return []
+    return ["正式投票必须填写 reason"]
 
 
 def metadata_looks_like_wrong_schema_for_speech(metadata: dict) -> bool:

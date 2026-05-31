@@ -37,7 +37,7 @@ def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:
     if metadata.get("success") is False:
         return None
     # 最终回复直接存字段（seat、choice、public_speech 等）
-    if any(key in metadata for key in ("seat", "choice", "public_speech", "seats", "beliefs")):
+    if any(key in metadata for key in ("seat", "choice", "public_speech", "seats", "beliefs", "first_order")):
         return metadata
     return metadata if metadata else None
 
@@ -102,7 +102,7 @@ def _parse_legacy_scalar_text(text: str, model: type[T]) -> T | None:
     """兼容旧提示下模型返回 [[seat]] / YES / NO 的非发言决策。"""
     stripped = text.strip()
     seat_match = re.fullmatch(r"(?:\[\[\s*)?(\d+)(?:\s*\]\])?", stripped)
-    if seat_match and model.__name__ in {"SeatChoiceDecision", "VoteIntentionDecision"}:
+    if seat_match and model.__name__ in {"SeatChoiceDecision", "VoteIntentionDecision", "MindStateDecision"}:
         return model.model_validate({"seat": int(seat_match.group(1)), "reason": None})
 
     if model.__name__ == "YesNoDecision":

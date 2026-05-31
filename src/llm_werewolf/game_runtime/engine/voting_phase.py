@@ -203,6 +203,9 @@ class VotingPhaseMixin:
         )
         self._log_event(EventType.PLAYER_ELIMINATED, message, data=data)
 
+        if data.get("role_revealed"):
+            self._sync_beliefs_after_public_death(eliminated)
+
         # 处理长老惩罚
         if eliminated.role.name == RoleNames.ELDER:
             self._handle_elder_penalty()

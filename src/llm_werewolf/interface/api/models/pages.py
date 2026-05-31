@@ -286,6 +286,9 @@ class ReplayPageData(BaseModel):
     views_available: list[str] = Field(default_factory=list)
     report_markdown: str | None = None
     coach_excerpt: str | None = None
+    belief_snapshots: list[dict[str, Any]] = Field(default_factory=list)
+    wolf_camp_snapshots: list[dict[str, Any]] = Field(default_factory=list)
+    belief_heatmap: dict[str, Any] = Field(default_factory=dict)
 
 
 class ShareReplayPageData(BaseModel):

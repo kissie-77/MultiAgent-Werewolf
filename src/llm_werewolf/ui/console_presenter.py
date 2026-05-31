@@ -90,6 +90,14 @@ class ConsolePresenter:
             self._present_role_reveal(event)
             return True
 
+        if event.event_type == EventType.VOTE_INTENTION_SNAPSHOT:
+            self._present_vote_intention(event)
+            return True
+
+        if event.event_type == EventType.BELIEF_SNAPSHOT:
+            self._present_belief_snapshot(event)
+            return True
+
         return False
 
     def _handle_game_lifecycle_events(self, event: Event) -> bool:
@@ -402,6 +410,22 @@ class ConsolePresenter:
     def _present_role_reveal(self, event: Event) -> None:
         """展示身份揭示。"""
         console.print(f"🎭 {event.message}", style="bold magenta")
+
+    def _present_vote_intention(self, event: Event) -> None:
+        """展示投票意向变化（上帝视角）。"""
+        console.print(f"📊 {event.message}", style="dim cyan")
+
+    def _present_belief_snapshot(self, event: Event) -> None:
+        """展示信念矩阵快照（上帝视角）。"""
+        console.print()
+        panel = Panel(
+            event.message,
+            title="信念矩阵",
+            border_style="magenta",
+            padding=(0, 1),
+        )
+        console.print(panel)
+        console.print()
 
     def _get_event_style(self, event_type: EventType) -> str:
         """按事件类型返回展示样式。"""

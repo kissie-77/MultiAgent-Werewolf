@@ -118,6 +118,21 @@ class PlayersConfig(BaseModel):
             "Set to the player count for fastest batches if the provider allows it."
         ),
     )
+    day_timeout: int | None = Field(
+        default=None,
+        ge=30,
+        description="Optional override for day discussion timeout (seconds).",
+    )
+    vote_timeout: int | None = Field(
+        default=None,
+        ge=10,
+        description="Optional override for voting timeout (seconds).",
+    )
+    night_timeout: int | None = Field(
+        default=None,
+        ge=10,
+        description="Optional override for night action timeout (seconds).",
+    )
     players: list[PlayerConfig] = Field(
         ...,
         title="Player List",

@@ -8,6 +8,10 @@ from typing import Any
 
 from llm_werewolf.evaluation.core.runner import EvaluationRunner
 from llm_werewolf.evaluation.core.scenarios import get_scenario
+from llm_werewolf.evaluation.evolution.prompt_evolver import (
+    PromptEvolutionResult,
+    evolve_prompt_from_run,
+)
 from llm_werewolf.evaluation.evolution.version_manifest import (
     restore_active_skills_from_manifest,
     write_version_manifest,
@@ -22,7 +26,9 @@ class EvolutionRoundResult:
     version_id: str
     run_dir: Path
     skill_version: str
+    prompt_version: str
     version_manifest_path: Path | None = None
+    prompt_evolution: PromptEvolutionResult | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -30,8 +36,25 @@ class EvolutionRoundResult:
             "version_id": self.version_id,
             "run_dir": str(self.run_dir),
             "skill_version": self.skill_version,
+            "prompt_version": self.prompt_version,
             "version_manifest_path": (
                 str(self.version_manifest_path) if self.version_manifest_path is not None else None
+            ),
+            "prompt_evolution": (
+                {
+                    "base_prompt_version": self.prompt_evolution.base_prompt_version,
+                    "new_prompt_version": self.prompt_evolution.new_prompt_version,
+                    "new_version_dir": (
+                        str(self.prompt_evolution.new_version_dir)
+                        if self.prompt_evolution.new_version_dir is not None
+                        else None
+                    ),
+                    "applied_count": self.prompt_evolution.applied_count,
+                    "applied_path": str(self.prompt_evolution.applied_path),
+                    "diff_path": str(self.prompt_evolution.diff_path),
+                }
+                if self.prompt_evolution is not None
+                else None
             ),
         }
 
@@ -45,7 +68,7 @@ def run_evolution_cycle(
     timeout_seconds: float = 30.0,
     seed: int = 1,
     model: str = "unknown",
-    prompt_version: str = "unknown",
+    prompt_version: str = "v2",
     initial_skill_version: str = "baseline",
     notes: list[str] | None = None,
 ) -> Path:
@@ -55,6 +78,7 @@ def run_evolution_cycle(
     round_results: list[EvolutionRoundResult] = []
     previous_run_dir: Path | None = None
     previous_version_manifest_path: Path | None = None
+    current_prompt_version = prompt_version
 
     for round_index in range(1, rounds + 1):
         version_id = _build_version_id(round_index)
@@ -72,17 +96,23 @@ def run_evolution_cycle(
             seed=seed + (round_index - 1) * 100,
             version_id=version_id,
             model=model,
-            prompt_version=prompt_version,
+            prompt_version=current_prompt_version,
             skill_version=skill_version,
             notes=notes,
             previous_run_dir=str(previous_run_dir) if previous_run_dir is not None else None,
         )
+        prompt_evolution = evolve_prompt_from_run(
+            run_dir,
+            base_prompt_version=current_prompt_version,
+            output_root=root / "prompt_versions",
+        )
         manifest_path = write_version_manifest(
             run_dir,
             version_id=version_id,
-            prompt_version=prompt_version,
+            prompt_version=current_prompt_version,
             model=model,
             reasoning_effort=None,
+            prompt_evolution=prompt_evolution.to_dict(),
         )
         round_results.append(
             EvolutionRoundResult(
@@ -90,11 +120,14 @@ def run_evolution_cycle(
                 version_id=version_id,
                 run_dir=run_dir,
                 skill_version=skill_version,
+                prompt_version=current_prompt_version,
                 version_manifest_path=manifest_path,
+                prompt_evolution=prompt_evolution,
             )
         )
         previous_run_dir = run_dir
         previous_version_manifest_path = manifest_path
+        current_prompt_version = prompt_evolution.new_prompt_version
 
     leaderboard_path = write_leaderboard(root)
     ab_report_path = _write_initial_vs_final_ab(root, round_results)
@@ -171,6 +204,7 @@ def _write_evolution_summary(
         "rounds": round_payloads,
         "round_skill_summaries": round_summaries,
         "version_diff_summaries": _build_version_diff_summaries(round_summaries),
+        "prompt_version_chain": _build_prompt_version_chain(rounds),
         "leaderboard_path": str(leaderboard_path),
         "ab_report_path": str(ab_report_path) if ab_report_path is not None else None,
     }
@@ -259,4 +293,26 @@ def _build_version_diff_summaries(
         )
         previous_version_id = str(summary.get("version_id") or "")
         previous_role_counts = current_role_counts
+    return out
+
+
+def _build_prompt_version_chain(rounds: list[EvolutionRoundResult]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for round_result in rounds:
+        evolution = round_result.prompt_evolution
+        out.append(
+            {
+                "version_id": round_result.version_id,
+                "runtime_prompt_version": round_result.prompt_version,
+                "next_prompt_version": (
+                    evolution.new_prompt_version if evolution is not None else round_result.prompt_version
+                ),
+                "applied_prompt_proposal_count": evolution.applied_count if evolution is not None else 0,
+                "prompt_version_changed": (
+                    evolution is not None
+                    and evolution.new_prompt_version != round_result.prompt_version
+                ),
+                "prompt_diff_path": str(evolution.diff_path) if evolution is not None else None,
+            }
+        )
     return out

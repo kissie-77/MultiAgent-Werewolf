@@ -16,6 +16,7 @@ def write_version_manifest(
     model: str,
     reasoning_effort: str | None = None,
     memory_runtime_params: dict[str, Any] | None = None,
+    prompt_evolution: dict[str, Any] | None = None,
 ) -> Path:
     base = Path(run_dir)
     payload = {
@@ -28,6 +29,7 @@ def write_version_manifest(
             "model": model,
             "reasoning_effort": reasoning_effort,
         },
+        "prompt_evolution": prompt_evolution,
     }
     path = base / "version_manifest.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

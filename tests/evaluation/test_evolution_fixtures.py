@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tests.evaluation.conftest_evolution import build_evolution_fixtures
+from conftest_evolution import build_evolution_fixtures
 
 
 def test_fixture_creates_three_runs(tmp_path: Path) -> None:

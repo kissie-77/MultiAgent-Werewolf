@@ -29,6 +29,16 @@ class PromptEvolutionResult:
     applied_path: Path
     diff_path: Path
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "base_prompt_version": self.base_prompt_version,
+            "new_prompt_version": self.new_prompt_version,
+            "new_version_dir": str(self.new_version_dir) if self.new_version_dir is not None else None,
+            "applied_count": self.applied_count,
+            "applied_path": str(self.applied_path),
+            "diff_path": str(self.diff_path),
+        }
+
 
 def evolve_prompt_from_run(
     run_dir: str | Path,
@@ -79,7 +89,38 @@ def evolve_prompt_from_run(
         )
 
     new_version_dir = output_base / new_version
-    _copy_prompt_version(base_prompt_version, new_version, new_version_dir)
+    try:
+        _copy_prompt_version(base_prompt_version, new_version, new_version_dir)
+    except FileNotFoundError as exc:
+        _write_json(
+            applied_path,
+            {
+                "schema": "applied_prompt_proposals_v1",
+                "base_prompt_version": base_prompt_version,
+                "new_prompt_version": base_prompt_version,
+                "applied_count": 0,
+                "applied": [],
+                "skipped_reason": "base_prompt_version_not_found",
+                "error": str(exc),
+            },
+        )
+        _write_json(
+            diff_path,
+            {
+                "schema": "prompt_version_diff_v1",
+                "base_prompt_version": base_prompt_version,
+                "new_prompt_version": base_prompt_version,
+                "changes": [],
+            },
+        )
+        return PromptEvolutionResult(
+            base_prompt_version=base_prompt_version,
+            new_prompt_version=base_prompt_version,
+            new_version_dir=None,
+            applied_count=0,
+            applied_path=applied_path,
+            diff_path=diff_path,
+        )
     registry = get_registry(new_version)
     changes = _apply_proposals(registry.version_dir, new_version, proposals)
     get_registry.cache_clear()
@@ -223,7 +264,11 @@ def _target_for_new_version(target_variable: str, new_prompt_version: str) -> st
     parts = target_variable.split(".", 1)
     if len(parts) != 2:
         return target_variable
-    return f"{new_prompt_version}.{parts[1]}"
+    body = parts[1]
+    body_parts = body.split(".")
+    if len(body_parts) >= 3 and body_parts[0] == "role":
+        body = ".".join(body_parts[:2])
+    return f"{new_prompt_version}.{body}"
 
 
 def _append_to_role_suggestion(path: Path, text: str) -> None:

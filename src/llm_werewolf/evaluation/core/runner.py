@@ -148,7 +148,12 @@ class EvaluationRunner:
             try:
                 from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline
 
-                await run_post_game_pipeline(game_dir, engine=engine, skip_llm=True)
+                await run_post_game_pipeline(
+                    game_dir,
+                    engine=engine,
+                    prompt_version=self.prompt_version,
+                    skip_llm=True,
+                )
             except Exception as exc:
                 recorder.record_error(
                     exc,

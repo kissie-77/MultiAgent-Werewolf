@@ -14,7 +14,7 @@ def main(
     timeout_seconds: float = 30.0,
     seed: int = 1,
     model: str = "unknown",
-    prompt_version: str = "unknown",
+    prompt_version: str = "v2",
     initial_skill_version: str = "baseline",
     notes: list[str] | None = None,
 ) -> str:

@@ -57,6 +57,13 @@ class ABReport:
     avg_intention_score_b: float | None
     completion_rate_a: float
     completion_rate_b: float
+    wins_a: int
+    wins_b: int
+    win_rate_ci_a: tuple[float, float]
+    win_rate_ci_b: tuple[float, float]
+    win_rate_p_value: float | None
+    win_rate_significant: bool
+    significance_method: str
     recommendation: str
     summary: str
     generated_at: str = field(default_factory=utc_now_iso)

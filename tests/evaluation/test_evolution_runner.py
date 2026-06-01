@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from llm_werewolf.evaluation.evolution.runner import run_evolution_cycle
-from tests.evaluation.conftest_evolution import build_evolution_fixtures
+from conftest_evolution import build_evolution_fixtures
 
 
 def test_run_evolution_cycle_writes_rounds_and_reports(tmp_path: Path) -> None:
@@ -27,9 +27,17 @@ def test_run_evolution_cycle_writes_rounds_and_reports(tmp_path: Path) -> None:
     assert (tmp_path / "v2_evolved" / "leaderboard_entry.json").is_file()
     assert (tmp_path / "v1_initial" / "version_manifest.json").is_file()
     assert (tmp_path / "v2_evolved" / "version_manifest.json").is_file()
+    assert (tmp_path / "v1_initial" / "applied_prompt_proposals.json").is_file()
+    assert (tmp_path / "v1_initial" / "prompt_version_diff.json").is_file()
     assert (tmp_path / "leaderboards" / "leaderboard.json").is_file()
     assert (tmp_path / "ab_reports").is_dir()
     assert payload["ab_report_path"] is not None
+    assert payload["rounds"][0]["prompt_version"] == "prompt_v1"
+    assert "prompt_evolution" in payload["rounds"][0]
+    assert "prompt_version_chain" in payload
+    assert len(payload["prompt_version_chain"]) == 2
+    assert payload["prompt_version_chain"][0]["runtime_prompt_version"] == "prompt_v1"
+    assert "applied_prompt_proposal_count" in payload["prompt_version_chain"][0]
     assert "round_skill_summaries" in payload
     assert "version_diff_summaries" in payload
     assert len(payload["round_skill_summaries"]) == 2
@@ -45,6 +53,8 @@ def test_run_evolution_cycle_writes_rounds_and_reports(tmp_path: Path) -> None:
     manifest_payload = json.loads((tmp_path / "v1_initial" / "version_manifest.json").read_text(encoding="utf-8"))
     assert manifest_payload["schema"] == "agent_version_manifest_v1"
     assert manifest_payload["prompt_version"] == "prompt_v1"
+    assert "prompt_evolution" in manifest_payload
+    assert manifest_payload["prompt_evolution"]["base_prompt_version"] == "prompt_v1"
     assert "active_skills" in manifest_payload
     assert "memory_runtime_params" in manifest_payload
     assert "model_config" in manifest_payload

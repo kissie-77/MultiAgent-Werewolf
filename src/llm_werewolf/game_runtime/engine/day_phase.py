@@ -145,10 +145,11 @@ class DayPhaseMixin:
                 on_vote_intention_record=on_intention,
             )
         except Exception as exc:
+            error_text = str(exc).strip() or f"{type(exc).__name__}"
             self._log_event(
                 EventType.ERROR,
-                self.locale.get("speech_failed", player="*", error=str(exc)),
-                data={"error": str(exc)},
+                self.locale.get("speech_failed", player="*", error=error_text),
+                data={"error": error_text, "error_type": type(exc).__name__},
             )
 
         return messages

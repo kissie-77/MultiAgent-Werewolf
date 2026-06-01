@@ -707,63 +707,36 @@ class WerewolfAdapterBridge:
         )
         if target is not None:
             seat = WerewolfAdapterBridge.get_player_seat(target) or 0
-            belief_state = getattr(agent, "belief_state", None)
-            previous_vote_seat = (
-                belief_state.last_vote_seat
-                if belief_state is not None and hasattr(belief_state, "last_vote_seat")
-                else None
-            )
-            if previous_vote_seat is not None and seat != previous_vote_seat:
-                msg = "变更投票意向时必须填写结构化 MindStateDecision.reason"
-                raise ValueError(msg)
             mind = MindStateResult(vote_seat=seat, vote_reason=response[:500], first_order=[], second_order=[])
-            return _entry_from_mind(mind), mind
+            return _finalize_mind(mind)
 
         numbers = re.findall(r"\[\[\s*(\d+)\s*\]\]", response)
         if numbers:
             seat = int(numbers[0])
-            belief_state = getattr(agent, "belief_state", None)
-            previous_vote_seat = (
-                belief_state.last_vote_seat
-                if belief_state is not None and hasattr(belief_state, "last_vote_seat")
-                else None
-            )
-            if previous_vote_seat is not None and seat != previous_vote_seat:
-                msg = "变更投票意向时必须填写结构化 MindStateDecision.reason"
-                raise ValueError(msg)
             mind = MindStateResult(
                 vote_seat=seat,
                 vote_reason=response[:500],
                 first_order=[],
                 second_order=[],
             )
-            return _entry_from_mind(mind), mind
+            return _finalize_mind(mind)
         loose = re.findall(r"\d+", response.strip())
         if loose:
             seat = int(loose[0])
-            belief_state = getattr(agent, "belief_state", None)
-            previous_vote_seat = (
-                belief_state.last_vote_seat
-                if belief_state is not None and hasattr(belief_state, "last_vote_seat")
-                else None
-            )
-            if previous_vote_seat is not None and seat != previous_vote_seat:
-                msg = "变更投票意向时必须填写结构化 MindStateDecision.reason"
-                raise ValueError(msg)
             mind = MindStateResult(
                 vote_seat=seat,
                 vote_reason=response[:500],
                 first_order=[],
                 second_order=[],
             )
-            return _entry_from_mind(mind), mind
+            return _finalize_mind(mind)
         mind = MindStateResult(
             vote_seat=0,
             vote_reason=response[:500] or "seat=0（模型明示无意向）",
             first_order=[],
             second_order=[],
         )
-        return _entry_from_mind(mind), mind
+        return _finalize_mind(mind)
 
     @staticmethod
     async def request_seat_choice(

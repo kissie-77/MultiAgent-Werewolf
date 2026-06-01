@@ -245,6 +245,7 @@ class GameModeOption(BaseModel):
     participation: str
     rules: str
     config_path: str
+    config_id: str | None = None
     description: str
     player_count: int | None = None
 

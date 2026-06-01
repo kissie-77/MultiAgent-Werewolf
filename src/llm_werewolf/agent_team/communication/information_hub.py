@@ -57,6 +57,48 @@ class InformationHub:
         self._belief_log: BeliefLog | None = None
         self._wolf_camp_mind: WolfCampMindModel | None = None
         self._on_belief_batch: Callable[..., None] | None = None
+        self._night_step_timeout: float | None = None
+        self._day_step_timeout: float | None = None
+        self._vote_step_timeout: float | None = None
+
+    def configure_step_timeouts(
+        self,
+        *,
+        night_timeout: int | None = None,
+        day_timeout: int | None = None,
+        vote_timeout: int | None = None,
+    ) -> None:
+        """Per LLM step timeout (seconds) for roundtable / mind-state batches."""
+        self._night_step_timeout = float(night_timeout) if night_timeout else None
+        self._day_step_timeout = float(day_timeout) if day_timeout else None
+        self._vote_step_timeout = float(vote_timeout) if vote_timeout else None
+
+    def _step_timeout_for_phase(self, phase: str | None) -> float | None:
+        if not phase:
+            return self._night_step_timeout
+        normalized = phase.strip().lower()
+        if normalized in {"voting", "sheriffvoting", "day_voting"}:
+            return self._vote_step_timeout
+        if normalized in {
+            "day",
+            "sheriff",
+            "discussion",
+            "day_discussion",
+            "sheriff_election",
+        }:
+            return self._day_step_timeout
+        return self._night_step_timeout
+
+    async def _await_step(self, coro, phase: str | None):
+        timeout = self._step_timeout_for_phase(phase)
+        if timeout is None or timeout <= 0:
+            return await coro
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except TimeoutError as exc:
+            label = phase or "step"
+            msg = f"{label} LLM step timed out after {int(timeout)}s"
+            raise TimeoutError(msg) from exc
 
     def configure_belief_tracking(
         self,
@@ -476,12 +518,15 @@ class InformationHub:
 
             prior_intentions: dict[str, VoteIntentionEntry] = {}
             if vote_intention_tracker is not None:
-                prior_intentions = await self._collect_vote_intentions(
-                    audience_players,
-                    anchor=VoteIntentionAnchor.INITIAL,
-                    context_builder=context_builder,
-                    phase=phase,
-                    round_number=round_number,
+                prior_intentions = await self._await_step(
+                    self._collect_vote_intentions(
+                        audience_players,
+                        anchor=VoteIntentionAnchor.INITIAL,
+                        context_builder=context_builder,
+                        phase=phase,
+                        round_number=round_number,
+                    ),
+                    phase,
                 )
                 vote_intention_tracker.add_snapshot(
                     VoteIntentionSnapshot(
@@ -523,8 +568,11 @@ class InformationHub:
                 from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
 
                 rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
-                decision = await WerewolfAdapterBridge.request_speech(
-                    speaker.agent, context, instruction, roundtable_phase=rt_phase
+                decision = await self._await_step(
+                    WerewolfAdapterBridge.request_speech(
+                        speaker.agent, context, instruction, roundtable_phase=rt_phase
+                    ),
+                    phase,
                 )
 
                 react_self = self._react_agent(speaker)
@@ -557,13 +605,16 @@ class InformationHub:
 
                 if vote_intention_tracker is not None:
                     speech_text = decision.public_speech.strip()
-                    after_intentions = await self._collect_vote_intentions(
-                        audience_players,
-                        anchor=VoteIntentionAnchor.AFTER_SPEECH,
-                        context_builder=context_builder,
-                        phase=phase,
-                        round_number=round_number,
-                        last_speaker=speaker,
+                    after_intentions = await self._await_step(
+                        self._collect_vote_intentions(
+                            audience_players,
+                            anchor=VoteIntentionAnchor.AFTER_SPEECH,
+                            context_builder=context_builder,
+                            phase=phase,
+                            round_number=round_number,
+                            last_speaker=speaker,
+                        ),
+                        phase,
                     )
                     vote_intention_tracker.add_snapshot(
                         VoteIntentionSnapshot(

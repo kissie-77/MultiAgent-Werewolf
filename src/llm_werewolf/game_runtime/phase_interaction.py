@@ -332,19 +332,18 @@ class PhaseInteraction:
         vote_intention_tracker: VoteIntentionTracker | None = None,
         on_vote_intention_record: Callable[[SpeechVoteIntentionRecord], None] | None = None,
     ) -> list:
-        return await self._await_with_timeout(
-            self._hub.run_roundtable(
-                speakers,
-                channel=channel,
-                context_builder=context_builder,
-                instruction=instruction,
-                phase=phase,
-                round_number=round_number,
-                audience=audience,
-                opening_announcement=opening_announcement,
-                on_speech=on_speech,
-                vote_intention_tracker=vote_intention_tracker,
-                on_vote_intention_record=on_vote_intention_record,
-            ),
-            phase,
+        # Roundtable may include many sequential LLM steps; per-step timeouts are
+        # enforced inside InformationHub, not as one budget for the whole discussion.
+        return await self._hub.run_roundtable(
+            speakers,
+            channel=channel,
+            context_builder=context_builder,
+            instruction=instruction,
+            phase=phase,
+            round_number=round_number,
+            audience=audience,
+            opening_announcement=opening_announcement,
+            on_speech=on_speech,
+            vote_intention_tracker=vote_intention_tracker,
+            on_vote_intention_record=on_vote_intention_record,
         )

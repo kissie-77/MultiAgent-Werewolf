@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from llm_werewolf.interface.api.routes import (
+    actions_router,
     content_router,
     game_router,
     home_router,
@@ -36,6 +37,12 @@ PAGE_ROUTE_MAP = {
     "model_detail": f"{API_PREFIX}/pages/models/{{model_id}}",
     "model_compare": f"{API_PREFIX}/pages/models/compare?ids=a&ids=b",
     "page_spec": f"{API_PREFIX}/pages/spec",
+    "actions_spec": f"{API_PREFIX}/actions/spec",
+    "start_game": f"{API_PREFIX}/games/start",
+    "game_status": f"{API_PREFIX}/games/{{run_id}}/status",
+    "cancel_game": f"{API_PREFIX}/games/{{run_id}}/cancel",
+    "trigger_post_game": f"{API_PREFIX}/runs/{{run_id}}/post-game",
+    "compare_models_post": f"{API_PREFIX}/models/compare",
 }
 
 
@@ -63,6 +70,7 @@ def create_app() -> FastAPI:
         return PAGE_ROUTE_MAP
 
     app.include_router(pages_router, prefix=API_PREFIX)
+    app.include_router(actions_router, prefix=API_PREFIX)
     app.include_router(home_router, prefix=API_PREFIX)
     app.include_router(content_router, prefix=API_PREFIX)
     app.include_router(game_router, prefix=API_PREFIX)

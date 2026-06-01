@@ -110,6 +110,7 @@ def _build_mode_options() -> list[GameModeOption]:
                 participation=mode.participation,
                 rules=mode.rules,
                 config_path=str(mode.config_path.as_posix()),
+                config_id=mode.config_path.stem,
                 description=mode.description,
                 player_count=player_count,
             )
@@ -417,6 +418,9 @@ def build_replay_page_enriched(
         views_available=base.views_available,
         report_markdown=base.report_markdown,
         coach_excerpt=coach_excerpt,
+        belief_snapshots=base.belief_snapshots,
+        wolf_camp_snapshots=base.wolf_camp_snapshots,
+        belief_heatmap=base.belief_heatmap,
     )
 
 

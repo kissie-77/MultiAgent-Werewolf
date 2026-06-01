@@ -1,0 +1,78 @@
+"""POST action API tests."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
+
+from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+
+
+def test_actions_spec(api_client: TestClient) -> None:
+    resp = api_client.get("/api/v1/actions/spec")
+    assert resp.status_code == 200
+    actions = resp.json()["data"]["actions"]
+    assert any(a["action"] == "start_game" for a in actions)
+
+
+def test_start_game_unknown_config(api_client: TestClient) -> None:
+    resp = api_client.post("/api/v1/games/start", json={"config_id": "no-such-config"})
+    assert resp.status_code == 404
+
+
+def test_start_game_returns_run_id(api_client: TestClient) -> None:
+    with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
+        resp = api_client.post("/api/v1/games/start", json={"config_id": "demo-6"})
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["run_id"]
+    assert data["status"] == "running"
+    assert "game?run_id=" in data["game_page_path"]
+
+
+def test_game_status_for_sample_run(api_client: TestClient) -> None:
+    resp = api_client.get("/api/v1/games/test-run-1/status", params={"source": "runs"})
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["run_id"] == "test-run-1"
+    assert data["snapshot"] is not None
+
+
+def test_game_status_missing(api_client: TestClient) -> None:
+    resp = api_client.get("/api/v1/games/missing-run/status")
+    assert resp.status_code == 404
+
+
+def test_compare_models_post(api_client: TestClient) -> None:
+    resp = api_client.post(
+        "/api/v1/models/compare",
+        json={"ids": ["demo", "other-model"]},
+    )
+    assert resp.status_code == 200
+    models = resp.json()["data"]["compare"]["models"]
+    assert len(models) == 2
+
+
+def test_compare_models_post_requires_two_ids(api_client: TestClient) -> None:
+    resp = api_client.post("/api/v1/models/compare", json={"ids": ["demo"]})
+    assert resp.status_code == 422
+
+
+def test_trigger_post_game_on_sample_run(api_client: TestClient) -> None:
+    resp = api_client.post(
+        "/api/v1/runs/test-run-1/post-game",
+        json={"source": "runs", "force": False},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["run_id"] == "test-run-1"
+
+
+def test_trigger_post_game_missing(api_client: TestClient) -> None:
+    resp = api_client.post("/api/v1/runs/missing/post-game", json={})
+    assert resp.status_code == 404
+
+
+def test_cancel_unknown_session(api_client: TestClient) -> None:
+    resp = api_client.post("/api/v1/games/not-started/cancel")
+    assert resp.status_code == 404

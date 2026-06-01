@@ -22,5 +22,6 @@
 
 - 当前项目结构整理总方案见 `architecture/工程结构整理方案.md`
 - **信念矩阵（B1/B2/狼队 W 面板）功能设计见 `architecture/信念矩阵功能设计.md`**
+- **Web 前端页面规划（逐页功能 + API 对接）见 `前端规划.md`**
 - 记忆板块阶段记录见 `memory/`
 - 历史 ADR、旧 README、旧治理文档统一保留在 `archive/`

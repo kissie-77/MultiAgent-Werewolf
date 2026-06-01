@@ -4,6 +4,9 @@ language: zh-CN
 agent_backend: agentscope
 default_plan: default
 vote_intention_concurrency: 12
+day_timeout: 180
+vote_timeout: 180
+night_timeout: 120
 
 doubao_base: &doubao_base https://ark.cn-beijing.volces.com/api/v3
 

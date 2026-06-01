@@ -9,9 +9,11 @@ from llm_werewolf.interface.api.routes.legacy import (
     roles_router,
     runs_router,
 )
+from llm_werewolf.interface.api.routes.actions import router as actions_router
 from llm_werewolf.interface.api.routes.pages import router as pages_router
 
 __all__ = [
+    "actions_router",
     "content_router",
     "game_router",
     "home_router",

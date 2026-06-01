@@ -6,13 +6,15 @@ source_run: runs/12p-doubao-20260526-143527
 source_player_id: player_4
 camp: villager
 quality_passed: true
-weight: 1.10
-win_count: 0
-use_count: 2
+weight: 1.20
+win_count: 1
+use_count: 3
 created_at: 2026-05-27T10:56:53+00:00
-updated_at: 2026-05-29T07:16:17+00:00
+updated_at: 2026-05-31T13:56:39+00:00
 when_to_use: 第1轮夜间：首夜预判狼刀可能落在高价值神职或明好人的情况下，使用该 skill
 ---
+
+描述：第1轮夜间：首夜预判狼刀可能落在高价值神职或明好人的情况下，使用该 skill
 
 # 第1轮守卫守护决策
 

@@ -158,6 +158,14 @@ class GameEngineBase:
                 day_timeout=self.config.day_timeout,
                 vote_timeout=self.config.vote_timeout,
             )
+            if self.information_hub is not None and hasattr(
+                self.information_hub, "configure_step_timeouts"
+            ):
+                self.information_hub.configure_step_timeouts(
+                    night_timeout=self.config.night_timeout,
+                    day_timeout=self.config.day_timeout,
+                    vote_timeout=self.config.vote_timeout,
+                )
 
         self.victory_checker = VictoryChecker(self.game_state)
         if self.information_hub is not None:

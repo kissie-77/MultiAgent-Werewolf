@@ -32,11 +32,19 @@ def resolve_config_for_start(
         msg = f"Unknown config_id: {config_id}"
         raise FileNotFoundError(msg)
 
-    if participation or rules:
+    resolved_participation = participation or "all_agent"
+    if rules is not None:
+        resolved_rules = rules
+    elif participation:
+        resolved_rules = "badge_flow"
+    else:
+        resolved_rules = "basic"
+
+    if participation or rules is not None or not (config_path or config_id):
         rel = resolve_config_path(
             None,
-            participation=participation or "all_agent",
-            rules=rules or "badge_flow",
+            participation=resolved_participation,
+            rules=resolved_rules,
         )
         candidate = Path(rel)
         if candidate.is_file():
@@ -44,7 +52,7 @@ def resolve_config_for_start(
         nested = configs_dir / candidate.name
         if nested.is_file():
             return nested
-        msg = f"Mode config not found for participation={participation!r}, rules={rules!r}"
+        msg = f"Mode config not found for participation={resolved_participation!r}, rules={resolved_rules!r}"
         raise FileNotFoundError(msg)
 
     msg = "Must provide config_id, config_path, or participation+rules"

@@ -13,14 +13,21 @@ from typing import Any
 
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.interface.api.models.actions import (
     CancelGameResponse,
     GameStatusResponse,
+    StartGameRequest,
     StartGameResponse,
     TriggerPostGameResponse,
 )
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
+from llm_werewolf.interface.api.services.roster_customize import (
+    has_roster_customizations,
+    prepare_start_players_config,
+    resolve_start_rules,
+)
 from llm_werewolf.interface.api.services.replay import extract_game_snapshot
 from llm_werewolf.interface.api.services.runs import get_run_detail
 from llm_werewolf.interface.bootstrap import (
@@ -53,6 +60,11 @@ class GameSession:
     result_text: str | None = None
     started_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     completed_at: str | None = None
+    players_config: PlayersConfig | None = None
+    badge_flow: bool = False
+    participation: str | None = None
+    rules: str | None = None
+    human_seats: list[int] = field(default_factory=list)
 
 
 class IncrementalEventWriter:
@@ -82,21 +94,25 @@ class GameSessionManager:
         *,
         configs_dir: Path,
         runs_dir: Path,
-        config_id: str | None = None,
-        config_path: str | None = None,
-        participation: str | None = None,
-        rules: str | None = None,
-        run_label: str | None = None,
+        request: StartGameRequest,
     ) -> StartGameResponse:
         resolved = resolve_config_for_start(
             configs_dir,
-            config_id=config_id,
-            config_path=config_path,
-            participation=participation,
-            rules=rules,
+            config_id=request.config_id,
+            config_path=request.config_path,
+            participation=request.participation,
+            rules=request.rules,
         )
         stem = resolved.stem
-        label = (run_label or stem).replace("llm-", "")
+        base_config = load_config(config_path=resolved)
+        participation, rules = resolve_start_rules(request)
+        players_config = prepare_start_players_config(base_config, request)
+        custom_roster = has_roster_customizations(request)
+        badge_flow = bool(request.badge_flow)
+        human_seats = list(request.human_seats or [])
+        effective_count = len(players_config.players) if players_config else len(base_config.players)
+
+        label = (request.run_label or stem).replace("llm-", "")
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
         run_id = f"{label}-{ts}"
         run_dir = runs_dir / run_id
@@ -108,17 +124,37 @@ class GameSessionManager:
             "config_path": str(resolved.as_posix()),
             "status": GameSessionStatus.PENDING.value,
             "started_at": datetime.now().isoformat(timespec="seconds"),
+            "participation": participation,
+            "rules": rules,
+            "custom_roster": custom_roster,
+            "player_count": effective_count,
+            "human_seats": human_seats,
+            "badge_flow": badge_flow,
         }
         (run_dir / "run_meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        if players_config is not None:
+            (run_dir / "launch_roster.json").write_text(
+                json.dumps(
+                    players_config.model_dump(mode="json", exclude={"use_agentscope_backend"}),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
 
         session = GameSession(
             run_id=run_id,
             run_dir=run_dir,
             config_path=resolved,
             config_id=stem,
+            players_config=players_config,
+            badge_flow=badge_flow,
+            participation=participation,
+            rules=rules,
+            human_seats=human_seats,
         )
 
         async with self._lock:
@@ -139,12 +175,20 @@ class GameSessionManager:
             game_page_path=f"/game?run_id={run_id}{amp}source=runs",
             status_path=f"/api/v1/games/{run_id}/status{amp}source=runs",
             replay_page_path=f"/replay/{run_id}{amp}source=runs",
+            participation=participation,
+            rules=rules,
+            player_count=effective_count,
+            human_seats=human_seats,
+            badge_flow=badge_flow,
+            custom_roster=custom_roster,
         )
 
     async def _run_game(self, session: GameSession) -> None:
         try:
-            players_config = load_config(config_path=session.config_path)
+            players_config = session.players_config or load_config(config_path=session.config_path)
             players, roles, game_config = prepare_game_roster(players_config)
+            if session.badge_flow:
+                game_config = game_config.model_copy(update={"enable_sheriff": True})
             engine = GameEngine(
                 game_config,
                 language=players_config.language,

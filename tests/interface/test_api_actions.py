@@ -28,7 +28,70 @@ def test_start_game_returns_run_id(api_client: TestClient) -> None:
     data = resp.json()["data"]
     assert data["run_id"]
     assert data["status"] == "running"
+    assert data["player_count"] == 6
     assert "game?run_id=" in data["game_page_path"]
+
+
+def test_start_game_default_mode(api_client: TestClient) -> None:
+    with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
+        resp = api_client.post("/api/v1/games/start", json={})
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["config_id"] == "demo-6"
+    assert data["rules"] == "basic"
+
+
+def test_start_game_mode_badge_flow(api_client: TestClient) -> None:
+    with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
+        resp = api_client.post(
+            "/api/v1/games/start",
+            json={"participation": "all_agent", "rules": "basic"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["rules"] == "basic"
+
+
+def test_start_game_custom_roster(api_client: TestClient) -> None:
+    with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
+        resp = api_client.post(
+            "/api/v1/games/start",
+            json={
+                "config_id": "demo-6",
+                "player_count": 8,
+                "players": [{"name": "SeatOne"}, {"name": "SeatTwo"}],
+            },
+        )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["player_count"] == 8
+    assert data["custom_roster"] is True
+    run_id = data["run_id"]
+    session = game_session_manager._sessions[run_id]
+    assert session.players_config is not None
+    assert session.players_config.players[0].name == "SeatOne"
+
+
+def test_start_game_human_seats_and_badge_flow(api_client: TestClient) -> None:
+    with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
+        resp = api_client.post(
+            "/api/v1/games/start",
+            json={"config_id": "demo-6", "human_seats": [1], "badge_flow": True},
+        )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["human_seats"] == [1]
+    assert data["badge_flow"] is True
+    session = game_session_manager._sessions[data["run_id"]]
+    assert session.badge_flow is True
+    assert session.players_config.players[0].model == "human"
+
+
+def test_list_start_modes(api_client: TestClient) -> None:
+    resp = api_client.get("/api/v1/games/modes")
+    assert resp.status_code == 200
+    modes = resp.json()["data"]["modes"]
+    assert any(m["rules"] == "basic" for m in modes)
+    assert resp.json()["data"]["default_rules"] == "basic"
 
 
 def test_game_status_for_sample_run(api_client: TestClient) -> None:

@@ -13,6 +13,7 @@ from llm_werewolf.interface.api.models.actions import (
     ModelCompareRequest,
     ModelCompareResponse,
     PageActionSpec,
+    StartGameModesResponse,
     StartGameRequest,
     StartGameResponse,
     TriggerPostGameRequest,
@@ -20,10 +21,20 @@ from llm_werewolf.interface.api.models.actions import (
 )
 from llm_werewolf.interface.api.services.config import compare_models
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+from llm_werewolf.interface.api.services.start_modes import build_start_modes
 
 router = APIRouter(tags=["actions"])
 
 ACTION_SPECS: list[PageActionSpec] = [
+    PageActionSpec(
+        page_key="home",
+        frontend_route="/",
+        action="list_start_modes",
+        method="GET",
+        api_path="/api/v1/games/modes",
+        description="List selectable start modes and preset configs",
+        response_model="StartGameModesResponse",
+    ),
     PageActionSpec(
         page_key="home",
         frontend_route="/",
@@ -90,6 +101,13 @@ def action_specs() -> ApiResponse[ActionSpecResponse]:
     return ApiResponse(data=ActionSpecResponse(actions=ACTION_SPECS))
 
 
+@router.get("/games/modes")
+def list_start_modes(
+    configs_dir=Depends(get_configs_dir),
+) -> ApiResponse[StartGameModesResponse]:
+    return ApiResponse(data=build_start_modes(configs_dir))
+
+
 @router.post("/games/start")
 async def start_game(
     body: StartGameRequest,
@@ -100,11 +118,7 @@ async def start_game(
         data = await game_session_manager.start_game(
             configs_dir=configs_dir,
             runs_dir=runs_dir,
-            config_id=body.config_id,
-            config_path=body.config_path,
-            participation=body.participation,
-            rules=body.rules,
-            run_label=body.run_label,
+            request=body,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

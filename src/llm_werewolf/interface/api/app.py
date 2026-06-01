@@ -38,6 +38,7 @@ PAGE_ROUTE_MAP = {
     "model_compare": f"{API_PREFIX}/pages/models/compare?ids=a&ids=b",
     "page_spec": f"{API_PREFIX}/pages/spec",
     "actions_spec": f"{API_PREFIX}/actions/spec",
+    "start_modes": f"{API_PREFIX}/games/modes",
     "start_game": f"{API_PREFIX}/games/start",
     "game_status": f"{API_PREFIX}/games/{{run_id}}/status",
     "cancel_game": f"{API_PREFIX}/games/{{run_id}}/cancel",

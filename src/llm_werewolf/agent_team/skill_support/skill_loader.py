@@ -83,7 +83,9 @@ def load_role_skills(
         item = _load_skill_file(path)
         if item is None:
             continue
-        if not include_draft and item["status"] == "draft":
+        if item["status"] == "deprecated":
+            continue
+        if not include_draft and item["status"] != "active":
             continue
         loaded.append(item)
     loaded.sort(key=lambda s: s.get("weight", 1.0), reverse=True)

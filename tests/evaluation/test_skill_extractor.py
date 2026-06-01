@@ -171,7 +171,8 @@ def test_write_role_skills_only_generates_passed_candidates(tmp_path: Path) -> N
     assert payload["skill_count"] == len(payload["skills"])
     assert payload["skill_count"] >= 1
     assert payload["skill_count"] < 7
-    assert all(s["status"] == "draft" for s in payload["skills"])
+    assert all(s["status"] in {"draft", "active", "deprecated"} for s in payload["skills"])
+    assert any(s["status"] == "active" for s in payload["skills"])
     assert payload["skipped_identities"]
     assert (tmp_path / "skills").is_dir()
     assert list((tmp_path / "skills").glob("*.md"))
@@ -544,6 +545,29 @@ def test_is_eligible_for_agent_library_requires_quality_and_trusted_run() -> Non
     })
 
 
+def test_build_role_skills_activates_winning_camp_skills(tmp_path: Path) -> None:
+    events = _fixture_events()
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
+    )
+    from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
+
+    records = _records_from_events(events)
+    (tmp_path / "vote_intentions.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in records), encoding="utf-8"
+    )
+    ctx = load_run_context(tmp_path)
+    camp = build_camp_persuasion_report(ctx)
+
+    payload = build_role_skills(ctx, camp)
+
+    assert payload["skills"]
+    wolf_skill = next(skill for skill in payload["skills"] if skill["camp"] == "werewolf")
+    assert wolf_skill["status"] == "active"
+    assert wolf_skill["weight"] >= 1.1
+    assert wolf_skill["win_count"] >= 1
+
+
 def test_load_role_skills_excludes_draft_by_default(tmp_path: Path, monkeypatch) -> None:
     from llm_werewolf.agent_team.skill_support import skill_loader
 
@@ -562,6 +586,28 @@ def test_load_role_skills_excludes_draft_by_default(tmp_path: Path, monkeypatch)
     skill_loader.list_role_skill_files.cache_clear()
 
     items = load_role_skills("wolf")
+    assert len(items) == 1
+    assert items[0]["skill_id"] == "active"
+
+
+def test_load_role_skills_excludes_deprecated(tmp_path: Path, monkeypatch) -> None:
+    from llm_werewolf.agent_team.skill_support import skill_loader
+
+    root = tmp_path / "skills"
+    role_dir = root / "wolf"
+    role_dir.mkdir(parents=True)
+    (role_dir / "active.md").write_text(
+        "---\nskill_id: active\nprompt_role_key: wolf\nstatus: active\n---\n\n# A\n",
+        encoding="utf-8",
+    )
+    (role_dir / "deprecated.md").write_text(
+        "---\nskill_id: deprecated\nprompt_role_key: wolf\nstatus: deprecated\n---\n\n# D\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    items = load_role_skills("wolf", include_draft=True, max_skills=10)
     assert len(items) == 1
     assert items[0]["skill_id"] == "active"
 
@@ -585,3 +631,172 @@ def test_build_system_prompt_includes_active_skills(tmp_path: Path, monkeypatch)
     assert "对局经验 Skill" in prompt
     assert "wolf_demo" in prompt
     assert "首夜统一刀口" in prompt
+
+
+# ── skill 状态流转测试 ──────────────────────────────────────────────
+
+
+def test_update_skill_status_activates_on_high_weight() -> None:
+    """weight >= 1.05 时，draft skill 应升为 active。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    skill = {"status": "draft", "weight": 1.10}
+    _update_skill_status(skill)
+    assert skill["status"] == "active"
+
+
+def test_update_skill_status_deprecates_active_on_low_weight() -> None:
+    """active skill 且 weight <= 0.95 时，应降为 deprecated。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    skill = {"status": "active", "weight": 0.90}
+    _update_skill_status(skill)
+    assert skill["status"] == "deprecated"
+
+
+def test_update_skill_status_keeps_draft_in_middle_range() -> None:
+    """draft skill 且 weight 在 (0.95, 1.05) 之间时，保持 draft。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    skill = {"status": "draft", "weight": 1.0}
+    _update_skill_status(skill)
+    assert skill["status"] == "draft"
+
+
+def test_update_skill_status_keeps_active_in_middle_range() -> None:
+    """active skill 且 weight 在 (0.95, 1.05) 之间时，保持 active。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    skill = {"status": "active", "weight": 1.0}
+    _update_skill_status(skill)
+    assert skill["status"] == "active"
+
+
+def test_update_skill_status_does_not_deprecate_draft() -> None:
+    """draft skill 即使 weight 很低也不降为 deprecated（只有 active 才会降）。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    skill = {"status": "draft", "weight": 0.50}
+    _update_skill_status(skill)
+    assert skill["status"] == "draft"
+
+
+def test_update_skill_status_skips_skipped() -> None:
+    """skipped 状态不做任何变更。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    skill = {"status": "skipped", "weight": 5.0}
+    _update_skill_status(skill)
+    assert skill["status"] == "skipped"
+
+
+def test_update_skill_status_normalizes_unknown_status() -> None:
+    """未知状态应被规范化为 draft。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    skill = {"status": "something_weird", "weight": 1.0}
+    _update_skill_status(skill)
+    assert skill["status"] == "draft"
+
+
+def test_winning_skill_promotes_draft_to_active(tmp_path: Path) -> None:
+    """对局结束后，获胜阵营的 draft skill 应被激活为 active。"""
+    events = _fixture_events()
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
+    )
+    from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
+
+    records = _records_from_events(events)
+    (tmp_path / "vote_intentions.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in records), encoding="utf-8"
+    )
+    ctx = load_run_context(tmp_path)
+    camp = build_camp_persuasion_report(ctx)
+
+    payload = build_role_skills(ctx, camp)
+
+    wolf_skills = [s for s in payload["skills"] if s["camp"] == "werewolf"]
+    assert len(wolf_skills) > 0
+    for skill in wolf_skills:
+        assert skill["status"] == "active"
+        assert skill["weight"] >= 1.05
+
+
+def test_load_role_skills_include_draft_excludes_deprecated(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """include_draft=True 时加载 active + draft，但仍然排除 deprecated。"""
+    from llm_werewolf.agent_team.skill_support import skill_loader
+
+    root = tmp_path / "skills"
+    role_dir = root / "wolf"
+    role_dir.mkdir(parents=True)
+    (role_dir / "a.md").write_text(
+        "---\nskill_id: a\nprompt_role_key: wolf\nstatus: active\n---\n\n# A\n",
+        encoding="utf-8",
+    )
+    (role_dir / "d.md").write_text(
+        "---\nskill_id: d\nprompt_role_key: wolf\nstatus: draft\n---\n\n# D\n",
+        encoding="utf-8",
+    )
+    (role_dir / "x.md").write_text(
+        "---\nskill_id: x\nprompt_role_key: wolf\nstatus: deprecated\n---\n\n# X\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    items = load_role_skills("wolf", include_draft=True, max_skills=10)
+    ids = [s["skill_id"] for s in items]
+    assert "a" in ids
+    assert "d" in ids
+    assert "x" not in ids
+
+
+def test_full_lifecycle_draft_active_deprecated(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """完整生命周期：draft → active（高权重）→ deprecated（低权重）。"""
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import _update_skill_status
+
+    # 初始 draft
+    skill = {"status": "draft", "weight": 1.0}
+    _update_skill_status(skill)
+    assert skill["status"] == "draft"
+
+    # 模拟获胜，权重上升 → 激活
+    skill["weight"] = 1.10
+    _update_skill_status(skill)
+    assert skill["status"] == "active"
+
+    # 模拟连续失败，权重下降 → 废弃
+    skill["weight"] = 0.90
+    _update_skill_status(skill)
+    assert skill["status"] == "deprecated"
+
+
+def test_deprecated_skill_not_in_prompt(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """deprecated skill 不会出现在系统 prompt 中。"""
+    from llm_werewolf.agent_team.agents.factory import build_system_prompt
+    from llm_werewolf.agent_team.skill_support import skill_loader
+
+    root = tmp_path / "skills"
+    wolf_dir = root / "wolf"
+    wolf_dir.mkdir(parents=True)
+    (wolf_dir / "good.md").write_text(
+        "---\nskill_id: good\nprompt_role_key: wolf\nstatus: active\n---\n\n# Good Skill\n",
+        encoding="utf-8",
+    )
+    (wolf_dir / "old.md").write_text(
+        "---\nskill_id: old\nprompt_role_key: wolf\nstatus: deprecated\n---\n\n# Old Skill\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
+    skill_loader.list_role_skill_files.cache_clear()
+
+    prompt = build_system_prompt(3, "Werewolf", "default", prompt_version="v2")
+    assert "good" in prompt
+    assert "old" not in prompt

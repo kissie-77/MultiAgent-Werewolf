@@ -23,6 +23,11 @@ from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules i
     collect_skill_generation_candidates,
 )
 
+_ACTIVATE_WEIGHT_THRESHOLD = 1.05
+_DEPRECATE_WEIGHT_THRESHOLD = 0.95
+_WINNING_SKILL_WEIGHT_DELTA = 0.10
+_LOSING_SKILL_WEIGHT_DELTA = -0.05
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -210,6 +215,7 @@ def build_role_skills(ctx: RunContext, camp_report: CampPersuasionReport) -> dic
         _skill_from_candidate(candidate, ctx, rank=idx, belief_index=belief_index)
         for idx, candidate in enumerate(candidates, start=1)
     ]
+    _apply_skill_adoption_rules(skills, winner_camp=ctx.winner_camp)
 
     skipped = collect_skipped_candidates(ctx, camp_report)
     skipped_summary = _build_skipped_summary(ctx, camp_report, candidates)
@@ -237,6 +243,45 @@ def build_role_skills(ctx: RunContext, camp_report: CampPersuasionReport) -> dic
         ],
         "apply_policy": "run_scoped_md_only",
     }
+
+
+def _apply_skill_adoption_rules(
+    skills: list[dict[str, Any]],
+    *,
+    winner_camp: str | None,
+) -> None:
+    for skill in skills:
+        _apply_initial_outcome_weight(skill, winner_camp=winner_camp)
+        _update_skill_status(skill)
+
+
+def _apply_initial_outcome_weight(skill: dict[str, Any], *, winner_camp: str | None) -> None:
+    camp = str(skill.get("camp") or "")
+    if not winner_camp or not camp:
+        return
+    if camp == winner_camp:
+        skill["weight"] = round(float(skill.get("weight") or 1.0) + _WINNING_SKILL_WEIGHT_DELTA, 2)
+        skill["win_count"] = int(skill.get("win_count") or 0) + 1
+    else:
+        skill["weight"] = round(
+            max(0.1, float(skill.get("weight") or 1.0) + _LOSING_SKILL_WEIGHT_DELTA),
+            2,
+        )
+
+
+def _update_skill_status(skill: dict[str, Any]) -> None:
+    current = str(skill.get("status") or "draft")
+    weight = float(skill.get("weight") or 1.0)
+    if current == "skipped":
+        return
+    if weight >= _ACTIVATE_WEIGHT_THRESHOLD:
+        skill["status"] = "active"
+        return
+    if current == "active" and weight <= _DEPRECATE_WEIGHT_THRESHOLD:
+        skill["status"] = "deprecated"
+        return
+    if current not in {"draft", "active", "deprecated"}:
+        skill["status"] = "draft"
 
 
 def _build_skipped_summary(

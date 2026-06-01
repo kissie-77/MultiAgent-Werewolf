@@ -99,7 +99,7 @@ requires-python = ">= 3.10"
 license = { text = "MIT" }
 
 [project.urls]
-Repository = "https://github.com/LBP97541135/MultiAgent-Werewolf"
+Repository = "https://github.com/kissie-77/MultiAgent-Werewolf"
 
 [project.scripts]
 llm-werewolf = "llm_werewolf.interface.cli:entry"

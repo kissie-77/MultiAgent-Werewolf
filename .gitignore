@@ -163,6 +163,7 @@ venv.bak/
 # Local secrets / scratch (never upload)
 API.txt
 _play/
+.tmp/
 
 # GitNexus code-intelligence artifacts (local tooling, not project source)
 AGENTS.md

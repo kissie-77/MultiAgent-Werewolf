@@ -238,6 +238,11 @@ def test_compare_entries_and_write_ab_report(tmp_path: Path) -> None:
     report = compare_entries(entry_a, entry_b)
     assert report.recommendation == "recommend_b"
     assert report.win_rate_delta > 0.05
+    assert report.wins_a == 9
+    assert report.wins_b == 11
+    assert report.significance_method == "two_proportion_z_test_with_wilson_ci"
+    assert report.win_rate_p_value is not None
+    assert len(report.win_rate_ci_a) == 2
 
     path_a = tmp_path / "entry_a.json"
     path_b = tmp_path / "entry_b.json"
@@ -248,4 +253,9 @@ def test_compare_entries_and_write_ab_report(tmp_path: Path) -> None:
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     assert payload["schema"] == "ab_report_v1"
     assert payload["recommendation"] == "recommend_b"
+    assert "win_rate_p_value" in payload
+    assert "win_rate_ci_a" in payload
+    assert "win_rate_significant" in payload
     assert (tmp_path / "ab_reports" / "ab_baseline_vs_coach_v1.md").is_file()
+    md = (tmp_path / "ab_reports" / "ab_baseline_vs_coach_v1.md").read_text(encoding="utf-8")
+    assert "## Significance" in md

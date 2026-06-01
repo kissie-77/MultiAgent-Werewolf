@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from llm_werewolf.agent_team.skill_support.skill_markdown import parse_frontmatter
+
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -32,18 +34,7 @@ def collect_active_skills(runs_root: Path) -> list[dict[str, Any]]:
             continue
         for md_path in sorted(skills_dir.rglob("*.md")):
             text = md_path.read_text(encoding="utf-8")
-            # 简单解析 frontmatter
-            if not text.startswith("---"):
-                continue
-            end = text.find("---", 3)
-            if end == -1:
-                continue
-            fm_text = text[3:end].strip()
-            meta: dict[str, str] = {}
-            for line in fm_text.splitlines():
-                if ":" in line:
-                    key, _, val = line.partition(":")
-                    meta[key.strip()] = val.strip()
+            meta, _body = parse_frontmatter(text)
             if meta.get("status") != "active":
                 continue
             active.append({

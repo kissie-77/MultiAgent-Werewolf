@@ -3,34 +3,46 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from llm_werewolf.evaluation.leaderboard.models import ABReport
 
 
 def compare_entries(entry_a: dict, entry_b: dict) -> ABReport:
-    win_delta = float(entry_b.get("win_rate", 0.0)) - float(entry_a.get("win_rate", 0.0))
+    games_a = int(entry_a.get("games", 0))
+    games_b = int(entry_b.get("games", 0))
+    wins_a = _wins_from_entry(entry_a)
+    wins_b = _wins_from_entry(entry_b)
+    win_rate_a = float(entry_a.get("win_rate", 0.0))
+    win_rate_b = float(entry_b.get("win_rate", 0.0))
+    win_delta = win_rate_b - win_rate_a
     completion_a = float(entry_a.get("completion_rate", 0.0))
     completion_b = float(entry_b.get("completion_rate", 0.0))
+    p_value = _two_proportion_z_p_value(wins_a, games_a, wins_b, games_b)
+    significant = p_value is not None and p_value < 0.05
 
-    if win_delta > 0.05 and completion_b >= completion_a:
+    if win_delta > 0.05 and completion_b >= completion_a and significant:
         recommendation = "recommend_b"
-        summary = "B 版本在胜率上有明显提升，且完成率没有下降。"
+        summary = "B improves win rate with statistical significance and no completion-rate drop."
+    elif win_delta > 0.05 and completion_b >= completion_a:
+        recommendation = "recommend_b"
+        summary = "B has an engineering-level win-rate lift, but significance is not proven yet."
     elif completion_b + 0.05 < completion_a:
         recommendation = "reject_b"
-        summary = "B 版本完成率明显下降，不建议替换当前版本。"
+        summary = "B has a clear completion-rate drop, so it should not replace A."
     else:
         recommendation = "no_clear_winner"
-        summary = "两个版本差异不够明显，建议继续观察或扩大样本。"
+        summary = "No clear winner yet; run more games or broaden scenarios."
 
     return ABReport(
         schema="ab_report_v1",
         version_a=str(entry_a.get("version_id")),
         version_b=str(entry_b.get("version_id")),
-        games_a=int(entry_a.get("games", 0)),
-        games_b=int(entry_b.get("games", 0)),
-        win_rate_a=float(entry_a.get("win_rate", 0.0)),
-        win_rate_b=float(entry_b.get("win_rate", 0.0)),
+        games_a=games_a,
+        games_b=games_b,
+        win_rate_a=win_rate_a,
+        win_rate_b=win_rate_b,
         win_rate_delta=win_delta,
         avg_mvp_score_a=_optional_float(entry_a.get("avg_mvp_score")),
         avg_mvp_score_b=_optional_float(entry_b.get("avg_mvp_score")),
@@ -40,12 +52,24 @@ def compare_entries(entry_a: dict, entry_b: dict) -> ABReport:
         avg_intention_score_b=_optional_float(entry_b.get("avg_intention_score")),
         completion_rate_a=completion_a,
         completion_rate_b=completion_b,
+        wins_a=wins_a,
+        wins_b=wins_b,
+        win_rate_ci_a=_wilson_interval(wins_a, games_a),
+        win_rate_ci_b=_wilson_interval(wins_b, games_b),
+        win_rate_p_value=p_value,
+        win_rate_significant=significant,
+        significance_method="two_proportion_z_test_with_wilson_ci",
         recommendation=recommendation,
         summary=summary,
     )
 
 
-def write_ab_report(entry_a_path: str | Path, entry_b_path: str | Path, *, output_dir: str | Path | None = None) -> Path:
+def write_ab_report(
+    entry_a_path: str | Path,
+    entry_b_path: str | Path,
+    *,
+    output_dir: str | Path | None = None,
+) -> Path:
     path_a = Path(entry_a_path)
     path_b = Path(entry_b_path)
     entry_a = json.loads(path_a.read_text(encoding="utf-8"))
@@ -73,6 +97,14 @@ def write_ab_report(entry_a_path: str | Path, entry_b_path: str | Path, *, outpu
         f"| avg_mvp_score | {_fmt(report.avg_mvp_score_a)} | {_fmt(report.avg_mvp_score_b)} | {_delta(report.avg_mvp_score_a, report.avg_mvp_score_b)} |",
         f"| avg_benefit_score | {_fmt(report.avg_benefit_score_a)} | {_fmt(report.avg_benefit_score_b)} | {_delta(report.avg_benefit_score_a, report.avg_benefit_score_b)} |",
         f"| avg_intention_score | {_fmt(report.avg_intention_score_a)} | {_fmt(report.avg_intention_score_b)} | {_delta(report.avg_intention_score_a, report.avg_intention_score_b)} |",
+        "",
+        "## Significance",
+        "",
+        f"- Method: `{report.significance_method}`",
+        f"- Wins: A `{report.wins_a}/{report.games_a}`, B `{report.wins_b}/{report.games_b}`",
+        f"- Win-rate 95% CI: A `{_ci(report.win_rate_ci_a)}`, B `{_ci(report.win_rate_ci_b)}`",
+        f"- p-value: `{_p_value(report.win_rate_p_value)}`",
+        f"- Significant at 0.05: `{report.win_rate_significant}`",
     ]
     md_path.write_text("\n".join(md_lines) + "\n", encoding="utf-8")
     return json_path
@@ -98,3 +130,51 @@ def _delta(before: float | None, after: float | None) -> str:
     if before is None or after is None:
         return "-"
     return f"{after - before:+.3f}"
+
+
+def _wins_from_entry(entry: dict) -> int:
+    if isinstance(entry.get("wins"), int):
+        return int(entry["wins"])
+    games = int(entry.get("games", 0))
+    win_rate = float(entry.get("win_rate", 0.0))
+    return int(round(games * win_rate))
+
+
+def _wilson_interval(
+    wins: int,
+    games: int,
+    z: float = 1.959963984540054,
+) -> tuple[float, float]:
+    if games <= 0:
+        return (0.0, 0.0)
+    phat = wins / games
+    denom = 1.0 + z * z / games
+    center = (phat + z * z / (2.0 * games)) / denom
+    margin = z * math.sqrt((phat * (1.0 - phat) + z * z / (4.0 * games)) / games) / denom
+    return (max(0.0, center - margin), min(1.0, center + margin))
+
+
+def _two_proportion_z_p_value(
+    wins_a: int,
+    games_a: int,
+    wins_b: int,
+    games_b: int,
+) -> float | None:
+    if games_a <= 0 or games_b <= 0:
+        return None
+    pooled = (wins_a + wins_b) / (games_a + games_b)
+    se = math.sqrt(pooled * (1.0 - pooled) * (1.0 / games_a + 1.0 / games_b))
+    if se == 0.0:
+        return 1.0
+    z_score = ((wins_b / games_b) - (wins_a / games_a)) / se
+    return math.erfc(abs(z_score) / math.sqrt(2.0))
+
+
+def _ci(value: tuple[float, float]) -> str:
+    return f"{value[0]:.1%} - {value[1]:.1%}"
+
+
+def _p_value(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.4f}"

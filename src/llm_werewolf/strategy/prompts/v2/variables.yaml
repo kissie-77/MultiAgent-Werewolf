@@ -36,3 +36,63 @@ variables:
   v2.role.hunter:
     kind: role_card
     file: roles/hunter.yaml
+
+  v2.role.white_wolf:
+    kind: role_card
+    file: roles/white_wolf.yaml
+
+  v2.role.wolf_beauty:
+    kind: role_card
+    file: roles/wolf_beauty.yaml
+
+  v2.role.guardian_wolf:
+    kind: role_card
+    file: roles/guardian_wolf.yaml
+
+  v2.role.hidden_wolf:
+    kind: role_card
+    file: roles/hidden_wolf.yaml
+
+  v2.role.nightmare_wolf:
+    kind: role_card
+    file: roles/nightmare_wolf.yaml
+
+  v2.role.blood_moon_apostle:
+    kind: role_card
+    file: roles/blood_moon_apostle.yaml
+
+  v2.role.idiot:
+    kind: role_card
+    file: roles/idiot.yaml
+
+  v2.role.elder:
+    kind: role_card
+    file: roles/elder.yaml
+
+  v2.role.knight:
+    kind: role_card
+    file: roles/knight.yaml
+
+  v2.role.magician:
+    kind: role_card
+    file: roles/magician.yaml
+
+  v2.role.cupid:
+    kind: role_card
+    file: roles/cupid.yaml
+
+  v2.role.raven:
+    kind: role_card
+    file: roles/raven.yaml
+
+  v2.role.graveyard_keeper:
+    kind: role_card
+    file: roles/graveyard_keeper.yaml
+
+  v2.role.thief:
+    kind: role_card
+    file: roles/thief.yaml
+
+  v2.role.lover:
+    kind: role_card
+    file: roles/lover.yaml

@@ -31,6 +31,9 @@ def unwrap_structured_metadata(metadata: Any) -> dict[str, Any] | None:
         return None
     if not isinstance(metadata, dict):
         return None
+    # AgentScope 中断标记不是有效结构化输出
+    if metadata.get("_is_interrupted"):
+        return None
     nested = metadata.get("structured_output")
     if isinstance(nested, dict) and nested:
         return nested
@@ -151,7 +154,8 @@ async def invoke_structured(
 
     full_prompt = prompt
     if "generate_response" not in prompt:
-        full_prompt = f"{prompt}\n\n{generate_response_instruction(model.__name__)}"
+        allow_legacy = model.__name__ != "SpeechDecision"
+        full_prompt = f"{prompt}\n\n{generate_response_instruction(model.__name__, allow_legacy_scalar=allow_legacy)}"
 
     last_error: Exception | None = None
     for attempt in range(retries):

@@ -11,8 +11,19 @@ from llm_werewolf.agent_team.agents.demo_policy import (
     DemoPromptKind,
     build_mind_state,
     classify_prompt,
+    extract_seats,
+    pick_seat,
     fallback_speech,
     respond,
+)
+from llm_werewolf.strategy.decisions import (
+    MindStateDecision,
+    MultiSeatChoiceDecision,
+    SeatChoiceDecision,
+    SpeechDecision,
+    VoteIntentionDecision,
+    WitchNightDecision,
+    YesNoDecision,
 )
 
 
@@ -73,7 +84,78 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
         return body
 
     async def get_structured_response(self, message: str, model: type) -> object | None:
-        if getattr(model, "__name__", "") != "MindStateDecision":
+        model_name = getattr(model, "__name__", "")
+
+        if model_name == "SeatChoiceDecision":
+            seats = extract_seats(message)
+            allow_skip = "座位 0" in message or "跳过" in message or "观望" in message
+            seat = pick_seat(
+                seats,
+                self.seat_number or 1,
+                allow_skip=allow_skip,
+                rng=self._rng(),
+                random_mode=self.random_mode,
+            )
+            return SeatChoiceDecision(seat=seat, reason="demo structured seat choice")
+
+        if model_name == "VoteIntentionDecision":
+            seats = extract_seats(message)
+            seat = pick_seat(
+                seats,
+                self.seat_number or 1,
+                allow_skip=True,
+                rng=self._rng(),
+                random_mode=self.random_mode,
+            )
+            return VoteIntentionDecision(seat=seat, reason="demo structured vote intention")
+
+        if model_name == "YesNoDecision":
+            return YesNoDecision(
+                choice=(self.seat_number or 1) % 2 == 1,
+                reason="demo structured yes/no",
+            )
+
+        if model_name == "WitchNightDecision":
+            seats = [seat for seat in extract_seats(message) if seat > 0]
+            if "刀口" in message or "被狼人击杀" in message or "击杀" in message:
+                action = "save" if (self.seat_number or 1) % 2 == 1 else "none"
+                return WitchNightDecision(
+                    action=action,
+                    seat=0,
+                    reason="demo structured witch choice",
+                )
+            if seats and (self.seat_number or 1) % 4 == 0:
+                seat = pick_seat(
+                    seats,
+                    self.seat_number or 1,
+                    allow_skip=False,
+                    rng=self._rng(),
+                    random_mode=self.random_mode,
+                )
+                return WitchNightDecision(
+                    action="poison",
+                    seat=seat,
+                    reason="demo structured witch poison",
+                )
+            return WitchNightDecision(action="none", seat=0, reason="demo structured witch none")
+
+        if model_name == "MultiSeatChoiceDecision":
+            seats = [seat for seat in extract_seats(message) if seat > 0]
+            if self.random_mode:
+                rng = self._rng()
+                rng.shuffle(seats)
+            picks = seats[:2] if len(seats) >= 2 else seats[:1]
+            return MultiSeatChoiceDecision(seats=picks, reason="demo structured multi-seat")
+
+        if model_name == "SpeechDecision":
+            raw = fallback_speech(
+                seat_number=self.seat_number or 1,
+                role_display=self.get_role_display_name(),
+            )
+            public = raw.removeprefix("[[").removesuffix("]]")
+            return SpeechDecision(public_speech=public, private_thought="demo structured speech")
+
+        if model_name != "MindStateDecision":
             return None
         is_wolf = False
         role_def = getattr(self, "role_definition", None)

@@ -20,19 +20,19 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
     ("all_agent", "basic"): GameMode(
         participation="all_agent",
         rules="basic",
-        config_path=Path("configs/demo-6.yaml"),
-        description="基础全自动对局：用于无 API 的本地 smoke run。",
+        config_path=Path("configs/xiaomi.yaml"),
+        description="基础全自动对局（不带警徽流）：6 人 LLM 对局。",
     ),
     ("all_agent", "badge_flow"): GameMode(
         participation="all_agent",
         rules="badge_flow",
-        config_path=Path("configs/llm-12p-agentscope.yaml"),
+        config_path=Path("configs/xiaomi.yaml"),
         description="12 人 AgentScope 对局：主展示路线，包含警长/警徽相关流程。",
     ),
     ("all_agent", "extended_roles"): GameMode(
         participation="all_agent",
         rules="extended_roles",
-        config_path=Path("configs/agentscope.yaml"),
+        config_path=Path("configs/xiaomi.yaml"),
         description="扩展人数 AgentScope 对局：用于角色扩展验证。",
     ),
 }

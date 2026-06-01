@@ -33,6 +33,7 @@ from llm_werewolf.evaluation.post_game.camp_persuasion import (
 from llm_werewolf.evaluation.post_game.episodic_bridge import write_episodic_artifacts
 from llm_werewolf.evaluation.post_game.prompt_proposal import write_prompt_proposals
 from llm_werewolf.evaluation.post_game.game_quality_report import write_game_quality_report
+from llm_werewolf.evaluation.post_game.counterfactual import write_counterfactual_artifacts
 from llm_werewolf.evaluation.post_game.scoring.score_contexts import write_score_contexts
 from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     write_role_skills_artifacts,
@@ -312,6 +313,19 @@ async def run_post_game_pipeline(
             artifacts=["game_quality_report.md", "game_quality_report.json"],
         ),
         ["game_quality_report.md", "game_quality_report.json"],
+    )
+
+    _on_step_done(
+        result,
+        steps,
+        "counterfactual",
+        run_step(
+            steps,
+            "counterfactual",
+            lambda: write_counterfactual_artifacts(_ctx()),
+            artifacts=["counterfactual_report.json", "counterfactual_report.md"],
+        ),
+        ["counterfactual_report.json", "counterfactual_report.md"],
     )
 
     if state.camp_report is not None:

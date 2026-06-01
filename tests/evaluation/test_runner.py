@@ -12,7 +12,7 @@ def test_runner_writes_artifacts_for_smoke_scenario(tmp_path: Path) -> None:
         scenarios=[scenario],
         version_id="smoke_v1",
         model="demo",
-        prompt_version="prompt_v1",
+        prompt_version="v2",
         skill_version="baseline",
         notes=["auto-meta"],
     )
@@ -32,3 +32,7 @@ def test_runner_writes_artifacts_for_smoke_scenario(tmp_path: Path) -> None:
     assert (game_dir / "snapshots.jsonl").exists()
     assert (game_dir / "checks.json").exists()
     assert (game_dir / "post_game_manifest.json").exists()
+    assert (game_dir / "prompt_proposals.json").exists()
+    assert (game_dir / "applied_prompt_proposals.json").exists()
+    assert (game_dir / "prompt_version_diff.json").exists()
+    assert (game_dir / "new_prompt_version.txt").exists()

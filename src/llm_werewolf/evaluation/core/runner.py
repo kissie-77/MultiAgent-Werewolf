@@ -20,6 +20,7 @@ from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
 from llm_werewolf.evaluation.core.recorder import EvaluationRecorder
 from llm_werewolf.evaluation.core.reporter import EvaluationReporter
 from llm_werewolf.evaluation.core.scenarios import EvaluationScenario
+from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_run
 from llm_werewolf.evaluation.leaderboard.entry_builder import build_entry, write_entry_bundle
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.config import GameConfig
@@ -153,6 +154,10 @@ class EvaluationRunner:
                     engine=engine,
                     prompt_version=self.prompt_version,
                     skip_llm=True,
+                )
+                evolve_prompt_from_run(
+                    game_dir,
+                    base_prompt_version=self.prompt_version,
                 )
             except Exception as exc:
                 recorder.record_error(

@@ -4,6 +4,9 @@ from dataclasses import dataclass
 import pytest
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
+from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
+from llm_werewolf.game_runtime.types import Camp
+from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.strategy.vote_intention import VoteIntentionEntry, VoteIntentionAnchor
 from llm_werewolf.agent_team.communication.information_hub import InformationHub
 
@@ -11,7 +14,6 @@ from llm_werewolf.agent_team.communication.information_hub import InformationHub
 class FakeAgent:
     name = "fake"
     model = "demo"
-    agentscope_agent = None
 
     async def get_response(self, message: str) -> str:
         return "[[0]]"
@@ -21,6 +23,15 @@ class FakeAgent:
 
     def get_decision_context(self) -> str:
         return ""
+
+    @property
+    def agentscope_agent(self):
+        return FakeReactAgent()
+
+
+class FakeReactAgent:
+    async def observe(self, msg) -> None:
+        del msg
 
 
 @dataclass
@@ -34,6 +45,9 @@ class FakePlayer:
 
     def get_role_name(self) -> str:
         return "Villager"
+
+    def get_camp(self) -> Camp:
+        return Camp.WEREWOLF
 
 
 def _players(n: int) -> list[FakePlayer]:
@@ -203,3 +217,42 @@ async def test_collect_vote_intentions_skips_failed_observer(
     assert "p2" in caplog.text
     assert "P2" in caplog.text
     assert "intention unavailable" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_roundtable_injects_prior_speeches_into_next_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hub = InformationHub()
+    players = _players(2)
+    hub.set_context_provider(
+        build_observation=lambda player: f"obs {player.name}", get_alive_players=lambda: players
+    )
+    seen_contexts: list[str] = []
+
+    async def fake_request_speech(agent, context, instruction="", *, roundtable_phase=None):
+        del agent, instruction, roundtable_phase
+        seen_contexts.append(context)
+        if len(seen_contexts) == 1:
+            return SpeechDecision(public_speech="我建议今晚刀4号，先压掉可能的带队位。")
+        return SpeechDecision(public_speech="我同意上一位先刀4号，因为这个位置后续可能带队。")
+
+    monkeypatch.setattr(
+        WerewolfAdapterBridge, "request_speech", staticmethod(fake_request_speech)
+    )
+
+    await hub.run_roundtable(
+        players,
+        channel=VisibilityChannel.WOLF_TEAM,
+        context_builder=lambda player: f"context {player.name}",
+        instruction="",
+        phase="night",
+        round_number=1,
+        audience=players,
+    )
+
+    assert len(seen_contexts) == 2
+    assert "【本轮已听到的发言】" not in seen_contexts[0]
+    assert "【本轮已听到的发言】" in seen_contexts[1]
+    assert "P1: 我建议今晚刀4号" in seen_contexts[1]
+    assert "不要像没有听到前面发言一样重新自说自话" in seen_contexts[1]

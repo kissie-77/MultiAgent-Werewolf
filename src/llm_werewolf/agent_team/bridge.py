@@ -699,40 +699,58 @@ class WerewolfAdapterBridge:
 
         parsed = parse_structured_from_text(response, MindStateDecision)
         if parsed is not None:
+            if not (parsed.reason and parsed.reason.strip()):
+                stripped = (response or "").strip()
+                parsed = parsed.model_copy(
+                    update={
+                        "reason": stripped[:500]
+                        if stripped
+                        else (f"fallback seat={max(0, int(parsed.seat))}")
+                    }
+                )
             mind = WerewolfAdapterBridge._mind_state_from_decision(parsed)
             return _finalize_mind(mind)
+
+        def _fallback_mind_from_seat(seat: int, reason_text: str) -> tuple[VoteIntentionEntry, MindStateResult]:
+            safe_seat = max(0, int(seat))
+            if (
+                safe_seat > 0
+                and WerewolfAdapterBridge.resolve_player_by_seat(safe_seat, possible_targets)
+                is None
+            ):
+                safe_seat = 0
+            fallback_reason = (reason_text or "").strip()[:500]
+            if not fallback_reason:
+                if safe_seat > 0:
+                    fallback_reason = f"fallback seat={safe_seat}"
+                else:
+                    fallback_reason = "fallback seat=0"
+            mind = MindStateResult(
+                vote_seat=safe_seat,
+                vote_reason=fallback_reason,
+                first_order=[],
+                second_order=[],
+            )
+            return _entry_from_mind(mind), mind
 
         target = WerewolfAdapterBridge.parse_target_selection(
             response, possible_targets, allow_skip=True
         )
         if target is not None:
             seat = WerewolfAdapterBridge.get_player_seat(target) or 0
-            mind = MindStateResult(vote_seat=seat, vote_reason=response[:500], first_order=[], second_order=[])
-            return _finalize_mind(mind)
+            return _fallback_mind_from_seat(seat, response)
 
         numbers = re.findall(r"\[\[\s*(\d+)\s*\]\]", response)
         if numbers:
             seat = int(numbers[0])
-            mind = MindStateResult(
-                vote_seat=seat,
-                vote_reason=response[:500],
-                first_order=[],
-                second_order=[],
-            )
-            return _finalize_mind(mind)
+            return _fallback_mind_from_seat(seat, response)
         loose = re.findall(r"\d+", response.strip())
         if loose:
             seat = int(loose[0])
-            mind = MindStateResult(
-                vote_seat=seat,
-                vote_reason=response[:500],
-                first_order=[],
-                second_order=[],
-            )
-            return _finalize_mind(mind)
+            return _fallback_mind_from_seat(seat, response)
         mind = MindStateResult(
             vote_seat=0,
-            vote_reason=response[:500] or "seat=0（模型明示无意向）",
+            vote_reason=(response[:500].strip() if response[:500].strip() else "fallback seat=0"),
             first_order=[],
             second_order=[],
         )
@@ -908,7 +926,7 @@ class WerewolfAdapterBridge:
         context: str,
         instruction: str = "",
         *,
-        schema_retries: int = 3,
+        schema_retries: int = 1,
         roundtable_phase: RoundtablePhase | None = None,
     ) -> SpeechDecision:
         structured = agent_uses_structured_output(agent) or callable(
@@ -925,6 +943,7 @@ class WerewolfAdapterBridge:
                         speech = coerce_speech(result)
                         if is_valid_public_speech(speech.public_speech):
                             return speech
+                    break
                 response = await agent.get_response(prompt)
                 parsed = WerewolfAdapterBridge.parse_speech(response)
                 if is_valid_public_speech(parsed.public_speech):

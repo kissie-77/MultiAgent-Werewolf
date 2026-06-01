@@ -62,6 +62,7 @@ def test_speech_schema_instruction_mentions_fields() -> None:
     assert "public_speech" in text
     assert "private_thought" in text
     assert str(SPEECH_PUBLIC_MIN_CHARS) in text
+    assert "直接输出一个 JSON 对象" in text
 
 
 def test_non_speech_schema_instructions_do_not_claim_speech_schema() -> None:

@@ -23,6 +23,21 @@ ROLE_KEY_TO_VARIABLE: dict[str, str] = {
     "wolf_king": "v2.role.wolf_king",
     "guard": "v2.role.guard",
     "hunter": "v2.role.hunter",
+    "white_wolf": "v2.role.white_wolf",
+    "wolf_beauty": "v2.role.wolf_beauty",
+    "guardian_wolf": "v2.role.guardian_wolf",
+    "hidden_wolf": "v2.role.hidden_wolf",
+    "nightmare_wolf": "v2.role.nightmare_wolf",
+    "blood_moon_apostle": "v2.role.blood_moon_apostle",
+    "idiot": "v2.role.idiot",
+    "elder": "v2.role.elder",
+    "knight": "v2.role.knight",
+    "magician": "v2.role.magician",
+    "cupid": "v2.role.cupid",
+    "raven": "v2.role.raven",
+    "graveyard_keeper": "v2.role.graveyard_keeper",
+    "thief": "v2.role.thief",
+    "lover": "v2.role.lover",
 }
 
 
@@ -34,6 +49,64 @@ class VariableSpec:
     kind: str
     file: str
     format_keys: tuple[str, ...] = ()
+
+
+def _coerce_text_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, list):
+        out: list[str] = []
+        for item in value:
+            text = str(item).strip()
+            if text:
+                out.append(text)
+        return out
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _coerce_text_dict(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, item in value.items():
+        text = str(item).strip()
+        if text:
+            out[str(key)] = text
+    return out
+
+
+def _render_legacy_suggestion(data: dict[str, Any]) -> str:
+    suggestion = str(data.get("suggestion", "")).strip()
+    if suggestion:
+        return suggestion
+
+    sections: list[str] = []
+    core_principles = _coerce_text_list(data.get("core_principles"))
+    if core_principles:
+        sections.append("长期规则：")
+        sections.extend(f"- {item}" for item in core_principles)
+
+    phase_strategies = _coerce_text_dict(data.get("phase_strategies"))
+    if phase_strategies:
+        sections.append("阶段策略：")
+        for phase_name, rule in phase_strategies.items():
+            sections.append(f"- {phase_name}: {rule}")
+
+    forbidden_actions = _coerce_text_list(data.get("forbidden_actions"))
+    if forbidden_actions:
+        sections.append("禁止项：")
+        sections.extend(f"- {item}" for item in forbidden_actions)
+
+    examples = _coerce_text_list(data.get("examples"))
+    if examples:
+        sections.append("示例：")
+        sections.extend(f"- {item}" for item in examples)
+
+    return "\n".join(sections).strip()
 
 
 class PromptRegistry:
@@ -102,10 +175,20 @@ class PromptRegistry:
             raise ValueError(msg)
         path = self.version_dir / spec.file
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        core_principles = _coerce_text_list(data.get("core_principles"))
+        phase_strategies = _coerce_text_dict(data.get("phase_strategies"))
+        forbidden_actions = _coerce_text_list(data.get("forbidden_actions"))
+        examples = _coerce_text_list(data.get("examples"))
         card = {
             "role_name": str(data.get("role_name", "")),
             "role_instruction": str(data.get("role_instruction", "")).strip(),
-            "suggestion": str(data.get("suggestion", "")).strip(),
+            "suggestion": _render_legacy_suggestion(data),
+            "core_principles": "\n".join(core_principles),
+            "phase_strategies": "\n".join(
+                f"{phase_name}: {rule}" for phase_name, rule in phase_strategies.items()
+            ),
+            "forbidden_actions": "\n".join(forbidden_actions),
+            "examples": "\n".join(examples),
         }
         self._role_cache[variable_id] = card
         return dict(card)

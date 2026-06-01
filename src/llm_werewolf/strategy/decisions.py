@@ -20,15 +20,34 @@ _SEAT_ONLY_PATTERN = re.compile(r"^\d{1,2}$")
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 
 
-def generate_response_instruction(schema_name: str, *, information_isolation: bool = False) -> str:
-    """返回与具体结构化 Schema 绑定的 generate_response 约束。"""
+def generate_response_instruction(
+    schema_name: str,
+    *,
+    information_isolation: bool = False,
+    allow_legacy_scalar: bool = False,
+) -> str:
+    """返回与具体结构化 Schema 绑定的 generate_response 约束。
+
+    Args:
+        allow_legacy_scalar: 为 True 时允许 [[数字]] / YES/NO 等旧格式回退
+            （用于 SeatChoiceDecision 等简单标量决策，避免与 agent_base.md 的
+            [[座位号]] 指令冲突）。
+    """
     parts = [
         (
-            "【输出方式】你必须调用 generate_response 工具提交 JSON，"
-            f"字段严格遵守 {schema_name} Schema。"
+            "【输出方式】优先调用 generate_response 提交 JSON；"
+            "如果当前运行环境没有真实工具调用能力，则直接输出一个 JSON 对象。"
+            f"两种方式的字段都必须严格遵守 {schema_name} Schema。"
         ),
-        "禁止用 [[数字]]、[[...]] 或裸文本代替 structured 字段。",
     ]
+    if allow_legacy_scalar:
+        parts.append(
+            "也接受 [[数字]] 或 YES/NO 等简写格式，系统会自动解析。"
+        )
+    else:
+        parts.append(
+            "禁止用 [[数字]]、[[...]] 或裸文本代替 structured 字段。不要输出解释、Markdown 代码块或额外自然语言。"
+        )
     if information_isolation:
         parts.append(
             "【信息隔离】由系统决定谁能听到你的发言，你只需填写 "

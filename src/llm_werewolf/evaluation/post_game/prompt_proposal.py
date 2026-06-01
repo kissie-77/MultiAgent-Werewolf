@@ -1,24 +1,24 @@
-"""根据阵营正向说服与 bad case 生成 Prompt 补丁提案（仅 JSON，不写入运行时）。"""
+"""根据对局表现生成 Prompt 提案，仅落盘 JSON，不直接改运行时。"""
 
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
 from llm_werewolf.evaluation.core.checkers import PromptBadCaseChecker
-from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.evaluation.post_game.event_adapter import events_from_dicts
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from llm_werewolf.game_runtime.types import Event
-    from llm_werewolf.evaluation.post_game.run_context import RunContext
     from llm_werewolf.evaluation.post_game.camp_persuasion import (
-        CampSpeechInfluence,
         CampPersuasionReport,
+        CampSpeechInfluence,
     )
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.game_runtime.types import Event
 
 
 def _events_from_dicts(rows: list[dict[str, Any]]) -> list[Event]:
@@ -32,25 +32,137 @@ def _role_key_for_speaker(ctx: RunContext, speaker_id: str) -> str:
     return "villager"
 
 
+def _role_key_for_player(ctx: RunContext, player_id: str | None) -> str:
+    if not player_id:
+        return "villager"
+    return _role_key_for_speaker(ctx, player_id)
+
+
+def _clamp_confidence(value: float) -> float:
+    return max(0.0, min(1.0, round(value, 3)))
+
+
+def _bad_case_patch_for_message(
+    message: str,
+    role_key: str,
+) -> tuple[str, str, str]:
+    lowered = message.lower()
+    if "empty" in lowered or "too short" in lowered or "too generic" in lowered:
+        if role_key in {"wolf", "wolf_king", "white_wolf", "wolf_beauty", "guardian_wolf", "hidden_wolf", "nightmare_wolf", "blood_moon_apostle"}:
+            return ("vote_closing", "phase_strategies.vote_closing", "update_rule")
+        if role_key in {"prophet", "witch", "hunter", "guard", "villager"}:
+            return ("opening", "phase_strategies.opening", "update_rule")
+        return ("forbidden_actions", "forbidden_actions", "add_forbidden_rule")
+    if "seer checked the same target more than once" in lowered:
+        return (
+            "night_strategy",
+            "phase_strategies.opening",
+            "update_rule",
+        )
+    if "witch poison targeted a villager-camp player" in lowered:
+        return (
+            "endgame",
+            "phase_strategies.endgame",
+            "update_rule",
+        )
+    if "death-shot ability targeted a villager-camp player" in lowered:
+        return (
+            "vote_closing",
+            "phase_strategies.vote_closing",
+            "update_rule",
+        )
+    return (
+        "global_constraints",
+        "global_constraints",
+        "append_guidance",
+    )
+
+
+def _bad_case_rule_text(message: str, role_key: str, target_field: str) -> str:
+    lowered = message.lower()
+    if "empty" in lowered:
+        if target_field.startswith("phase_strategies."):
+            if role_key.startswith("wolf") or role_key in {
+                "white_wolf",
+                "wolf_beauty",
+                "guardian_wolf",
+                "hidden_wolf",
+                "nightmare_wolf",
+                "blood_moon_apostle",
+            }:
+                return "白天前半段先抢一个可传播的怀疑目标，归票前必须把结论收束成“今天出谁、为什么、若翻错明天回查谁”，禁止空白或占位发言。"
+            return "白天发言即使信息不足，也要先给出一个怀疑对象、一个依据、一个次日观察点，禁止空白、占位或未完成句。"
+        return "禁止白天发言只留空白、占位符或未完成句；即使信息少，也要给出至少一个判断对象和理由。"
+    if "too short" in lowered:
+        if target_field.startswith("phase_strategies."):
+            if role_key.startswith("wolf") or role_key in {
+                "white_wolf",
+                "wolf_beauty",
+                "guardian_wolf",
+                "hidden_wolf",
+                "nightmare_wolf",
+                "blood_moon_apostle",
+            }:
+                return "归票阶段不要只丢座位号；必须同步给出目标收益、票型依据，以及目标翻牌后的下一步叙事。"
+            return "开口不要只报座位号或极短结论；至少补齐“怀疑谁、凭什么、接下来想看什么”三段里的两段。"
+        return "禁止白天只报座位号或极短结论；发言至少包含目标、依据、以及后续回查方向中的两项。"
+    if "too generic" in lowered:
+        if target_field.startswith("phase_strategies."):
+            if role_key.startswith("wolf") or role_key in {
+                "white_wolf",
+                "wolf_beauty",
+                "guardian_wolf",
+                "hidden_wolf",
+                "nightmare_wolf",
+                "blood_moon_apostle",
+            }:
+                return "白天不要只讲空泛态度，要把归票目标绑定到具体玩家、具体票型变化或对跳冲突，确保队友能复述你的叙事。"
+            return "白天不要只说泛泛态度，必须把判断绑定到具体玩家、票型变化或对跳冲突，保证讨论能继续推进。"
+        return "禁止只说“大家谨慎”“再看看”这类空泛话；必须把怀疑对象绑定到具体玩家或具体票型变化。"
+    if "seer checked the same target more than once" in lowered:
+        return "夜间查验前先排除已查过目标，优先选择能区分场上对立叙事、且次日更容易形成公开验证价值的对象。"
+    if "witch poison targeted a villager-camp player" in lowered:
+        if target_field.startswith("phase_strategies."):
+            return "决定下毒前先核对该目标是否同时满足身份冲突、票型异常、以及收益归属可疑中的至少两项；若做不到，优先保留毒药进入残局。"
+        return "禁止在缺乏硬冲突证据时把毒药直接交给好人高概率位；毒药只用于处理强狼面、关键悍跳位或残局轮次点。"
+    if "death-shot ability targeted a villager-camp player" in lowered:
+        if target_field.startswith("phase_strategies."):
+            return "临死开枪前先比较三件事：目标狼面强度、击杀后能否清出新的狼位、以及误带好人的轮次损失；满足前两项再开枪。"
+        return "禁止带人技能在没有强狼证据时打向好人高概率位；开枪前先核对票型、站边冲突和收益归属。"
+    return "避免重复出现已知坏例，行动前先核对可见信息边界与当前角色职责。"
+
+
 def _proposal_from_speech(
-    speech: CampSpeechInfluence, ctx: RunContext, *, rank: int
+    speech: CampSpeechInfluence,
+    ctx: RunContext,
+    *,
+    rank: int,
 ) -> dict[str, Any]:
     role_key = _role_key_for_speaker(ctx, speech.speaker_id)
-    target_var = f"{ctx.prompt_version}.role.{role_key}.suggestion"
+    confidence = _clamp_confidence(
+        0.45
+        + min(0.25, speech.camp_aligned_score * 0.08)
+        + min(0.2, speech.camp_aligned_swings * 0.05)
+        + (0.1 if speech.matched_round_elimination else 0.0)
+    )
     return {
         "proposal_id": f"pos_influence_r{speech.round_number}_{speech.speaker_id}",
         "prompt_role_key": role_key,
-        "target_variable": target_var,
+        "target_variable": f"{ctx.prompt_version}.role.{role_key}",
         "prompt_version_base": ctx.prompt_version,
         "status": "draft",
         "kind": "positive_persuasion",
         "priority": rank,
+        "confidence_score": confidence,
+        "target_layer": "prompt_rule",
+        "evidence_scope": "multi_game_pattern",
         "suggested_patch": {
-            "section": "day_speech_strategy",
-            "action": "append_guidance",
+            "section": "vote_closing",
+            "target_field": "phase_strategies.vote_closing",
+            "action": "update_rule",
             "text_zh": (
-                "参考本局高阵营收益发言：在公开讨论中给出明确票型倾向，"
-                "用当前可见信息支撑，并推动队友/好人阵营意向与你方目标一致。"
+                "临近归票时主动给出单一投票目标，并用当轮可见信息说明理由；"
+                "如果目标翻好人，要同步交代明天优先回查谁。"
             ),
         },
         "evidence": {
@@ -63,27 +175,50 @@ def _proposal_from_speech(
             "public_speech_excerpt": speech.public_speech[:300],
         },
         "rationale": (
-            f"发言后产生 {speech.camp_aligned_swings} 次阵营匹配的意向摇摆，"
-            f"得分 {speech.camp_aligned_score}。"
-            + ("且与当轮放逐票型一致。" if speech.matched_round_elimination else "")
+            f"该发言带来了 {speech.camp_aligned_swings} 次阵营对齐意向波动，"
+            f"对齐得分 {speech.camp_aligned_score}。"
+            + (" 且与当轮放逐结果方向一致。" if speech.matched_round_elimination else "")
         ),
     }
 
 
 def _proposal_from_bad_case(check: Any, ctx: RunContext, *, idx: int) -> dict[str, Any]:
     data = check.data or {}
+    player_id = str(
+        data.get("player_id") or data.get("shooter_id") or ""
+    ).strip() or None
+    role_key = _role_key_for_player(ctx, player_id)
+    section, target_field, action = _bad_case_patch_for_message(
+        str(check.message or ""),
+        role_key,
+    )
+    severity_name = str(getattr(check.severity, "name", "WARNING")).upper()
+    severity_bonus = {
+        "INFO": 0.0,
+        "WARNING": 0.08,
+        "CRITICAL": 0.18,
+    }.get(severity_name, 0.05)
+    confidence = _clamp_confidence(0.62 + severity_bonus)
     return {
         "proposal_id": f"bad_case_{idx}",
-        "prompt_role_key": "villager",
-        "target_variable": f"{ctx.prompt_version}.agent.base",
+        "prompt_role_key": role_key,
+        "target_variable": (
+            f"{ctx.prompt_version}.agent.base"
+            if target_field == "global_constraints"
+            else f"{ctx.prompt_version}.role.{role_key}"
+        ),
         "prompt_version_base": ctx.prompt_version,
         "status": "draft",
         "kind": "bad_case_rule",
         "priority": 100 + idx,
+        "confidence_score": confidence,
+        "target_layer": "prompt_rule",
+        "evidence_scope": "multi_game_pattern",
         "suggested_patch": {
-            "section": "global_constraints",
-            "action": "append_guidance",
-            "text_zh": "避免空泛发言、重复无效查验目标、越界座位号引用；遵守当前人数与可见信息边界。",
+            "section": section,
+            "target_field": target_field,
+            "action": action,
+            "text_zh": _bad_case_rule_text(str(check.message or ""), role_key, target_field),
         },
         "evidence": data,
         "rationale": check.message,
@@ -91,7 +226,10 @@ def _proposal_from_bad_case(check: Any, ctx: RunContext, *, idx: int) -> dict[st
 
 
 def _proposal_from_golden_quote(
-    golden: dict[str, Any], ctx: RunContext, *, rank: int
+    golden: dict[str, Any],
+    ctx: RunContext,
+    *,
+    rank: int,
 ) -> dict[str, Any]:
     speaker_id = str(golden.get("player_id") or "")
     entry = ctx.roster.get(speaker_id)
@@ -101,22 +239,30 @@ def _proposal_from_golden_quote(
         else "villager"
     )
     kind = str(golden.get("kind") or "public_persuasion")
-    proposal_kind = "mvp_golden_quote" if kind == "public_persuasion" else "mvp_strategy_highlight"
+    is_public = kind == "public_persuasion"
+    raw_score = float(golden.get("score") or 0.0)
+    confidence = _clamp_confidence(
+        0.5 + min(0.35, raw_score / 20.0) + (0.08 if golden.get("matched_elimination") else 0.0)
+    )
     return {
         "proposal_id": f"mvp_{kind}_r{golden.get('round_number')}_{speaker_id}",
         "prompt_role_key": role_key,
-        "target_variable": f"{ctx.prompt_version}.role.{role_key}.suggestion",
+        "target_variable": f"{ctx.prompt_version}.role.{role_key}",
         "prompt_version_base": ctx.prompt_version,
         "status": "draft",
-        "kind": proposal_kind,
+        "kind": "mvp_golden_quote" if is_public else "mvp_strategy_highlight",
         "priority": rank,
+        "confidence_score": confidence,
+        "target_layer": "prompt_example" if is_public else "prompt_rule",
+        "evidence_scope": "single_game_quote" if is_public else "multi_game_pattern",
         "suggested_patch": {
-            "section": "day_speech_strategy" if kind == "public_persuasion" else "night_strategy",
-            "action": "append_guidance",
+            "section": "examples" if is_public else "night_strategy",
+            "target_field": "examples" if is_public else "phase_strategies.opening",
+            "action": "promote_quote_to_example" if is_public else "update_rule",
             "text_zh": (
-                "参考本局 MVP 公开说服金句：在可见信息内给出明确票型与理由。"
-                if kind == "public_persuasion"
-                else "参考本局 MVP 夜间策略：在狼队频道给出可执行的刀口/集火计划。"
+                str(golden.get("excerpt") or "").strip()[:180]
+                if is_public
+                else "夜间定刀前先给出可执行的落刀目标与第二顺位备选，方便队友快速统一。"
             ),
         },
         "evidence": {
@@ -128,7 +274,7 @@ def _proposal_from_golden_quote(
             "matched_elimination": golden.get("matched_elimination"),
             "kill_match_bonus": golden.get("kill_match_bonus"),
         },
-        "rationale": "来自 MVP 规则评分的金句/策略片段（golden_speech_candidates）。",
+        "rationale": "来自 MVP 评分产物的高价值片段。",
     }
 
 
@@ -150,12 +296,11 @@ def build_prompt_proposals(
         seen_excerpts.add(excerpt)
         proposals.append(
             _proposal_from_golden_quote(
-                {**golden, "player_id": mvp.get("player_id")}, ctx, rank=rank
+                {**golden, "player_id": mvp.get("player_id")},
+                ctx,
+                rank=rank,
             )
         )
-        excerpt = str(golden.get("excerpt") or "").strip()
-        if proposals and excerpt:
-            proposals[-1]["suggested_patch"]["text_zh"] = f"参考 MVP 金句：「{excerpt[:180]}」"
 
     positive = sorted(
         [s for s in camp_report.speeches if s.camp_aligned_score > 0],
@@ -171,21 +316,26 @@ def build_prompt_proposals(
             continue
         seen_proposal_keys.add(dedupe_key)
         proposal = _proposal_from_speech(speech, ctx, rank=rank)
-        proposal["suggested_patch"]["text_zh"] = (
-            f"参考本局发言：「{excerpt}…」" if excerpt else proposal["suggested_patch"]["text_zh"]
-        )
+        if excerpt:
+            proposal["suggested_patch"]["text_zh"] = (
+                f"参考本局有效发言模式：{excerpt}。后续归票阶段继续保持“结论+依据+次日回查”的收束方式。"
+            )
         proposals.append(proposal)
 
     events = _events_from_dicts(ctx.events)
     if events:
-        player_roles = {pid: (e.role_name or "") for pid, e in ctx.roster.items() if e.role_name}
+        player_roles = {
+            pid: (entry.role_name or "")
+            for pid, entry in ctx.roster.items()
+            if entry.role_name
+        }
         bad_results = PromptBadCaseChecker().check(events, player_roles=player_roles)
         for idx, check in enumerate(bad_results[:10]):
             if not check.passed:
                 proposals.append(_proposal_from_bad_case(check, ctx, idx=idx))
 
     return {
-        "schema": "prompt_proposals_v2",
+        "schema": "prompt_proposals_v3",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "prompt_version_base": ctx.prompt_version,
         "run_dir": str(ctx.run_dir),
@@ -193,7 +343,7 @@ def build_prompt_proposals(
         "llm_replay_notes": llm_notes,
         "proposal_count": len(proposals),
         "proposals": proposals,
-        "apply_policy": "json_only_no_runtime_replace",
+        "apply_policy": "auto_evolve_next_prompt_version",
     }
 
 
@@ -205,7 +355,10 @@ def write_prompt_proposals(
     mvp_payload: dict[str, Any] | None = None,
 ) -> Path:
     payload = build_prompt_proposals(
-        ctx, camp_report, llm_notes=llm_notes, mvp_payload=mvp_payload
+        ctx,
+        camp_report,
+        llm_notes=llm_notes,
+        mvp_payload=mvp_payload,
     )
     path = ctx.run_dir / "prompt_proposals.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

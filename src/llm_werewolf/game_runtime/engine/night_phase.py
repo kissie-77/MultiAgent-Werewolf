@@ -25,6 +25,22 @@ class NightPhaseMixin:
     build_player_observation: Callable
     build_shared_observation: Callable
 
+    @staticmethod
+    def _werewolf_discussion_role_note(werewolf: PlayerProtocol, werewolves: list[PlayerProtocol]) -> str:
+        """Give each wolf a small conversational job to reduce repeated night-chat lines."""
+        order = [w.player_id for w in werewolves]
+        try:
+            index = order.index(werewolf.player_id)
+        except ValueError:
+            index = 0
+        roles = [
+            "你的夜聊分工：先提出一个明确刀口，并给出 1 个核心理由。",
+            "你的夜聊分工：先回应上一位队友；如果同意，补充一个不同角度的理由，不要复读原话。",
+            "你的夜聊分工：专门检查当前刀口的风险，例如女巫救人、守卫保护、刀型暴露；必要时提出备选目标。",
+            "你的夜聊分工：收束狼队共识，明确支持哪个目标，并说明明天如何解释这刀。",
+        ]
+        return roles[index % len(roles)]
+
     def _build_werewolf_discussion_context(self, werewolf: PlayerProtocol) -> str:
         """静态狼队上下文；局内狼队频道讨论使用 MsgHub 记忆。"""
         if not self.game_state:
@@ -63,6 +79,7 @@ class NightPhaseMixin:
                 werewolf.name, self.game_state.round_number, werewolf_names, target_names, ""
             )
         )
+        body = body + "\n\n" + self._werewolf_discussion_role_note(werewolf, werewolves)
         if wolf_panel:
             body = body + "\n\n" + wolf_panel
         return body

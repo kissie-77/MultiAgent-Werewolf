@@ -15,7 +15,12 @@ from llm_werewolf.agent_team.agents.demo_policy import (
 )
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.game_runtime.roles.villager import Seer, Villager
-from llm_werewolf.strategy.decisions import is_valid_public_speech
+from llm_werewolf.strategy.decisions import (
+    SeatChoiceDecision,
+    VoteIntentionDecision,
+    WitchNightDecision,
+    is_valid_public_speech,
+)
 
 
 def _seat_prompt(*seats: int, allow_skip: bool = False) -> str:

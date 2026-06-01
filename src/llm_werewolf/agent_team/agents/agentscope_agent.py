@@ -8,11 +8,12 @@ import logging
 
 logging.getLogger("agentscope.formatter").setLevel(logging.ERROR)
 import re
+import json
 from typing import Any
 import asyncio
 
 from openai import RateLimitError
-from pydantic import Field, BaseModel
+from pydantic import Field, BaseModel, ValidationError
 
 # 使用AgentScope原生的Msg类
 from agentscope.message import Msg as AgentScopeMsg
@@ -32,6 +33,31 @@ from llm_werewolf.agent_team.invocation.structured_invoke import (
 
 logger = logging.getLogger(__name__)
 
+_AGENTSCOPE_INTERRUPT_TEXT = "I noticed that you have interrupted me. What can I do for you?"
+
+
+def _preview(value: Any, limit: int = 500) -> str:
+    text = str(value)
+    if len(text) > limit:
+        return f"{text[:limit]}..."
+    return text
+
+
+def _content_block_types(content: Any) -> list[str]:
+    if not isinstance(content, list):
+        return [type(content).__name__]
+    types: list[str] = []
+    for block in content:
+        if isinstance(block, dict):
+            types.append(str(block.get("type", type(block).__name__)))
+        else:
+            types.append(type(block).__name__)
+    return types
+
+
+def _is_agentscope_interrupt_text(text: str) -> bool:
+    return text.strip() == _AGENTSCOPE_INTERRUPT_TEXT
+
 
 def _structured_tool_choice_unsupported(exc: Exception) -> bool:
     """Return True when a provider rejects forced structured tool choice."""
@@ -39,6 +65,39 @@ def _structured_tool_choice_unsupported(exc: Exception) -> bool:
     return "tool_choice" in text and (
         "does not support" in text or "not support" in text or "unsupported" in text
     )
+
+
+def _extract_structured_payload_from_content(content: Any) -> dict[str, Any] | None:
+    """Recover generate_response payload from tool_use blocks when metadata is empty."""
+    if not isinstance(content, list):
+        return None
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") != "tool_use":
+            continue
+        if block.get("name") != "generate_response":
+            continue
+        payload = block.get("input")
+        if isinstance(payload, dict) and payload:
+            return _unwrap_tool_use_payload(payload)
+    return None
+
+
+def _unwrap_tool_use_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Normalize nested tool payload shapes into the target schema payload."""
+    for key in ("structured_output", "input", "arguments", "kwargs"):
+        nested = payload.get(key)
+        if isinstance(nested, dict) and nested:
+            return nested
+        if isinstance(nested, str) and nested.strip():
+            try:
+                decoded = json.loads(nested)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(decoded, dict) and decoded:
+                return decoded
+    return payload if payload else None
 
 
 class AgentScopeWerewolfAgent(BaseAgent):
@@ -233,7 +292,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 if not response_text:
                     response_text = self._generate_fallback_response(message, "空内容")
                 elif not self._message_expects_seat_only(message):
-                    if not is_valid_public_speech(extract_public_text(response_text)):
+                    if (
+                        not self._is_werewolf_private_chat(message)
+                        and not is_valid_public_speech(extract_public_text(response_text))
+                    ):
                         response_text = self._generate_fallback_response(message, "invalid_speech")
                 last_error = None
                 break
@@ -281,19 +343,21 @@ class AgentScopeWerewolfAgent(BaseAgent):
         def parse_text_decision(text: str) -> BaseModel | None:
             if not text.strip():
                 return None
+            if _is_agentscope_interrupt_text(text):
+                logger.warning(
+                    "structured_response_interrupted agent=%s model=%s",
+                    self.name,
+                    structured_model.__name__,
+                )
+                object.__setattr__(self, "_last_structured_source", "interrupted")
+                return None
             if structured_model is SpeechDecision:
-                self.chat_history.append({"role": "assistant", "content": text})
                 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 
                 return WerewolfAdapterBridge.parse_speech(text)
             recovered = parse_structured_from_text(text, structured_model)
             if recovered is not None:
-                self.chat_history.append({
-                    "role": "assistant",
-                    "content": recovered.model_dump_json(),
-                })
                 return recovered
-            self.chat_history.append({"role": "assistant", "content": text})
             logger.warning(
                 "structured_text_recovery_failed agent=%s model=%s text=%s",
                 self.name,
@@ -301,6 +365,69 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 text[:200],
             )
             return None
+
+        async def call_plain_json_structured() -> BaseModel | None:
+            plain_prompt = (
+                f"{message}\n\n"
+                "请不要调用工具，直接输出一个严格 JSON 对象。"
+                "不要输出 Markdown、解释或额外文字。"
+            )
+            plain_msg = AgentScopeMsg(name="Moderator", content=plain_prompt, role="user")
+            response_msg = await run_serial_agent_call(lambda: self.agentscope_agent(plain_msg))
+            response_msg = self._sanitize_agentscope_response_msg(response_msg)
+            text = self._extract_agentscope_text(response_msg)
+            decision = parse_text_decision(text)
+            if decision is not None:
+                self.chat_history.append({
+                    "role": "assistant",
+                    "content": decision.model_dump_json(),
+                })
+                object.__setattr__(self, "_last_structured_source", "plain_json")
+                logger.debug(
+                    "structured_response_recovered agent=%s model=%s source=plain_json",
+                    self.name,
+                    structured_model.__name__,
+                )
+                return decision
+            return None
+
+        async def log_structured_failure(
+            *,
+            stage: str,
+            response_msg: Any = None,
+            text: str = "",
+            metadata: Any = None,
+            error: Exception | None = None,
+        ) -> None:
+            memory_tail: list[str] = []
+            backend_memory = getattr(
+                getattr(self.agentscope_agent, "memory", None), "get_memory", None
+            )
+            if callable(backend_memory):
+                try:
+                    recent = await backend_memory()
+                    for msg in recent[-4:]:
+                        content = getattr(msg, "content", None)
+                        preview = _preview(content, 300)
+                        if "Arguments Validation Error" in preview or "tool_result" in preview:
+                            memory_tail.append(preview)
+                except Exception as memory_exc:
+                    memory_tail.append(f"<memory read failed: {memory_exc}>")
+
+            logger.warning(
+                "structured_response_diagnostic agent=%s model=%s stage=%s "
+                "content_types=%s metadata=%s text_preview=%s error=%s memory_tail=%s",
+                self.name,
+                structured_model.__name__,
+                stage,
+                _content_block_types(getattr(response_msg, "content", None))
+                if response_msg is not None
+                else [],
+                _preview(metadata),
+                _preview(text),
+                _preview(error) if error is not None else "",
+                memory_tail,
+            )
 
         for attempt in range(3):
             try:
@@ -310,6 +437,13 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 response_msg = self._sanitize_agentscope_response_msg(response_msg)
                 text = self._extract_agentscope_text(response_msg)
                 metadata = unwrap_structured_metadata(getattr(response_msg, "metadata", None))
+                structured_source = "metadata" if metadata else ""
+                if not metadata:
+                    metadata = _extract_structured_payload_from_content(
+                        getattr(response_msg, "content", None)
+                    )
+                    if metadata:
+                        structured_source = "tool_use_input"
                 if metadata:
                     if structured_model is SpeechDecision:
                         from llm_werewolf.strategy.decisions import (
@@ -318,29 +452,82 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
                         if metadata_looks_like_wrong_schema_for_speech(metadata):
                             metadata = None
+                            structured_source = ""
+                            metadata = _extract_structured_payload_from_content(
+                                getattr(response_msg, "content", None)
+                            )
+                            if metadata:
+                                structured_source = "tool_use_input"
                     if metadata:
                         try:
                             decision = structured_model.model_validate(metadata)
-                        except Exception:
-                            decision = structured_model.model_construct(**metadata)
+                        except ValidationError as exc:
+                            logger.warning(
+                                "structured_payload_validate_failed agent=%s model=%s source=%s err=%s payload=%s",
+                                self.name,
+                                structured_model.__name__,
+                                structured_source,
+                                exc,
+                                metadata,
+                            )
+                            decision = None
                         if structured_model is SpeechDecision:
                             from llm_werewolf.strategy.decisions import normalize_speech_decision
 
-                            decision = normalize_speech_decision(
-                                decision, raw_fallback=text or decision.model_dump_json()
-                            )
-                            if not is_valid_public_speech(decision.public_speech) and text.strip():
-                                from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
+                            if decision is not None:
+                                decision = normalize_speech_decision(
+                                    decision, raw_fallback=text or decision.model_dump_json()
+                                )
+                                if (
+                                    not is_valid_public_speech(decision.public_speech)
+                                    and text.strip()
+                                ):
+                                    from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 
-                                decision = WerewolfAdapterBridge.parse_speech(text)
-                        self.chat_history.append({
-                            "role": "assistant",
-                            "content": decision.model_dump_json(),
-                        })
-                        return decision
+                                    decision = WerewolfAdapterBridge.parse_speech(text)
+                        if decision is not None:
+                            self.chat_history.append({
+                                "role": "assistant",
+                                "content": decision.model_dump_json(),
+                            })
+                            object.__setattr__(self, "_last_structured_source", structured_source)
+                            logger.debug(
+                                "structured_response_recovered agent=%s model=%s source=%s",
+                                self.name,
+                                structured_model.__name__,
+                                structured_source,
+                            )
+                            return decision
                 decision = parse_text_decision(text)
                 if decision is not None:
+                    self.chat_history.append({
+                        "role": "assistant",
+                        "content": decision.model_dump_json(),
+                    })
+                    object.__setattr__(self, "_last_structured_source", "text_parse")
+                    logger.debug(
+                        "structured_response_recovered agent=%s model=%s source=text_parse",
+                        self.name,
+                        structured_model.__name__,
+                    )
                     return decision
+                plain_decision = await call_plain_json_structured()
+                if plain_decision is not None:
+                    return plain_decision
+                await log_structured_failure(
+                    stage="parse_failed",
+                    response_msg=response_msg,
+                    text=text,
+                    metadata=metadata,
+                )
+                logger.warning(
+                    "structured_parse_failed agent=%s model=%s text_preview=%s metadata=%s",
+                    self.name,
+                    structured_model.__name__,
+                    (text[:300] if text else "<empty>"),
+                    metadata,
+                )
+                object.__setattr__(self, "_last_structured_source", "none")
                 return None
             except RateLimitError as exc:
                 last_error = exc
@@ -356,17 +543,24 @@ class AgentScopeWerewolfAgent(BaseAgent):
                         text = self._extract_agentscope_text(response_msg)
                         decision = parse_text_decision(text)
                         if decision is not None:
+                            self.chat_history.append({
+                                "role": "assistant",
+                                "content": decision.model_dump_json(),
+                            })
+                            object.__setattr__(self, "_last_structured_source", "plain_text")
                             return decision
-                        return None
+                        return await call_plain_json_structured()
                     except Exception as plain_exc:
                         last_error = plain_exc
                         break
                 if "429" in str(exc) and attempt < 2:
                     await asyncio.sleep(2**attempt)
                     continue
+                await log_structured_failure(stage="exception", error=exc)
                 break
 
         if last_error is not None:
+            await log_structured_failure(stage="gave_up", error=last_error)
             self.chat_history.append({
                 "role": "assistant",
                 "content": f"structured_output_failed: {last_error}",
@@ -506,16 +700,16 @@ class AgentScopeWerewolfAgent(BaseAgent):
         speeches = fallbacks.get(role_key, fallbacks["villager"])
         return random.choice(speeches)
 
-    @staticmethod
-    def _pick_seat_from_message(message: str) -> int | None:
+    def _pick_seat_from_message(self, message: str) -> int | None:
         """从 prompt 中选择一个出现过的座位号。"""
         import random
 
-        numbers = re.findall(r"(\d+)\s*号", message)
+        numbers = [int(n) for n in re.findall(r"(\d+)\s*号", message)]
         if not numbers:
-            numbers = re.findall(r"^\s*(\d+)\.\s+", message, flags=re.M)
+            numbers = [int(n) for n in re.findall(r"^\s*(\d+)\.\s+", message, flags=re.M)]
+        numbers = [n for n in numbers if 1 <= n <= 12 and n != self.number]
         if numbers:
-            return int(random.choice(numbers))
+            return random.choice(numbers)
         return None
 
     @staticmethod
@@ -542,23 +736,21 @@ class AgentScopeWerewolfAgent(BaseAgent):
         # 从消息中获取座位号，限制在合理范围内（1-12）
         seat = self._pick_seat_from_message(message)
         if seat is None:
-            # 使用当前玩家座位号作为参考，避免引用不存在的玩家
-            seat = max(1, min(self.number, 12))
-        # 确保座位号在有效范围内
-        seat = max(1, min(seat, 12))
+            candidates = [n for n in range(1, 13) if n != self.number]
+            seat = random.choice(candidates)
 
         english = sum(1 for char in message if ord(char) < 128) / max(len(message), 1) > 0.6
         if english:
             options = [
-                f"I suggest we focus on {seat} tonight; the pressure looks useful.",
-                f"Let's align on {seat} and avoid splitting the vote.",
-                f"{seat} stood out earlier, so that can be our primary option.",
+                f"I lean toward {seat} tonight; that slot feels easier to explain tomorrow.",
+                f"{seat} can be our first option unless someone has a stronger read.",
+                f"I'm okay pressuring {seat} first, but let's sync before locking it in.",
             ]
         else:
             options = [
-                f"今晚可以先压一下{seat}号，收益比较稳定。",
-                f"我建议先对齐{seat}号，避免票型分散。",
-                f"{seat}号前面的表现值得优先处理。",
+                f"我更倾向先看{seat}号，明天这刀也比较容易往外解释。",
+                f"{seat}号可以先当备选目标，你们要是有更强读感再补。",
+                f"如果今晚要统一，我暂时偏向{seat}号，先听听你们有没有别的意见。",
             ]
         return random.choice(options)
 

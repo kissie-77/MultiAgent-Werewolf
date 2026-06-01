@@ -103,12 +103,21 @@ async def test_finalize_run_delegates_to_post_game(tmp_path) -> None:
 
     mock_result = MagicMock(error=None, stage_errors=None)
     mock_pipeline = AsyncMock(return_value=mock_result)
+    mock_evolve = MagicMock()
     original = mod.run_post_game_pipeline
+    original_evolve = mod.evolve_prompt_from_run
     mod.run_post_game_pipeline = mock_pipeline
+    mod.evolve_prompt_from_run = mock_evolve
     try:
         result = await mod.finalize_run(engine, run_dir, game_result_text="done")
     finally:
         mod.run_post_game_pipeline = original
+        mod.evolve_prompt_from_run = original_evolve
+
+    assert result is mock_result
+    mock_pipeline.assert_awaited_once()
+    mock_evolve.assert_called_once()
+    assert mock_evolve.call_args.kwargs["base_prompt_version"] == "v2"
 
 @pytest.mark.asyncio
 async def test_finalize_run_logs_pipeline_error(tmp_path) -> None:
@@ -121,11 +130,14 @@ async def test_finalize_run_logs_pipeline_error(tmp_path) -> None:
 
     mock_result = MagicMock(error="boom", stage_errors=None)
     original = mod.run_post_game_pipeline
+    original_evolve = mod.evolve_prompt_from_run
     mod.run_post_game_pipeline = AsyncMock(return_value=mock_result)
+    mod.evolve_prompt_from_run = MagicMock()
     try:
         await mod.finalize_run(engine, run_dir)
     finally:
         mod.run_post_game_pipeline = original
+        mod.evolve_prompt_from_run = original_evolve
 
 
 @pytest.mark.asyncio
@@ -139,8 +151,11 @@ async def test_finalize_run_logs_stage_errors(tmp_path) -> None:
 
     mock_result = MagicMock(error=None, stage_errors=["stage1"])
     original = mod.run_post_game_pipeline
+    original_evolve = mod.evolve_prompt_from_run
     mod.run_post_game_pipeline = AsyncMock(return_value=mock_result)
+    mod.evolve_prompt_from_run = MagicMock()
     try:
         await mod.finalize_run(engine, run_dir)
     finally:
         mod.run_post_game_pipeline = original
+        mod.evolve_prompt_from_run = original_evolve

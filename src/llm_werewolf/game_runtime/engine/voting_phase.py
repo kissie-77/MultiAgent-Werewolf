@@ -18,6 +18,14 @@ from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
 from llm_werewolf.game_runtime.engine.death_messages import elimination_announcement
 
 
+def _format_runtime_error(exc: Exception) -> str:
+    """Return a non-empty error string for runtime event logs."""
+    message = str(exc).strip()
+    if message:
+        return f"{type(exc).__name__}: {message}"
+    return type(exc).__name__
+
+
 class VotingPhaseMixin:
     """处理投票阶段逻辑的 Mixin。"""
 
@@ -101,10 +109,11 @@ class VotingPhaseMixin:
                     )
                     return VoteAction(player, target_player, self.game_state)
             except Exception as e:
+                error_text = _format_runtime_error(e)
                 self._log_event(
                     EventType.ERROR,
-                    self.locale.get("vote_failed", player=player.name, error=str(e)),
-                    data={"player_id": player.player_id, "error": str(e)},
+                    self.locale.get("vote_failed", player=player.name, error=error_text),
+                    data={"player_id": player.player_id, "error": error_text},
                 )
             return None
 

@@ -57,7 +57,6 @@ data_file = './.github/reports/.coverage'
 omit = [
     "*/__init__.py",
     "*/ui/components/*",
-    "*/ui/tui_app.py",
     "*/agent_team/agents/human_interactive_agent.py",
     "*/agent_team/memory/memory_manager.py",
     "*/evaluation/post_game/eval_agent.py",
@@ -70,7 +69,6 @@ omit = [
     "*/interface/finalize_run.py",
     "*/interface/player_count.py",
     "*/interface/modes.py",
-    "*/interface/tui.py",
 ]
 
 # ================== #
@@ -80,7 +78,7 @@ omit = [
 [project]
 name = "llm_werewolf"
 version = "0.1.0"
-description = "AI-powered Werewolf game with LLM integration and TUI interface"
+description = "AI-powered Werewolf game with LLM integration, CLI, and frontend interfaces"
 dependencies = [
     "agentscope>=1.0.20",
     "fire>=0.7.1",
@@ -90,7 +88,6 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
     "rich>=14.3.3",
-    "textual>=8.0.2",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
 ]
@@ -102,11 +99,10 @@ license = { text = "MIT" }
 Repository = "https://github.com/kissie-77/MultiAgent-Werewolf"
 
 [project.scripts]
-llm-werewolf = "llm_werewolf.interface.cli:entry"
-llm-werewolf-tui = "llm_werewolf.interface.tui:entry"
-werewolf = "llm_werewolf.interface.cli:entry"
-werewolf-tui = "llm_werewolf.interface.tui:entry"
+llm-werewolf = "llm_werewolf.interface.cli.entry:entry"
+werewolf = "llm_werewolf.interface.cli.entry:entry"
 werewolf-eval = "llm_werewolf.interface.eval_cli:entry"
+werewolf-evidence = "llm_werewolf.interface.evidence_cli:entry"
 werewolf-vote-swing = "llm_werewolf.interface.vote_swing_cli:entry"
 werewolf-api = "llm_werewolf.interface.api.app:main"
 
@@ -195,9 +191,6 @@ exclude = [
 # Run game in console mode (auto-play)
 cli = "python -m llm_werewolf.interface.cli"
 main = "python -m llm_werewolf.interface.cli"
-
-# Run game in TUI mode (interactive)
-tui = "python -m llm_werewolf.interface.tui"
 
 # https://docs.astral.sh/uv/reference/settings
 [tool.uv]

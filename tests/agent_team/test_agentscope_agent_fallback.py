@@ -134,3 +134,142 @@ async def test_get_structured_response_sanitizes_thinking_blocks(monkeypatch) ->
     assert decision is not None
     assert decision.action == "vote"
     assert response.content == [{"type": "text", "text": "会被忽略，因为走 metadata"}]
+    assert agent._last_structured_source == "metadata"
+
+
+@pytest.mark.asyncio
+async def test_get_structured_response_recovers_tool_use_input_without_metadata(monkeypatch) -> None:
+    agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
+    agent.agentscope_agent = object()
+    response = DummyResponse(
+        [
+            {
+                "type": "tool_use",
+                "name": "generate_response",
+                "id": "call_1",
+                "input": {"action": "vote"},
+            }
+        ],
+        metadata=None,
+    )
+
+    async def fake_serial_call(fn):
+        del fn
+        return response
+
+    monkeypatch.setattr(
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call", fake_serial_call
+    )
+
+    decision = await agent.get_structured_response("请输出结构化结果", DummyStructuredDecision)
+
+    assert decision is not None
+    assert decision.action == "vote"
+    assert agent._last_structured_source == "tool_use_input"
+
+
+@pytest.mark.asyncio
+async def test_get_structured_response_recovers_tool_use_arguments_json(monkeypatch) -> None:
+    agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
+    agent.agentscope_agent = object()
+    response = DummyResponse(
+        [
+            {
+                "type": "tool_use",
+                "name": "generate_response",
+                "id": "call_1",
+                "input": {"arguments": '{"action": "vote"}'},
+            }
+        ],
+        metadata=None,
+    )
+
+    async def fake_serial_call(fn):
+        del fn
+        return response
+
+    monkeypatch.setattr(
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call", fake_serial_call
+    )
+
+    decision = await agent.get_structured_response("请输出结构化结果", DummyStructuredDecision)
+
+    assert decision is not None
+    assert decision.action == "vote"
+    assert agent._last_structured_source == "tool_use_input"
+
+
+@pytest.mark.asyncio
+async def test_get_structured_response_rejects_invalid_tool_use_payload(monkeypatch) -> None:
+    agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
+    agent.agentscope_agent = object()
+    response = DummyResponse(
+        [
+            {
+                "type": "tool_use",
+                "name": "generate_response",
+                "id": "call_1",
+                "input": {"wrong_field": "vote"},
+            }
+        ],
+        metadata=None,
+    )
+
+    async def fake_serial_call(fn):
+        del fn
+        return response
+
+    monkeypatch.setattr(
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call", fake_serial_call
+    )
+
+    decision = await agent.get_structured_response("请输出结构化结果", DummyStructuredDecision)
+
+    assert decision is None
+    assert agent._last_structured_source == "none"
+
+
+@pytest.mark.asyncio
+async def test_get_structured_response_falls_back_to_plain_json_call(monkeypatch) -> None:
+    agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
+    agent.agentscope_agent = object()
+    responses = [
+        DummyResponse("", metadata=None),
+        DummyResponse('{"action": "vote"}', metadata=None),
+    ]
+
+    async def fake_serial_call(fn):
+        del fn
+        return responses.pop(0)
+
+    monkeypatch.setattr(
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call", fake_serial_call
+    )
+
+    decision = await agent.get_structured_response("请输出结构化结果", DummyStructuredDecision)
+
+    assert decision is not None
+    assert decision.action == "vote"
+    assert agent._last_structured_source == "plain_json"
+
+
+@pytest.mark.asyncio
+async def test_get_structured_response_treats_agentscope_interrupt_as_failure(
+    monkeypatch,
+) -> None:
+    agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
+    agent.agentscope_agent = object()
+    response = DummyResponse("I noticed that you have interrupted me. What can I do for you?")
+
+    async def fake_serial_call(fn):
+        del fn
+        return response
+
+    monkeypatch.setattr(
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call", fake_serial_call
+    )
+
+    decision = await agent.get_structured_response("请输出结构化结果", DummyStructuredDecision)
+
+    assert decision is None
+    assert agent._last_structured_source == "none"

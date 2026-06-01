@@ -10,7 +10,7 @@ from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuas
 from llm_werewolf.evaluation.post_game.prompt_proposal import build_prompt_proposals
 
 
-def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
+def test_prompt_proposals_auto_evolve_policy(tmp_path: Path) -> None:
     events = [
         {
             "event_type": "role_acting",
@@ -91,11 +91,13 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
     assert (tmp_path / "skill_snapshot.json").is_file()
     assert (tmp_path / "skill_diff.json").is_file()
     assert (tmp_path / "prompt_proposals.json").is_file()
+    assert (tmp_path / "counterfactual_report.json").is_file()
+    assert (tmp_path / "counterfactual_report.md").is_file()
 
     payload = json.loads((tmp_path / "prompt_proposals.json").read_text(encoding="utf-8"))
-    assert payload["apply_policy"] == "json_only_no_runtime_replace"
+    assert payload["apply_policy"] == "auto_evolve_next_prompt_version"
     assert payload["prompt_version_base"] == "v2"
-    assert payload["schema"] == "prompt_proposals_v2"
+    assert payload["schema"] == "prompt_proposals_v3"
     assert payload["proposal_count"] >= 1
     assert "target_variable" in payload["proposals"][0]
 
@@ -123,3 +125,37 @@ def test_prompt_proposals_json_only_policy(tmp_path: Path) -> None:
         "mvp_golden_quote",
         "mvp_strategy_highlight",
     }
+
+
+def test_bad_case_proposal_uses_role_stage_target_when_player_is_known(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "player_speech",
+            "round_number": 1,
+            "phase": "day_discussion",
+            "data": {"player_id": "player_2", "speech": "5"},
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 1,
+            "phase": "ended",
+            "data": {"winner_camp": "werewolf", "winner_ids": ["player_2"]},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    (tmp_path / "vote_intentions.jsonl").write_text("", encoding="utf-8")
+
+    result = run_post_game_pipeline_sync(tmp_path, skip_llm=True)
+    assert result.ok
+
+    payload = json.loads((tmp_path / "prompt_proposals.json").read_text(encoding="utf-8"))
+    bad_cases = [p for p in payload["proposals"] if p["kind"] == "bad_case_rule"]
+    assert bad_cases
+    assert any(
+        p["target_variable"].startswith("v2.role.")
+        and p["suggested_patch"]["target_field"].startswith("phase_strategies.")
+        for p in bad_cases
+    )

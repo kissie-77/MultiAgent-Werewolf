@@ -561,6 +561,22 @@ class InformationHub:
                     continue
 
                 context = context_builder(speaker)
+                if routed_messages:
+                    prior_lines = [
+                        f"- {msg.speaker_name}: {msg.public_speech}"
+                        for msg in routed_messages
+                        if msg.public_speech.strip()
+                    ]
+                    if prior_lines:
+                        context = "\n\n".join([
+                            context,
+                            "【本轮已听到的发言】",
+                            "\n".join(prior_lines),
+                            (
+                                "请先回应上一位发言者的具体建议：如果同意，要说明你为什么同意并推进到更明确的方案；"
+                                "如果不同意，要点名反驳并给出替代方案。不要像没有听到前面发言一样重新自说自话。"
+                            ),
+                        ])
                 context = "\n\n".join([
                     context,
                     EngineContexts.hub_roundtable_memory_notice(channel.value),

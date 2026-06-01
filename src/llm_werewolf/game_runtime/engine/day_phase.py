@@ -9,6 +9,14 @@ from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
 
 
+def _format_runtime_error(exc: Exception) -> str:
+    """Return a non-empty error string for runtime event logs."""
+    message = str(exc).strip()
+    if message:
+        return f"{type(exc).__name__}: {message}"
+    return type(exc).__name__
+
+
 class DayPhaseMixin:
     """处理白天阶段逻辑的 Mixin。"""
 
@@ -145,7 +153,7 @@ class DayPhaseMixin:
                 on_vote_intention_record=on_intention,
             )
         except Exception as exc:
-            error_text = str(exc).strip() or f"{type(exc).__name__}"
+            error_text = _format_runtime_error(exc)
             self._log_event(
                 EventType.ERROR,
                 self.locale.get("speech_failed", player="*", error=error_text),

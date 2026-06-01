@@ -22,21 +22,21 @@ class PromptManager:
         "Guard": "guard",
         "Werewolf": "wolf",
         "Alpha Wolf": "wolf_king",
-        "White Wolf": "wolf",
-        "Wolf Beauty": "wolf",
-        "Guardian Wolf": "wolf",
-        "Hidden Wolf": "wolf",
-        "Nightmare Wolf": "wolf",
-        "Blood Moon Apostle": "wolf",
-        "Idiot": "villager",
-        "Elder": "villager",
-        "Knight": "villager",
-        "Cupid": "villager",
-        "Raven": "villager",
-        "Magician": "villager",
-        "Graveyard Keeper": "villager",
-        "Thief": "villager",
-        "Lover": "villager",
+        "White Wolf": "white_wolf",
+        "Wolf Beauty": "wolf_beauty",
+        "Guardian Wolf": "guardian_wolf",
+        "Hidden Wolf": "hidden_wolf",
+        "Nightmare Wolf": "nightmare_wolf",
+        "Blood Moon Apostle": "blood_moon_apostle",
+        "Idiot": "idiot",
+        "Elder": "elder",
+        "Knight": "knight",
+        "Cupid": "cupid",
+        "Raven": "raven",
+        "Magician": "magician",
+        "Graveyard Keeper": "graveyard_keeper",
+        "Thief": "thief",
+        "Lover": "lover",
     }
 
     @staticmethod
@@ -63,7 +63,7 @@ class PromptManager:
     @staticmethod
     def get_role_strategy_configs(prompt_version: str = "v2") -> dict[str, dict[str, str]]:
         """返回所有角色策略 prompt 配置。"""
-        keys = ("villager", "prophet", "witch", "wolf", "wolf_king", "guard", "hunter")
+        keys = tuple(PromptManager.GAME_ROLE_TO_PROMPT_KEY.values())
         return {
             key: PromptManager.get_role_strategy_config(key, prompt_version=prompt_version)
             for key in keys

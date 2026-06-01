@@ -25,6 +25,7 @@ from llm_werewolf.interface.cli.runtime.bootstrap import (
     create_information_hub,
     wire_agentscope_after_setup,
 )
+from llm_werewolf.interface.cli.runtime.startup_menu import prompt_startup_selection
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 console = Console()
@@ -172,6 +173,17 @@ def _run_main(
 
 def entry() -> None:
     """Werewolf 控制台命令的入口点。"""
+    if len(sys.argv) == 1:
+        selection = prompt_startup_selection()
+        asyncio.run(
+            main(
+                participation=selection.participation,
+                rules=selection.rules,
+                human_seat=selection.human_seat,
+                players=selection.players,
+            )
+        )
+        return
     fire.Fire(_run_main)
 
 

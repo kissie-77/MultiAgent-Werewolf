@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 
 from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
+from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_run
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,13 @@ async def finalize_run(
         config_path=config_path,
         prompt_version=prompt_version,
     )
+    try:
+        evolve_prompt_from_run(
+            path,
+            base_prompt_version=prompt_version,
+        )
+    except Exception as exc:
+        logger.warning("Prompt auto-evolution failed for %s: %s", path, exc)
     if result.error:
         logger.error("PostGame pipeline failed for %s: %s", path, result.error)
     elif result.stage_errors:

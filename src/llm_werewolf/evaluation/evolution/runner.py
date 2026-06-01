@@ -170,6 +170,7 @@ def _write_evolution_summary(
         "round_count": len(rounds),
         "rounds": round_payloads,
         "round_skill_summaries": round_summaries,
+        "version_diff_summaries": _build_version_diff_summaries(round_summaries),
         "leaderboard_path": str(leaderboard_path),
         "ab_report_path": str(ab_report_path) if ab_report_path is not None else None,
     }
@@ -221,4 +222,41 @@ def _load_manifest_active_skills(manifest_path: Path) -> dict[str, list[dict[str
         if not isinstance(items, list):
             continue
         out[str(role)] = [item for item in items if isinstance(item, dict)]
+    return out
+
+
+def _build_version_diff_summaries(
+    round_summaries: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    previous_version_id: str | None = None
+    previous_role_counts: dict[str, int] = {}
+    for summary in round_summaries:
+        current_role_counts = {
+            str(role): int(count)
+            for role, count in dict(summary.get("active_skill_counts_by_role") or {}).items()
+        }
+        role_changes: dict[str, dict[str, int]] = {}
+        for role in sorted(set(previous_role_counts) | set(current_role_counts)):
+            before = previous_role_counts.get(role, 0)
+            after = current_role_counts.get(role, 0)
+            if before != after:
+                role_changes[role] = {
+                    "before": before,
+                    "after": after,
+                    "delta": after - before,
+                }
+        out.append(
+            {
+                "version_id": summary.get("version_id"),
+                "previous_version_id": previous_version_id,
+                "added_skill_ids": list(summary.get("added_skill_ids") or []),
+                "removed_skill_ids": list(summary.get("removed_skill_ids") or []),
+                "role_count_changes": role_changes,
+                "net_active_skill_delta": int(summary.get("active_skill_count") or 0)
+                - sum(previous_role_counts.values()),
+            }
+        )
+        previous_version_id = str(summary.get("version_id") or "")
+        previous_role_counts = current_role_counts
     return out

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from typing import Any
 from pathlib import Path
 from functools import lru_cache
@@ -10,6 +12,8 @@ from dataclasses import dataclass
 import yaml
 
 _PROMPTS_ROOT = Path(__file__).resolve().parent / "prompts"
+_GENERATED_PROMPTS_ROOT = Path("artifacts") / "prompt_versions"
+_EXTRA_PROMPT_ROOTS: list[Path] = []
 
 ROLE_KEY_TO_VARIABLE: dict[str, str] = {
     "villager": "v2.role.villager",
@@ -133,9 +137,43 @@ class PromptRegistry:
         return spec
 
 
-@lru_cache(maxsize=4)
+def register_prompt_search_root(root: str | Path) -> None:
+    path = Path(root)
+    if path not in _EXTRA_PROMPT_ROOTS:
+        _EXTRA_PROMPT_ROOTS.append(path)
+    get_registry.cache_clear()
+
+
+def prompt_search_roots() -> list[Path]:
+    roots = [_PROMPTS_ROOT, _GENERATED_PROMPTS_ROOT, *_EXTRA_PROMPT_ROOTS]
+    env_roots = os.getenv("LLM_WEREWOLF_PROMPT_ROOTS", "")
+    for raw in env_roots.split(os.pathsep):
+        value = raw.strip()
+        if value:
+            roots.append(Path(value))
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for root in roots:
+        resolved = root.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        out.append(root)
+    return out
+
+
+def resolve_prompt_version_dir(version: str) -> Path:
+    for root in prompt_search_roots():
+        candidate = root / version
+        if candidate.is_dir():
+            return candidate
+    msg = f"Unknown prompt version '{version}'. Searched: {prompt_search_roots()}"
+    raise FileNotFoundError(msg)
+
+
+@lru_cache(maxsize=16)
 def get_registry(version: str = "v2") -> PromptRegistry:
-    version_dir = _PROMPTS_ROOT / version
+    version_dir = resolve_prompt_version_dir(version)
     return PromptRegistry(version_dir)
 
 

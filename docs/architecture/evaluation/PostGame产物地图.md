@@ -63,6 +63,7 @@
 - 运行时记忆和赛后复盘不是两套割裂系统
 
 ### `vote_swing_report.md`
+
 ### `vote_swing_summary.json`
 
 作用：
@@ -76,6 +77,7 @@
 - 已经在分析说服与投票过程
 
 ### `camp_persuasion_report.md`
+
 ### `camp_persuasion_summary.json`
 
 作用：
@@ -90,6 +92,7 @@
 ## 三、日志视图与评分上下文类
 
 ### `views/`
+
 ### `views_manifest.json`
 
 作用：
@@ -102,6 +105,7 @@
 - 复盘材料可被整理成人类可看的形式
 
 ### `views/score_contexts/`
+
 ### `views/score_contexts/manifest.json`
 
 作用：
@@ -141,6 +145,7 @@
 ## 五、LLM 复盘与总报告类
 
 ### `post_game_analysis.json`
+
 ### `post_game_report.md`
 
 作用：
@@ -151,12 +156,15 @@
 说明：
 
 - 当 `skip_llm=True` 时可能不会完整产出
+- `mode=llm` 表示结构化解析成功；`failed` 时 `summary_zh` 为规则转折点摘要（非 LLM 正文）
+- 解析路径见 `docs/evaluation/DESIGN.md` §5.1（Doubao `generate_response` tool_use 兜底）
 
 可以证明：
 
 - 赛后复盘不只是规则统计，也有总结层分析
 
 ### `game_quality_report.md`
+
 ### `game_quality_report.json`
 
 作用：

@@ -49,30 +49,30 @@ run_dir/
 
 ### `post_game_manifest.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame 流水线启动时写入 |
-| 内容 | 流水线索引：run_dir、prompt_version、winner_camp、roster、各步骤状态 |
-| 消费方 | leaderboard_entry 构建、backfill 脚本、前端回放页 |
-| 生成器 | `post_game/pipeline.py` |
+| 字段     | 说明                                                                 |
+| -------- | -------------------------------------------------------------------- |
+| 生成时机 | PostGame 流水线启动时写入                                            |
+| 内容     | 流水线索引：run_dir、prompt_version、winner_camp、roster、各步骤状态 |
+| 消费方   | leaderboard_entry 构建、backfill 脚本、前端回放页                    |
+| 生成器   | `post_game/pipeline.py`                                              |
 
 ### `events.jsonl`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | 对局过程中由 EventLogger 实时写入 |
-| 内容 | 每行一个 JSON Event（event_type、phase、round_number、message、data、visible_to） |
-| 消费方 | PostGame 分析、回放前端、views 生成、skill 提取 |
-| 生成器 | `game_runtime/events/events.py` |
+| 字段     | 说明                                                                              |
+| -------- | --------------------------------------------------------------------------------- |
+| 生成时机 | 对局过程中由 EventLogger 实时写入                                                 |
+| 内容     | 每行一个 JSON Event（event_type、phase、round_number、message、data、visible_to） |
+| 消费方   | PostGame 分析、回放前端、views 生成、skill 提取                                   |
+| 生成器   | `game_runtime/events/events.py`                                                   |
 
 ### `post_game_analysis.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame 流水线 LLM 复盘步骤完成后 |
-| 内容 | mode（success/failed）、summary_zh、prompt_suggestions、risks |
-| 消费方 | post_game_report.md 生成、prompt_proposals |
-| 生成器 | `post_game/eval_agent.py` |
+| 字段     | 说明                                                          |
+| -------- | ------------------------------------------------------------- |
+| 生成时机 | PostGame 流水线 LLM 复盘步骤完成后                            |
+| 内容     | mode（`llm` / `failed` / `skipped`）、summary_zh、prompt_suggestions、risks |
+| 消费方   | post_game_report.md 生成、prompt_proposals                    |
+| 生成器   | `post_game/eval_agent.py`（`_parse_replay_decision`：metadata → tool_use → 文本 JSON） |
 
 ---
 
@@ -80,30 +80,30 @@ run_dir/
 
 ### `benefit_scores.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame 评分步骤 |
-| 内容 | 每个玩家的收益评分（total_score、分项得分） |
-| 消费方 | leaderboard_entry 构建、MVP 计算 |
-| 生成器 | `scoring/benefit.py` |
+| 字段     | 说明                                        |
+| -------- | ------------------------------------------- |
+| 生成时机 | PostGame 评分步骤                           |
+| 内容     | 每个玩家的收益评分（total_score、分项得分） |
+| 消费方   | leaderboard_entry 构建、MVP 计算            |
+| 生成器   | `scoring/benefit.py`                        |
 
 ### `intention_scores.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame 评分步骤 |
-| 内容 | 每个玩家的意图一致性评分（avg_score） |
-| 消费方 | leaderboard_entry 构建 |
-| 生成器 | `scoring/intention.py` |
+| 字段     | 说明                                  |
+| -------- | ------------------------------------- |
+| 生成时机 | PostGame 评分步骤                     |
+| 内容     | 每个玩家的意图一致性评分（avg_score） |
+| 消费方   | leaderboard_entry 构建                |
+| 生成器   | `scoring/intention.py`                |
 
 ### `camp_persuasion_summary.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame 阵营分析步骤 |
-| 内容 | 各阵营的说服力分析（speech influence、vote swing） |
-| 消费方 | skill 提取（判断获胜阵营的发言策略） |
-| 生成器 | `post_game/camp_persuasion.py` |
+| 字段     | 说明                                               |
+| -------- | -------------------------------------------------- |
+| 生成时机 | PostGame 阵营分析步骤                              |
+| 内容     | 各阵营的说服力分析（speech influence、vote swing） |
+| 消费方   | skill 提取（判断获胜阵营的发言策略）               |
+| 生成器   | `post_game/camp_persuasion.py`                     |
 
 ---
 
@@ -111,30 +111,30 @@ run_dir/
 
 ### `role_skills.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame skill 提取步骤 |
-| 内容 | 提取的 Skill 候选列表（skill_id、camp、status、weight、skill_card、evidence） |
-| 消费方 | skill MD 写入、coach 分析、leaderboard |
-| 生成器 | `post_game/skill_generation/skill_extractor.py` |
+| 字段     | 说明                                                                          |
+| -------- | ----------------------------------------------------------------------------- |
+| 生成时机 | PostGame skill 提取步骤                                                       |
+| 内容     | 提取的 Skill 候选列表（skill_id、camp、status、weight、skill_card、evidence） |
+| 消费方   | skill MD 写入、coach 分析、leaderboard                                        |
+| 生成器   | `post_game/skill_generation/skill_extractor.py`                               |
 
 ### `skills/<role>/<skill_version>/<skill_id>.md`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | skill 提取后，通过质量门控的候选写入 |
-| 内容 | YAML frontmatter（skill_id、status、weight、when_to_use）+ Markdown 正文 |
-| 消费方 | runtime agent prompt 注入（`skill_loader.py`）、semantic memory |
-| 生成器 | `skill_generation/skill_md.py` + `skill_extractor.py` |
+| 字段     | 说明                                                                     |
+| -------- | ------------------------------------------------------------------------ |
+| 生成时机 | skill 提取后，通过质量门控的候选写入                                     |
+| 内容     | YAML frontmatter（skill_id、status、weight、when_to_use）+ Markdown 正文 |
+| 消费方   | runtime agent prompt 注入（`skill_loader.py`）、semantic memory          |
+| 生成器   | `skill_generation/skill_md.py` + `skill_extractor.py`                    |
 
 ### `prompt_proposals.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame prompt 提案步骤 |
-| 内容 | suggested_patch 列表（section、action、text_zh）、apply_policy |
-| 消费方 | 人工审核（当前为 json_only_no_runtime_replace，不自动回写） |
-| 生成器 | `post_game/prompt_proposal.py` |
+| 字段     | 说明                                                           |
+| -------- | -------------------------------------------------------------- |
+| 生成时机 | PostGame prompt 提案步骤                                       |
+| 内容     | suggested_patch 列表（section、action、text_zh）、apply_policy |
+| 消费方   | 人工审核（当前为 json_only_no_runtime_replace，不自动回写）    |
+| 生成器   | `post_game/prompt_proposal.py`                                 |
 
 ---
 
@@ -142,30 +142,30 @@ run_dir/
 
 ### `coach_summary.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame coach 步骤 |
-| 内容 | coach_summary_v1 汇总：skill_snapshot、skill_diff、enrichment 数据 |
-| 消费方 | 版本链追踪、前后对比 |
-| 生成器 | `post_game/coach/coach.py` |
+| 字段     | 说明                                                               |
+| -------- | ------------------------------------------------------------------ |
+| 生成时机 | PostGame coach 步骤                                                |
+| 内容     | coach_summary_v1 汇总：skill_snapshot、skill_diff、enrichment 数据 |
+| 消费方   | 版本链追踪、前后对比                                               |
+| 生成器   | `post_game/coach/coach.py`                                         |
 
 ### `skill_snapshot.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | coach 步骤中构建 |
-| 内容 | skill_snapshot_v1：当前 run 的 skill 快照（skill_id → description、weight、status） |
-| 消费方 | 下一版 run 的 skill_diff 对比、experiment_meta 的 previous_skill_snapshot_path |
-| 生成器 | `post_game/coach/coach.py` |
+| 字段     | 说明                                                                                |
+| -------- | ----------------------------------------------------------------------------------- |
+| 生成时机 | coach 步骤中构建                                                                    |
+| 内容     | skill_snapshot_v1：当前 run 的 skill 快照（skill_id → description、weight、status） |
+| 消费方   | 下一版 run 的 skill_diff 对比、experiment_meta 的 previous_skill_snapshot_path      |
+| 生成器   | `post_game/coach/coach.py`                                                          |
 
 ### `skill_diff.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | coach 步骤中构建 |
-| 内容 | skill_diff_v1：与上一版快照的对比（added、removed、changed 列表） |
-| 消费方 | 版本链分析、进化报告 |
-| 生成器 | `post_game/coach/coach.py` |
+| 字段     | 说明                                                              |
+| -------- | ----------------------------------------------------------------- |
+| 生成时机 | coach 步骤中构建                                                  |
+| 内容     | skill_diff_v1：与上一版快照的对比（added、removed、changed 列表） |
+| 消费方   | 版本链分析、进化报告                                              |
+| 生成器   | `post_game/coach/coach.py`                                        |
 
 ---
 
@@ -173,21 +173,21 @@ run_dir/
 
 ### `leaderboard_entry.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame 完成后由 entry_builder 构建（或 backfill 脚本补生成） |
-| 内容 | leaderboard_entry_v1：version_id、model、prompt_version、skill_version、win_rate、avg_mvp_score、avg_benefit_score 等 |
-| 消费方 | leaderboard 聚合、A/B 对比、版本链分析 |
-| 生成器 | `leaderboard/entry_builder.py` |
+| 字段     | 说明                                                                                                                  |
+| -------- | --------------------------------------------------------------------------------------------------------------------- |
+| 生成时机 | PostGame 完成后由 entry_builder 构建（或 backfill 脚本补生成）                                                        |
+| 内容     | leaderboard_entry_v1：version_id、model、prompt_version、skill_version、win_rate、avg_mvp_score、avg_benefit_score 等 |
+| 消费方   | leaderboard 聚合、A/B 对比、版本链分析                                                                                |
+| 生成器   | `leaderboard/entry_builder.py`                                                                                        |
 
 ### `experiment_meta.json`
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | 与 leaderboard_entry 一起生成 |
-| 内容 | experiment_meta_v1：version_id、model、prompt_version、skill_version、previous_run_dir、previous_skill_snapshot_path |
-| 消费方 | coach 的 skill_diff（找上一版快照）、版本链构建、A/B 对比 |
-| 生成器 | `leaderboard/entry_builder.py` |
+| 字段     | 说明                                                                                                                 |
+| -------- | -------------------------------------------------------------------------------------------------------------------- |
+| 生成时机 | 与 leaderboard_entry 一起生成                                                                                        |
+| 内容     | experiment_meta_v1：version_id、model、prompt_version、skill_version、previous_run_dir、previous_skill_snapshot_path |
+| 消费方   | coach 的 skill_diff（找上一版快照）、版本链构建、A/B 对比                                                            |
+| 生成器   | `leaderboard/entry_builder.py`                                                                                       |
 
 ---
 
@@ -195,19 +195,19 @@ run_dir/
 
 ### `views/`
 
-| 文件 | 说明 |
-|------|------|
-| `god_timeline.md` | 上帝视角全事件时间线 |
+| 文件                      | 说明                 |
+| ------------------------- | -------------------- |
+| `god_timeline.md`         | 上帝视角全事件时间线 |
 | `player_<id>_timeline.md` | 单玩家视角事件时间线 |
 | `role_<role>_timeline.md` | 单角色视角事件时间线 |
-| `public_digest.md` | 公开事件摘要 |
-| `swing_digest.json` | 投票摆动摘要 |
+| `public_digest.md`        | 公开事件摘要         |
+| `swing_digest.json`       | 投票摆动摘要         |
 
-| 字段 | 说明 |
-|------|------|
-| 生成时机 | PostGame 视图生成步骤 |
-| 消费方 | 前端回放页、人工复盘 |
-| 生成器 | `log_views/builder.py` |
+| 字段     | 说明                   |
+| -------- | ---------------------- |
+| 生成时机 | PostGame 视图生成步骤  |
+| 消费方   | 前端回放页、人工复盘   |
+| 生成器   | `log_views/builder.py` |
 
 ---
 
@@ -237,9 +237,9 @@ run_dir/
 
 ## 当前还缺什么
 
-| 缺口 | 说明 |
-|------|------|
-| 自动回写 | prompt_proposals 只写 JSON，不回写 prompt YAML |
-| 版本回滚 | experiment_meta 只记录 previous，没有 rollback 命令 |
-| 趋势追踪 | leaderboard 只有单次排名，没有跨版本胜率趋势图 |
-| 统计显著性 | A/B 对比只有阈值判断，没有 p-value |
+| 缺口       | 说明                                                |
+| ---------- | --------------------------------------------------- |
+| 自动回写   | prompt_proposals 只写 JSON，不回写 prompt YAML      |
+| 版本回滚   | experiment_meta 只记录 previous，没有 rollback 命令 |
+| 趋势追踪   | leaderboard 只有单次排名，没有跨版本胜率趋势图      |
+| 统计显著性 | A/B 对比只有阈值判断，没有 p-value                  |

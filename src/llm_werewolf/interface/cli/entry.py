@@ -65,7 +65,7 @@ def _announce_human_identity(engine: GameEngine, locale: Locale) -> None:
 async def main(
     config: str | None = None,
     participation: str = "all_agent",
-    rules: str = "badge_flow",
+    rules: str | None = None,
     players: int | None = None,
     human_seat: str | None = None,
     plan_assignment: str | None = None,
@@ -84,7 +84,8 @@ async def main(
         plan_assignment_seed: role_random 的复现种子；也可覆盖 YAML 中的 seed。
         badge_flow: 是否开启警长 / 警徽流（首夜后的警长选举）；缺省关闭，行为与现状一致。
     """
-    config_path = resolve_config_path(config, participation=participation, rules=rules)
+    resolved_rules = rules or "badge_flow"
+    config_path = resolve_config_path(config, participation=participation, rules=resolved_rules)
     players_config = load_config(config_path=config_path)
 
     try:
@@ -110,7 +111,7 @@ async def main(
 
     num_players = len(players_config.players)
     agents, roles, game_config = prepare_game_roster(players_config)
-    if badge_flow or rules == "badge_flow":
+    if _should_enable_sheriff(config=config, rules=rules, badge_flow=badge_flow):
         game_config = game_config.model_copy(update={"enable_sheriff": True})
 
     locale = Locale(players_config.language)
@@ -204,7 +205,7 @@ async def main(
 def _run_main(
     config: str | None = None,
     participation: str = "all_agent",
-    rules: str = "badge_flow",
+    rules: str | None = None,
     players: int | None = None,
     human_seat: str | None = None,
     plan_assignment: str | None = None,
@@ -224,6 +225,16 @@ def _run_main(
             badge_flow=badge_flow,
         )
     )
+
+
+def _should_enable_sheriff(
+    *, config: str | None, rules: str | None, badge_flow: bool
+) -> bool:
+    if badge_flow:
+        return True
+    if rules == "badge_flow":
+        return True
+    return config is None and rules is None
 
 
 def entry() -> None:

@@ -33,6 +33,7 @@ class ConsolePresenter:
         self._in_voting_phase = False
         self._discussion_messages: list[str] = []
         self._werewolf_discussion: list[str] = []
+        self._delayed_night_public_events: list[Event] = []
 
     def _is_traditional_chinese(self) -> bool:
         return getattr(self.locale, "language", "") == "zh-TW"
@@ -71,6 +72,17 @@ class ConsolePresenter:
             EventType.SHERIFF_ELECTED,
             EventType.SHERIFF_BADGE_TRANSFERRED,
         }
+
+    @staticmethod
+    def _phase_value(event: Event) -> str:
+        return str(getattr(event.phase, "value", event.phase))
+
+    def _is_night_phase(self, event: Event) -> bool:
+        return self._phase_value(event) == "night"
+
+    @staticmethod
+    def _is_daybreak_message(event: Event) -> bool:
+        return event.event_type == EventType.MESSAGE and (event.data or {}).get("action") == "daybreak"
 
     def _handle_special_events(self, event: Event) -> bool:
         """处理特殊事件类型，并返回是否已处理。
@@ -170,11 +182,18 @@ class ConsolePresenter:
         """
         if viewer_id is not None and not event.is_visible_to(viewer_id):
             return
-        if viewer_id is not None and self._is_night_action_event(event.event_type):
-            return
-        if viewer_id is not None and event.event_type == EventType.PLAYER_SPEECH:
-            self._present_live_speech(event)
-            return
+        if viewer_id is not None:
+            if event.event_type == EventType.PLAYER_DIED and self._is_night_phase(event):
+                self._delayed_night_public_events.append(event)
+                return
+            if not self._is_night_phase(event) and not self._is_daybreak_message(event):
+                self._flush_delayed_night_public_events()
+            if self._is_night_action_event(event.event_type):
+                self._present_private_night_action(event)
+                return
+            if event.event_type == EventType.PLAYER_SPEECH:
+                self._present_live_speech(event)
+                return
 
         # 处理阶段切换
         if event.event_type == EventType.PHASE_CHANGED:
@@ -202,7 +221,8 @@ class ConsolePresenter:
     def _handle_phase_change(self, event: Event) -> None:
         """处理阶段切换并输出视觉分隔符。"""
         tw = self._is_traditional_chinese()
-        if event.data and event.data.get("phase") == "night":
+        phase_value = str((event.data or {}).get("phase", ""))
+        if phase_value == "night":
             # 入夜前刷新已缓冲内容（但不刷新狼人讨论）
             self._flush_discussion()
             self._flush_votes()
@@ -217,9 +237,10 @@ class ConsolePresenter:
             )
             console.print("═" * 70, style="blue")
             console.print()
-        elif event.data and event.data.get("phase") == "day":
+        elif phase_value.startswith("day"):
             # 入昼前刷新夜间行动和狼人讨论
             self._flush_night_actions()
+            self._flush_delayed_night_public_events()
 
             round_num = event.data.get("round", 0)
             round_label = "輪" if tw else "轮"
@@ -262,6 +283,7 @@ class ConsolePresenter:
                 "☀️  天亮了，所有人請睜眼..." if tw else "☀️  天亮了，所有人请睁眼...",
                 style="bold yellow",
             )
+            self._flush_delayed_night_public_events()
         else:
             console.print(event.message, style="dim italic")
 
@@ -290,6 +312,11 @@ class ConsolePresenter:
 
         self._night_actions.append(f"{icon} {message}")
 
+    def _present_private_night_action(self, event: Event) -> None:
+        """Show night information that is visible to the current human player."""
+        console.print()
+        console.print(f"🔒 私密夜间信息：{event.message}", style="cyan")
+
     def _flush_night_actions(self) -> None:
         """展示所有已缓冲的夜间行动。"""
         if not self._night_actions:
@@ -303,6 +330,15 @@ class ConsolePresenter:
         console.print()
 
         self._night_actions = []
+
+    def _flush_delayed_night_public_events(self) -> None:
+        """在人类玩家视角下，把夜间公开结果延迟到离开夜晚后展示。"""
+        if not self._delayed_night_public_events:
+            return
+
+        for event in self._delayed_night_public_events:
+            self._present_death(event)
+        self._delayed_night_public_events = []
 
     def _buffer_discussion(self, event: Event) -> None:
         """缓冲讨论消息以便分组展示。"""

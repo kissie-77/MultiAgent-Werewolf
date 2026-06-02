@@ -64,3 +64,18 @@ def test_day_vote_prompt_does_not_include_role_night_action() -> None:
 
     assert "预言家请睁眼" not in prompt
     assert "请投票选择你想淘汰的玩家" in prompt
+
+
+def test_sheriff_vote_prompt_does_not_include_role_night_action() -> None:
+    targets = [Player("player_2", "玩家2", Villager), Player("player_3", "玩家3", Werewolf)]
+
+    prompt = WerewolfAdapterBridge.build_target_selection_prompt(
+        "Villager",
+        "请投票选择你想支持的警长候选人",
+        targets,
+        allow_skip=True,
+        action_phase=ActionPhase.SHERIFF_VOTE,
+    )
+
+    assert "预言家请睁眼" not in prompt
+    assert "请投票选择你想支持的警长候选人" in prompt

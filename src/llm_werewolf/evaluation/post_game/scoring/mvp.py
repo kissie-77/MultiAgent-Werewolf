@@ -143,6 +143,10 @@ def _data_quality(
         limitations.append("完整白天讨论不足 2 轮，说服分样本偏少")
     if camp_report and not any(s.public_speech.strip() for s in camp_report.speeches):
         limitations.append("缺少有效公开发言")
+    runtime_errors = _runtime_error_samples(ctx.events)
+    if runtime_errors:
+        confidence = "low"
+        limitations.append("本局出现运行时错误、超时或结构化输出中断，评分仅供排查参考")
 
     return {
         "has_vote_intentions": has_intentions,
@@ -151,7 +155,27 @@ def _data_quality(
         "distinct_day_rounds": distinct_rounds,
         "confidence": confidence,
         "limitations": limitations,
+        "runtime_error_count": len(runtime_errors),
+        "runtime_error_samples": runtime_errors[:3],
     }
+
+
+def _runtime_error_samples(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    samples: list[dict[str, Any]] = []
+    for event in events:
+        if str(event.get("event_type", "")) != "error":
+            continue
+        data = event.get("data") or {}
+        message = str(data.get("error") or event.get("message") or "")
+        error_type = str(data.get("error_type") or "")
+        samples.append({
+            "round_number": event.get("round_number"),
+            "phase": event.get("phase"),
+            "player_id": data.get("player_id"),
+            "error_type": error_type,
+            "error": message[:160],
+        })
+    return samples
 
 
 def build_mvp_scores(

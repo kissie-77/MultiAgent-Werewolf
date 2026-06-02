@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.strategy.decisions import SpeechDecision
+from llm_werewolf.strategy.phase_outputs import ActionPhase
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
@@ -198,6 +199,7 @@ class SheriffElectionMixin:
                     fallback_random=False,
                     round_number=self.game_state.round_number,
                     phase=GamePhase.SHERIFF_ELECTION.value,
+                    action_phase=ActionPhase.SHERIFF_VOTE,
                 )
             except Exception as exc:
                 self._log_event(

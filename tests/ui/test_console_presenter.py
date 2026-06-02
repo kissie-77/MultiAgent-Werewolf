@@ -50,9 +50,83 @@ def test_present_event_skips_invisible_for_viewer(presenter: ConsolePresenter, m
 def test_present_event_skips_private_night_action_for_viewer(
     presenter: ConsolePresenter, mock_print
 ) -> None:
-    event = _event(EventType.SEER_CHECKED, phase=GamePhase.NIGHT)
+    event = _event(
+        EventType.SEER_CHECKED,
+        phase=GamePhase.NIGHT,
+        visible_to=["player_2"],
+    )
     presenter.present_event(event, viewer_id="player_1")
     mock_print.assert_not_called()
+
+
+def test_human_viewer_sees_own_private_night_action(
+    presenter: ConsolePresenter, mock_print
+) -> None:
+    event = _event(
+        EventType.SEER_CHECKED,
+        message="预言家查验：玩家2 是好人",
+        phase=GamePhase.NIGHT,
+        visible_to=["player_1"],
+    )
+
+    presenter.present_event(event, viewer_id="player_1")
+
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    assert "私密夜间信息" in rendered
+    assert "预言家查验" in rendered
+
+
+def test_human_viewer_delays_public_night_death_until_daybreak(
+    presenter: ConsolePresenter, mock_print
+) -> None:
+    presenter.present_event(
+        _event(
+            EventType.PLAYER_DIED,
+            message="玩家4 被狼人杀害",
+            phase=GamePhase.NIGHT,
+        ),
+        viewer_id="player_1",
+    )
+
+    mock_print.assert_not_called()
+
+    presenter.present_event(
+        _event(
+            EventType.MESSAGE,
+            message="☀️ 天亮了，所有人请睁眼...",
+            phase=GamePhase.DAY_DISCUSSION,
+            data={"action": "daybreak"},
+        ),
+        viewer_id="player_1",
+    )
+
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    assert "天亮了" in rendered
+    assert "玩家4 被狼人杀害" in rendered
+    assert rendered.index("天亮了") < rendered.index("玩家4 被狼人杀害")
+
+
+def test_human_viewer_flushes_night_death_before_sheriff_event(
+    presenter: ConsolePresenter, mock_print
+) -> None:
+    presenter.present_event(
+        _event(EventType.PLAYER_DIED, message="玩家4 被狼人杀害", phase=GamePhase.NIGHT),
+        viewer_id="player_1",
+    )
+
+    presenter.present_event(
+        _event(
+            EventType.SHERIFF_CAMPAIGN_STARTED,
+            message="警长选举开始",
+            phase=GamePhase.SHERIFF_ELECTION,
+        ),
+        viewer_id="player_1",
+    )
+
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    assert "玩家4 被狼人杀害" in rendered
+    assert "警长选举开始" in rendered
+    assert rendered.index("玩家4 被狼人杀害") < rendered.index("警长选举开始")
 
 
 def test_present_event_skips_wolf_discussion_for_villager_viewer(
@@ -116,12 +190,13 @@ def test_present_phase_changes_flush_buffers(presenter: ConsolePresenter, mock_p
         _event(
             EventType.PHASE_CHANGED,
             phase=GamePhase.DAY_DISCUSSION,
-            data={"phase": "day", "round": 1},
+            data={"phase": "day_discussion", "round": 1},
         )
     )
     assert mock_print.call_count >= 3
     rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
     assert "第 1 轮 - 黑夜" in rendered
+    assert "第 1 轮 - 白天" in rendered
     assert "第 1 輪 - 黑夜" not in rendered
 
 

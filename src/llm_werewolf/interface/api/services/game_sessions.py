@@ -40,6 +40,10 @@ from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persis
 logger = logging.getLogger(__name__)
 
 
+def _has_human_player(players_config: PlayersConfig) -> bool:
+    return any(player.model == "human" for player in players_config.players)
+
+
 class GameSessionStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -107,6 +111,10 @@ class GameSessionManager:
         base_config = load_config(config_path=resolved)
         participation, rules = resolve_start_rules(request)
         players_config = prepare_start_players_config(base_config, request)
+        effective_players_config = players_config or base_config
+        if _has_human_player(effective_players_config):
+            msg = "Web human-player games are not supported yet; use the CLI werewolf command for human mixed games."
+            raise ValueError(msg)
         custom_roster = has_roster_customizations(request)
         badge_flow = bool(request.badge_flow)
         human_seats = list(request.human_seats or [])

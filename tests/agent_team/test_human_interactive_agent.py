@@ -1,5 +1,7 @@
 """HumanInteractiveAgent prompt rendering tests."""
 
+import pytest
+
 from llm_werewolf.agent_team.agents.human_interactive_agent import HumanInteractiveAgent
 
 
@@ -131,6 +133,94 @@ def test_human_speech_prompt_is_minimal_even_with_roundtable_context() -> None:
     assert "任务" not in rendered
 
 
+def test_human_seat_prompt_is_minimal_for_action_input() -> None:
+    agent = HumanInteractiveAgent(name="玩家1", model="human")
+    prompt = "\n".join([
+        "你是Villager。",
+        "当前：第 1 轮 — Voting",
+        "任务：请投票选择你想淘汰的玩家",
+        "",
+        "你是 玩家1。",
+        "当前阶段：day_voting",
+        "存活概况：5/6 人存活",
+        "场上玩家：",
+        "- 玩家1（player_1）：存活",
+        "可见事件记录：",
+        "- 玩家4 被狼人杀害",
+        "私密信息：",
+        "- 你的身份是 Villager。",
+        "可选目标：",
+        "- 座位 2：玩家2（ID: player_2）",
+        "- 座位 0：跳过（不执行此行动）",
+        "",
+        "预言家请睁眼，选择你要验的玩家编号，回答编号，放在[[]]里",
+        "请只回复目标玩家的全局座位号，放在 [[数字]] 中。",
+    ])
+
+    rendered = agent._render_prompt(prompt, kind="seat")
+
+    assert "你是Villager" in rendered
+    assert "当前：第 1 轮 — Voting" in rendered
+    assert "请投票选择你想淘汰的玩家" in rendered
+    assert "座位 2" in rendered
+    assert "座位 0" in rendered
+    assert "场上玩家" not in rendered
+    assert "可见事件记录" not in rendered
+    assert "私密信息" not in rendered
+    assert "预言家请睁眼" not in rendered
+
+
+def test_human_yesno_prompt_is_minimal_for_action_input() -> None:
+    agent = HumanInteractiveAgent(name="玩家1", model="human")
+    prompt = "\n".join([
+        "你是Villager。",
+        "当前：第 1 轮 — sheriff_election",
+        "问题：你是否愿意竞选警长？",
+        "",
+        "你是 玩家1。",
+        "当前阶段：sheriff_election",
+        "可见事件记录：",
+        "- 玩家4 被狼人杀害",
+        "私密信息：",
+        "- 你的身份是 Villager。",
+        "请只回复 [[1]] 表示是，[[0]] 表示否。不要输出其他文字。",
+    ])
+
+    rendered = agent._render_prompt(prompt, kind="yesno")
+
+    assert "你是Villager" in rendered
+    assert "你是否愿意竞选警长" in rendered
+    assert "可见事件记录" not in rendered
+    assert "私密信息" not in rendered
+    assert "玩家4 被狼人杀害" not in rendered
+
+
+def test_human_witch_prompt_keeps_only_action_facts() -> None:
+    agent = HumanInteractiveAgent(name="玩家2", model="human")
+    prompt = "\n".join([
+        "你是Witch。",
+        "女巫请睁眼。",
+        "当前：第 1 轮 — Night",
+        "今晚被狼人击杀的是 5 号玩家5。",
+        "你是 玩家2。",
+        "当前阶段：night",
+        "可见事件记录：",
+        "- 狼人选择了 玩家5",
+        "若选择 poison，可选毒杀目标：",
+        "- 座位 3：玩家3（ID: player_3）",
+        "请在本回合三选一：救人(save) / 毒人(poison) / 不行动(none)。",
+    ])
+
+    rendered = agent._render_prompt(prompt, kind="witch")
+
+    assert "你是Witch" in rendered
+    assert "女巫请睁眼" in rendered
+    assert "今晚被狼人击杀的是 5 号" in rendered
+    assert "座位 3" in rendered
+    assert "三选一" in rendered
+    assert "可见事件记录" not in rendered
+
+
 def test_human_prompt_classifies_wolf_discussion_as_speech() -> None:
     agent = HumanInteractiveAgent(name="玩家1", model="human")
     prompt = "\n".join([
@@ -182,3 +272,54 @@ def test_human_seat_input_must_be_in_options() -> None:
 
     assert normalized is None
     assert "不在可选目标中" in error
+
+
+def test_human_invalid_fallbacks_do_not_return_raw_input() -> None:
+    assert "?" not in HumanInteractiveAgent._fallback_after_invalid("speech", False)
+    assert "弃发言" in HumanInteractiveAgent._fallback_after_invalid("speech", False)
+    assert HumanInteractiveAgent._fallback_after_invalid("yesno", False) == "0"
+    assert HumanInteractiveAgent._fallback_after_invalid("witch", False) == "none"
+    assert HumanInteractiveAgent._fallback_after_invalid("seat", True) == "0"
+    assert HumanInteractiveAgent._fallback_after_invalid("seat", False) == ""
+
+
+@pytest.mark.asyncio
+async def test_human_get_response_uses_safe_fallback_after_invalid_speech(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agent = HumanInteractiveAgent(name="玩家1", model="human")
+    inputs = iter(["?", "??", "???"])
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
+
+    response = await agent.get_response("【子阶段·仅发言】\n【任务】白天公开讨论轮。")
+
+    assert "弃发言" in response
+    assert "?" not in response
+
+
+@pytest.mark.asyncio
+async def test_human_get_response_prints_waiting_hint_after_valid_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agent = HumanInteractiveAgent(name="玩家1", model="human")
+    rendered: list[str] = []
+
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "3")
+    monkeypatch.setattr(
+        "llm_werewolf.agent_team.agents.human_interactive_agent.console.print",
+        lambda message="", *args, **kwargs: rendered.append(str(message)),
+    )
+
+    response = await agent.get_response(
+        "\n".join([
+            "你是Villager。",
+            "任务：请投票选择你想淘汰的玩家",
+            "可选目标：",
+            "- 座位 3：玩家3（ID: player_3）",
+            "- 座位 0：跳过（不执行此行动）",
+        ])
+    )
+
+    assert response == "3"
+    assert any("等待其他玩家决策" in line for line in rendered)

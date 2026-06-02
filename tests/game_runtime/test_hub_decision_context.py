@@ -82,6 +82,17 @@ def test_observation_does_not_expose_player_model_or_backend(engine_with_speech_
     assert "demo" not in lowered
 
 
+def test_observation_does_not_expose_hidden_alive_camp_counts(engine_with_speech_event) -> None:
+    """玩家可见上下文不能暴露当前存活狼/好人数量。"""
+    engine, player = engine_with_speech_event
+
+    text = engine.build_player_observation(player, for_agent_decision=True)
+
+    assert "存活概况：6/6 人存活" in text
+    assert "狼人 2" not in text
+    assert "好人 4" not in text
+
+
 def test_human_discussion_context_excludes_belief_tracking_blocks() -> None:
     config = create_game_config_from_player_count(6)
     engine = GameEngine(config, information_hub=create_information_hub())
@@ -133,3 +144,5 @@ def test_discussion_context_includes_current_role_pool_boundary() -> None:
     assert "Guard x" not in context
     assert "【公开发言信息边界】" in context
     assert "不要无意识泄露夜间技能结果" in context
+    assert "除非这些内容已在公开对话记忆中明确出现" in context
+    assert "不要写成已经发生或已经有人公开声明的事实" in context

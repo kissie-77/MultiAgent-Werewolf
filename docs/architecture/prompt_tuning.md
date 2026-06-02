@@ -29,6 +29,7 @@
 | v2_role_card_schema | 2026-06-01 | `strategy/prompts/v2/roles/*.yaml` + `prompt_registry.py`          | 角色卡 Schema 迁移报告   | 将角色卡从自由文本 `suggestion` 升级为结构化字段，并扩展到 22 个角色             | 已实现             |
 | v2_20260601_172033_prompt | 2026-06-01 | `artifacts/prompt_versions/v2_20260601_172033_prompt/`             | 自进化 Prompt 快照       | 记录 6.1 迭代后的生成版 Prompt，父版本为 `v2`                                    | generated          |
 | v2_role_style_plans | 2026-06-02 | `PlanStrategies` + `PlayersConfig.plan_assignment`                 | 同模型同角色发言同质化问题 | 用角色专属风格 plan 做保守/激进/质疑/协调分流，支持手写与开局随机分配           | 已实现             |
+| v2_public_fact_boundary | 2026-06-02 | `EngineContexts.public_speech_information_boundary` + `PromptBadCaseChecker` | 人机混战公开发言幻觉 | 禁止把未公开出现的跳身份、救人、验人、刀口写成事实；赛后标记无支撑公开事实 claim | 已实现             |
 
 ## v3 Per-role 版本控制（2026-05-26）
 
@@ -160,6 +161,17 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --plan_assignment off
 uv run llm-werewolf --config configs/human-6p-demo.yaml --plan_assignment role_cycle
 uv run llm-werewolf --config configs/human-6p-demo.yaml --plan_assignment role_random --plan_assignment_seed 20260602
 ```
+
+## 公开事实边界加严（2026-06-02）
+
+人机混战实测发现，部分 Agent 会把没有公开发生过的信息写成事实，例如第一轮白天凭空说“某玩家跳女巫并救了某人”。这不是信息泄露，而是模型根据狼人杀常见叙事进行过度补全，会污染公开发言和后续投票意向。
+
+本次修复把约束放在两个位置：
+
+- 运行时白天公开发言上下文：`EngineContexts.public_speech_information_boundary()` 明确要求只把公开对话记忆中出现过的跳身份、验人、用药、刀口等写成事实；如果只是推测，必须使用“我怀疑 / 我推测 / 可能”等表述。
+- 赛后 bad case：`PromptBadCaseChecker` 检测“公开事实无支撑”发言，例如在没有前置公开支撑时声称“2号跳女巫救了3号”，用于复盘和 prompt 调优定位。
+
+该修复不禁止玩家主动跳身份，也不禁止利用自己的私密信息制定策略；限制的是 public_speech 不能把未公开来源包装成“已经有人公开声明/已经发生”的事实。
 
 ## v2_role_strategy 改动说明
 

@@ -98,6 +98,10 @@ _KIND_YESNO = "yesno"
 _KIND_SEAT = "seat"
 _KIND_SPEECH = "speech"
 
+_INVALID_SPEECH_FALLBACK = (
+    "我这轮暂时弃发言，先听其他玩家的发言和投票，再根据后续信息判断。"
+)
+
 
 class HumanInteractiveAgent(BaseAgent):
     """控制台人类玩家。仅需按提示输入座位号 / 1或0 / 中文发言即可参与。"""
@@ -123,10 +127,57 @@ class HumanInteractiveAgent(BaseAgent):
             return "请进行 PK 发言。"
         return "请进行白天公开发言。"
 
+    @staticmethod
+    def _render_action_prompt(message: str, kind: str) -> str:
+        """人类行动只展示必要输入信息，不展示 Agent observation。"""
+        kept: list[str] = []
+        in_targets = False
+        seen_identity = False
+
+        for line in message.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            if stripped.startswith("你是"):
+                if not seen_identity:
+                    kept.append(stripped)
+                    seen_identity = True
+                in_targets = False
+                continue
+            if stripped.startswith(("当前：", "当前回合：", "任务：", "问题：")):
+                kept.append(stripped)
+                in_targets = False
+                continue
+            if stripped.startswith(("可选目标", "可选放逐目标", "若选择 poison，可选毒杀目标")):
+                kept.append(stripped)
+                in_targets = True
+                continue
+            if in_targets:
+                if stripped.startswith("- 座位"):
+                    kept.append(stripped)
+                    continue
+                in_targets = False
+
+            if kind == _KIND_WITCH and (
+                "女巫" in stripped
+                or "刀口" in stripped
+                or "被狼人" in stripped
+                or "击杀" in stripped
+                or "解药已用完" in stripped
+                or "三选一" in stripped
+            ):
+                kept.append(stripped)
+
+        rendered = "\n".join(kept).strip()
+        return rendered or message.strip()
+
     def _render_prompt(self, message: str, *, kind: str | None = None) -> str:
         """剔除面向 LLM 的 schema / 策略噪声，留下人类玩家可见信息。"""
         if kind == _KIND_SPEECH:
             return self._render_speech_prompt(message)
+        if kind in {_KIND_YESNO, _KIND_SEAT, _KIND_MULTI, _KIND_WITCH}:
+            return self._render_action_prompt(message, kind)
 
         kept: list[str] = []
         skip_internal_block = False
@@ -226,6 +277,22 @@ class HumanInteractiveAgent(BaseAgent):
         if normalized == "0":
             return "已提交：跳过 / 弃票"
         return f"已提交目标：座位 {normalized}"
+
+    @staticmethod
+    def _fallback_after_invalid(kind: str, allow_skip: bool) -> str:
+        if kind == _KIND_SPEECH:
+            return _INVALID_SPEECH_FALLBACK
+        if kind == _KIND_WITCH:
+            return "none"
+        if kind == _KIND_YESNO:
+            return "0"
+        if kind == _KIND_SEAT and allow_skip:
+            return "0"
+        return ""
+
+    @staticmethod
+    def _print_waiting_hint() -> None:
+        console.print("[dim]等待其他玩家决策...[/dim]")
 
     # ------------------------------------------------------------------
     # 校验 + 归一化为 bridge 解析器期望的字符串
@@ -346,7 +413,10 @@ class HumanInteractiveAgent(BaseAgent):
             )
             if normalized is not None:
                 console.print(f"[green]{self._confirmation(kind, normalized)}[/green]")
+                self._print_waiting_hint()
                 return normalized
             console.print(f"[yellow]{error}[/yellow]")
-        # 超过重试次数：交回原始输入，由 bridge 走其兜底逻辑（避免死循环）。
-        return raw
+        fallback = self._fallback_after_invalid(kind, allow_skip)
+        console.print("[yellow](超过重试次数，按跳过 / 兜底处理)[/yellow]")
+        self._print_waiting_hint()
+        return fallback

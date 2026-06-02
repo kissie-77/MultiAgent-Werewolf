@@ -1,8 +1,10 @@
+import itertools
+import re
+
 from llm_werewolf.game_runtime.types import Camp, Event, EventType
 from llm_werewolf.strategy.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
 
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
-import itertools
 
 from llm_werewolf.evaluation.core.models import CheckResult, CheckSeverity
 
@@ -24,6 +26,25 @@ class PromptBadCaseChecker:
         "大家谨慎",
         "好好分析",
     }
+    _public_speech_events = {EventType.PLAYER_SPEECH, EventType.SHERIFF_CANDIDATE_SPEECH}
+    _unsupported_claim_patterns = (
+        re.compile(r"(?:玩家)?\d+号?.{0,12}(?:跳|自称|认|报).{0,6}(?:女巫|预言家|猎人|守卫)"),
+        re.compile(r"(?:玩家)?\d+号?.{0,12}(?:救了|救过|银水|查验|验了|金水|查杀)"),
+    )
+    _claim_support_markers = (
+        "跳",
+        "自称",
+        "女巫",
+        "预言家",
+        "猎人",
+        "守卫",
+        "救",
+        "银水",
+        "查验",
+        "验了",
+        "金水",
+        "查杀",
+    )
 
     def check(
         self,
@@ -38,6 +59,7 @@ class PromptBadCaseChecker:
         results.extend(self._check_low_information_speech(events))
         results.extend(self._check_repeated_seer_checks(events))
         results.extend(self._check_harmful_power_targets(events, player_roles, player_camps))
+        results.extend(self._check_unsupported_public_fact_claims(events))
         return results
 
     def _bad_case(
@@ -179,6 +201,41 @@ class PromptBadCaseChecker:
                             },
                         )
                     )
+        return results
+
+    def _check_unsupported_public_fact_claims(self, events: list[Event]) -> list[CheckResult]:
+        """标记“别人已跳身份/报技能结果”这类没有公开前文支撑的发言。"""
+        results: list[CheckResult] = []
+        previous_public_speech = ""
+
+        for event in events:
+            if event.event_type not in self._public_speech_events:
+                continue
+
+            raw_speech = str(event.data.get("speech", event.message))
+            speech = self._extract_speech_text(raw_speech)
+            if not speech:
+                continue
+
+            unsupported = any(pattern.search(speech) for pattern in self._unsupported_claim_patterns)
+            has_public_support = any(
+                marker in previous_public_speech for marker in self._claim_support_markers
+            )
+            if unsupported and not has_public_support:
+                results.append(
+                    self._bad_case(
+                        "public speech asserted another player's role/action claim without prior public support",
+                        event,
+                        data={
+                            "player_id": event.data.get("player_id"),
+                            "speech": speech[:120],
+                        },
+                        severity=CheckSeverity.WARNING,
+                    )
+                )
+
+            previous_public_speech += "\n" + speech
+
         return results
 
 

@@ -32,6 +32,7 @@ def test_wire_agentscope_calls_bind_after_setup() -> None:
         mock_bind.assert_called_once_with(
             engine.game_state,
             default_plan="default",
+            plan_assignment=cfg.plan_assignment,
             memory_config=cfg.memory,
             role_version_manifest=cfg.role_version_manifest(),
         )
@@ -47,6 +48,7 @@ def test_wire_agentscope_backend_is_the_only_llm_backend() -> None:
         mock_bind.assert_called_once_with(
             engine.game_state,
             default_plan="default",
+            plan_assignment=cfg.plan_assignment,
             memory_config=cfg.memory,
             role_version_manifest=cfg.role_version_manifest(),
         )

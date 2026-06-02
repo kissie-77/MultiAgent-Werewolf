@@ -62,6 +62,8 @@
 
 人机混战中，人类玩家座位必须按本局实际人数校验。CLI 可以展示人类玩家相关 UI，但不把“人类玩家 / AI / model / backend / demo”等运行身份信息注入 Agent 决策上下文。
 
+显式传入 `config` 时，配置文件优先于规则模式默认值：如果没有同时传入 `rules=badge_flow` 或 `--badge_flow`，CLI 不会因为内部默认规则自动开启警长 / 警徽流。无参数启动仍按菜单选择的规则模式决定是否开启警长。
+
 ### 3.2 Web API 流程
 
 ```
@@ -151,6 +153,8 @@ vote_intention_concurrency: 4
 超时、投票意向并发等主要在 **YAML** 中配置（如 `day_timeout`、`vote_timeout`、`vote_intention_concurrency`），由 `prepare_game_roster` 注入 `GameConfig`。
 
 `plan_assignment` 用于角色分配后的自动风格分流。未手写 `plan` 的玩家会按真实角色获得角色专属计划；手写 `players[].plan` 的玩家保持手动指定，便于 A/B 验证。
+
+人机混战的人类输入提示只展示必要信息：身份、当前阶段、可选目标、女巫刀口等自己应看到的行动事实。Agent observation、内部 schema、信念矩阵、策略任务说明不直接展示给人类玩家。
 
 ### 6.3 环境变量与 API 连通性
 

@@ -31,6 +31,8 @@
 - [x] Leaderboard CLI、evolution runner、grading evidence 命令
 - [x] skill draft/active/deprecated 测试（test_skill_extractor 等）
 - [x] 文档：evaluation 仅保留 README / DESIGN / ROADMAP
+- [x] Runtime error / Timeout / structured 中断进入 `data_quality`，自动降低赛后评分置信度
+- [x] PromptBadCaseChecker 增加“公开事实无支撑”检测，标记凭空跳身份/报技能结果类发言
 
 ## 进行中
 
@@ -60,6 +62,7 @@
 
 | 日期       | 摘要                                               |
 | ---------- | -------------------------------------------------- |
+| 2026-06-02 | 赛后质量门禁：运行时错误降置信度；新增公开事实无支撑 bad-case 检测 |
 | 2026-06-02 | eval_agent 复盘 structured 解析兜底；DESIGN §5.1    |
 | 2026-05-26 | 文档全部合并三件套；专题迁 architecture/evaluation |
 | 2026-05-26 | Per-role 版本控制                                  |

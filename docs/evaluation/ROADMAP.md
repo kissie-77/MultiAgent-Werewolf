@@ -15,7 +15,7 @@
 | Evaluation v2 Phase 1      | ✅ Done        | Skill MD 双写、prompt_proposals、Coach          |
 | Per-role 版本控制          | ✅ Done        | `RoleVersionManifest`；默认 latest（非全局 v2） |
 | Leaderboard / A/B + 显著性 | ✅ Done        | Wilson CI、z 检验                               |
-| 模块文档三件套             | ✅ Done        | 专题已合并 DESIGN；原文迁 architecture          |
+| PostGame 质量门控           | ✅ Done        | roster / matched / MVP / proposal / evolver 门控 |
 | Phase 2                    | 🔄 In Progress | benefit 完整规则、信念校准、按分筛 Skill        |
 | Skill 闭环显式证明         | 🔄 In Progress | 写回 → 下局使用 → 20+ 局 A/B                    |
 | Leaderboard Web            | 📋 Planned     | 依赖 frontend                                   |
@@ -30,7 +30,9 @@
 - [x] prompt_evolver per-role + `restore_runtime_from_manifest`
 - [x] Leaderboard CLI、evolution runner、grading evidence 命令
 - [x] skill draft/active/deprecated 测试（test_skill_extractor 等）
-- [x] 文档：evaluation 仅保留 README / DESIGN / ROADMAP
+- [x] PostGame 质量门控：roster 补全、matched 无 swing、MVP 资格、proposal/evolver 过滤
+- [x] 复盘可视化页 `docs/evaluation/review-dashboard.html`
+- [x] 模块文档：evaluation 仅保留 README / DESIGN / ROADMAP
 
 ## 进行中
 
@@ -60,6 +62,7 @@
 
 | 日期       | 摘要                                               |
 | ---------- | -------------------------------------------------- |
+| 2026-06-02 | PostGame 质量门控 + review-dashboard；DESIGN §5.2–§5.3 |
 | 2026-06-02 | eval_agent 复盘 structured 解析兜底；DESIGN §5.1    |
 | 2026-05-26 | 文档全部合并三件套；专题迁 architecture/evaluation |
 | 2026-05-26 | Per-role 版本控制                                  |

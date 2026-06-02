@@ -105,11 +105,15 @@ def evaluate_persuasion_speech(
                 rule_id="persuasion_speech",
                 reason="villager drove werewolf elimination",
             )
-        if swing_to_final_vote >= 2 and speech.elimination_drive_swings >= 1:
+        if (
+            elim_camp == Camp.WEREWOLF.value
+            and swing_to_final_vote >= 2
+            and speech.elimination_drive_swings >= 1
+        ):
             return GenerationRuleResult(
                 passed=True,
                 rule_id="persuasion_speech",
-                reason="villager speech aligned final votes",
+                reason="villager speech aligned final votes on wolf elimination",
             )
         return GenerationRuleResult(
             passed=False,

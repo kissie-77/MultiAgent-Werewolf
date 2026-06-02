@@ -141,6 +141,26 @@ def _role_hint_from_event(event: dict[str, Any]) -> tuple[str, str, str | None] 
             name = data.get("player_name")
             return pid, str(role), str(name) if name else None
 
+    if etype in {"hunter_revenge", "guard_protected", "seer_checked", "witch_healed", "witch_poisoned"}:
+        pid = str(data.get("player_id") or data.get("shooter_id") or "")
+        role = data.get("role")
+        if pid and role:
+            name = data.get("player_name")
+            return pid, str(role), str(name) if name else None
+
+    if etype == "message":
+        pid = str(data.get("player_id", ""))
+        role = data.get("role")
+        if pid and role:
+            return pid, str(role), None
+
+    if etype == "player_died":
+        pid = str(data.get("player_id", ""))
+        role = data.get("role")
+        if pid and role:
+            name = data.get("player_name")
+            return pid, str(role), str(name) if name else None
+
     return None
 
 
@@ -280,6 +300,10 @@ def load_run_context(
     roster = roster_from_events(events)
     if engine is not None:
         roster = merge_rosters(roster, roster_from_engine(engine))
+
+    for entry in roster.values():
+        if entry.role_name and not entry.camp:
+            entry.camp = role_name_to_camp(entry.role_name)
 
     winner_camp, winner_ids = winner_from_events(events)
     if engine is not None and engine.game_state and engine.game_state.winner:

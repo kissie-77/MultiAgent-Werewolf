@@ -101,9 +101,15 @@ def _persuasion_from_intention(
     return by_player
 
 
+def _mvp_eligible(entry: Any) -> bool:
+    return bool(getattr(entry, "role_name", None) and getattr(entry, "camp", None))
+
+
 def _normalize_within_role(raw_by_player: dict[str, float], ctx: RunContext) -> dict[str, float]:
     groups: dict[str, list[str]] = {}
     for pid, entry in ctx.roster.items():
+        if not _mvp_eligible(entry):
+            continue
         rk = _role_key(entry.role_name)
         groups.setdefault(rk, []).append(pid)
 
@@ -250,7 +256,10 @@ def build_mvp_scores(
     for idx, row in enumerate(player_rows, start=1):
         row["rank"] = idx
 
-    mvp_row = player_rows[0] if player_rows else None
+    mvp_row = next(
+        (row for row in player_rows if row.get("role_name") and row.get("camp")),
+        player_rows[0] if player_rows else None,
+    )
     camp_mvp: dict[str, dict[str, Any]] = {}
     for camp in (Camp.WEREWOLF.value, Camp.VILLAGER.value):
         camp_players = [r for r in player_rows if r.get("camp") == camp]

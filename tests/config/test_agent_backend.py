@@ -2,7 +2,7 @@
 
 import pytest
 
-from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
+from llm_werewolf.game_runtime.config import PlanAssignmentConfig, PlayerConfig, PlayersConfig
 
 
 def _six_demo_players() -> list[PlayerConfig]:
@@ -52,3 +52,27 @@ def test_vote_intention_concurrency_accepts_parallel_value() -> None:
     )
 
     assert cfg.vote_intention_concurrency == 6
+
+
+def test_plan_assignment_defaults_to_disabled() -> None:
+    cfg = PlayersConfig(language="zh-CN", players=_six_demo_players())
+
+    assert cfg.plan_assignment.enabled is False
+    assert cfg.plan_assignment.mode == "role_cycle"
+
+
+def test_plan_assignment_accepts_random_seed_and_role_plans() -> None:
+    cfg = PlayersConfig(
+        language="zh-CN",
+        plan_assignment=PlanAssignmentConfig(
+            enabled=True,
+            mode="role_random",
+            seed=7,
+            role_plans={"wolf": ["wolf_aggressive", "wolf_skeptical"]},
+        ),
+        players=_six_demo_players(),
+    )
+
+    assert cfg.plan_assignment.enabled is True
+    assert cfg.plan_assignment.mode == "role_random"
+    assert cfg.plan_assignment.role_plans["wolf"] == ["wolf_aggressive", "wolf_skeptical"]

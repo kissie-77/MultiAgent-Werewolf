@@ -21,5 +21,22 @@ def test_plan_strategies() -> None:
     assert "wolf" in plan
 
 
+def test_role_specific_style_plan_strategy() -> None:
+    plan = PlanStrategies.get_plan_by_name("wolf_skeptical")
+
+    assert plan["name"] == "wolf_skeptical"
+    assert "wolf" in plan
+    assert "狼人质疑派打法" in plan["wolf"]
+
+
+def test_default_role_style_plan_names() -> None:
+    assert PlanStrategies.default_role_style_plan_names("wolf") == [
+        "wolf_conservative",
+        "wolf_aggressive",
+        "wolf_skeptical",
+        "wolf_coordinator",
+    ]
+
+
 def test_game_prompts_constants() -> None:
     assert GamePrompts.NIGHT_BEGIN == "天黑请闭眼"

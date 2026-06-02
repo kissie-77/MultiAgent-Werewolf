@@ -22,3 +22,19 @@ def test_agent_team_factory_uses_prompt_manager_contract() -> None:
 
 def test_resolve_plan_text_comes_from_prompt_manager() -> None:
     assert resolve_plan_text("bold", "wolf") == PromptManager.resolve_plan_text("bold", "wolf")
+
+
+def test_resolve_role_specific_style_plan_text() -> None:
+    text = PromptManager.resolve_plan_text("wolf_skeptical", "wolf")
+
+    assert "狼人质疑派打法" in text
+
+
+def test_role_specific_style_plan_enters_prompt() -> None:
+    plan_text = PromptManager.resolve_plan_text("wolf_skeptical", "wolf")
+    prompt = PromptManager.build_role_strategy_prompt(
+        seat_number=2, game_role_name="Werewolf", plan_text=plan_text
+    )
+
+    assert "本局个人计划：" in prompt
+    assert "狼人质疑派打法" in prompt

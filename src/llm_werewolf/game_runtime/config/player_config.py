@@ -2,6 +2,7 @@ import os
 
 from pydantic import Field, BaseModel, computed_field, field_validator, model_validator
 from typing_extensions import Self
+from typing import Literal
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
@@ -121,6 +122,27 @@ class PlayerConfig(BaseModel):
         return self
 
 
+class PlanAssignmentConfig(BaseModel):
+    """角色分配后的自动 plan 分流配置。"""
+
+    enabled: bool = Field(
+        default=False,
+        description="Whether to assign role-specific plans to players without manual plan.",
+    )
+    mode: Literal["role_cycle", "role_random"] = Field(
+        default="role_cycle",
+        description="role_cycle assigns plans in order; role_random samples with seed support.",
+    )
+    seed: int | None = Field(
+        default=None,
+        description="Optional seed for deterministic role_random assignment in A/B tests.",
+    )
+    role_plans: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Optional role prompt key -> plan names. Missing roles use defaults.",
+    )
+
+
 class PlayersConfig(BaseModel):
     """包含所有玩家及可选游戏设置的根配置。"""
 
@@ -141,6 +163,10 @@ class PlayersConfig(BaseModel):
     role_versions: RoleVersionConfig = Field(
         default_factory=RoleVersionConfig,
         description="Per-role prompt/skill version manifest.",
+    )
+    plan_assignment: PlanAssignmentConfig = Field(
+        default_factory=PlanAssignmentConfig,
+        description="Automatic role-specific plan assignment for players without manual plan.",
     )
     prompt_version: str = Field(
         default=DEFAULT_PROMPT_VERSION,

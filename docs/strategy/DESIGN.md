@@ -66,6 +66,12 @@ strategy/prompts/
 - `core_principles` / `phase_strategies` / `forbidden_actions` / `examples`
 - 运行时仍渲染为「长期规则 / 阶段策略 / 禁止项 / 示例」段落注入 `agent_base.md`
 
+`plan` 不写在角色卡 YAML 中，而是在构建 Agent prompt 时通过 `{plan}` 注入。配置层可使用：
+
+- `default_plan`：所有未手写 plan 玩家使用的默认策略计划
+- `players[].plan`：单个玩家手写 plan，优先级最高
+- `plan_assignment`：角色分配完成后，为未手写 plan 的玩家按真实角色自动分配角色专属风格 plan
+
 ### 3.4 提示词注入流程
 
 ```text

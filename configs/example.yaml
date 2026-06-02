@@ -1,11 +1,22 @@
 language: en-US
 # prompt_version: latest   # 可选；默认每身份使用 prompts/roles/<role>/ 下最新版本
+# plan_assignment:
+#   enabled: true
+#   mode: role_random   # role_cycle 或 role_random；随机模式可配 seed 做 A/B 复现
+#   seed: 20260602
+#   role_plans:
+#     wolf:
+#       - wolf_conservative
+#       - wolf_aggressive
+#       - wolf_skeptical
+#       - wolf_coordinator
 
 players:
   - name: Player1
     model: YOUR_MODEL_NAME
     base_url: YOUR_API_BASE_URL
     api_key_env: YOUR_API_KEY
+    # plan: wolf_aggressive   # 可选；手写 plan 优先于自动分流
   - name: Player2
     model: YOUR_MODEL_NAME
     base_url: YOUR_API_BASE_URL

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from random import Random
 from types import MethodType
 
 from llm_werewolf.game_runtime.env import load_project_dotenv
@@ -16,7 +17,7 @@ from agentscope.memory import InMemoryMemory
 from agentscope.formatter import OpenAIChatFormatter
 
 from llm_werewolf.agent_team.memory import RuntimeMemoryManager
-from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
+from llm_werewolf.game_runtime.config import MemoryConfig, PlanAssignmentConfig, PlayerConfig
 from llm_werewolf.agent_team.fast_react_agent import FastReActAgent
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
@@ -129,6 +130,67 @@ def player_id_to_seat(player_id: str) -> int:
 def resolve_plan_text(plan_name: str, prompt_role_key: str) -> str:
     """将策略计划名称解析为对应角色的 prompt 文本。"""
     return PromptManager.resolve_plan_text(plan_name, prompt_role_key)
+
+
+def _manual_plan_name(agent: Any) -> str | None:
+    """Return a YAML-specified player plan, if present."""
+    player_config = getattr(agent, "player_config", None)
+    plan = getattr(player_config, "plan", None)
+    if isinstance(plan, str) and plan.strip():
+        return plan.strip()
+    return None
+
+
+def _role_plan_names(prompt_role_key: str, plan_assignment: PlanAssignmentConfig) -> list[str]:
+    explicit = plan_assignment.role_plans.get(prompt_role_key)
+    if explicit:
+        return [name for name in explicit if name]
+
+    from llm_werewolf.strategy.role_prompts import PlanStrategies
+
+    return PlanStrategies.default_role_style_plan_names(prompt_role_key)
+
+
+def assign_role_plan_names(
+    players: list[Player],
+    *,
+    default_plan: str,
+    plan_assignment: PlanAssignmentConfig | None = None,
+) -> dict[str, str]:
+    """Assign plan names after roles are known, preserving manual player plans."""
+    assignments: dict[str, str] = {}
+    if plan_assignment is None or not plan_assignment.enabled:
+        return assignments
+
+    rng = Random(plan_assignment.seed)
+    counters: dict[str, int] = {}
+    randomized_pools: dict[str, list[str]] = {}
+
+    for player in players:
+        agent = player.agent
+        if _manual_plan_name(agent):
+            continue
+
+        prompt_key = PromptManager.get_prompt_role_key(player.get_role_name())
+        plan_names = _role_plan_names(prompt_key, plan_assignment)
+        if not plan_names:
+            assignments[player.player_id] = default_plan
+            continue
+
+        index = counters.get(prompt_key, 0)
+        counters[prompt_key] = index + 1
+
+        if plan_assignment.mode == "role_random":
+            pool = randomized_pools.get(prompt_key)
+            if pool is None:
+                pool = list(plan_names)
+                rng.shuffle(pool)
+                randomized_pools[prompt_key] = pool
+            assignments[player.player_id] = pool[index % len(pool)]
+        else:
+            assignments[player.player_id] = plan_names[index % len(plan_names)]
+
+    return assignments
 
 
 def build_system_prompt(
@@ -257,6 +319,7 @@ def configure_agents_for_players(
     players: list[Player],
     *,
     default_plan: str = "default",
+    plan_assignment: PlanAssignmentConfig | None = None,
     memory_config: MemoryConfig | None = None,
     event_logger=None,
 ) -> None:
@@ -264,11 +327,19 @@ def configure_agents_for_players(
     from llm_werewolf.strategy.role_version_manifest import get_active_manifest
 
     manifest = get_active_manifest()
+    assigned_plan_names = assign_role_plan_names(
+        players, default_plan=default_plan, plan_assignment=plan_assignment
+    )
     for player in players:
         agent = player.agent
         seat = player_id_to_seat(player.player_id)
         role_name = player.get_role_name()
-        plan_name = getattr(agent, "plan_name", None) or default_plan
+        plan_name = (
+            _manual_plan_name(agent)
+            or assigned_plan_names.get(player.player_id)
+            or getattr(agent, "plan_name", None)
+            or default_plan
+        )
         prompt_key = PromptManager.get_prompt_role_key(role_name)
         plan_text = resolve_plan_text(plan_name, prompt_key)
         role_prompt_version = manifest.prompt_version_for(prompt_key)

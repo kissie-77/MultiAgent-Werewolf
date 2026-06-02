@@ -36,6 +36,7 @@ def bind_agentscope_roles(
     game_state: GameState | None,
     *,
     default_plan: str = "default",
+    plan_assignment=None,
     memory_config=None,
     role_version_manifest: RoleVersionManifest | None = None,
 ) -> None:
@@ -48,6 +49,7 @@ def bind_agentscope_roles(
     configure_agents_for_players(
         game_state.players,
         default_plan=default_plan,
+        plan_assignment=plan_assignment,
         memory_config=memory_config,
         event_logger=event_logger,
     )
@@ -75,6 +77,7 @@ def wire_agentscope_after_setup(engine: GameEngine, players_config: PlayersConfi
     bind_agentscope_roles(
         engine.game_state,
         default_plan=players_config.default_plan,
+        plan_assignment=players_config.plan_assignment,
         memory_config=players_config.memory,
         role_version_manifest=players_config.role_version_manifest(),
     )

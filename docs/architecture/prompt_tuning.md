@@ -1,5 +1,12 @@
 # Prompt 调优记录
 
+> **模块**：architecture
+> **状态**：active
+> **最后更新**：2026-06-02
+> **关联代码**：`src/llm_werewolf/strategy/`
+> **关联测试**：`tests/strategy/`
+> **Agent Skill**：`.agents/skills/generated/strategy/`
+
 ## 目的
 
 本文档用于记录 AI 狼人杀项目中的 Prompt 迭代过程。**运行时默认**：每身份使用 `prompts/roles/<role>/` 下最新 `vN`（`RoleVersionManifest`），而非全局 v2 整包。
@@ -17,8 +24,11 @@
 | v2_role_strategy    | 2026-05-23 | 改写村民、预言家、女巫、狼人、狼王、守卫、猎人 7 个核心角色 Prompt | 评分标准与本项目角色目标 | 完成初始策略化改写，提升角色策略、信息边界意识、发言质量、投票逻辑和技能使用决策 | 已实现，待对局验证 |
 | v2_strategy_module  | 2026-05-24 | `src/llm_werewolf/strategy/role_prompts.py`                        | 工程架构重构计划         | 将角色策略 Prompt 收口到 strategy 策略层，作为角色 Prompt 的唯一主实现           | 已实现             |
 | v2_prompt_manager   | 2026-05-24 | `PromptManager` 统一构建                                           | 工程架构重构计划         | 已实现                                                                           |                    |
-| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py` | 提示词版本与变量设计 | Legacy 整包（测试/迁移） | 已 superseded |
-| v3_per_role_packages | 2026-05-26 | `prompts/roles/<role>/<version>/` + `role_version_manifest.py` | Per-role 版本控制 | 22 身份分包；默认 latest；进化按身份 bump | **当前主路径** |
+| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py`                      | 提示词版本与变量设计     | Legacy 整包（测试/迁移）                                                        | 已 superseded      |
+| v3_per_role_packages | 2026-05-26 | `prompts/roles/<role>/<version>/` + `role_version_manifest.py`     | Per-role 版本控制        | 22 身份分包；默认 latest；进化按身份 bump                                        | **当前主路径**     |
+| v2_role_card_schema | 2026-06-01 | `strategy/prompts/v2/roles/*.yaml` + `prompt_registry.py`          | 角色卡 Schema 迁移报告   | 将角色卡从自由文本 `suggestion` 升级为结构化字段，并扩展到 22 个角色             | 已实现             |
+| v2_20260601_172033_prompt | 2026-06-01 | `artifacts/prompt_versions/v2_20260601_172033_prompt/`             | 自进化 Prompt 快照       | 记录 6.1 迭代后的生成版 Prompt，父版本为 `v2`                                    | generated          |
+| v2_role_style_plans | 2026-06-02 | `PlanStrategies` + `PlayersConfig.plan_assignment`                 | 同模型同角色发言同质化问题 | 用角色专属风格 plan 做保守/激进/质疑/协调分流，支持手写与开局随机分配           | 已实现             |
 
 ## v3 Per-role 版本控制（2026-05-26）
 
@@ -37,6 +47,119 @@
 - 代码只通过 `PromptRegistry` / `PromptManager(prompt_version="v2")` 引用，**改 Prompt 优先改外置文件**
 - YAML 可选 `prompt_version: v2`（`PlayersConfig`），贯通运行时与 PostGame
 - `GamePrompts` / `PlanStrategies` 仍暂留 `role_prompts.py`（Phase 2 迁为 `v2.phase.*` / `v2.plan.*`）
+
+## v2 角色卡结构化迁移（2026-06-01）
+
+6.1 迭代将角色策略卡从旧 schema：
+
+```yaml
+role_name: ...
+role_instruction: ...
+suggestion: ...
+```
+
+升级为结构化 schema：
+
+```yaml
+role_name: ...
+role_instruction: ...
+core_principles: ...
+phase_strategies: ...
+forbidden_actions: ...
+examples: ...
+```
+
+本次迁移覆盖 `src/llm_werewolf/strategy/prompts/v2/roles/` 下 22 个角色，包括 7 个核心角色和扩展角色：白狼、狼美人、守墓狼、隐狼、噩梦狼、血月使徒、白痴、长老、骑士、魔术师、丘比特、乌鸦、守墓人、盗贼、恋人等。
+
+兼容机制：
+
+- `PromptRegistry.get_role_card()` 继续返回兼容字段 `suggestion`。
+- `_render_legacy_suggestion()` 会把 `core_principles`、`phase_strategies`、`forbidden_actions`、`examples` 渲染成旧版 `suggestion` 文本。
+- `agent_base.md` 的 `{suggestion}` 占位符不需要改，旧调用链仍可读取。
+- `PromptManager.build_prompt_key_strategy_prompt()` 通过 registry 读取角色卡，不直接依赖 YAML 旧字段。
+
+本次迁移的正式依据文档为：[../evaluation/role_card_migration_report.md](../evaluation/role_card_migration_report.md)。
+
+## 6.1 生成版 Prompt 快照（2026-06-01）
+
+6.1 迭代后，Prompt 版本产物已写入 `artifacts/prompt_versions/`。当前可追溯到的最新生成版为：
+
+```yaml
+version: v2_20260601_172033_prompt
+status: generated
+parent: v2
+description: 角色策略卡 + SpeechDecision 主路径（变量化外置文案）
+created_at: '2026-06-01'
+```
+
+对应目录：
+
+```text
+artifacts/prompt_versions/v2_20260601_172033_prompt/
+├── manifest.yaml
+├── variables.yaml
+├── roles/
+└── text/
+```
+
+同日还存在较早快照：
+
+- `v2_smoke_6p_basic_3_1_prompt`
+- `v2_20260601_133500_prompt`
+- `v2_20260601_165314_prompt`
+- `v2_20260601_171745_prompt`
+
+这些快照用于版本链回溯和自进化对比；运行时是否采用某个快照，仍以配置中的 `prompt_version` 和 registry 加载路径为准。
+
+## 角色专属风格分流（2026-06-02）
+
+6.1 对局暴露出一个同质化问题：同一种模型、同一角色的多个 Agent 会收到几乎相同的系统 prompt，导致发言角度、怀疑方式和投票理由趋同。此前的临时方向是让同角色玩家走不同怀疑链，但这会提前写死具体怀疑对象，容易破坏真实博弈。
+
+6.2 改为更上层的风格分流：不指定“怀疑谁”，只指定“怎么思考和发言”。默认支持四类角色专属风格：
+
+- `conservative`：保守派，先观察再站边，重视信息边界。
+- `aggressive`：激进派，主动制造讨论焦点，推动归票。
+- `skeptical`：质疑派，拆解逻辑、票型和前后矛盾。
+- `coordinator`：协调派，整理多人发言，收束讨论方向。
+
+实际注入的 plan 使用角色专属 key，例如：
+
+```text
+wolf_conservative
+wolf_aggressive
+wolf_skeptical
+wolf_coordinator
+```
+
+配置层新增 `plan_assignment`，用于 A/B 验证：
+
+```yaml
+plan_assignment:
+  enabled: true
+  mode: role_random      # role_cycle / role_random
+  seed: 20260602
+  role_plans:
+    wolf:
+      - wolf_conservative
+      - wolf_aggressive
+      - wolf_skeptical
+      - wolf_coordinator
+```
+
+规则：
+
+- `players[].plan` 手写时优先生效，不被自动分流覆盖。
+- 未手写 plan 的玩家，在角色分配完成后按真实角色分配角色专属 plan。
+- `role_cycle` 按配置顺序轮转。
+- `role_random` 使用 seed 打乱后轮转，方便复现实验。
+
+CLI 可临时覆盖同一份配置的分流模式，方便做 A/B：
+
+```bash
+uv run llm-werewolf --config configs/human-6p-demo.yaml --plan_assignment off
+uv run llm-werewolf --config configs/human-6p-demo.yaml --plan_assignment role_cycle
+uv run llm-werewolf --config configs/human-6p-demo.yaml --plan_assignment role_random --plan_assignment_seed 20260602
+```
 
 ## v2_role_strategy 改动说明
 
@@ -78,8 +201,10 @@
 | `post_game_analysis.json` / `post_game_report.md`            | LLM 复盘（有 API 时）                                           |
 | `prompt_proposals.json`                                      | Prompt 补丁提案（`apply_policy: json_only_no_runtime_replace`） |
 | `post_game_manifest.json`                                    | 本局赛后流水线索引                                              |
+| `version_manifest.json`                                      | 当前轮次实际版本摘要，记录 Prompt、Skill、memory、模型配置      |
+| `prompt_version_diff.json` / `new_prompt_version.txt`        | 自进化采纳后生成的 Prompt 版本差异与下一版版本号                |
 
-运行时仅使用 **v2+**（`strategy/role_prompts.py`）。提案合并与 `prompt_comparison` 文档待后续手工/脚本接入。
+运行时仅使用 **v2+**。常规运行从 `strategy/prompts/<version>/` 加载；自进化生成版可从 `artifacts/prompt_versions/<generated_prompt_version>/` 追溯。Prompt 提案默认只写 JSON，不直接替换运行时 Prompt；被采纳后才进入下一轮版本链。
 
 ## 后续验证计划
 

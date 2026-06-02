@@ -5,9 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig
+from llm_werewolf.game_runtime.config import MemoryConfig, PlanAssignmentConfig, PlayerConfig
 from llm_werewolf.agent_team.agents.factory import (
     _build_compressor,
+    assign_role_plan_names,
     configure_agents_for_players,
     _register_no_thinking_print_hook,
     _wrap_memory_add_without_thinking,
@@ -17,6 +18,7 @@ from llm_werewolf.agent_team.agents.factory import (
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.roles.villager import Seer
+from llm_werewolf.game_runtime.roles.werewolf import Werewolf
 from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
 
@@ -43,6 +45,92 @@ def test_configure_agents_calls_configure_role_on_integration_agent() -> None:
     assert agent.memory_manager.player_id == "player_3"
     assert agent.memory_manager.role == "prophet"
     assert agent.memory_manager.plan_name == "bold"
+
+
+def _agentscope_player(player_id: str, name: str, role_class: type, plan: str | None = None):
+    config = PlayerConfig(
+        name=name,
+        model="gpt-test",
+        base_url="https://example.com/v1",
+        api_key_env="OPENAI_API_KEY",
+        plan=plan,
+    )
+    agent = AgentScopeWerewolfAgent(
+        name=name,
+        player_config=config,
+        plan_name=plan or "default",
+    )
+    return Player(player_id, name, role_class, agent=agent, ai_model="gpt-test")
+
+
+def test_assign_role_plan_names_respects_manual_player_plan() -> None:
+    players = [
+        _agentscope_player("player_1", "P1", Werewolf, plan="wolf_aggressive"),
+        _agentscope_player("player_2", "P2", Werewolf),
+        _agentscope_player("player_3", "P3", Werewolf),
+    ]
+    plan_assignment = PlanAssignmentConfig(
+        enabled=True,
+        mode="role_cycle",
+        role_plans={"wolf": ["wolf_conservative", "wolf_skeptical"]},
+    )
+
+    assignments = assign_role_plan_names(
+        players, default_plan="default", plan_assignment=plan_assignment
+    )
+
+    assert "player_1" not in assignments
+    assert assignments == {
+        "player_2": "wolf_conservative",
+        "player_3": "wolf_skeptical",
+    }
+
+
+def test_assign_role_plan_names_random_mode_is_seeded() -> None:
+    players = [
+        _agentscope_player("player_1", "P1", Werewolf),
+        _agentscope_player("player_2", "P2", Werewolf),
+        _agentscope_player("player_3", "P3", Werewolf),
+    ]
+    plan_assignment = PlanAssignmentConfig(enabled=True, mode="role_random", seed=13)
+
+    first = assign_role_plan_names(
+        players, default_plan="default", plan_assignment=plan_assignment
+    )
+    second = assign_role_plan_names(
+        players, default_plan="default", plan_assignment=plan_assignment
+    )
+
+    assert first == second
+    assert set(first.values()).issubset(
+        {
+            "wolf_conservative",
+            "wolf_aggressive",
+            "wolf_skeptical",
+            "wolf_coordinator",
+        }
+    )
+
+
+def test_configure_agents_uses_assigned_role_plan_text() -> None:
+    player = _agentscope_player("player_1", "P1", Werewolf)
+    plan_assignment = PlanAssignmentConfig(
+        enabled=True,
+        mode="role_cycle",
+        role_plans={"wolf": ["wolf_skeptical"]},
+    )
+
+    with patch("llm_werewolf.agent_team.agents.factory.create_react_agent") as mock_create:
+        mock_create.return_value = MagicMock(name="ReActAgent")
+        configure_agents_for_players(
+            [player],
+            default_plan="default",
+            plan_assignment=plan_assignment,
+            event_logger=EventLogger(),
+        )
+
+    assert "狼人质疑派打法" in player.agent.plan
+    assert player.agent.memory_manager.plan_name == "wolf_skeptical"
 
 
 def test_configure_agents_binds_demo_agent_role() -> None:

@@ -34,13 +34,33 @@
 ### 3.1 CLI 启动流程
 
 ```
-加载 YAML 配置
+无参数启动：选择参与方式、规则模式、人数
+    → 加载 YAML 配置
     → prepare_game_roster()：创建玩家、角色、游戏配置
     → GameEngine.setup_game()：初始化游戏状态
     → wire_agentscope_after_setup()：绑定 AgentScope Prompt
     → engine.run_game()：运行对局
     → finalize_run()：结算、写入产物
 ```
+
+无参数运行 `uv run werewolf` 时，CLI 入口负责收集本局运行配置，但不直接决定角色分配细节。
+
+启动顺序为：
+
+1. 选择参与方式：全 Agent 对局或人机混战。
+2. 选择规则模式：基础对局、警徽流对局或扩展角色对局。
+3. 选择本局总人数，范围为 6-20。
+4. 根据人数生成玩家配置，并交给 `game_runtime` 的人数预设能力分配角色。
+
+默认人数策略：
+
+| 规则模式 | 默认人数 |
+|----------|----------|
+| 基础对局 | 6 |
+| 警徽流对局 | 12 |
+| 扩展角色对局 | 12 |
+
+人机混战中，人类玩家座位必须按本局实际人数校验。CLI 可以展示人类玩家相关 UI，但不把“人类玩家 / AI / model / backend / demo”等运行身份信息注入 Agent 决策上下文。
 
 ### 3.2 Web API 流程
 
@@ -91,11 +111,23 @@ prompt_version: latest   # 可选；默认每身份用 prompts/roles/<role>/ 下
 #   skill_versions:
 #     wolf: v2
 
+plan_assignment:
+  enabled: true
+  mode: role_random      # role_cycle / role_random
+  seed: 20260602         # 可选；用于 A/B 复现实验
+  role_plans:
+    wolf:
+      - wolf_conservative
+      - wolf_aggressive
+      - wolf_skeptical
+      - wolf_coordinator
+
 players:
   - name: 玩家1
     model: ep-xxx
     base_url: https://...
     api_key_env: ARK_API_KEY
+    # plan: wolf_aggressive  # 可选；手写 plan 优先于自动分流
   # ...
 
 # 可选覆盖
@@ -118,6 +150,8 @@ vote_intention_concurrency: 4
 
 超时、投票意向并发等主要在 **YAML** 中配置（如 `day_timeout`、`vote_timeout`、`vote_intention_concurrency`），由 `prepare_game_roster` 注入 `GameConfig`。
 
+`plan_assignment` 用于角色分配后的自动风格分流。未手写 `plan` 的玩家会按真实角色获得角色专属计划；手写 `players[].plan` 的玩家保持手动指定，便于 A/B 验证。
+
 ### 6.3 环境变量与 API 连通性
 
 密钥不进 YAML，通过 `api_key_env` / `model_env` 引用仓库根目录 `.env`（由 `game_runtime.env.load_project_dotenv` 加载）。
@@ -138,6 +172,14 @@ uv run werewolf configs/llm-12p-doubao.yaml      # 12 人 CLI 对局
 ```
 
 产物目录：`artifacts/runs/<YYYYMMDD-HHMMSS>/`；对局结束自动触发 PostGame（见 [evaluation/DESIGN.md](../evaluation/DESIGN.md)）。
+
+### 6.4 配置边界
+
+`interface` 可以读取环境变量与 YAML 配置，但不在运行时硬编码模型行为。
+
+- API CORS 来源由 `WEREWOLF_CORS_ORIGINS` 提供，配置值按逗号分隔，并过滤空项。
+- 模型供应商、模型名、base URL、API key、超时时间等参数由配置文件提供。
+- CLI 入口只选择对局模式、人数与人类玩家座位，不负责 Prompt 内容生成。
 
 ## 7. API 设计
 

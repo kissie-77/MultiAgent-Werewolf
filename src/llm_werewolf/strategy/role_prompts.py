@@ -206,13 +206,82 @@ class PlanStrategies:
         "hunter": "混淆视听，伪装成村民，防止被狼人刀掉",
     }
 
+    STYLE_ORDER = ("conservative", "aggressive", "skeptical", "coordinator")
+
+    ROLE_LABELS = {
+        "villager": "村民",
+        "prophet": "预言家",
+        "witch": "女巫",
+        "wolf": "狼人",
+        "wolf_king": "狼王",
+        "guard": "守卫",
+        "hunter": "猎人",
+        "white_wolf": "白狼",
+        "wolf_beauty": "狼美人",
+        "guardian_wolf": "守墓狼",
+        "hidden_wolf": "隐狼",
+        "nightmare_wolf": "噩梦狼",
+        "blood_moon_apostle": "血月使徒",
+        "idiot": "白痴",
+        "elder": "长老",
+        "knight": "骑士",
+        "magician": "魔术师",
+        "cupid": "丘比特",
+        "raven": "乌鸦",
+        "graveyard_keeper": "守墓人",
+        "thief": "盗贼",
+        "lover": "恋人",
+    }
+
+    STYLE_TEMPLATES = {
+        "conservative": (
+            "你本局采用{role}保守派打法：优先保证信息边界和身份收益，"
+            "先观察发言、票型和死亡信息，再给出判断；不要过早站死边或暴露关键意图。"
+        ),
+        "aggressive": (
+            "你本局采用{role}激进派打法：主动制造讨论焦点，敢于提出明确怀疑和投票方向；"
+            "发言要推动局势前进，但所有进攻都必须基于你可见的信息。"
+        ),
+        "skeptical": (
+            "你本局采用{role}质疑派打法：重点拆解他人的逻辑、票型和前后矛盾；"
+            "多追问理由，少直接跟风，用质疑帮助阵营发现隐藏风险。"
+        ),
+        "coordinator": (
+            "你本局采用{role}协调派打法：整理多名玩家的发言和投票关系，"
+            "尝试收束分散讨论，提出可执行的下一步验证或归票方案。"
+        ),
+    }
+
     @classmethod
     def get_all_plans(cls) -> list:
         return [cls.DEFAULT, cls.COMPLICATED, cls.SIMPLE, cls.CAUTIOUS, cls.BOLD, cls.CRAZY]
+
+    @classmethod
+    def default_role_style_plan_names(cls, role_key: str) -> list[str]:
+        if role_key not in cls.ROLE_LABELS:
+            return []
+        return [f"{role_key}_{style}" for style in cls.STYLE_ORDER]
+
+    @classmethod
+    def _resolve_role_style_plan(cls, name: str) -> dict | None:
+        for style in cls.STYLE_ORDER:
+            suffix = f"_{style}"
+            if not name.endswith(suffix):
+                continue
+            role_key = name[: -len(suffix)]
+            role_label = cls.ROLE_LABELS.get(role_key)
+            template = cls.STYLE_TEMPLATES.get(style)
+            if role_label is None or template is None:
+                return None
+            return {"name": name, role_key: template.format(role=role_label)}
+        return None
 
     @classmethod
     def get_plan_by_name(cls, name: str) -> dict:
         for plan in cls.get_all_plans():
             if plan["name"] == name:
                 return plan
+        role_style_plan = cls._resolve_role_style_plan(name)
+        if role_style_plan is not None:
+            return role_style_plan
         return cls.DEFAULT

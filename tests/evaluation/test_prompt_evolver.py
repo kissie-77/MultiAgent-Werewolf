@@ -3,7 +3,12 @@ from pathlib import Path
 
 from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_run
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
-from llm_werewolf.strategy.prompt_registry import register_prompt_search_root
+from llm_werewolf.strategy.role_prompt_registry import register_role_prompt_search_root
+
+
+def _evolved_wolf_version(result) -> str:
+    assert result.changed_prompt_roles is not None
+    return result.changed_prompt_roles["wolf"]["after"]
 
 
 def test_evolve_prompt_from_run_generates_runtime_readable_version(tmp_path: Path) -> None:
@@ -13,7 +18,7 @@ def test_evolve_prompt_from_run_generates_runtime_readable_version(tmp_path: Pat
         json.dumps(
             {
                 "schema": "prompt_proposals_v3",
-                "prompt_version_base": "v2",
+                "prompt_version_base": "v1",
                 "proposal_count": 2,
                 "proposals": [
                     {
@@ -57,13 +62,13 @@ def test_evolve_prompt_from_run_generates_runtime_readable_version(tmp_path: Pat
     output_root = tmp_path / "prompt_versions"
     result = evolve_prompt_from_run(
         run_dir,
-        base_prompt_version="v2",
+        base_prompt_version="v1",
         output_root=output_root,
     )
-    register_prompt_search_root(output_root)
+    register_role_prompt_search_root(output_root)
 
     assert result.applied_count == 2
-    assert result.new_prompt_version != "v2"
+    assert _evolved_wolf_version(result) == "v2"
     assert result.new_version_dir is not None
     assert (run_dir / "applied_prompt_proposals.json").is_file()
     assert (run_dir / "prompt_version_diff.json").is_file()
@@ -75,7 +80,7 @@ def test_evolve_prompt_from_run_generates_runtime_readable_version(tmp_path: Pat
 
     wolf = PromptManager.get_role_strategy_config(
         "wolf",
-        prompt_version=result.new_prompt_version,
+        prompt_version=_evolved_wolf_version(result),
     )
     assert "vote_closing: 测试采纳建议" in wolf["phase_strategies"]
     assert "测试金句" in wolf["examples"]
@@ -115,12 +120,12 @@ def test_evolve_prompt_from_run_keeps_version_when_no_applicable_proposals(
 
     result = evolve_prompt_from_run(
         run_dir,
-        base_prompt_version="v2",
+        base_prompt_version="v1",
         output_root=tmp_path / "prompt_versions",
     )
 
     assert result.applied_count == 0
-    assert result.new_prompt_version == "v2"
+    assert result.new_prompt_version == "v1"
     applied = json.loads(
         (run_dir / "applied_prompt_proposals.json").read_text(encoding="utf-8")
     )
@@ -138,7 +143,7 @@ def test_evolve_prompt_from_run_appends_forbidden_rule_to_role_card(tmp_path: Pa
         json.dumps(
             {
                 "schema": "prompt_proposals_v3",
-                "prompt_version_base": "v2",
+                "prompt_version_base": "v1",
                 "proposal_count": 1,
                 "proposals": [
                     {
@@ -167,15 +172,15 @@ def test_evolve_prompt_from_run_appends_forbidden_rule_to_role_card(tmp_path: Pa
     output_root = tmp_path / "prompt_versions"
     result = evolve_prompt_from_run(
         run_dir,
-        base_prompt_version="v2",
+        base_prompt_version="v1",
         output_root=output_root,
     )
-    register_prompt_search_root(output_root)
+    register_role_prompt_search_root(output_root)
 
     assert result.applied_count == 1
     wolf = PromptManager.get_role_strategy_config(
         "wolf",
-        prompt_version=result.new_prompt_version,
+        prompt_version=_evolved_wolf_version(result),
     )
     assert "禁止白天只报座位号或极短结论" in wolf["forbidden_actions"]
 
@@ -187,7 +192,7 @@ def test_evolve_prompt_replaces_same_family_forbidden_rule(tmp_path: Path) -> No
         json.dumps(
             {
                 "schema": "prompt_proposals_v3",
-                "prompt_version_base": "v2",
+                "prompt_version_base": "v1",
                 "proposal_count": 1,
                 "proposals": [
                     {
@@ -216,14 +221,14 @@ def test_evolve_prompt_replaces_same_family_forbidden_rule(tmp_path: Path) -> No
     output_root = tmp_path / "prompt_versions"
     result = evolve_prompt_from_run(
         run_dir,
-        base_prompt_version="v2",
+        base_prompt_version="v1",
         output_root=output_root,
     )
-    register_prompt_search_root(output_root)
+    register_role_prompt_search_root(output_root)
 
     wolf = PromptManager.get_role_strategy_config(
         "wolf",
-        prompt_version=result.new_prompt_version,
+        prompt_version=_evolved_wolf_version(result),
     )
     assert "禁止白天只报座位号" in wolf["forbidden_actions"]
     assert wolf["forbidden_actions"].count("座位号") == 1
@@ -236,7 +241,7 @@ def test_evolve_prompt_replaces_same_family_example(tmp_path: Path) -> None:
         json.dumps(
             {
                 "schema": "prompt_proposals_v3",
-                "prompt_version_base": "v2",
+                "prompt_version_base": "v1",
                 "proposal_count": 1,
                 "proposals": [
                     {
@@ -265,14 +270,14 @@ def test_evolve_prompt_replaces_same_family_example(tmp_path: Path) -> None:
     output_root = tmp_path / "prompt_versions"
     result = evolve_prompt_from_run(
         run_dir,
-        base_prompt_version="v2",
+        base_prompt_version="v1",
         output_root=output_root,
     )
-    register_prompt_search_root(output_root)
+    register_role_prompt_search_root(output_root)
 
     wolf = PromptManager.get_role_strategy_config(
         "wolf",
-        prompt_version=result.new_prompt_version,
+        prompt_version=_evolved_wolf_version(result),
     )
     assert "新版归票示例" in wolf["examples"]
     assert wolf["examples"].count("归票") == 1
@@ -285,7 +290,7 @@ def test_evolve_prompt_skips_low_confidence_proposals(tmp_path: Path) -> None:
         json.dumps(
             {
                 "schema": "prompt_proposals_v3",
-                "prompt_version_base": "v2",
+                "prompt_version_base": "v1",
                 "proposal_count": 1,
                 "proposals": [
                     {
@@ -313,7 +318,7 @@ def test_evolve_prompt_skips_low_confidence_proposals(tmp_path: Path) -> None:
 
     result = evolve_prompt_from_run(
         run_dir,
-        base_prompt_version="v2",
+        base_prompt_version="v1",
         output_root=tmp_path / "prompt_versions",
     )
 
@@ -366,7 +371,7 @@ def test_evolve_prompt_uses_history_support_to_raise_confidence(tmp_path: Path) 
         json.dumps(
             {
                 "schema": "prompt_proposals_v3",
-                "prompt_version_base": "v2",
+                "prompt_version_base": "v1",
                 "proposal_count": 1,
                 "proposals": [
                     {
@@ -394,11 +399,11 @@ def test_evolve_prompt_uses_history_support_to_raise_confidence(tmp_path: Path) 
 
     result = evolve_prompt_from_run(
         run_dir,
-        base_prompt_version="v2",
+        base_prompt_version="v1",
         output_root=tmp_path / "prompt_versions",
         min_confidence_score=0.68,
     )
-    register_prompt_search_root(tmp_path / "prompt_versions")
+    register_role_prompt_search_root(tmp_path / "prompt_versions")
 
     assert result.applied_count == 1
     applied = json.loads(

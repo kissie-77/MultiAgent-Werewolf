@@ -51,8 +51,11 @@ def test_run_evolution_cycle_writes_rounds_and_reports(tmp_path: Path) -> None:
     assert "role_count_changes" in payload["version_diff_summaries"][0]
     assert "net_active_skill_delta" in payload["version_diff_summaries"][0]
     manifest_payload = json.loads((tmp_path / "v1_initial" / "version_manifest.json").read_text(encoding="utf-8"))
-    assert manifest_payload["schema"] == "agent_version_manifest_v1"
+    assert manifest_payload["schema"] == "agent_version_manifest_v2"
     assert manifest_payload["prompt_version"] == "prompt_v1"
+    assert manifest_payload["default_prompt_version"] == "prompt_v1"
+    assert manifest_payload["default_skill_version"] == "baseline"
+    assert "role_version_manifest" in manifest_payload
     assert "prompt_evolution" in manifest_payload
     assert manifest_payload["prompt_evolution"]["base_prompt_version"] == "prompt_v1"
     assert "active_skills" in manifest_payload
@@ -108,7 +111,7 @@ def test_restore_active_skills_from_manifest_rebuilds_runtime_library(
 
     restore_active_skills_from_manifest(manifest_path)
 
-    restored = skill_root / "wolf" / "wolf_demo.md"
+    restored = skill_root / "wolf" / "v1" / "wolf_demo.md"
     assert restored.is_file()
     assert "wolf_demo" in restored.read_text(encoding="utf-8")
 
@@ -120,7 +123,7 @@ def test_restore_active_skills_from_manifest_replaces_existing_runtime_skills(
     from llm_werewolf.evaluation.evolution.version_manifest import restore_active_skills_from_manifest
 
     skill_root = tmp_path / "runtime_skills"
-    stale_role_dir = skill_root / "wolf"
+    stale_role_dir = skill_root / "wolf" / "v1"
     stale_role_dir.mkdir(parents=True, exist_ok=True)
     (stale_role_dir / "stale.md").write_text("# stale\n", encoding="utf-8")
 
@@ -165,8 +168,8 @@ def test_restore_active_skills_from_manifest_replaces_existing_runtime_skills(
 
     restore_active_skills_from_manifest(manifest_path)
 
-    assert not (skill_root / "wolf" / "stale.md").exists()
-    restored = skill_root / "wolf" / "wolf_demo.md"
+    assert not (skill_root / "wolf" / "v1" / "stale.md").exists()
+    restored = skill_root / "wolf" / "v1" / "wolf_demo.md"
     assert restored.is_file()
 
 

@@ -106,7 +106,7 @@ async def run_post_game_pipeline(
     engine: Any | None = None,
     game_result_text: str | None = None,
     config_path: str | Path | None = None,
-    prompt_version: str = "v2",
+    prompt_version: str = "v1",
     skip_llm: bool = False,
 ) -> PostGameResult:
     """分步执行 PostGame；单步失败不中断后续可独立步骤。"""

@@ -49,7 +49,7 @@ async def finalize_run(
     *,
     game_result_text: str | None = None,
     config_path: str | Path | None = None,
-    prompt_version: str = "v2",
+    prompt_version: str = "latest",
 ) -> PostGameResult:
     """每局结束后自动调用：持久化产物 + PostGame 流水线。"""
     path = Path(run_dir)

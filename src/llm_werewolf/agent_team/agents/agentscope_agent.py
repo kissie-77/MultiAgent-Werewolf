@@ -112,7 +112,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     number: int = Field(default=1)
     plan: str = Field(default="自由发挥")
     plan_name: str = Field(default="default")
-    prompt_version: str = Field(default="v2")
+    prompt_version: str = Field(default="v1")
     game_role_name: str = Field(default="")
     language: str = Field(default="zh-TW")
     agentscope_agent: Any = Field(default=None, exclude=True)
@@ -133,7 +133,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         language: str = "zh-TW",
         agentscope_agent: Any = None,
         player_config: Any = None,
-        prompt_version: str = "v2",
+        prompt_version: str = "v1",
     ):
         """初始化狼人杀 Agent。
 
@@ -186,7 +186,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.plan = plan_text
 
         sys_prompt = build_system_prompt(
-            seat_number, game_role_name, plan_text, prompt_version=self.prompt_version
+            seat_number, game_role_name, plan_text
         )
         if self.player_config is not None:
             self.agentscope_agent = create_react_agent(
@@ -220,15 +220,20 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
         if self.game_role_name:
             sys_prompt = build_system_prompt(
-                self.number, self.game_role_name, self.plan, prompt_version=self.prompt_version
+                self.number, self.game_role_name, self.plan
             )
         else:
             sys_prompt = PromptManager.build_prompt_key_strategy_prompt(
                 self.number, self.role, self.plan, prompt_version=self.prompt_version
             )
             from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
+            from llm_werewolf.strategy.role_version_manifest import get_active_manifest
 
-            skills = load_role_skills_text(self.role)
+            manifest = get_active_manifest()
+            skills = load_role_skills_text(
+                self.role,
+                skill_version=manifest.skill_version_for(self.role),
+            )
             if skills:
                 sys_prompt = f"{sys_prompt}\n\n{skills}"
 

@@ -2,110 +2,287 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-05-23
+> **最后更新**：2026-05-26
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
 
-
 ## 1. 目标
 
-对局结束后产出可复用的分析资产：时间线视图、多维评分、信念校准、LLM 复盘、Prompt 提案、角色 Skill 与 Coach 报告；离线批量评测验证系统正确性并支撑版本演进对比。
+对局结束后产出可复用的分析资产，并支撑离线正确性验证与版本演进对比：
+
+- 时间线视图（POV / digest）、多维评分、信念校准、LLM 复盘
+- Prompt 提案、角色 Skill、Coach 报告
+- Leaderboard 聚合与 A/B 对比（含 Wilson CI、z 检验）
+- 自进化 runner：manifest 继承、per-role prompt/skill 版本 bump
+
+**设计原则**：评测 LLM 统一经 AgentScope；分数由规则层计算；不直接覆盖运行时 Prompt（`json_only_no_runtime_replace`）。
 
 ## 2. 范围
 
 ### 做
 
 - 从 `artifacts/runs/<run_id>/` 或 `eval_runs/<name>/games/<id>/` 读取事件、投票意向、信念日志
-- 跑 PostGame pipeline（分步 try/except，单步失败不阻断独立步骤）
-- 写入 report、scores、skills、manifest 等产物
-- Leaderboard 聚合与 A/B 对比，挂接 Skill 版本链
-- 将通过质量门控的 Skill 双写至 `agent_team/skills/<prompt_role_key>/`
+- PostGame pipeline（14 步，分步 try/except）
+- log_views POV 切片、scoring、Skill 提取与 MD 双写
+- Leaderboard / A/B / evolution 多轮闭环
+- 写 `agent_team/skills/<role>/<skill_version>/`（写前 bump 版本目录）
 
 ### 不做
 
 - 不修改对局进行中的 `GameState`
-- 不在此模块直接调用 LLM 做局内决策（局内归 `agent_team`）
-- 不直接替换运行时 Prompt（`apply_policy: json_only_no_runtime_replace`）
-- 评测 LLM 统一经 AgentScope，不新增 OpenAI SDK 旁路
+- 不做局内 LLM 决策（归 `agent_team`）
+- 不自动回写 Prompt YAML（合并走 `prompt_evolver` + 人工审核）
+- 不新增 OpenAI SDK 旁路
+
+### 模块边界
+
+| 模块 | 职责 | 禁止 |
+|------|------|------|
+| `evaluation` | 赛后流水线、视图、打分、JSON 产物、批量 eval | 直接 AsyncOpenAI；改运行时 Prompt |
+| `agent_team` | Evaluation ReActAgent 工厂；Skill 只读加载 | 评测 Prompt 散落 factory |
+| `strategy` | 复盘/Skill 输出 Schema | 评测业务逻辑 |
+| `game_runtime` | `visible_to`、observation（只读复用） | PostGame 逻辑 |
+| `interface` | `finalize_run` 触发 PostGame | — |
 
 ## 3. 核心流程
 
 ```text
 game_runtime 事件/日志 + vote_intentions + beliefs.jsonl
-    → interface.finalize_run（persist_run_artifacts + run_post_game_pipeline）
-    → evaluation/post_game/pipeline（14 步）
-    → 产物：post_game_manifest.json、scores、views/、skills/、coach_summary.json ...
-    → agent_team/skill_loader 读取 agent_team/skills/
+    → interface.finalize_run
+    → post_game/pipeline（14 步）
+    → 产物 → agent_team/skill_loader 读 skills/<role>/<version>/
 ```
 
-## 4. PostGame 流水线步骤
+自进化：
 
-编排位于 `post_game/pipeline.py`；步骤状态写入 `post_game_steps.json`，总索引写入 `post_game_manifest.json`。仅 `load_context` 为必需步骤。
+```text
+run_evolution_cycle → 评测 + PostGame + prompt_evolver
+    → version_manifest.json (v2) → restore_runtime_from_manifest
+    → leaderboards/ + ab_reports/ + evolution_summary.json
+```
 
-| step_id | 类型 | 主要产物 | 说明 |
-|---------|------|----------|------|
-| `load_context` | 规则 | — | 加载 `RunContext`；**必需** |
-| `episodic` | 规则 | `episodic_reports.json` | 与运行时 EpisodicMemory 同源 |
-| `vote_swing` | 规则 | `vote_swing_report.md`, `vote_swing_summary.json` | 投票意向变化分析 |
-| `camp_persuasion` | 规则 | `camp_persuasion_report.md`, `camp_persuasion_summary.json` | 阵营说服收益 |
-| `log_views` | 规则 | `views/`, `views_manifest.json` | POV / digest 视图 |
-| `intention_scores` | 规则 | `intention_scores.json` | 意向改变分 |
-| `score_contexts` | 规则 | `views/score_contexts/` | 评分上下文 |
-| `mvp_scores` | 规则 | `mvp_scores.json` | MVP 与多维评分 |
-| `benefit_scores` | 规则 | `benefit_scores.json` | 收益分（Phase 1 部分规则） |
-| `llm_replay` | LLM | `post_game_analysis.json`, `post_game_report.md` | AgentScope 复盘 |
-| `game_quality_report` | 规则 | `game_quality_report.md`, `.json` | 局质量总览 |
-| `prompt_proposals` | 规则+LLM | `prompt_proposals.json` | Prompt 优化提案 |
-| `role_skills` | 规则+LLM | `role_skills.json`, `skills/` | Skill 提取与 MD |
-| `coach` | 规则 | `coach_summary.json` | Coach enrich |
+## 4. 关键概念
 
-`camp_persuasion` 失败会跳过依赖 `camp_report` 的步骤（`log_views` → `coach`）；`episodic`、`vote_swing`、`game_quality_report` 仍会执行。
+| 概念 | 说明 |
+|------|------|
+| PostGame | `post_game/pipeline.py` 单场赛后流水线 |
+| RunContext | roster、events、prompt_version；`run_context.py` |
+| Evaluation Analyst | 单 ReActAgent，经 `eval_agent.py` + factory 创建 |
+| Coach | enrich Skill、skill_snapshot/diff；`post_game/coach/` |
+| log_views | 按 `visible_to` 的 POV / digest |
+| RoleVersionManifest | per-role prompt/skill 版本；默认 latest |
+| experiment_meta | 版本链锚点（previous_run_dir 等） |
 
-## 5. 离线评测 Runner 与 Checkers
+## 5. PostGame 流水线
 
-`EvaluationRunner`（`core/runner.py`）使用 `DemoAgent`；每局结束后仍会跑 PostGame，但 `skip_llm=True`（跳过 `llm_replay` 等 LLM 步骤）。
+| step_id | 类型 | 主要产物 |
+|---------|------|----------|
+| `load_context` | 规则 | —（**必需**） |
+| `episodic` | 规则 | `episodic_reports.json` |
+| `vote_swing` | 规则 | `vote_swing_report.md`, `.json` |
+| `camp_persuasion` | 规则 | `camp_persuasion_report.md`, `.json` |
+| `log_views` | 规则 | `views/`, `views_manifest.json` |
+| `intention_scores` | 规则 | `intention_scores.json` |
+| `score_contexts` | 规则 | `views/score_contexts/` |
+| `mvp_scores` | 规则 | `mvp_scores.json` |
+| `benefit_scores` | 规则 | `benefit_scores.json`（部分占位） |
+| `llm_replay` | LLM | `post_game_analysis.json`, `post_game_report.md` |
+| `game_quality_report` | 规则 | `game_quality_report.*` |
+| `prompt_proposals` | 规则+LLM | `prompt_proposals.json` |
+| `role_skills` | 规则+LLM | `role_skills.json`, `skills/` |
+| `coach` | 规则 | `coach_summary.json` |
 
-| Checker | 检查内容 |
-|---------|----------|
-| `RoleSkillChecker` | 角色动作事件结构化字段 |
-| `InformationIsolationChecker` | 私有事件信息隔离 |
-| `VictoryCheckerEvaluator` | 胜负判定一致性 |
-| `AsyncFlowChecker` | 阶段流转顺序 |
-| `PromptBadCaseChecker` | Prompt 调优 bad case |
-| `DecisionConsistencyChecker` | 决策与事件一致性 |
-| `RuntimeErrorEventChecker` | 将 `EventType.ERROR` 归入评测失败项（runner 内联，非独立类） |
+`camp_persuasion` 失败会跳过 `log_views` → `coach`；`episodic`、`vote_swing`、`game_quality_report` 仍执行。
 
-内置场景：`smoke_6p_basic`、`regression_default_demo`。
+**情景记忆**：`episodic_bridge.py` 复用运行时 `EpisodicMemory` API；Coach 为 Skill 附加 `evidence.episodic_excerpt`。
 
-## 6. 关键产物与 Skill 写回
+## 6. log_views
 
-- 单场 PostGame：`post_game_manifest.json`、`post_game_steps.json`、评分 JSON、views/、`role_skills.json`、`coach_summary.json` 等
-- `write_role_skills_artifacts`：写出 run 目录 Skill MD；门控通过者双写 `agent_team/skills/<role>/<skill_id>.md`；pipeline 结束 `skill_loader.list_role_skill_files.cache_clear()`
-- Leaderboard：`leaderboard_entry.json`、`experiment_meta.json`、聚合 `leaderboards/`、对比 `ab_reports/`、`skill_snapshot.json`、`skill_diff.json`
+| 视图 ID | 读者 | 用途 |
+|---------|------|------|
+| `god` | 裁判/评测 | 全量 events（可 strip thinking） |
+| `player:{id}` | 当局 POV | `visible_to` 过滤时间线 |
+| `role:{prompt_key}` | 同身份 | 按身份聚合 POV |
+| `camp:{werewolf\|villager}` | 阵营 | 公开 + 阵营可见私密 |
+| `public_digest` | LLM 默认输入 | Token 最省摘要 |
+| `swing_digest` | LLM 输入 | vote_swing + camp_persuasion 高影响条目 |
 
-## 7. 信念校准（Belief Calibration）
+产物：`views/god_timeline.md`、`player_*_timeline.md`、`public_digest.md`、`swing_digest.json`、`views_manifest.json`。
 
-`scoring/belief_calibration.py` 的 `compute_belief_brier_scores` 从 `beliefs.jsonl` 计算 `wolf_probability` 的 Brier score（schema: `belief_calibration_v1`）。**已实现，尚未接入 PostGame pipeline**，也未写入 replay API 字段。
+Token 控制：截断超长 message；剔除 thinking dump；超预算保留死亡、投票、技能结果、发言、意向快照。
 
-## 8. 接口与入口
+## 7. 打分体系
+
+**规则先算、LLM 后解释**；阵营相对；Phase 1 全量 Skill 提取，Phase 2 再按分筛选。
+
+### 7.1 Intention Score
+
+基于 `vote_swing` + `camp_persuasion`：`swing_count`、`camp_aligned_swings`、`matched_elimination`、`swing_to_final_vote`、`persuasion_net` → `intention_scores.json`。
+
+### 7.2 Benefit Score
+
+按玩家聚合阵营收益（夜间击杀、放逐、技能、说服、胜负等）→ `benefit_scores.json`。Phase 1 仅部分规则（`game_won`、`elimination_aligned`、`camp_persuasion_sum` 占位）。
+
+### 7.3 与 Skill 提取
+
+| 阶段 | 策略 |
+|------|------|
+| Phase 1（当前） | 每 `prompt_role_key` 有素材则提取；无则 `skipped` |
+| Phase 2 | 仅 `benefit_total >= T` 或 `intention >= T` 进入 LLM |
+| Phase 3 | Skill 写入 strategy 版本库（JSON draft） |
+
+## 8. JSON 产物 Schema 要点
+
+### 8.1 `prompt_proposals.json`
+
+Schema `prompt_proposals_v3`：`proposals[]` 含 `kind`（`positive_persuasion` / `bad_case_rule` / `mvp_golden_quote` 等）、`suggested_patch`、`prompt_role_key`、`apply_policy: json_only_no_runtime_replace`。
+
+### 8.2 `role_skills.json`
+
+Schema `role_skills_v1`：`skills[]` 含 `skill_id`、`prompt_role_key`、`status`、`quality_gate`、`skill_card`、`evidence`；按 `PromptManager.get_prompt_role_key` 分桶。
+
+**质量门（Phase 1）**：该身份有 ≥1 条有效发言或夜间决策 → 进入提取；全程空发言 → `skipped`。
+
+## 9. PostGame 产物详表
+
+| 产物 | 生成器 | 消费方 |
+|------|--------|--------|
+| `post_game_manifest.json` | pipeline | 索引、backfill、前端 |
+| `events.jsonl` | EventLogger | PostGame、views、Skill |
+| `post_game_analysis.json` | eval_agent | report、proposals |
+| `benefit_scores.json` | scoring/benefit | leaderboard |
+| `intention_scores.json` | scoring/intention | leaderboard |
+| `camp_persuasion_summary.json` | camp_persuasion | Skill 提取 |
+| `role_skills.json` | skill_extractor | MD、Coach |
+| `skills/*.md` | skill_md | 本局归档 |
+| `agent_team/skills/<role>/<ver>/*.md` | skill_extractor | runtime prompt |
+| `prompt_proposals.json` | prompt_proposal | evolver / 人工 |
+| `coach_summary.json` | coach | 版本链 |
+| `skill_snapshot.json` | coach | 下一版 diff、experiment_meta |
+| `skill_diff.json` | coach | 进化报告 |
+| `leaderboard_entry.json` | entry_builder | 聚合、A/B |
+| `experiment_meta.json` | entry_builder | 版本链、Coach 上一版 |
+| `version_manifest.json` | version_manifest | 进化继承 |
+| `counterfactual_report.*` | counterfactual | 答辩、评分 |
+
+**生命周期**：
+
+```text
+events.jsonl → PostGame → scores / views / role_skills / proposals / coach
+    → leaderboard_entry + experiment_meta → leaderboards / ab_reports
+    → skills MD → agent_team/skills/<role>/<version>/
+```
+
+## 10. Skill 写回与状态
+
+| status | 运行时默认加载 |
+|--------|----------------|
+| `active` | 是 |
+| `draft` | 否（PostGame 写库默认 draft，审核后 active） |
+| `deprecated` | 否 |
+| `skipped` | 不写 MD |
+
+写库：`next_skill_version()` → 复制旧版 → 追加新 MD → 更新 manifest。权重 `>= 1.05` 可升 active；`<= 0.95` 可降 deprecated。
+
+**仍待证明**：下局 prompt 中 Skill 使用痕迹、写回前后 A/B 胜率（见 ROADMAP）。
+
+## 11. Leaderboard 与 A/B
+
+产物：`leaderboard_entry.json`、`experiment_meta.json`、`leaderboards/*`、`ab_reports/*`。
+
+Coach 上一版快照顺序：`skill_snapshot.previous.json` → `experiment_meta.previous_skill_snapshot_path` → `previous_run_dir/skill_snapshot.json` → 同级最近有效 run。
+
+```bash
+uv run python -m llm_werewolf.evaluation.leaderboard.cli entry <run_dir> --version-id <id> ...
+uv run python -m llm_werewolf.evaluation.leaderboard.cli build eval_runs
+uv run python -m llm_werewolf.evaluation.leaderboard.cli compare <a.json> <b.json>
+```
+
+`win_rate` = 有 `winner_camp` 的局占比，非阵营胜率。A/B 含 Wilson 95% CI、`p-value`、`win_rate_significant`。
+
+## 12. 自进化闭环
+
+**一版 Agent**：per-role prompt/skill、`memory_runtime_params`、`model_config`。
+
+**每轮**：`restore_runtime_from_manifest` → 评测 → `evolve_prompt_from_run`（按身份 bump）→ 写 `version_manifest.json` → 更新 `role_manifest`。
+
+**验收**：`smoke_6p_basic`；≥2 轮；`v1_initial` vs 终局；完成率不降；硬约束无新增失败；终局指标优于初始；存在 A/B 报告。
+
+**已纳入**：prompt version chain、Wilson CI、z 检验、evolution matrix。**暂不做**：自动回滚、LLM 自动采纳 proposal、多模型混跑统一显著性。
+
+## 13. 反事实推演
+
+`post_game/counterfactual.py`：近票差放逐、狼刀换人、预言家查验等规则型 case；不重跑整局。
+
+## 14. 离线评测 Runner
+
+`EvaluationRunner` + DemoAgent；PostGame `skip_llm=True`。Checkers：RoleSkill、InformationIsolation、Victory、AsyncFlow、PromptBadCase、DecisionConsistency、RuntimeError。
+
+场景：`smoke_6p_basic`、`regression_default_demo`。
+
+## 15. 信念校准
+
+`belief_calibration.py`：Brier score（`belief_calibration_v1`）。**未接入 PostGame**，未暴露 replay API。
+
+## 16. 接口与入口
 
 | 入口 | 说明 |
 |------|------|
-| `finalize_run` | `interface/cli/runtime/finalize_run.py` |
-| `POST /api/v1/runs/{run_id}/post-game` | `game_session_manager.trigger_post_game` |
-| `werewolf-eval` | 批量离线评测 CLI |
-| `llm_werewolf.evaluation.leaderboard.cli` | entry / build / compare |
+| `finalize_run` | 对局结束自动 PostGame |
+| `POST /api/v1/runs/{id}/post-game` | API 重跑 |
+| `werewolf-eval` | 批量离线评测 |
+| `leaderboard.cli` | entry / build / compare |
+| `run_evolution_cycle` | 多轮自进化 |
+| `interface.cli.evidence` | 答辩评分证据包 |
 
-## 9. 依赖与边界
+证据包命令：
+
+```bash
+uv run python -m llm_werewolf.interface.cli.evidence \
+  --eval_root artifacts/eval_runs \
+  --evolution_root artifacts/eval_runs/evolution \
+  --output_dir artifacts/eval_runs/grading_evidence
+```
+
+输出 `grading_evidence_pack.json` / `.md`（信息隔离、自进化轮次、A/B、manifest、缺口汇总）。
+
+## 17. 答辩与质量自评（2026-05 快照）
+
+非前端部分约 **86–88/100**；主打 **评测 + 复盘**，自进化为亮点。
+
+| 维度 | 状态 | 剩余缺口 |
+|------|------|----------|
+| 多 Agent 协作 | 高 | 固定场景验证报告 |
+| 信息隔离 | checker 已有 | 0 泄漏汇总报告 |
+| 评测 + 复盘 | 接近满分 | 反事实可继续增强 |
+| 自进化 | 工程闭环已有 | 20+ 局 initial vs 终局显著提升证据 |
+| 版本回溯 | manifest 已有 | 一键恢复 CLI |
+
+## 18. 人机对战验证结论（2026-05-26/28）
+
+人类与 Agent 的技能、投票、发言、技能对象可被正确识别；人类公开发言可进入 LLM Agent 记忆并触发策略反应。deepseek 结构化决策静默丢失问题已在 `codex/deepseek-structured-recovery` 修复。详见 [architecture/evaluation/狼人杀对战测试-技能使用验证报告.md](../architecture/evaluation/狼人杀对战测试-技能使用验证报告.md)。
+
+## 19. 已知风险
+
+| 风险 | 缓解 |
+|------|------|
+| 读档丢 events | finalize 强制写 `events.jsonl` |
+| thinking 导致 Token 爆炸 | views 层 strip |
+| Demo eval 与 LLM 质量脱节 | 区分 correctness / quality pipeline |
+| PostGame 耗时长 | `skip_llm`、限制并行 Skill LLM |
+| POV 与 visible_to 偏差 | god vs player 视图对比 checker |
+
+## 20. 依赖与边界
 
 - `evaluation → game_runtime, strategy, agent_team`
-- `evaluation` 可写入 `agent_team/skills/`；`agent_team` 只读加载
-- 分数由规则层计算，LLM 负责复盘文案与 Skill 提取
+- 跨模块版本：[提示词与 Skill 版本控制](../architecture/吕祎晗-提示词版本与变量设计.md)
 
-## 10. 相关文档
+## 21. 相关文档
 
-- [ROADMAP.md](./ROADMAP.md)
-- [PostGame产物地图.md](./PostGame产物地图.md)
-- [Leaderboard与AB对比说明.md](./Leaderboard与AB对比说明.md)
-- [吕祎晗-评测模块优化设计.md](./吕祎晗-评测模块优化设计.md)
+| 文档 | 用途 |
+|------|------|
+| [ROADMAP.md](./ROADMAP.md) | 进度 |
+| [README.md](./README.md) | 模块入口 |
+| [strategy/DESIGN.md](../strategy/DESIGN.md) | Prompt manifest |
+| [architecture/evaluation/](../architecture/evaluation/) | 历史专题原文（已合并至本文） |

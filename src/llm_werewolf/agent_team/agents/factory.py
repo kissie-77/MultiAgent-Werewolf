@@ -136,19 +136,27 @@ def build_system_prompt(
     game_role_name: str,
     plan_text: str,
     *,
-    prompt_version: str = "v2",
     include_role_skills: bool = True,
 ) -> str:
     """为已知角色的就座玩家构建系统 prompt。"""
+    from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+
+    prompt_key = PromptManager.get_prompt_role_key(game_role_name)
+    manifest = get_active_manifest()
     base = PromptManager.build_role_strategy_prompt(
-        seat_number, game_role_name, plan_text, prompt_version=prompt_version
+        seat_number,
+        game_role_name,
+        plan_text,
+        prompt_version=manifest.prompt_version_for(prompt_key),
     )
     if not include_role_skills:
         return base
-    prompt_key = PromptManager.get_prompt_role_key(game_role_name)
     from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
 
-    skills = load_role_skills_text(prompt_key)
+    skills = load_role_skills_text(
+        prompt_key,
+        skill_version=manifest.skill_version_for(prompt_key),
+    )
     if skills:
         return f"{base}\n\n{skills}"
     return base
@@ -250,10 +258,12 @@ def configure_agents_for_players(
     *,
     default_plan: str = "default",
     memory_config: MemoryConfig | None = None,
-    prompt_version: str = "v2",
     event_logger=None,
 ) -> None:
     """角色分配后，为每个 AgentScope Agent 配置系统 prompt。"""
+    from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+
+    manifest = get_active_manifest()
     for player in players:
         agent = player.agent
         seat = player_id_to_seat(player.player_id)
@@ -261,6 +271,7 @@ def configure_agents_for_players(
         plan_name = getattr(agent, "plan_name", None) or default_plan
         prompt_key = PromptManager.get_prompt_role_key(role_name)
         plan_text = resolve_plan_text(plan_name, prompt_key)
+        role_prompt_version = manifest.prompt_version_for(prompt_key)
 
         bind_prompt = getattr(agent, "bind_role_prompt", None)
         bind_role_fn = getattr(agent, "bind_role", None)
@@ -269,7 +280,7 @@ def configure_agents_for_players(
             continue
 
         if callable(bind_prompt):
-            bind_prompt(role_name, seat, plan_text, prompt_version=prompt_version)
+            bind_prompt(role_name, seat, plan_text, prompt_version=role_prompt_version)
             if hasattr(agent, "memory_manager"):
                 agent.memory_manager = _build_memory_manager(
                     player, role_name, plan_name, memory_config, event_logger=event_logger
@@ -284,7 +295,7 @@ def configure_agents_for_players(
             seat_number=seat,
             game_role_name=role_name,
             plan_text=plan_text,
-            prompt_version=prompt_version,
+            prompt_version=role_prompt_version,
         )
         if hasattr(agent, "memory_manager"):
             agent.memory_manager = _build_memory_manager(

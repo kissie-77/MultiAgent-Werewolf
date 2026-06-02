@@ -2,7 +2,7 @@
 
 > **模块**：agent_team
 > **状态**：active
-> **最后更新**：2026-05-24
+> **最后更新**：2026-05-26
 > **关联代码**：`src/llm_werewolf/agent_team/`
 > **关联测试**：`tests/agent_team/`
 > **Agent Skill**：`.agents/skills/generated/agent-team/`
@@ -25,9 +25,9 @@ Agent 执行层：AgentScope 接入、消息路由、信息隔离、记忆管理
 | `agent_team/agents/` | Agent 实现：AgentScopeWerewolfAgent、BaseAgent、DemoAgent、PromptAgentMixin、工厂函数 |
 | `agent_team/communication/` | 通信系统：InformationHub、MessageRouter、Message 定义 |
 | `agent_team/invocation/` | 结构化调用：serial_calls、structured_invoke |
-| `agent_team/memory/` | 记忆系统：WorkingMemory、SemanticMemory、EpisodicMemory、ProceduralMemory、MemoryManager、LLMCompressor |
-| `agent_team/skill_support/` | Skill 读取：skill_loader、skill_markdown |
-| `agent_team/skills/` | Skill 产物目录：按角色分类的赛后 Skill 文件 |
+| `agent_team/memory/` | 四层记忆：`RuntimeMemoryManager`、Working/Episodic/Semantic/Procedural、`LLMCompressor` |
+| `agent_team/skill_support/` | Skill 读取：`skill_loader`（`skills/<role>/<version>/`） |
+| `agent_team/skills/` | Skill 库：按角色 + 版本分目录的 MD 卡片 |
 | `agent_team/bridge.py` | 统一适配层：LLM 输出解析、Agent 调用、决策转换 |
 | `agent_team/fast_react_agent.py` | 快速 ReAct Agent 实现 |
 
@@ -42,6 +42,7 @@ Agent 执行层：AgentScope 接入、消息路由、信息隔离、记忆管理
 |------|------|
 | [DESIGN.md](./DESIGN.md) | 稳定设计与接口契约 |
 | [ROADMAP.md](./ROADMAP.md) | 开发进度与计划 |
+| [memory/](./memory/) | 四层记忆子模块（README · DESIGN · ROADMAP） |
 
 ## 快速入口
 

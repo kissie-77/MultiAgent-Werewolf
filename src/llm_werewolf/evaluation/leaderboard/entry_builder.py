@@ -28,15 +28,19 @@ def build_experiment_meta(
     *,
     version_id: str | None = None,
     model: str = "unknown",
-    prompt_version: str = "unknown",
-    skill_version: str = "baseline",
+    prompt_version: str = "v1",
+    skill_version: str = "v1",
     scenario: str = "unknown",
     notes: list[str] | None = None,
     previous_run_dir: str | None = None,
     previous_skill_snapshot_path: str | None = None,
+    role_version_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+
+    manifest = get_active_manifest()
     return {
-        "schema": "experiment_meta_v1",
+        "schema": "experiment_meta_v2",
         "run_dir": str(Path(run_dir)),
         "version_id": version_id,
         "model": model,
@@ -46,6 +50,9 @@ def build_experiment_meta(
         "notes": notes or [],
         "previous_run_dir": previous_run_dir,
         "previous_skill_snapshot_path": previous_skill_snapshot_path,
+        "role_version_manifest": role_version_manifest or manifest.to_dict(),
+        "prompt_versions": dict(manifest.prompt_versions),
+        "skill_versions": dict(manifest.skill_versions),
     }
 
 

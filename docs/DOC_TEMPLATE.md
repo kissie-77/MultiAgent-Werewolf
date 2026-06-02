@@ -2,7 +2,7 @@
 
 > **用途**：本文件是 `docs/` 的统一规范与模板。新建或整理模块文档时，按此格式撰写。
 > **状态**：active
-> **最后更新**：2026-05-23
+> **最后更新**：2026-06-02
 
 ---
 
@@ -11,7 +11,9 @@
 1. **按模块组织**：业务文档放在对应模块目录下，不在 `docs/` 根目录新增业务文档。
 2. **三件套**：每个模块固定三份文档——`README.md`（介绍）、`DESIGN.md`（设计）、`ROADMAP.md`（进度）。
 3. **少即是多**：优先更新现有文档；只有无法并入 `DESIGN.md` 时才新增同模块下的补充文档。
-4. **单一真相**：结论写入模块 `DESIGN.md`；实验/排查过程稿放 `reports/` 或 `archive/`，不在模块里堆重复稿。
+4. **单一真相**：结论写入模块 `DESIGN.md`；实验/排查过程稿放 `reports/` 或 `archive/`。
+5. **evaluation 特例**：`docs/evaluation/` 仅保留 README / DESIGN / ROADMAP；历史专题原文归档至 `docs/architecture/evaluation/`。
+6. **memory 子模块**：`docs/agent_team/memory/` 仅保留三件套；历史原文归档至 `docs/architecture/memory/`。
 
 ### 1.1 模块目录
 
@@ -19,13 +21,14 @@
 | 目录                   | 对应代码                             | 说明                       |
 | -------------------- | -------------------------------- | ------------------------ |
 | `docs/game_runtime/` | `src/llm_werewolf/game_runtime/` | 规则、引擎、状态、事件              |
-| `docs/agent_team/`   | `src/llm_werewolf/agent_team/`   | Agent、记忆、通信、Skill 读取     |
+| `docs/agent_team/`   | `src/llm_werewolf/agent_team/`   | Agent、通信、Skill 读取     |
+| `docs/agent_team/memory/` | `src/llm_werewolf/agent_team/memory/` | 四层记忆、RuntimeMemoryManager |
 | `docs/strategy/`     | `src/llm_werewolf/strategy/`     | Prompt、决策 schema、信念      |
 | `docs/evaluation/`   | `src/llm_werewolf/evaluation/`   | 复盘、评分、PostGame、Coach     |
-| `docs/interface/`    | `src/llm_werewolf/interface/`    | CLI/TUI/API、装配与配置        |
+| `docs/interface/`    | `src/llm_werewolf/interface/`    | CLI/API、装配与配置        |
 | `docs/ui/`           | `src/llm_werewolf/ui/`           | 展示与 presenter            |
 | `docs/frontend/`     | `frontend/`                      | Web 前端（React + Three.js） |
-| `docs/architecture/` | （跨模块）                            | 全局依赖边界、跨板块方案             |
+| `docs/architecture/` | （跨模块）                            | 全局依赖边界、跨板块方案；evaluation / memory 历史专题 |
 
 
 ### 1.2 非模块文档放哪

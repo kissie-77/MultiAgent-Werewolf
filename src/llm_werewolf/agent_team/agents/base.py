@@ -197,7 +197,7 @@ def create_agent(
     language: str = "zh-CN",
     use_agentscope: bool = True,
     default_plan: str = "default",
-    prompt_version: str = "v2",
+    prompt_version: str = "v1",
     *,
     demo_seed: int | None = None,
 ) -> BaseAgent:

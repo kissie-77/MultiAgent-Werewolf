@@ -33,7 +33,7 @@ def test_wire_agentscope_calls_bind_after_setup() -> None:
             engine.game_state,
             default_plan="default",
             memory_config=cfg.memory,
-            prompt_version="v2",
+            role_version_manifest=cfg.role_version_manifest(),
         )
 
 
@@ -48,7 +48,7 @@ def test_wire_agentscope_backend_is_the_only_llm_backend() -> None:
             engine.game_state,
             default_plan="default",
             memory_config=cfg.memory,
-            prompt_version="v2",
+            role_version_manifest=cfg.role_version_manifest(),
         )
 
 

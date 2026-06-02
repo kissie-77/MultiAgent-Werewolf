@@ -117,7 +117,7 @@ async def test_finalize_run_delegates_to_post_game(tmp_path) -> None:
     assert result is mock_result
     mock_pipeline.assert_awaited_once()
     mock_evolve.assert_called_once()
-    assert mock_evolve.call_args.kwargs["base_prompt_version"] == "v2"
+    assert mock_evolve.call_args.kwargs["base_prompt_version"] == "latest"
 
 @pytest.mark.asyncio
 async def test_finalize_run_logs_pipeline_error(tmp_path) -> None:

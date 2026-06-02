@@ -6,6 +6,40 @@ from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
 from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
+from llm_werewolf.strategy.role_version_manifest import (
+    DEFAULT_PROMPT_VERSION,
+    DEFAULT_SKILL_VERSION,
+    RoleVersionManifest,
+)
+
+
+class RoleVersionConfig(BaseModel):
+    """Per-role prompt/skill version map; unset roles use defaults."""
+
+    default_prompt_version: str = Field(
+        default=DEFAULT_PROMPT_VERSION,
+        description="Fallback when no prompt version folders exist; runtime uses latest by default.",
+    )
+    default_skill_version: str = Field(
+        default=DEFAULT_SKILL_VERSION,
+        description="Fallback when no skill version folders exist; runtime uses latest by default.",
+    )
+    prompt_versions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional overrides: prompt_role_key -> prompt version.",
+    )
+    skill_versions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Optional overrides: prompt_role_key -> skill version folder.",
+    )
+
+    def to_manifest(self) -> RoleVersionManifest:
+        return RoleVersionManifest(
+            default_prompt_version=self.default_prompt_version.strip(),
+            default_skill_version=self.default_skill_version.strip(),
+            prompt_versions={str(k): str(v) for k, v in self.prompt_versions.items()},
+            skill_versions={str(k): str(v) for k, v in self.skill_versions.items()},
+        )
 
 
 class PlayerConfig(BaseModel):
@@ -104,10 +138,16 @@ class PlayersConfig(BaseModel):
     memory: MemoryConfig = Field(
         default_factory=MemoryConfig, description="Memory framework configuration."
     )
+    role_versions: RoleVersionConfig = Field(
+        default_factory=RoleVersionConfig,
+        description="Per-role prompt/skill version manifest.",
+    )
     prompt_version: str = Field(
-        default="v2",
-        description="Prompt registry version (e.g. v2). Maps to strategy/prompts/<version>/",
-        examples=["v2", "v3"],
+        default=DEFAULT_PROMPT_VERSION,
+        description=(
+            "Legacy default prompt version; synced into role_versions when unset."
+        ),
+        examples=["latest", "v1", "v2"],
     )
     vote_intention_concurrency: int = Field(
         default=1,
@@ -156,13 +196,31 @@ class PlayersConfig(BaseModel):
             raise ValueError(msg)
         return v
 
+    @model_validator(mode="after")
+    def sync_legacy_prompt_version(self) -> Self:
+        """Keep YAML prompt_version as default for per-role packages."""
+        if self.prompt_version.strip():
+            legacy = self.prompt_version.strip().lower()
+            if (
+                self.role_versions.default_prompt_version == DEFAULT_PROMPT_VERSION
+                and legacy != DEFAULT_PROMPT_VERSION
+            ):
+                self.role_versions.default_prompt_version = legacy
+            elif legacy != self.role_versions.default_prompt_version and not self.role_versions.prompt_versions:
+                self.role_versions.default_prompt_version = legacy
+        return self
+
+    def role_version_manifest(self) -> RoleVersionManifest:
+        return self.role_versions.to_manifest()
+
     @field_validator("prompt_version")
     @classmethod
     def validate_prompt_version(cls, v: str) -> str:
-        """只接受 v 前缀的小写版本号（如 v2、v3）。"""
         version = v.strip().lower()
+        if version == "latest":
+            return version
         if not version.startswith("v") or len(version) < 2:
-            msg = f"prompt_version must look like 'v2', got '{v}'"
+            msg = f"prompt_version must look like 'latest' or 'v1', got '{v}'"
             raise ValueError(msg)
         return version
 

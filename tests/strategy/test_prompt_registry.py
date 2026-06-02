@@ -140,7 +140,7 @@ def test_prompt_manager_builds_prompt_for_all_extended_roles() -> None:
     for role_name in extended_roles:
         key = PromptManager.get_prompt_role_key(role_name)
         prompt = PromptManager.build_prompt_key_strategy_prompt(
-            seat_number=1, prompt_role_key=key, plan_text="测试", prompt_version="v2"
+            seat_number=1, prompt_role_key=key, plan_text="测试", prompt_version="v1"
         )
         assert prompt, f"{role_name}: prompt is empty"
         assert "长期规则：" in prompt, f"{role_name}: prompt missing structured content"

@@ -13,8 +13,12 @@ from llm_werewolf.evaluation.evolution.prompt_evolver import (
     evolve_prompt_from_run,
 )
 from llm_werewolf.evaluation.evolution.version_manifest import (
-    restore_active_skills_from_manifest,
+    restore_runtime_from_manifest,
     write_version_manifest,
+)
+from llm_werewolf.strategy.role_version_manifest import (
+    RoleVersionManifest,
+    set_active_manifest,
 )
 from llm_werewolf.evaluation.leaderboard.ab_compare import write_ab_report
 from llm_werewolf.evaluation.leaderboard.aggregator import write_leaderboard
@@ -68,8 +72,8 @@ def run_evolution_cycle(
     timeout_seconds: float = 30.0,
     seed: int = 1,
     model: str = "unknown",
-    prompt_version: str = "v2",
-    initial_skill_version: str = "baseline",
+    prompt_version: str = "v1",
+    initial_skill_version: str = "v1",
     notes: list[str] | None = None,
 ) -> Path:
     root = Path(output_root)
@@ -78,16 +82,22 @@ def run_evolution_cycle(
     round_results: list[EvolutionRoundResult] = []
     previous_run_dir: Path | None = None
     previous_version_manifest_path: Path | None = None
-    current_prompt_version = prompt_version
+    role_manifest = RoleVersionManifest(
+        default_prompt_version=prompt_version,
+        default_skill_version=initial_skill_version,
+    )
+    set_active_manifest(role_manifest)
 
     for round_index in range(1, rounds + 1):
         version_id = _build_version_id(round_index)
         skill_version = (
-            initial_skill_version if round_index == 1 else f"evolved_r{round_index}"
+            initial_skill_version if round_index == 1 else f"v{round_index}"
         )
         run_dir = root / version_id
         if previous_version_manifest_path is not None:
-            restore_active_skills_from_manifest(previous_version_manifest_path)
+            role_manifest = restore_runtime_from_manifest(previous_version_manifest_path)
+        else:
+            set_active_manifest(role_manifest)
         _run_single_round(
             run_dir=run_dir,
             scenario=scenario,
@@ -96,23 +106,27 @@ def run_evolution_cycle(
             seed=seed + (round_index - 1) * 100,
             version_id=version_id,
             model=model,
-            prompt_version=current_prompt_version,
+            role_manifest=role_manifest,
             skill_version=skill_version,
             notes=notes,
             previous_run_dir=str(previous_run_dir) if previous_run_dir is not None else None,
         )
         prompt_evolution = evolve_prompt_from_run(
             run_dir,
-            base_prompt_version=current_prompt_version,
-            output_root=root / "prompt_versions",
+            role_version_manifest=role_manifest,
+            output_root=root / "prompt_roles",
         )
+        if prompt_evolution.role_version_manifest:
+            role_manifest = RoleVersionManifest.from_dict(prompt_evolution.role_version_manifest)
+            set_active_manifest(role_manifest)
         manifest_path = write_version_manifest(
             run_dir,
             version_id=version_id,
-            prompt_version=current_prompt_version,
+            prompt_version=role_manifest.default_prompt_version,
             model=model,
             reasoning_effort=None,
             prompt_evolution=prompt_evolution.to_dict(),
+            role_version_manifest=role_manifest,
         )
         round_results.append(
             EvolutionRoundResult(
@@ -120,14 +134,13 @@ def run_evolution_cycle(
                 version_id=version_id,
                 run_dir=run_dir,
                 skill_version=skill_version,
-                prompt_version=current_prompt_version,
+                prompt_version=role_manifest.default_prompt_version,
                 version_manifest_path=manifest_path,
                 prompt_evolution=prompt_evolution,
             )
         )
         previous_run_dir = run_dir
         previous_version_manifest_path = manifest_path
-        current_prompt_version = prompt_evolution.new_prompt_version
 
     leaderboard_path = write_leaderboard(root)
     ab_report_path = _write_initial_vs_final_ab(root, round_results)
@@ -150,11 +163,12 @@ def _run_single_round(
     seed: int,
     version_id: str,
     model: str,
-    prompt_version: str,
+    role_manifest: RoleVersionManifest,
     skill_version: str,
     notes: list[str] | None,
     previous_run_dir: str | None,
 ) -> None:
+    set_active_manifest(role_manifest)
     eval_scenario = get_scenario(
         name=scenario,
         games=games,
@@ -166,10 +180,11 @@ def _run_single_round(
         scenarios=[eval_scenario],
         version_id=version_id,
         model=model,
-        prompt_version=prompt_version,
+        prompt_version=role_manifest.default_prompt_version,
         skill_version=skill_version,
         notes=notes,
         previous_run_dir=previous_run_dir,
+        role_version_manifest=role_manifest,
     )
     asyncio.run(runner.run())
 

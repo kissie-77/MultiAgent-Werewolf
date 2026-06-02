@@ -1,4 +1,4 @@
-"""从 `agent_team/skills/<身份>/` 加载 Skill Markdown，供系统 Prompt 引用。"""
+"""从 `agent_team/skills/<身份>/<版本>/` 加载 Skill Markdown，供系统 Prompt 引用。"""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from llm_werewolf.agent_team.skill_support.skill_markdown import (
     extract_description,
     parse_frontmatter,
 )
+from llm_werewolf.strategy.role_version_manifest import get_active_manifest
 
 _SKILLS_DIR_NAME = "skills"
 _UNTRUSTED_SOURCE_RUN_MARKERS = (
@@ -33,9 +34,47 @@ def is_trusted_source_run(source_run: str) -> bool:
     return not any(marker in normalized for marker in _UNTRUSTED_SOURCE_RUN_MARKERS)
 
 
+def resolve_skill_version(role_key: str, skill_version: str | None = None) -> str:
+    if skill_version is not None and skill_version.strip():
+        return skill_version.strip()
+    return get_active_manifest().skill_version_for(role_key)
+
+
+def role_skill_version_dir(role_key: str, skill_version: str | None = None) -> Path:
+    version = resolve_skill_version(role_key, skill_version)
+    return agent_skills_root() / role_key / version
+
+
+def list_skill_versions(role_key: str) -> tuple[str, ...]:
+    role_root = agent_skills_root() / role_key
+    if not role_root.is_dir():
+        return ()
+    from llm_werewolf.strategy.role_version_manifest import version_sort_key
+
+    versions = [path.name for path in role_root.iterdir() if path.is_dir()]
+    versions.sort(key=version_sort_key)
+    return tuple(versions)
+
+
+def resolve_latest_skill_version(role_key: str, *, fallback: str = "v1") -> str:
+    from llm_werewolf.strategy.role_version_manifest import pick_latest_version
+
+    return pick_latest_version(list_skill_versions(role_key), fallback=fallback)
+
+
+def next_skill_version(role_key: str, current: str | None = None) -> str:
+    from llm_werewolf.strategy.role_version_manifest import next_version_label
+
+    base = current or resolve_skill_version(role_key)
+    candidate = next_version_label(base)
+    existing = set(list_skill_versions(role_key))
+    while candidate in existing:
+        candidate = next_version_label(candidate)
+    return candidate
+
+
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     return parse_frontmatter(text)
-
 
 
 def _load_skill_file(path: Path) -> dict[str, str | float] | None:
@@ -46,7 +85,6 @@ def _load_skill_file(path: Path) -> dict[str, str | float] | None:
     status = meta.get("status", "draft")
     if status == "skipped":
         return None
-    # 优先从 frontmatter 读取 when_to_use，fallback 到 body 解析
     when_to_use = meta.get("when_to_use", "").strip()
     if when_to_use:
         description = ensure_description_format(when_to_use)
@@ -63,23 +101,28 @@ def _load_skill_file(path: Path) -> dict[str, str | float] | None:
         "description": description,
         "body": body.strip(),
         "path": str(path),
+        "skill_version": path.parent.name,
     }
 
 
-@lru_cache(maxsize=16)
-def list_role_skill_files(prompt_role_key: str) -> tuple[Path, ...]:
-    role_dir = agent_skills_root() / prompt_role_key
+@lru_cache(maxsize=32)
+def list_role_skill_files(prompt_role_key: str, skill_version: str | None = None) -> tuple[Path, ...]:
+    role_dir = role_skill_version_dir(prompt_role_key, skill_version)
     if not role_dir.is_dir():
         return ()
     return tuple(sorted(role_dir.glob("*.md")))
 
 
 def load_role_skills(
-    prompt_role_key: str, *, include_draft: bool = False, max_skills: int = 5
+    prompt_role_key: str,
+    *,
+    include_draft: bool = False,
+    max_skills: int = 5,
+    skill_version: str | None = None,
 ) -> list[dict[str, str | float]]:
-    """加载某身份目录下的 Skill MD（默认仅 active），按 weight 降序。"""
+    """加载某身份指定版本目录下的 Skill MD（默认仅 active），按 weight 降序。"""
     loaded: list[dict[str, str | float]] = []
-    for path in list_role_skill_files(prompt_role_key):
+    for path in list_role_skill_files(prompt_role_key, skill_version):
         item = _load_skill_file(path)
         if item is None:
             continue
@@ -93,22 +136,58 @@ def load_role_skills(
 
 
 def format_role_skills_section(
-    prompt_role_key: str, *, include_draft: bool = False, max_skills: int = 5
+    prompt_role_key: str,
+    *,
+    include_draft: bool = False,
+    max_skills: int = 5,
+    skill_version: str | None = None,
 ) -> str:
-    """将 Skill 卡片格式化为可追加到系统 Prompt 的文本块。"""
-    skills = load_role_skills(prompt_role_key, include_draft=include_draft, max_skills=max_skills)
+    skills = load_role_skills(
+        prompt_role_key,
+        include_draft=include_draft,
+        max_skills=max_skills,
+        skill_version=skill_version,
+    )
     if not skills:
         return ""
-    parts = ["【对局经验 Skill 卡片 — 可参考，须符合当前局面与信息边界】"]
+    version = resolve_skill_version(prompt_role_key, skill_version)
+    parts = [
+        f"【对局经验 Skill 卡片（{prompt_role_key}@{version}）— 可参考，须符合当前局面与信息边界】"
+    ]
     for idx, skill in enumerate(skills, start=1):
         parts.append(f"\n### Skill {idx}（{skill['skill_id']}）\n{skill['description']}")
     return "\n".join(parts)
 
 
 def load_role_skills_text(
-    prompt_role_key: str, *, include_draft: bool = False, max_skills: int = 5
+    prompt_role_key: str,
+    *,
+    include_draft: bool = False,
+    max_skills: int = 5,
+    skill_version: str | None = None,
 ) -> str:
-    """供 factory / Agent 调用的薄封装。"""
     return format_role_skills_section(
-        prompt_role_key, include_draft=include_draft, max_skills=max_skills
+        prompt_role_key,
+        include_draft=include_draft,
+        max_skills=max_skills,
+        skill_version=skill_version,
     )
+
+
+def copy_skills_to_new_version(
+    role_key: str,
+    *,
+    base_version: str | None = None,
+    new_version: str | None = None,
+) -> str:
+    """Copy all skill MD files from base_version to new_version folder."""
+    base = base_version or resolve_skill_version(role_key)
+    target_version = new_version or next_skill_version(role_key, base)
+    source_dir = role_skill_version_dir(role_key, base)
+    target_dir = role_skill_version_dir(role_key, target_version)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    if source_dir.is_dir():
+        for path in source_dir.glob("*.md"):
+            (target_dir / path.name).write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+    list_role_skill_files.cache_clear()
+    return target_version

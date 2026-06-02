@@ -62,7 +62,7 @@ class RunContext:
     winner_camp: str | None = None
     winner_ids: list[str] = field(default_factory=list)
     game_result_text: str | None = None
-    prompt_version: str = "v2"
+    prompt_version: str = "v1"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -258,7 +258,7 @@ def load_run_context(
     *,
     engine: Any | None = None,
     game_result_text: str | None = None,
-    prompt_version: str = "v2",
+    prompt_version: str = "v1",
 ) -> RunContext:
     path = Path(run_dir)
     events_path = path / "events.jsonl"

@@ -2,7 +2,7 @@
 
 ## 目的
 
-本文档用于记录 AI 狼人杀项目中的 Prompt 迭代过程，重点展示：
+本文档用于记录 AI 狼人杀项目中的 Prompt 迭代过程。**运行时默认**：每身份使用 `prompts/roles/<role>/` 下最新 `vN`（`RoleVersionManifest`），而非全局 v2 整包。
 
 - Prompt 工程的迭代历史。
 - 不同角色的行为差异。
@@ -17,9 +17,19 @@
 | v2_role_strategy    | 2026-05-23 | 改写村民、预言家、女巫、狼人、狼王、守卫、猎人 7 个核心角色 Prompt | 评分标准与本项目角色目标 | 完成初始策略化改写，提升角色策略、信息边界意识、发言质量、投票逻辑和技能使用决策 | 已实现，待对局验证 |
 | v2_strategy_module  | 2026-05-24 | `src/llm_werewolf/strategy/role_prompts.py`                        | 工程架构重构计划         | 将角色策略 Prompt 收口到 strategy 策略层，作为角色 Prompt 的唯一主实现           | 已实现             |
 | v2_prompt_manager   | 2026-05-24 | `PromptManager` 统一构建                                           | 工程架构重构计划         | 已实现                                                                           |                    |
-| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py`                      | 提示词版本与变量设计     | 已实现（agent.base + 7 角色外置）                                                |                    |
+| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py` | 提示词版本与变量设计 | Legacy 整包（测试/迁移） | 已 superseded |
+| v3_per_role_packages | 2026-05-26 | `prompts/roles/<role>/<version>/` + `role_version_manifest.py` | Per-role 版本控制 | 22 身份分包；默认 latest；进化按身份 bump | **当前主路径** |
 
-## v2 变量化外置（2026-05-25）
+## v3 Per-role 版本控制（2026-05-26）
+
+- 设计文档：[吕祎晗-提示词版本与变量设计.md](./%E5%90%95%E7%A5%8E%E6%99%97-%E6%8F%90%E7%A4%BA%E8%AF%8D%E7%89%88%E6%9C%AC%E4%B8%8E%E5%8F%98%E9%87%8F%E8%AE%BE%E8%AE%A1.md)
+- Prompt 路径：`strategy/prompts/roles/<role>/<version>/role.yaml` + `prompts/shared/agent_base.md`
+- Skill 路径：`agent_team/skills/<role>/<skill_version>/*.md`
+- 运行时通过 `RoleVersionManifest` 解析版本；**未 pin 则自动用最新 `vN`**
+- 改 Prompt 优先改 per-role 小包；**不要**再改 legacy `prompts/v2/` 整包（除非迁移脚本）
+- Bootstrap：`scripts/bootstrap_role_prompt_packages.py`
+
+## v2 变量化外置（2026-05-25，Legacy）
 
 - 设计文档：[吕祎晗-提示词版本与变量设计.md](./%E5%90%95%E7%A5%8E%E6%99%97-%E6%8F%90%E7%A4%BA%E8%AF%8D%E7%89%88%E6%9C%AC%E4%B8%8E%E5%8F%98%E9%87%8F%E8%AE%BE%E8%AE%A1.md)
 - 变量 id 示例：`v2.agent.base`、`v2.role.wolf`
@@ -32,9 +42,9 @@
 
 本次 v2 Prompt 改写将原本较短的身份描述升级为“角色策略卡”。这是一次基于评分标准和角色设计目标的初始策略化改写，尚未基于真实对局 bad case 完成闭环调优。
 
-当前角色策略卡的权威位置为 `src/llm_werewolf/strategy/prompts/v2/`（经 `prompt_registry.py` 加载）；`role_prompts.py` 保留薄封装与 `GamePrompts` / `PlanStrategies`。
+当前角色策略卡的权威位置为 `strategy/prompts/roles/<role>/<version>/`（经 `role_prompt_registry.py` 加载）；legacy `prompts/v2/` 仅作参考。
 
-当前 AgentScope 运行主线不再直接拼接 `RolePrompts.BASE_PROMPT`。角色名映射、plan 解析和最终系统 prompt 构建统一由 `src/llm_werewolf/game_runtime/prompts/manager.py` 中的 `PromptManager` 提供；`agent_team/factory.py` 与 `agent_team/agentscope_agent.py` 只调用该入口。为避免运行时初始化阶段循环导入，`PromptManager` 对 `strategy.role_prompts` 使用懒加载。
+当前 AgentScope 运行主线不再直接拼接 `RolePrompts.BASE_PROMPT`。角色名映射、plan 解析和最终系统 prompt 构建统一由 `src/llm_werewolf/game_runtime/prompts/manager.py` 中的 `PromptManager` 提供；`agent_team/factory.py` 与 `agent_team/agents/agentscope_agent.py` 只调用该入口。为避免运行时初始化阶段循环导入，`PromptManager` 对 `strategy.role_prompts` 使用懒加载。
 
 主要改动：
 
@@ -59,7 +69,7 @@
 
 ## 赛后 PostGame 闭环（v2+）
 
-对局结束后由 `evaluation/post_game/` 自动运行（`interface/finalize_run.py` 触发），**不修改运行时 Prompt**，仅产出 JSON/Markdown：
+对局结束后由 `evaluation/post_game/` 自动运行（`interface/cli/runtime/finalize_run.py` 触发），**不修改运行时 Prompt**，仅产出 JSON/Markdown：
 
 | 产物                                                         | 说明                                                            |
 | ------------------------------------------------------------ | --------------------------------------------------------------- |

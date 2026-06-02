@@ -79,7 +79,7 @@ class CampSpeechInfluence:
 class CampPersuasionReport:
     speeches: list[CampSpeechInfluence] = field(default_factory=list)
     winner_camp: str | None = None
-    prompt_version: str = "v2"
+    prompt_version: str = "v1"
 
     def to_dict(self) -> dict[str, Any]:
         ranked = sorted(self.speeches, key=lambda s: s.camp_aligned_score, reverse=True)

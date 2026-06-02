@@ -2,165 +2,130 @@
 
 > **模块**：strategy
 > **状态**：active
-> **最后更新**：2026-05-24
+> **最后更新**：2026-05-26
 > **关联代码**：`src/llm_werewolf/strategy/`
 
 ## 1. 目标
 
-提供统一的策略语言和决策契约：Prompt 版本化管理、结构化决策 schema、信念矩阵、投票意向模型。作为 Agent 和引擎之间的策略层，不依赖任何业务模块。
+提供统一的策略语言和决策契约：Prompt **按身份分包、按版本目录**管理，结构化决策 schema、信念矩阵、投票意向模型。作为 Agent 和引擎之间的策略层，不依赖任何业务模块。
 
 ## 2. 范围
 
 ### 做
 
-- 管理角色 Prompt（外置 YAML/Markdown 文件，版本化）
+- 管理角色 Prompt（外置 YAML + 共享 Markdown 模板，**per-role 版本目录**）
+- 维护 `RoleVersionManifest`（每身份 prompt/skill 版本，默认解析最新）
 - 定义结构化决策模型（Pydantic BaseModel）
-- 管理信念矩阵（B1/B2/狼队 W 面板）
-- 定义投票意向追踪与快照
-- 定义阶段输出契约（白天/黑夜/圆桌）
-- 提供 Prompt 变量注册与加载机制
+- 管理信念矩阵、投票意向、阶段输出契约
 
 ### 不做
 
 - 不执行 Agent 决策（归 `agent_team`）
 - 不管理游戏状态（归 `game_runtime`）
-- 不生成赛后 Skill（归 `evaluation`）
-- 不直接调用 LLM（归 `agent_team`）
+- 不生成赛后 Skill MD（归 `evaluation`；strategy 只提供版本 manifest 契约）
 
-## 3. Prompt 系统
+## 3. Prompt 系统（per-role 小包）
 
-### 3.1 版本化外置文件
+### 3.1 目录结构
 
-Prompt 文件按版本组织在 `prompts/v2/` 目录：
-
+```text
+strategy/prompts/
+  shared/
+    agent_base.md                 # 共用模板（{number} {role_name} {role_instruction} …）
+  roles/
+    wolf/
+      v1/
+        role.yaml
+        manifest.yaml
+      v2/                         # 进化或人工 bump 后新版本
+        role.yaml
+        manifest.yaml
+    prophet/
+      v1/
+        ...
+    ...（22 个 prompt_role_key）
 ```
-prompts/v2/
-├── manifest.yaml          # 版本清单
-├── variables.yaml         # 变量元数据（variable_id → file + format_keys）
-├── text/
-│   └── agent_base.md      # 基础 Agent 模板
-└── roles/
-    ├── villager.yaml      # 平民角色卡片
-    ├── prophet.yaml       # 预言家角色卡片
-    ├── witch.yaml         # 女巫角色卡片
-    ├── wolf.yaml          # 狼人角色卡片
-    ├── wolf_king.yaml     # 狼王角色卡片
-    ├── guard.yaml         # 守卫角色卡片
-    └── hunter.yaml        # 猎人角色卡片
-```
 
-### 3.2 PromptRegistry
+进化生成的新包默认写入 `artifacts/prompt_roles/<role>/<version>/`，与内置 `prompts/roles/` 合并检索；**取各根目录下该身份的最高版本号**。
 
-`PromptRegistry` 负责加载和管理 Prompt 变量：
+### 3.2 加载 API
 
-- 从 `manifest.yaml` 读取版本号
-- 从 `variables.yaml` 加载变量元数据
-- 按 variable_id 读取文本或角色卡片
-- 支持 format_keys 动态注入变量（如 {number}、{role_name}）
+| 入口 | 说明 |
+|------|------|
+| `get_role_card(role_key, version)` | 读取指定版本的 `role.yaml`，渲染结构化字段 |
+| `build_role_strategy_prompt(seat, role_key, plan, prompt_version=…)` | 模板 + 角色卡拼成系统 prompt |
+| `list_prompt_versions(role_key)` | 枚举所有可用 prompt 版本 |
+| `resolve_latest_prompt_version(role_key)` | 解析最新版本（无目录时 fallback `v1`） |
+| `copy_role_prompt_package(role, base, new, output_root=…)` | 进化：复制包并 bump 版本 |
 
-### 3.3 角色卡片结构
+运行时由 `PromptManager` / `factory.build_system_prompt` 调用；版本来自 `RoleVersionManifest.prompt_version_for(role_key)`。
 
-每个角色卡片（YAML）包含：
+### 3.3 角色卡片结构（`role.yaml`）
 
-- `role_instruction`：角色任务说明
-- `suggestion`：策略重点
-- `plan`：本局个人计划（default / complicated）
+- `role_name` / `role_instruction`
+- `core_principles` / `phase_strategies` / `forbidden_actions` / `examples`
+- 运行时仍渲染为「长期规则 / 阶段策略 / 禁止项 / 示例」段落注入 `agent_base.md`
 
 ### 3.4 提示词注入流程
 
-```
-PromptRegistry 加载 v2 版本
-    → RolePrompts 从 registry 注入角色卡片
-    → PromptAgentMixin 构建完整 prompt
-    → Agent 接收 prompt 生成决策
-```
-
-## 4. 结构化决策模型
-
-所有决策模型基于 Pydantic BaseModel，用于 AgentScope ReActAgent 的结构化输出：
-
-| 模型 | 说明 | 关键字段 |
-|------|------|----------|
-| SpeechDecision | 圆桌发言 | public_speech（≥15字）、private_thought |
-| SeatChoiceDecision | 选座（刀人/守人/查验） | seat（0表示跳过） |
-| VoteIntentionDecision | 投票意向 | seat、reason |
-| YesNoDecision | 是否用药 | decision（0或1） |
-| WitchNightDecision | 女巫夜间决策 | use_potion、target |
-| MindStateDecision | 信念矩阵更新 | b1、b2、wolf_camp |
-| MultiSeatChoiceDecision | 多选座 | seats（列表） |
-
-### 4.1 验证规则
-
-- `public_speech` 必须 ≥ 15 字
-- `public_speech` 不能仅为座位号（如 "3"）
-- `public_speech` 不能为占位符（如 "（无公开发言）"）
-- `seat` 必须 ≥ 0
-
-## 5. 信念矩阵
-
-### 5.1 三个面板
-
-| 面板 | 说明 | 可见范围 |
-|------|------|----------|
-| B1 | 个人视角的好人/狼人判断 | 仅自己 |
-| B2 | 对其他玩家视角的判断 | 仅自己 |
-| W（狼队） | 狼人阵营内部信息同步 | 仅狼人 |
-
-### 5.2 信念状态
-
-`MindStateResult` 定义信念矩阵的结构化输出：
-
-- 每个玩家的身份判断（好人/狼人/未知）
-- 判断理由
-- 置信度
-
-### 5.3 信念更新
-
-- 每轮发言后触发信念更新
-- 根据新发言、投票结果、死亡信息更新判断
-- 信念快照写入 WorkingMemory 的持久化槽位
-
-## 6. 投票意向系统
-
-### 6.1 意向追踪
-
-- 记录每个玩家的当前投票意向（想投谁 + 理由）
-- 支持快照对比（before → after）
-- 支持锚点（Anchor）标记关键意向变化
-
-### 6.2 快照格式
-
-```
-听完 玩家X 发言后意向：
-[玩家1→无, 玩家3→无, ...] → [玩家1→3, 玩家3→无, ...]；N 人改意向
+```text
+set_active_manifest(RoleVersionManifest)
+    → PromptManager.build_role_strategy_prompt(...)
+        → manifest.prompt_version_for(role)   # 未 pin → 最新版本
+        → role_prompt_registry.get_role_card + agent_base.md
+    → factory 可选拼接 skill_loader（见 agent_team）
+    → Agent 接收完整 sys_prompt
 ```
 
-## 7. 阶段输出契约
+### 3.5 Legacy v2 整包（只读参考）
 
-| 阶段 | 输出类型 | 说明 |
-|------|----------|------|
-| 圆桌（RoundtablePhase） | SpeechDecision | 白天讨论、狼队夜聊、警上发言、遗言 |
-| 行动（ActionPhase） | SeatChoiceDecision / YesNoDecision | 夜间选刀、守卫守人、验人、投票、女巫用药 |
+`strategy/prompts/v2/` + `prompt_registry.py` 保留给旧测试与迁移脚本；**运行时主路径不再依赖 v2 变量 id**。新改动请只改 per-role 小包。
 
-## 8. 接口与扩展点
+## 4. RoleVersionManifest
 
-| 入口 | 类型 | 说明 |
-|------|------|------|
-| `PromptRegistry(version_dir)` | 构造函数 | 加载指定版本的 Prompt |
-| `RolePrompts` | 类属性 | 各角色提示词（由 registry 注入） |
-| `SpeechDecision` | Pydantic 模型 | 圆桌发言结构化输出 |
-| `SeatChoiceDecision` | Pydantic 模型 | 选座结构化输出 |
-| `MindStateDecision` | Pydantic 模型 | 信念矩阵结构化输出 |
+```python
+@dataclass
+class RoleVersionManifest:
+    default_prompt_version: str = "latest"   # 无目录时的 fallback
+    default_skill_version: str = "latest"
+    prompt_versions: dict[str, str] = {}     # 显式 pin：role_key → vN
+    skill_versions: dict[str, str] = {}
+```
 
-## 9. 依赖与边界
+| 方法 | 行为 |
+|------|------|
+| `prompt_version_for(role)` | 有 pin 用 pin；否则扫描 `prompts/roles/<role>/` 与 `artifacts/prompt_roles/` 取**最新** |
+| `skill_version_for(role)` | 有 pin 用 pin；否则扫描 `agent_team/skills/<role>/` 取**最新** |
+| `with_prompt_version(role, v)` | 进化后更新单身份 pin |
 
-- `strategy` 不依赖 `game_runtime`、`agent_team`、`evaluation`
-- `game_runtime`、`agent_team`、`evaluation` 可依赖 `strategy`
-- `strategy` 是纯策略与契约层，无业务逻辑依赖
+Bootstrap 时执行 `scripts/bootstrap_role_prompt_packages.py` 从 legacy v2 拆出 22 身份 `v1/` 初始包。
 
-## 10. 相关文档
+## 5. 结构化决策模型
 
-- 进度：[ROADMAP.md](./ROADMAP.md)
-- Prompt 调优方案：[../architecture/prompt_tuning.md](../architecture/prompt_tuning.md)
-- 提示词版本与变量设计：[../architecture/吕祎晗-提示词版本与变量设计.md](../architecture/吕祎晗-提示词版本与变量设计.md)
-- 工程结构方案：[../architecture/工程结构整理方案.md](../architecture/工程结构整理方案.md)
+（与旧版相同，略）
+
+| 模型 | 说明 |
+|------|------|
+| SpeechDecision | 圆桌发言 |
+| SeatChoiceDecision | 选座 |
+| VoteIntentionDecision | 投票意向 |
+| MindStateDecision | 信念矩阵 |
+
+## 6. 信念矩阵 / 投票意向 / 阶段输出
+
+见旧版 §5–§7；实现文件未因版本控制改动而变化。
+
+## 7. 接口与扩展点
+
+| 入口 | 说明 |
+|------|------|
+| `RoleVersionManifest` | 全局 active manifest（`set_active_manifest` / `get_active_manifest`） |
+| `PromptManager` | 构建 AgentScope 系统 prompt（per-role 版本） |
+| `RolePrompts` / `GamePrompts` | 流程文案与 plan 策略 |
+
+## 8. 相关文档
+
+- [ROADMAP.md](./ROADMAP.md)
+- [Prompt 调优记录](../architecture/prompt_tuning.md)
+- [提示词版本与变量设计](../architecture/吕祎晗-提示词版本与变量设计.md)
+- [evaluation/DESIGN.md §12](../evaluation/DESIGN.md)（备查：[自进化闭环协议](../architecture/evaluation/自进化闭环协议.md)）

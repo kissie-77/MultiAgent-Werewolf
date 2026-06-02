@@ -2,7 +2,7 @@
 
 > 日期：2026-05-28
 > 分支：`fix-second-round-trip` → 合并入 `main`
-> 配套：实验数据见 [`第二次round-trip消除-真实对局AB实验报告.md`](%E7%AC%AC%E4%BA%8C%E6%AC%A1round-trip%E6%B6%88%E9%99%A4-%E7%9C%9F%E5%AE%9E%E5%AF%B9%E5%B1%80AB%E5%AE%9E%E9%AA%8C%E6%8A%A5%E5%91%8A.md)；瓶颈定性见 [`对局性能瓶颈-影响程度量化报告.md`](%E5%AF%B9%E5%B1%80%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88-%E5%BD%B1%E5%93%8D%E7%A8%8B%E5%BA%A6%E9%87%8F%E5%8C%96%E6%8A%A5%E5%91%8A.md)。
+> 配套：实验数据见 [`第二次round-trip消除-真实对局AB实验报告.md`](%E7%AC%AC%E4%BA%8C%E6%AC%A1round-trip%E6%B6%88%E9%99%A4-%E7%9C%9F%E5%AE%9E%E5%AF%B9%E5%B1%80AB%E5%AE%9E%E9%AA%8C%E6%8A%A5%E5%91%8A.md)；瓶颈定性见 [`多Agent对局性能瓶颈与并发提速分析报告.md`](%E5%A4%9AAgent%E5%AF%B9%E5%B1%80%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88%E4%B8%8E%E5%B9%B6%E5%8F%91%E6%8F%90%E9%80%9F%E5%88%86%E6%9E%90%E6%8A%A5%E5%91%8A.md)。
 
 ---
 
@@ -47,10 +47,10 @@
 | 受影响流程                    | 文件                                 | 命中 | 最早断点步 |
 | ----------------------------- | ------------------------------------ | ---- | ---------- |
 | `run_post_game_pipeline_sync` | `evaluation/post_game/pipeline.py`   | 12   | step 2     |
-| `bind_role_prompt`            | `agent_team/agentscope_agent.py`     | 12   | step 1     |
+| `bind_role_prompt`            | `agent_team/agents/agentscope_agent.py` | 12   | step 1     |
 | `run_post_game_pipeline`      | `evaluation/post_game/pipeline.py`   | 2    | step 1     |
 | `run_eval_replay`             | `evaluation/post_game/eval_agent.py` | 2    | step 1     |
-| `configure_role`              | `agent_team/agentscope_agent.py`     | 1    | step 1     |
+| `configure_role`              | `agent_team/agents/agentscope_agent.py` | 1    | step 1     |
 
 **调用深度（byDepth）**：
 

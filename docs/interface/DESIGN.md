@@ -2,12 +2,14 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-05-24
+> **最后更新**：2026-06-02
 > **关联代码**：`src/llm_werewolf/interface/`
 
 ## 1. 目标
 
-提供项目的装配层与入口：将各模块组装成可运行的游戏，支持多种交互方式（CLI、TUI、Web API）。负责配置加载、模式选择、跨板块装配、对局结算。
+提供项目的装配层与入口：将各模块组装成可运行的游戏，支持 CLI 与 Web API。负责配置加载、模式选择、跨板块装配、对局结算。
+
+> **说明**：独立 `werewolf-tui` 已移除；CLI 对局通过 `ConsolePresenter`（`ui`）输出 Rich 控制台。
 
 ## 2. 范围
 
@@ -15,8 +17,7 @@
 
 - 解析 YAML 配置文件，创建玩家和角色
 - 装配 GameEngine、Agent、InformationHub
-- 提供 CLI 入口启动对局
-- 提供 TUI 实时展示对局
+- 提供 CLI 入口启动对局（Rich 控制台展示）
 - 提供 Web API 服务（FastAPI）
 - 触发 PostGame 评测
 - 处理对局结算与产物写入
@@ -70,7 +71,8 @@ FastAPI 启动（werewolf-api）
 | 纯 Agent 对局 | 全部 Agent 自动对局 | `werewolf <config.yaml>` |
 | 人机混合 | 指定座位为人类玩家 | `werewolf <config.yaml> --human_seat 1` 或 `--human_seat 1,3` |
 | 人数/规则覆盖 | 调整座位数或警长流 | `--players N`、`--badge_flow`、`--participation`、`--rules` |
-| TUI 对局 | 终端 UI 展示 | `werewolf-tui`（见 `interface/tui.py`） |
+| 离线评测 | 批量 DemoAgent 场景 | `werewolf-eval` |
+| 证据包 / 投票摇摆 | PostGame 产物分析 | `werewolf-evidence`、`werewolf-vote-swing` |
 
 ## 6. 配置系统
 
@@ -80,7 +82,14 @@ FastAPI 启动（werewolf-api）
 language: zh-CN
 agent_backend: agentscope
 default_plan: complicated
-prompt_version: v2
+prompt_version: latest   # 可选；默认每身份用 prompts/roles/<role>/ 下最新版本
+
+# 可选：按身份 pin 版本
+# role_versions:
+#   prompt_versions:
+#     wolf: v2
+#   skill_versions:
+#     wolf: v2
 
 players:
   - name: 玩家1
@@ -108,6 +117,27 @@ vote_intention_concurrency: 4
 - `--badge_flow`：开启警长 / 警徽流
 
 超时、投票意向并发等主要在 **YAML** 中配置（如 `day_timeout`、`vote_timeout`、`vote_intention_concurrency`），由 `prepare_game_roster` 注入 `GameConfig`。
+
+### 6.3 环境变量与 API 连通性
+
+密钥不进 YAML，通过 `api_key_env` / `model_env` 引用仓库根目录 `.env`（由 `game_runtime.env.load_project_dotenv` 加载）。
+
+| 变量 | 用途 |
+|------|------|
+| `ARK_API_KEY` | 火山方舟 API Key（Doubao） |
+| `ARK_EP` | 推理接入点 ID（如 `ep-20260514115354-xxx`） |
+| `AGENT_SERIAL_DELAY_SECONDS` | AgentScope 串行调用间隔，减轻 429 |
+
+常用配置：`configs/llm-6p-doubao.yaml`、`configs/llm-12p-doubao.yaml`、`configs/demo-6.yaml`。
+
+改 `.env` 后先验证：
+
+```bash
+uv run python scripts/test_ark_connectivity.py   # 期望 STATUS: OK
+uv run werewolf configs/llm-12p-doubao.yaml      # 12 人 CLI 对局
+```
+
+产物目录：`artifacts/runs/<YYYYMMDD-HHMMSS>/`；对局结束自动触发 PostGame（见 [evaluation/DESIGN.md](../evaluation/DESIGN.md)）。
 
 ## 7. API 设计
 
@@ -186,7 +216,7 @@ await finalize_run(
     *,
     game_result_text=None,
     config_path=None,
-    prompt_version="v2",
+    role_version_manifest=players_config.role_version_manifest(),
 )
 ```
 
@@ -218,3 +248,4 @@ await finalize_run(
 - 进度：[ROADMAP.md](./ROADMAP.md)
 - 工程结构方案：[../architecture/工程结构整理方案.md](../architecture/工程结构整理方案.md)
 - 人机对战说明：[../reports/人机对战与命令行模式.md](../reports/人机对战与命令行模式.md)
+- ARK 连通测试：`scripts/test_ark_connectivity.py`

@@ -23,6 +23,12 @@ from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules i
 )
 
 
+def _role_skill_dir(root: Path, role: str, version: str = "v1") -> Path:
+    path = root / role / version
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _fixture_events() -> list[dict]:
     return [
         {
@@ -384,8 +390,7 @@ def test_skill_loader_reads_agent_library(tmp_path: Path, monkeypatch) -> None:
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    wolf_dir = root / "wolf"
-    wolf_dir.mkdir(parents=True)
+    wolf_dir = _role_skill_dir(root, "wolf")
     (wolf_dir / "wolf_demo.md").write_text(
         "---\nskill_id: wolf_demo\nprompt_role_key: wolf\nstatus: active\n---\n\n"
         "# 演示\n\n## 何时使用\n首夜\n",
@@ -407,8 +412,7 @@ def test_skill_loader_sorts_by_weight_descending(tmp_path: Path, monkeypatch) ->
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    wolf_dir = root / "wolf"
-    wolf_dir.mkdir(parents=True)
+    wolf_dir = _role_skill_dir(root, "wolf")
 
     (wolf_dir / "low.md").write_text(
         "---\nskill_id: low\nprompt_role_key: wolf\nstatus: active\nweight: 0.5\n---\n\n# 低权重\n",
@@ -437,8 +441,7 @@ def test_skill_loader_defaults_weight_to_one(tmp_path: Path, monkeypatch) -> Non
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    wolf_dir = root / "wolf"
-    wolf_dir.mkdir(parents=True)
+    wolf_dir = _role_skill_dir(root, "wolf")
 
     (wolf_dir / "no_weight.md").write_text(
         "---\nskill_id: no_weight\nprompt_role_key: wolf\nstatus: active\n---\n\n# 无权重\n",
@@ -459,8 +462,7 @@ def test_skill_loader_reads_when_to_use_from_frontmatter(
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    prophet_dir = root / "prophet"
-    prophet_dir.mkdir(parents=True)
+    prophet_dir = _role_skill_dir(root, "prophet")
     (prophet_dir / "prophet_demo.md").write_text(
         "---\nskill_id: prophet_demo\nprompt_role_key: prophet\nstatus: active\n"
         "when_to_use: 第1轮夜间，面临同类技能抉择且信息边界与当时一致时\n---\n\n"
@@ -486,8 +488,7 @@ def test_semantic_memory_updates_skill_markdown_weight(tmp_path: Path, monkeypat
     from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
 
     root = tmp_path / "skills"
-    wolf_dir = root / "wolf"
-    wolf_dir.mkdir(parents=True)
+    wolf_dir = _role_skill_dir(root, "wolf")
     skill_path = wolf_dir / "wolf_demo.md"
     skill_path.write_text(
         "---\n"
@@ -572,8 +573,7 @@ def test_load_role_skills_excludes_draft_by_default(tmp_path: Path, monkeypatch)
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    role_dir = root / "wolf"
-    role_dir.mkdir(parents=True)
+    role_dir = _role_skill_dir(root, "wolf")
     (role_dir / "active.md").write_text(
         "---\nskill_id: active\nprompt_role_key: wolf\nstatus: active\n---\n\n# A\n",
         encoding="utf-8",
@@ -594,8 +594,7 @@ def test_load_role_skills_excludes_deprecated(tmp_path: Path, monkeypatch) -> No
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    role_dir = root / "wolf"
-    role_dir.mkdir(parents=True)
+    role_dir = _role_skill_dir(root, "wolf")
     (role_dir / "active.md").write_text(
         "---\nskill_id: active\nprompt_role_key: wolf\nstatus: active\n---\n\n# A\n",
         encoding="utf-8",
@@ -617,8 +616,7 @@ def test_build_system_prompt_includes_active_skills(tmp_path: Path, monkeypatch)
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    wolf_dir = root / "wolf"
-    wolf_dir.mkdir(parents=True)
+    wolf_dir = _role_skill_dir(root, "wolf")
     (wolf_dir / "wolf_demo.md").write_text(
         "---\nskill_id: wolf_demo\nprompt_role_key: wolf\nstatus: active\n---\n\n"
         "# Demo\n\n## 何时使用\n首夜统一刀口\n",
@@ -627,7 +625,7 @@ def test_build_system_prompt_includes_active_skills(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
     skill_loader.list_role_skill_files.cache_clear()
 
-    prompt = build_system_prompt(3, "Werewolf", "default", prompt_version="v2")
+    prompt = build_system_prompt(3, "Werewolf", "default")
     assert "对局经验 Skill" in prompt
     assert "wolf_demo" in prompt
     assert "首夜统一刀口" in prompt
@@ -730,8 +728,7 @@ def test_load_role_skills_include_draft_excludes_deprecated(
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    role_dir = root / "wolf"
-    role_dir.mkdir(parents=True)
+    role_dir = _role_skill_dir(root, "wolf")
     (role_dir / "a.md").write_text(
         "---\nskill_id: a\nprompt_role_key: wolf\nstatus: active\n---\n\n# A\n",
         encoding="utf-8",
@@ -784,8 +781,7 @@ def test_deprecated_skill_not_in_prompt(
     from llm_werewolf.agent_team.skill_support import skill_loader
 
     root = tmp_path / "skills"
-    wolf_dir = root / "wolf"
-    wolf_dir.mkdir(parents=True)
+    wolf_dir = _role_skill_dir(root, "wolf")
     (wolf_dir / "good.md").write_text(
         "---\nskill_id: good\nprompt_role_key: wolf\nstatus: active\n---\n\n# Good Skill\n",
         encoding="utf-8",
@@ -797,6 +793,6 @@ def test_deprecated_skill_not_in_prompt(
     monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: root)
     skill_loader.list_role_skill_files.cache_clear()
 
-    prompt = build_system_prompt(3, "Werewolf", "default", prompt_version="v2")
+    prompt = build_system_prompt(3, "Werewolf", "default")
     assert "good" in prompt
     assert "old" not in prompt

@@ -2,34 +2,34 @@
 
 > **模块**：ui
 > **状态**：active
-> **最后更新**：2026-05-24
+> **最后更新**：2026-06-02
 > **关联代码**：`src/llm_werewolf/ui/`
 > **关联测试**：`tests/ui/`
 
 ## 职责
 
-展示层：控制台展示器、TUI 应用、UI 组件（聊天面板、游戏面板、玩家面板）、样式定义。只读事件与状态，负责将游戏过程以美观的方式展示给用户。
+展示层：**ConsolePresenter**（Rich 控制台事件格式化）。只读事件与状态，不修改游戏逻辑。
+
+> **说明**：历史上的 Textual TUI（`WerewolfTUI` / `run_tui`）已移除；CLI 对局通过 `interface` 的 `werewolf` 命令 + `ConsolePresenter` 输出。Web 观战见 `frontend`。
 
 ## 不负责
 
 - 游戏规则与引擎（见 `game_runtime`）
 - Agent 决策与执行（见 `agent_team`）
-- CLI/TUI 入口与装配（见 `interface`）
+- CLI/API 入口与装配（见 `interface`）
 - Web 前端页面（见 `frontend`）
 
 ## 目录映射
 
 | 代码路径 | 内容 |
 |----------|------|
-| `ui/components/` | UI 组件：聊天面板、游戏面板、玩家面板 |
-| `ui/console_presenter.py` | 控制台展示器：Rich 库美化输出、事件格式化 |
-| `ui/tui_app.py` | TUI 应用：Textual 框架终端 UI |
-| `ui/styles.py` | 样式定义：颜色、布局、组件样式 |
+| `ui/console_presenter.py` | 控制台展示器：Rich Panel/Table、夜间行动缓冲 |
+| `ui/components/` | 预留组件包（当前无独立 panel 实现文件） |
 
 ## 依赖关系
 
 - **可依赖**：`game_runtime`（读事件与状态）
-- **被依赖**：`interface`（TUI 入口）
+- **被依赖**：`interface`（CLI 对局挂载 `presenter.present_event`）
 
 ## 文档索引
 
@@ -41,5 +41,9 @@
 ## 快速入口
 
 ```python
-from llm_werewolf.ui import ConsolePresenter, WerewolfTUI, run_tui
+from llm_werewolf.ui.console_presenter import ConsolePresenter
+from llm_werewolf.game_runtime.locale import Locale
+
+presenter = ConsolePresenter(Locale("zh-CN"))
+presenter.present_event(event)
 ```

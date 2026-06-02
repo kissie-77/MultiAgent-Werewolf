@@ -1,5 +1,5 @@
 language: en-US
-# prompt_version: v2   # 可选；指向 strategy/prompts/v2/ 外置 Prompt 变量集
+# prompt_version: latest   # 可选；默认每身份使用 prompts/roles/<role>/ 下最新版本
 
 players:
   - name: Player1

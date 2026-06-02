@@ -27,6 +27,7 @@ from llm_werewolf.game_runtime.config import GameConfig
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.game_runtime.types import Event, EventType
 from llm_werewolf.interface.bootstrap import create_information_hub
+from llm_werewolf.strategy.role_version_manifest import RoleVersionManifest, set_active_manifest
 
 
 class EvaluationRunner:
@@ -44,6 +45,7 @@ class EvaluationRunner:
         notes: list[str] | None = None,
         previous_run_dir: str | None = None,
         previous_skill_snapshot_path: str | None = None,
+        role_version_manifest: RoleVersionManifest | None = None,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.scenarios = scenarios
@@ -55,6 +57,14 @@ class EvaluationRunner:
         self.notes = notes or []
         self.previous_run_dir = previous_run_dir
         self.previous_skill_snapshot_path = previous_skill_snapshot_path
+        if role_version_manifest is not None:
+            self.role_version_manifest = role_version_manifest
+        else:
+            self.role_version_manifest = RoleVersionManifest(
+                default_prompt_version=prompt_version if prompt_version != "unknown" else "v1",
+                default_skill_version=skill_version,
+            )
+        set_active_manifest(self.role_version_manifest)
 
     async def run(self) -> list[GameRunResult]:
         self.output_dir.mkdir(parents=True, exist_ok=True)

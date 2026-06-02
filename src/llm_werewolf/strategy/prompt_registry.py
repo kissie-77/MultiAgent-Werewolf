@@ -1,4 +1,4 @@
-"""版本化 Prompt 变量注册表：变量 id → 外置文件正文。"""
+"""Prompt 变量 registry — legacy v2 bundle (tests / migration reference only)."""
 
 from __future__ import annotations
 
@@ -43,8 +43,6 @@ ROLE_KEY_TO_VARIABLE: dict[str, str] = {
 
 @dataclass(frozen=True)
 class VariableSpec:
-    """variables.yaml 中单个变量的元数据。"""
-
     variable_id: str
     kind: str
     file: str
@@ -110,8 +108,6 @@ def _render_legacy_suggestion(data: dict[str, Any]) -> str:
 
 
 class PromptRegistry:
-    """加载指定版本目录下的 manifest + variables，并按 id 读取文案。"""
-
     def __init__(self, version_dir: Path) -> None:
         self.version_dir = version_dir
         self.version = self._read_manifest_version(version_dir)
@@ -146,13 +142,6 @@ class PromptRegistry:
                 format_keys=tuple(meta.get("format_keys") or ()),
             )
         return specs
-
-    def list_variables(self) -> list[str]:
-        return sorted(self._specs.keys())
-
-    def variable_path(self, variable_id: str) -> Path:
-        spec = self._require_spec(variable_id)
-        return self.version_dir / spec.file
 
     def get_text(self, variable_id: str) -> str:
         if variable_id in self._text_cache:
@@ -207,10 +196,6 @@ class PromptRegistry:
         elif not var_id.startswith(f"{prefix}."):
             var_id = f"{prefix}.role.{prompt_role_key}"
         return self.get_role_card(var_id)
-
-    def agent_base_template(self, *, version: str | None = None) -> str:
-        prefix = version or self.version
-        return self.get_text(f"{prefix}.agent.base")
 
     def _require_spec(self, variable_id: str) -> VariableSpec:
         spec = self._specs.get(variable_id)

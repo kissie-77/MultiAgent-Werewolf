@@ -2,7 +2,7 @@
 
 > 日期：2026-05-28
 > 目标：用**真实 doubao 对局**验证"消除结构化决策后被丢弃的第二次 LLM 往返"（性能报告 ③）的实际效果——既要量化提速，也要确认不伤对局质量。
-> 配套：实现见分支 `fix-second-round-trip`（`FastReActAgent` + `factory` 接线）；瓶颈定性见 [`对局性能瓶颈-影响程度量化报告.md`](%E5%AF%B9%E5%B1%80%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88-%E5%BD%B1%E5%93%8D%E7%A8%8B%E5%BA%A6%E9%87%8F%E5%8C%96%E6%8A%A5%E5%91%8A.md)。
+> 配套：实现见分支 `fix-second-round-trip`（`FastReActAgent` + `factory` 接线）；瓶颈定性见 [`多Agent对局性能瓶颈与并发提速分析报告.md`](%E5%A4%9AAgent%E5%AF%B9%E5%B1%80%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88%E4%B8%8E%E5%B9%B6%E5%8F%91%E6%8F%90%E9%80%9F%E5%88%86%E6%9E%90%E6%8A%A5%E5%91%8A.md)。
 
 ---
 

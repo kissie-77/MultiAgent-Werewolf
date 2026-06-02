@@ -1,17 +1,20 @@
 """狼人杀角色策略提示词。
 
-Prompt v2：角色策略卡 + 多 Agent 行为准则。
-正文外置：strategy/prompts/v2/ + prompt_registry 变量 id。
+Prompt：每身份小包 strategy/prompts/roles/<role>/<version>/ + shared agent_base.md。
 发言/遗言等圆桌任务：JSON Schema（SpeechDecision / generate_response）。
 选座、投票、女巫用药：[[ ]] 文本格式。
 另保留 ROLE_SEAT_ACTION 供 bridge / 扩展角色使用。
 """
 
-from llm_werewolf.strategy.prompt_registry import ROLE_KEY_TO_VARIABLE, get_registry
+from llm_werewolf.strategy.role_prompt_registry import (
+    agent_base_template_path,
+    get_role_card,
+    resolve_latest_prompt_version,
+)
 
 
 class RolePrompts:
-    """各角色的系统提示词（由 v2 外置文件注入）。"""
+    """各角色的系统提示词（由 per-role 外置文件注入）。"""
 
     BASE_PROMPT: str = ""
     VILLAGER: dict[str, str] = {}
@@ -23,16 +26,15 @@ class RolePrompts:
     HUNTER: dict[str, str] = {}
 
 
-def _hydrate_role_prompts_from_registry(version: str = "v2") -> None:
-    registry = get_registry(version)
-    RolePrompts.BASE_PROMPT = registry.agent_base_template(version=version)
-    RolePrompts.VILLAGER = registry.get_role_card(ROLE_KEY_TO_VARIABLE["villager"])
-    RolePrompts.PROPHET = registry.get_role_card(ROLE_KEY_TO_VARIABLE["prophet"])
-    RolePrompts.WITCH = registry.get_role_card(ROLE_KEY_TO_VARIABLE["witch"])
-    RolePrompts.WOLF = registry.get_role_card(ROLE_KEY_TO_VARIABLE["wolf"])
-    RolePrompts.WOLF_KING = registry.get_role_card(ROLE_KEY_TO_VARIABLE["wolf_king"])
-    RolePrompts.GUARD = registry.get_role_card(ROLE_KEY_TO_VARIABLE["guard"])
-    RolePrompts.HUNTER = registry.get_role_card(ROLE_KEY_TO_VARIABLE["hunter"])
+def _hydrate_role_prompts_from_registry() -> None:
+    RolePrompts.BASE_PROMPT = agent_base_template_path().read_text(encoding="utf-8").strip()
+    RolePrompts.VILLAGER = get_role_card("villager", resolve_latest_prompt_version("villager"))
+    RolePrompts.PROPHET = get_role_card("prophet", resolve_latest_prompt_version("prophet"))
+    RolePrompts.WITCH = get_role_card("witch", resolve_latest_prompt_version("witch"))
+    RolePrompts.WOLF = get_role_card("wolf", resolve_latest_prompt_version("wolf"))
+    RolePrompts.WOLF_KING = get_role_card("wolf_king", resolve_latest_prompt_version("wolf_king"))
+    RolePrompts.GUARD = get_role_card("guard", resolve_latest_prompt_version("guard"))
+    RolePrompts.HUNTER = get_role_card("hunter", resolve_latest_prompt_version("hunter"))
 
 
 _hydrate_role_prompts_from_registry()

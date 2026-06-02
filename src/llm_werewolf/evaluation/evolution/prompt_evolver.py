@@ -14,6 +14,16 @@ from llm_werewolf.strategy.prompt_registry import (
     register_prompt_search_root,
     resolve_prompt_version_dir,
 )
+from llm_werewolf.strategy.role_prompt_registry import (
+    copy_role_prompt_package,
+    register_role_prompt_search_root,
+)
+from llm_werewolf.strategy.role_version_manifest import (
+    RoleVersionManifest,
+    get_active_manifest,
+    next_version_label,
+    set_active_manifest,
+)
 
 PROMPT_VERSIONS_ROOT = Path("artifacts") / "prompt_versions"
 DEFAULT_HISTORY_WINDOW = 5
@@ -68,6 +78,8 @@ class PromptEvolutionResult:
     applied_path: Path
     diff_path: Path
     evidence_ledger_path: Path
+    role_version_manifest: dict[str, Any] | None = None
+    changed_prompt_roles: dict[str, dict[str, str]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,13 +92,16 @@ class PromptEvolutionResult:
             "applied_path": str(self.applied_path),
             "diff_path": str(self.diff_path),
             "evidence_ledger_path": str(self.evidence_ledger_path),
+            "role_version_manifest": self.role_version_manifest,
+            "changed_prompt_roles": self.changed_prompt_roles,
         }
 
 
 def evolve_prompt_from_run(
     run_dir: str | Path,
     *,
-    base_prompt_version: str,
+    base_prompt_version: str | None = None,
+    role_version_manifest: RoleVersionManifest | None = None,
     output_root: str | Path = PROMPT_VERSIONS_ROOT,
     max_per_role: int = 2,
     min_confidence_score: float = 0.68,
@@ -95,7 +110,9 @@ def evolve_prompt_from_run(
     base = Path(run_dir)
     proposals_path = base / "prompt_proposals.json"
     output_base = Path(output_root)
-    register_prompt_search_root(output_base)
+    register_role_prompt_search_root(output_base)
+    manifest = role_version_manifest or get_active_manifest()
+    legacy_base = base_prompt_version or manifest.default_prompt_version
     proposals_payload = _read_json(proposals_path)
     history_support = _build_history_support(base, window=history_window)
     proposals, skipped_low_confidence = _select_proposals(
@@ -104,7 +121,6 @@ def evolve_prompt_from_run(
         min_confidence_score=min_confidence_score,
         history_support=history_support,
     )
-    new_version = _build_next_prompt_version(base_prompt_version, base.name)
 
     applied_path = base / "applied_prompt_proposals.json"
     diff_path = base / "prompt_version_diff.json"
@@ -114,124 +130,135 @@ def evolve_prompt_from_run(
         _write_json(
             applied_path,
             {
-                "schema": "applied_prompt_proposals_v1",
-                "base_prompt_version": base_prompt_version,
-                "new_prompt_version": base_prompt_version,
+                "schema": "applied_prompt_proposals_v2",
+                "base_prompt_version": legacy_base,
+                "new_prompt_version": legacy_base,
                 "applied_count": 0,
                 "applied": [],
                 "skipped_low_confidence": skipped_low_confidence,
                 "skipped_reason": "no_applicable_prompt_proposals",
+                "role_version_manifest": manifest.to_dict(),
             },
         )
         _write_json(
             diff_path,
             {
-                "schema": "prompt_version_diff_v1",
-                "base_prompt_version": base_prompt_version,
-                "new_prompt_version": base_prompt_version,
+                "schema": "prompt_version_diff_v2",
+                "base_prompt_version": legacy_base,
+                "new_prompt_version": legacy_base,
                 "changes": [],
+                "changed_prompt_roles": {},
             },
         )
         _write_evidence_ledger(
             evidence_ledger_path,
-            base_prompt_version=base_prompt_version,
-            new_prompt_version=base_prompt_version,
+            base_prompt_version=legacy_base,
+            new_prompt_version=legacy_base,
             applied=[],
             skipped_low_confidence=skipped_low_confidence,
         )
         return PromptEvolutionResult(
-            base_prompt_version=base_prompt_version,
-            new_prompt_version=base_prompt_version,
+            base_prompt_version=legacy_base,
+            new_prompt_version=legacy_base,
             new_version_dir=None,
             applied_count=0,
             applied_path=applied_path,
             diff_path=diff_path,
             evidence_ledger_path=evidence_ledger_path,
+            role_version_manifest=manifest.to_dict(),
+            changed_prompt_roles={},
         )
 
-    new_version_dir = output_base / new_version
-    try:
-        _copy_prompt_version(base_prompt_version, new_version, new_version_dir)
-    except FileNotFoundError as exc:
-        _write_json(
-            applied_path,
-            {
-                "schema": "applied_prompt_proposals_v1",
-                "base_prompt_version": base_prompt_version,
-                "new_prompt_version": base_prompt_version,
-                "applied_count": 0,
-                "applied": [],
-                "skipped_low_confidence": skipped_low_confidence,
-                "skipped_reason": "base_prompt_version_not_found",
-                "error": str(exc),
-            },
-        )
-        _write_json(
-            diff_path,
-            {
-                "schema": "prompt_version_diff_v1",
-                "base_prompt_version": base_prompt_version,
-                "new_prompt_version": base_prompt_version,
-                "changes": [],
-            },
-        )
-        _write_evidence_ledger(
-            evidence_ledger_path,
-            base_prompt_version=base_prompt_version,
-            new_prompt_version=base_prompt_version,
-            applied=[],
-            skipped_low_confidence=skipped_low_confidence,
-        )
-        return PromptEvolutionResult(
-            base_prompt_version=base_prompt_version,
-            new_prompt_version=base_prompt_version,
-            new_version_dir=None,
-            applied_count=0,
-            applied_path=applied_path,
-            diff_path=diff_path,
-            evidence_ledger_path=evidence_ledger_path,
-        )
+    updated_manifest = manifest
+    changes: list[dict[str, Any]] = []
+    changed_roles: dict[str, dict[str, str]] = {}
+    last_dir: Path | None = None
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for proposal in proposals:
+        role_key = str(proposal.get("prompt_role_key") or "villager")
+        grouped.setdefault(role_key, []).append(proposal)
 
-    registry = get_registry(new_version)
-    changes = _apply_proposals(registry.version_dir, new_version, proposals)
-    get_registry.cache_clear()
+    for role_key, role_proposals in grouped.items():
+        base_version = updated_manifest.prompt_version_for(role_key)
+        new_version = next_version_label(base_version)
+        try:
+            target_dir = copy_role_prompt_package(
+                role_key,
+                base_version,
+                new_version,
+                output_root=output_base,
+            )
+        except FileNotFoundError:
+            continue
+        role_yaml = target_dir / "role.yaml"
+        for proposal in role_proposals:
+            patch = proposal.get("suggested_patch") or {}
+            if not isinstance(patch, dict):
+                continue
+            text = str(patch.get("text_zh") or "").strip()
+            if not text:
+                continue
+            if _apply_to_role_card(role_yaml, patch, text):
+                changes.append(
+                    {
+                        "proposal_id": proposal.get("proposal_id"),
+                        "prompt_role_key": role_key,
+                        "target_field": patch.get("target_field"),
+                        "section": patch.get("section"),
+                        "action": patch.get("action"),
+                        "text_zh": text,
+                        "prompt_version_before": base_version,
+                        "prompt_version_after": new_version,
+                    }
+                )
+        updated_manifest = updated_manifest.with_prompt_version(role_key, new_version)
+        changed_roles[role_key] = {"before": base_version, "after": new_version}
+        last_dir = target_dir
+
+    set_active_manifest(updated_manifest)
+    summary_version = updated_manifest.default_prompt_version
 
     _write_json(
         applied_path,
         {
-            "schema": "applied_prompt_proposals_v1",
-            "base_prompt_version": base_prompt_version,
-            "new_prompt_version": new_version,
-            "applied_count": len(proposals),
+            "schema": "applied_prompt_proposals_v2",
+            "base_prompt_version": legacy_base,
+            "new_prompt_version": summary_version,
+            "applied_count": len(changes),
             "applied": proposals,
             "skipped_low_confidence": skipped_low_confidence,
+            "role_version_manifest": updated_manifest.to_dict(),
+            "changed_prompt_roles": changed_roles,
         },
     )
     _write_json(
         diff_path,
         {
-            "schema": "prompt_version_diff_v1",
-            "base_prompt_version": base_prompt_version,
-            "new_prompt_version": new_version,
+            "schema": "prompt_version_diff_v2",
+            "base_prompt_version": legacy_base,
+            "new_prompt_version": summary_version,
             "changes": changes,
+            "changed_prompt_roles": changed_roles,
         },
     )
     _write_evidence_ledger(
         evidence_ledger_path,
-        base_prompt_version=base_prompt_version,
-        new_prompt_version=new_version,
+        base_prompt_version=legacy_base,
+        new_prompt_version=summary_version,
         applied=proposals,
         skipped_low_confidence=skipped_low_confidence,
     )
-    (base / "new_prompt_version.txt").write_text(new_version, encoding="utf-8")
+    (base / "new_prompt_version.txt").write_text(summary_version, encoding="utf-8")
     return PromptEvolutionResult(
-        base_prompt_version=base_prompt_version,
-        new_prompt_version=new_version,
-        new_version_dir=new_version_dir,
-        applied_count=len(proposals),
+        base_prompt_version=legacy_base,
+        new_prompt_version=summary_version,
+        new_version_dir=last_dir,
+        applied_count=len(changes),
         applied_path=applied_path,
         diff_path=diff_path,
         evidence_ledger_path=evidence_ledger_path,
+        role_version_manifest=updated_manifest.to_dict(),
+        changed_prompt_roles=changed_roles,
     )
 
 

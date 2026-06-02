@@ -15,7 +15,7 @@ def main(
     timeout_seconds: float = 30.0,
     seed: int = 1,
     model: str = "unknown",
-    prompt_version: str = "v2",
+    prompt_version: str = "v1",
     initial_skill_version: str = "baseline",
     notes: list[str] | None = None,
 ) -> str:
@@ -46,7 +46,7 @@ def matrix(
     games_per_round: int = 3,
     timeout_seconds: float = 30.0,
     model: str = "unknown",
-    prompt_version: str = "v2",
+    prompt_version: str = "v1",
     initial_skill_version: str = "baseline",
     notes: list[str] | None = None,
 ) -> str:

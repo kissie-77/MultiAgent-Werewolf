@@ -9,6 +9,7 @@ from llm_werewolf.agent_team.agents.base import create_agent
 from llm_werewolf.agent_team.agents.factory import configure_agents_for_players
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.agent_team.communication.information_hub import InformationHub
+from llm_werewolf.strategy.role_version_manifest import RoleVersionManifest, set_active_manifest
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime import GameEngine
@@ -36,23 +37,25 @@ def bind_agentscope_roles(
     *,
     default_plan: str = "default",
     memory_config=None,
-    prompt_version: str = "v2",
+    role_version_manifest: RoleVersionManifest | None = None,
 ) -> None:
     """角色分配完成后，为各玩家配置 AgentScope 系统 prompt。"""
     if game_state is None:
         return
+    if role_version_manifest is not None:
+        set_active_manifest(role_version_manifest)
     event_logger = getattr(game_state, "event_logger", None)
     configure_agents_for_players(
         game_state.players,
         default_plan=default_plan,
         memory_config=memory_config,
-        prompt_version=prompt_version,
         event_logger=event_logger,
     )
 
 
 def create_players_from_config(players_config: PlayersConfig) -> list[BaseAgent]:
     """从 YAML 构建座位 Agent（当 ``agent_backend`` 指定时使用 AgentScope）。"""
+    set_active_manifest(players_config.role_version_manifest())
     use_agentscope = players_config.use_agentscope_backend
     return [
         create_agent(
@@ -60,7 +63,6 @@ def create_players_from_config(players_config: PlayersConfig) -> list[BaseAgent]
             language=players_config.language,
             use_agentscope=use_agentscope,
             default_plan=players_config.default_plan,
-            prompt_version=players_config.prompt_version,
         )
         for player_cfg in players_config.players
     ]
@@ -74,7 +76,7 @@ def wire_agentscope_after_setup(engine: GameEngine, players_config: PlayersConfi
         engine.game_state,
         default_plan=players_config.default_plan,
         memory_config=players_config.memory,
-        prompt_version=players_config.prompt_version,
+        role_version_manifest=players_config.role_version_manifest(),
     )
 
 

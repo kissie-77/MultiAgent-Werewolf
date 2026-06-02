@@ -49,7 +49,7 @@ def test_memory_manager_skips_md_library_injection_without_backend(temp_skill_ro
         player_id="p1",
         config=MemoryConfig(),
     )
-    wolf_dir = temp_skill_root / "wolf"
+    wolf_dir = temp_skill_root / "wolf" / "v1"
     wolf_dir.mkdir(parents=True, exist_ok=True)
     (wolf_dir / "wolf_demo.md").write_text(
         "---\nskill_id: wolf_demo\nprompt_role_key: wolf\nstatus: active\n---\n\n# Demo\n",
@@ -656,7 +656,7 @@ def test_find_similar_fallback_to_sequence_matcher():
 
 
 def test_existing_skill_markdown_uses_when_to_use_for_prompt_description(temp_skill_root):
-    wolf_dir = temp_skill_root / "wolf"
+    wolf_dir = temp_skill_root / "wolf" / "v1"
     wolf_dir.mkdir(parents=True)
     skill_path = wolf_dir / "wolf_demo.md"
     skill_path.write_text(
@@ -746,7 +746,7 @@ def test_evict_excess_noop_when_under_limit(temp_skill_root):
     deleted = semantic.evict_excess("villager", max_count=2)
 
     assert deleted == 0
-    assert len(list((temp_skill_root / "villager").glob("*.md"))) == 2
+    assert len(list((temp_skill_root / "villager" / "v1").glob("*.md"))) == 2
 
 
 def test_evict_excess_removes_lowest_weight(temp_skill_root):

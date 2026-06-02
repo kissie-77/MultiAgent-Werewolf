@@ -1,0 +1,5 @@
+role: prophet
+version: v1
+status: active
+parent: null
+description: Per-role prompt package migrated from v2 bundle

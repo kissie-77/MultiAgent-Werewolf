@@ -2,7 +2,7 @@
 
 > **模块**：agent_team
 > **状态**：active
-> **最后更新**：2026-05-24
+> **最后更新**：2026-05-26
 > **关联代码**：`src/llm_werewolf/agent_team/`
 
 ## 1. 目标
@@ -33,7 +33,7 @@
 PhaseInteraction（游戏引擎接口）
     → Bridge（统一适配层）
     → Agent（AgentScopeWerewolfAgent / DemoAgent）
-    → MemoryManager（记忆管理）
+    → RuntimeMemoryManager（记忆管理；别名 MemoryManager）
     → SkillLoader（Skill 读取）
     → MessageRouter（消息路由）
     → InformationHub（信息中枢）
@@ -57,44 +57,14 @@ PhaseInteraction（游戏引擎接口）
 
 ## 5. 记忆系统
 
-### 5.1 四层记忆架构
+四层记忆（Working / Episodic / Semantic / Procedural）由 `RuntimeMemoryManager` 统一调度；语义记忆以 Skill MD 为主，ReMe 已下线；与 Coach 分层详见 **[memory/DESIGN.md](./memory/DESIGN.md)**。
 
-```
-WorkingMemory（工作记忆）
-    - 短期上下文，保留最近 N 轮发言
-    - 按轮次自动压缩
-    - 包含信念矩阵快照（B1/B2/W 面板）
+简要生命周期：
 
-EpisodicMemory（情景记忆）
-    - 关键事件记录（死亡、查验、投票结果）
-    - 用于复盘和长期推理
-
-SemanticMemory（语义记忆）
-    - 长期知识卡片，按角色分类
-    - 赛后通过 Coach 提取和更新
-    - 支持相似度检索
-
-ProceduralMemory（程序记忆）
-    - 角色策略计划（default / complicated）
-    - Skill 描述和权重
-    - 游戏开始时注入
-```
-
-### 5.2 记忆生命周期
-
-```
-游戏开始 → on_game_start()
-    → 注入角色 Skill
-    → 注入程序记忆（策略计划）
-    → 初始化工作记忆
-
-每轮结束 → on_round_end()
-    → 压缩工作记忆
-
-游戏结束 → on_game_end()
-    → 更新语义记忆
-    → 提取语义候选
-    → 清理过期卡片
+```text
+on_game_start → 注入 Skill + 程序记忆
+on_round_end  → 压缩工作记忆
+on_game_end   → 更新 skill 权重 + 可选语义候选提炼
 ```
 
 ## 6. 通信系统
@@ -136,7 +106,7 @@ Bridge 层负责将 LLM 输出解析为结构化决策：
 
 ```
 evaluation/post_game/coach 复盘
-    → evaluation 写入 agent_team/skills/
+    → evaluation 写入 agent_team/skills/<role>/<skill_version>/
     → agent_team/skill_loader 读取
     → memory 注入描述或上下文
     → Agent 使用 skill 决策
@@ -145,7 +115,7 @@ evaluation/post_game/coach 复盘
 关键规则：
 - `evaluation` 可以写入 `agent_team/skills`
 - `agent_team` 只读取 `agent_team/skills`
-- Skill 文件按角色分类存放（guard/、prophet/、villager/、wolf/）
+- Skill 文件按 `skills/<role>/<version>/` 存放（guard/、prophet/、villager/、wolf/ 等）
 
 ## 9. 兜底回复机制
 
@@ -178,5 +148,5 @@ evaluation/post_game/coach 复盘
 ## 12. 相关文档
 
 - 进度：[ROADMAP.md](./ROADMAP.md)
-- 记忆板块开发记录：[../memory/](../memory/)
+- 记忆子模块：[memory/DESIGN.md](./memory/DESIGN.md) · [memory/ROADMAP.md](./memory/ROADMAP.md)
 - 工程结构方案：[../architecture/工程结构整理方案.md](../architecture/工程结构整理方案.md)

@@ -333,12 +333,51 @@ def is_eligible_for_agent_library(skill: dict[str, Any]) -> bool:
 def write_skill_markdown_files(
     skills: list[dict[str, Any]], *, run_skills_dir: Path, agent_skills_root: Path | None = None
 ) -> list[str]:
-    """写入 run 目录下的 Skill MD；可选将通过门控的 Skill 双写 agent_team/skills。"""
+    """写入 run 目录下的 Skill MD；可选将通过门控的 Skill 双写 agent_team/skills/<role>/<version>/。"""
+    from llm_werewolf.agent_team.skill_support import skill_loader
+    from llm_werewolf.strategy.role_version_manifest import get_active_manifest, set_active_manifest
+
     written: list[str] = []
+    library_roles: dict[str, list[dict[str, Any]]] = {}
     for skill in skills:
         if skill.get("status") == "skipped":
             continue
         role_key = str(skill.get("prompt_role_key") or "villager")
+        if agent_skills_root is not None and is_eligible_for_agent_library(skill):
+            library_roles.setdefault(role_key, []).append(skill)
+
+    manifest = get_active_manifest()
+    role_new_versions: dict[str, str] = {}
+    for role_key, role_skills in library_roles.items():
+        current_version = manifest.skill_version_for(role_key)
+        new_version = skill_loader.next_skill_version(role_key, current_version)
+        skill_loader.copy_skills_to_new_version(
+            role_key,
+            base_version=current_version,
+            new_version=new_version,
+        )
+        role_new_versions[role_key] = new_version
+        role_dir = agent_skills_root / role_key / new_version  # type: ignore[operator]
+        for skill in role_skills:
+            skill_id = str(skill.get("skill_id") or "skill")
+            filename = f"{skill_id}.md"
+            body = render_skill_markdown(skill)
+            agent_path = role_dir / filename
+            agent_path.write_text(body, encoding="utf-8")
+            skill["agent_skill_path"] = str(agent_path)
+            skill["skill_version"] = new_version
+            written.append(f"agent_team/skills/{role_key}/{new_version}/{filename}")
+
+    if role_new_versions:
+        updated = manifest
+        for role_key, version in role_new_versions.items():
+            updated = updated.with_skill_version(role_key, version)
+        set_active_manifest(updated)
+        skill_loader.list_role_skill_files.cache_clear()
+
+    for skill in skills:
+        if skill.get("status") == "skipped":
+            continue
         skill_id = str(skill.get("skill_id") or "skill")
         filename = f"{skill_id}.md"
         body = render_skill_markdown(skill)
@@ -348,14 +387,6 @@ def write_skill_markdown_files(
         run_path.write_text(body, encoding="utf-8")
         written.append(f"skills/{filename}")
         skill["md_path"] = str(run_path)
-
-        if agent_skills_root is not None and is_eligible_for_agent_library(skill):
-            role_dir = agent_skills_root / role_key
-            role_dir.mkdir(parents=True, exist_ok=True)
-            agent_path = role_dir / filename
-            agent_path.write_text(body, encoding="utf-8")
-            skill["agent_skill_path"] = str(agent_path)
-            written.append(f"agent_team/skills/{role_key}/{filename}")
 
     return written
 

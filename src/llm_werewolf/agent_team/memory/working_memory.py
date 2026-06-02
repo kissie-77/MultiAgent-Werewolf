@@ -125,14 +125,16 @@ class WorkingMemory:
         self._current_round += 1
         return summary
 
-    def get_context(self) -> str:
+    def get_context(self, *, include_belief: bool = True) -> str:
         """格式化为可注入提示词的上下文片段。"""
         parts: list[str] = []
-        belief_items = [
-            item
-            for item in self._persistent
-            if item.tag in PROTECTED_PERSISTENT_TAGS
-        ]
+        belief_items = []
+        if include_belief:
+            belief_items = [
+                item
+                for item in self._persistent
+                if item.tag in PROTECTED_PERSISTENT_TAGS
+            ]
         stable_items = [
             item
             for item in self._persistent

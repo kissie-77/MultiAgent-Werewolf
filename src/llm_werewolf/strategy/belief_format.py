@@ -152,7 +152,9 @@ def sync_all_belief_memories(
         sync_player_belief_memory(player, alive=alive, wolf_camp_mind=wolf_camp_mind)
 
 
-def append_working_memory_context(parts: list[str], player: PlayerProtocol) -> None:
+def append_working_memory_context(
+    parts: list[str], player: PlayerProtocol, *, include_belief: bool = True
+) -> None:
     """Append WorkingMemory prompt block when memory_manager is present."""
     agent = player.agent
     if agent is None:
@@ -160,7 +162,7 @@ def append_working_memory_context(parts: list[str], player: PlayerProtocol) -> N
     memory_manager = getattr(agent, "memory_manager", None)
     if memory_manager is None:
         return
-    memory_context = memory_manager.get_context_for_decision()
+    memory_context = memory_manager.get_context_for_decision(include_belief=include_belief)
     if memory_context:
         parts.append(memory_context)
 

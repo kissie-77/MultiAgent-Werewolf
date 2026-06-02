@@ -102,6 +102,21 @@ def test_get_context_groups_belief_separately() -> None:
     assert "程序记忆" in context
 
 
+def test_get_context_can_exclude_belief_blocks() -> None:
+    memory = WorkingMemory()
+    memory.upsert_persistent("矩阵摘要", tag="belief", priority=10)
+    memory.upsert_persistent("信念规则", tag="belief_rules", priority=10)
+    memory.add_persistent("程序记忆", tag="procedural", priority=3)
+
+    context = memory.get_context(include_belief=False)
+
+    assert "【内心信念】" not in context
+    assert "矩阵摘要" not in context
+    assert "信念规则" not in context
+    assert "【稳定经验】" in context
+    assert "程序记忆" in context
+
+
 def test_working_memory_falls_back_when_compressor_raises() -> None:
     memory = WorkingMemory(compressor=FailingCompressor())
     memory.add_dynamic("我投了3号", tag="decision")

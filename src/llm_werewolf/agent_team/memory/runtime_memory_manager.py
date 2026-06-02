@@ -82,12 +82,12 @@ class RuntimeMemoryManager:
         if self._semantic_enabled():
             self.semantic.evict_excess(self.role, self._max_cards_for_role(self.role))
 
-    def get_context_for_decision(self) -> str:
+    def get_context_for_decision(self, *, include_belief: bool = True) -> str:
         """Return memory context for private decision prompts."""
         if not self._prompt_context_enabled():
             return ""
         parts: list[str] = []
-        working_context = self.working.get_context()
+        working_context = self.working.get_context(include_belief=include_belief)
         if working_context:
             parts.append(working_context)
         return "\n\n".join(parts)

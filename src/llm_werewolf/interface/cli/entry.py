@@ -31,6 +31,37 @@ from llm_werewolf.ui.console_presenter import ConsolePresenter
 console = Console()
 
 
+def _human_viewer_ids(engine: GameEngine) -> list[str]:
+    if engine.game_state is None:
+        return []
+    viewer_ids: list[str] = []
+    for player in engine.game_state.players:
+        agent = getattr(player, "agent", None)
+        if getattr(agent, "model", "") == "human":
+            viewer_ids.append(player.player_id)
+    return viewer_ids
+
+
+def _announce_human_identity(engine: GameEngine, locale: Locale) -> None:
+    if engine.game_state is None:
+        return
+    human_players = [
+        player
+        for player in engine.game_state.players
+        if getattr(getattr(player, "agent", None), "model", "") == "human"
+    ]
+    if not human_players:
+        return
+
+    console.print()
+    console.print("─" * 70, style="cyan")
+    for player in human_players:
+        console.print(f"[bold cyan]你的座位：{player.name}（{player.player_id}）[/bold cyan]")
+        console.print(f"[bold cyan]你的身份：{player.get_role_name()}[/bold cyan]")
+    console.print("─" * 70, style="cyan")
+    console.print()
+
+
 async def main(
     config: str | None = None,
     participation: str = "all_agent",
@@ -86,11 +117,18 @@ async def main(
     engine = GameEngine(
         game_config, language=players_config.language, information_hub=create_information_hub()
     )
-
     presenter = ConsolePresenter(locale)
     engine.on_event = presenter.present_event
 
     engine.setup_game(players=agents, roles=roles)
+    human_viewers = _human_viewer_ids(engine)
+
+    if len(human_viewers) == 1:
+        viewer_id = human_viewers[0]
+        engine.on_event = lambda event: presenter.present_event(event, viewer_id=viewer_id)
+    else:
+        engine.on_event = presenter.present_event
+
     wire_agentscope_after_setup(engine, players_config)
 
     logfire.info("game_created", config_path=str(config_path), num_players=num_players)
@@ -100,6 +138,7 @@ async def main(
     )
     console.print(f"[cyan]{locale.get('player_count_info', num_players=num_players)}[/cyan]")
     console.print(f"[cyan]{locale.get('interface_mode')}[/cyan]")
+    _announce_human_identity(engine, locale)
 
     try:
         result = await engine.play_game()

@@ -11,7 +11,6 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
     EventType.WITCH_SAVED,
     EventType.GUARD_PROTECTED,
     EventType.WITCH_POISONED,
-    EventType.VOTE_CAST,
     EventType.SHERIFF_VOTE_CAST,
     EventType.GRAVEYARD_KEEPER_CHECK,
 })
@@ -23,6 +22,12 @@ REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({
 })
 
 WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({EventType.PLAYER_DISCUSSION})
+WOLF_TEAM_MESSAGE_ACTIONS: frozenset[str] = frozenset({
+    "werewolves_wake",
+    "werewolves_vote",
+    "werewolves_sleep",
+    "werewolf_no_votes",
+})
 
 # 刀口结算：写入事件日志，但仅存活女巫在 observation 中可见。
 WITCH_ONLY_TYPES: frozenset[EventType] = frozenset({EventType.WEREWOLF_KILLED})
@@ -45,7 +50,6 @@ ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.GUARD_PROTECTED: "player_id",
     EventType.WITCH_POISONED: "player_id",
     EventType.GRAVEYARD_KEEPER_CHECK: "player_id",
-    EventType.VOTE_CAST: "voter_id",
     EventType.SHERIFF_VOTE_CAST: "voter_id",
     EventType.ERROR: "player_id",
 }
@@ -66,14 +70,17 @@ def resolve_visible_to(
         return list(witch_player_ids) if witch_player_ids else []
 
     if event_type in WOLF_TEAM_TYPES:
-        return list(wolf_player_ids) if wolf_player_ids else None
+        return list(wolf_player_ids) if wolf_player_ids else []
 
     if event_type == EventType.LOVERS_LINKED:
         actor_id = (data or {}).get(CUPID_ACTOR_KEY)
         return [actor_id] if actor_id else None
 
     if event_type == EventType.MESSAGE and (data or {}).get("visibility") == "wolf_team":
-        return list(wolf_player_ids) if wolf_player_ids else None
+        return list(wolf_player_ids) if wolf_player_ids else []
+
+    if event_type == EventType.MESSAGE and (data or {}).get("action") in WOLF_TEAM_MESSAGE_ACTIONS:
+        return list(wolf_player_ids) if wolf_player_ids else []
 
     if event_type == EventType.MESSAGE and (data or {}).get("player_id"):
         return [(data or {})["player_id"]]

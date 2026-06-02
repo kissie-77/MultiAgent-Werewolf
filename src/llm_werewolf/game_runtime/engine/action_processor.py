@@ -38,6 +38,9 @@ class ActionProcessorMixin:
     @staticmethod
     def _decision_data(action: Action) -> dict:
         """返回行动执行者最新解析的决策元数据。"""
+        action_metadata = getattr(action, "_decision_metadata", None)
+        if action_metadata:
+            return {"decision": action_metadata}
         actor = getattr(action, "actor", None)
         agent = getattr(actor, "agent", None)
         metadata = getattr(agent, "_last_decision_metadata", None)

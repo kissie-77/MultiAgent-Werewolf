@@ -35,3 +35,27 @@ def test_role_acting_visible_to_actor_only() -> None:
 def test_replay_only_events_are_hidden_from_observation() -> None:
     assert resolve_visible_to(EventType.VOTE_INTENTION_SNAPSHOT, {}) == []
     assert resolve_visible_to(EventType.BELIEF_SNAPSHOT, {}) == []
+
+
+def test_day_vote_cast_is_public() -> None:
+    assert resolve_visible_to(EventType.VOTE_CAST, {"voter_id": "player_1"}) is None
+
+
+def test_werewolf_narrator_messages_visible_to_wolf_team_only() -> None:
+    visible = resolve_visible_to(
+        EventType.MESSAGE,
+        {"action": "werewolves_wake"},
+        wolf_player_ids=["wolf_1", "wolf_2"],
+    )
+
+    assert visible == ["wolf_1", "wolf_2"]
+
+
+def test_wolf_team_message_without_wolves_is_not_public() -> None:
+    visible = resolve_visible_to(
+        EventType.MESSAGE,
+        {"visibility": "wolf_team"},
+        wolf_player_ids=[],
+    )
+
+    assert visible == []

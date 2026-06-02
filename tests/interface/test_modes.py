@@ -18,6 +18,12 @@ def test_list_modes_contains_basic_badge_and_extended() -> None:
     assert {"basic", "badge_flow", "extended_roles"} <= rules
 
 
+def test_human_mixed_basic_uses_llm_config_not_demo() -> None:
+    assert resolve_config_path(participation="human_mixed", rules="basic") == Path(
+        "configs/xiaomi.yaml"
+    )
+
+
 def test_unknown_mode_raises() -> None:
     with pytest.raises(ValueError, match="Unsupported mode"):
-        resolve_config_path(participation="human_mixed", rules="basic")
+        resolve_config_path(participation="unknown", rules="basic")

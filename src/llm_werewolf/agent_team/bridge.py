@@ -338,6 +338,10 @@ class WerewolfAdapterBridge:
         object.__setattr__(agent, "_last_decision_metadata", metadata)
 
     @staticmethod
+    def _clear_decision_metadata(agent: AgentProtocol) -> None:
+        object.__setattr__(agent, "_last_decision_metadata", None)
+
+    @staticmethod
     def build_witch_night_prompt(
         role_name: str,
         *,
@@ -397,6 +401,7 @@ class WerewolfAdapterBridge:
         phase: str | None = None,
     ) -> WitchNightDecision:
         """返回女巫夜间决策；失败时默认为 none。"""
+        WerewolfAdapterBridge._clear_decision_metadata(agent)
         structured = agent_uses_structured_output(agent) or callable(
             getattr(agent, "get_structured_response", None)
         )

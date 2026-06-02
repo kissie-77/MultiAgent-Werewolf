@@ -24,6 +24,113 @@ def test_human_prompt_filters_internal_schema_noise() -> None:
     assert "private_thought" not in rendered
 
 
+def test_human_prompt_keeps_player_facts_but_hides_strategy_noise() -> None:
+    agent = HumanInteractiveAgent(name="玩家6", model="human")
+    prompt = "\n".join([
+        "你是 玩家6。",
+        "当前阶段：day_discussion",
+        "私密信息：",
+        "- 你的身份是 Villager。",
+        "- 【身份提示】",
+        "身份：平民（Villager）",
+        "阵营：好人阵营",
+        "策略建议：记录发言逻辑，避免跟风投票。",
+        "",
+        "【当前信念矩阵 · 仅自己可见】",
+        "一阶（狼概率，高→低）: 1→0.33, 5→0.33",
+        "请结合公开信息与上述信念做出发言或投票决策。",
+        "",
+        "【本轮已听到的发言】",
+        "- 玩家1: 我先观察。",
+        "【对话记忆 · MsgHub】",
+        "本轮已在对话中出现的公开发言由系统注入你的历史。",
+        "【子阶段·仅发言】",
+        "【任务】白天公开讨论轮。分析局势、回应前置发言、表明站队。",
+    ])
+
+    rendered = agent._render_prompt(prompt)
+
+    assert "你的身份是 Villager" in rendered
+    assert "【本轮已听到的发言】" in rendered
+    assert "玩家1: 我先观察" in rendered
+    assert "身份：平民" not in rendered
+    assert "策略建议" not in rendered
+    assert "当前信念矩阵" not in rendered
+    assert "MsgHub" not in rendered
+
+
+def test_human_prompt_hides_internal_memory_and_wolf_panel() -> None:
+    agent = HumanInteractiveAgent(name="玩家1", model="human")
+    prompt = "\n".join([
+        "你是 玩家1。",
+        "当前阶段：day_discussion",
+        "私密信息：",
+        "- 你的身份是 Villager。",
+        "【内心信念】",
+        "- 【信念/意向更新规则】",
+        "- first_order / second_order 仅填写需要修改的条目；无变化则留空数组 []。",
+        "- 【当前信念矩阵 · 仅自己可见】",
+        "- 一阶（狼概率，高→低）: 2→0.80, 3→0.50",
+        "- 【狼队共享战术面板 · revision 1 · 仅狼队可见】",
+        "- ■ 神职定位",
+        "【本轮记忆】",
+        "- 🐺 玩家2(狼人): 今晚刀4号",
+        "- Round 1 (wolf_team): You said: 先刀4号",
+        "【本轮已听到的发言】",
+        "- 玩家3: 我今天先听后置位。",
+        "【任务】白天公开讨论轮。",
+    ])
+
+    rendered = agent._render_prompt(prompt)
+
+    assert "你的身份是 Villager" in rendered
+    assert "玩家3: 我今天先听后置位" in rendered
+    assert "内心信念" not in rendered
+    assert "当前信念矩阵" not in rendered
+    assert "狼队共享战术面板" not in rendered
+    assert "今晚刀4号" not in rendered
+    assert "wolf_team" not in rendered
+
+
+def test_human_prompt_hides_public_speech_boundary_block() -> None:
+    agent = HumanInteractiveAgent(name="玩家1", model="human")
+    prompt = "\n".join([
+        "你是 玩家1。",
+        "【本局角色池】",
+        "本局实际存在的身份类型：Villager x2, Werewolf x2, Witch x1, Seer x1。",
+        "【公开发言信息边界】",
+        "白天发言只能明说公开可见事实。",
+        "public_speech 不要无意识泄露夜间技能结果。",
+        "【任务】白天公开讨论轮。",
+    ])
+
+    rendered = agent._render_prompt(prompt)
+
+    assert "本局角色池" in rendered
+    assert "公开发言信息边界" not in rendered
+    assert "不要无意识泄露" not in rendered
+    assert "【任务】白天公开讨论轮。" in rendered
+
+
+def test_human_speech_prompt_is_minimal_even_with_roundtable_context() -> None:
+    agent = HumanInteractiveAgent(name="玩家2", model="human")
+    prompt = "\n".join([
+        "- 你的身份是 Villager。",
+        "【本轮已听到的发言】",
+        "- 玩家1: 我想听大家聊聊平安夜。",
+        "请先回应上一位发言者的具体建议。",
+        "【子阶段·仅发言】",
+        "【任务】白天公开讨论轮。分析局势、回应前置发言、表明站队。",
+    ])
+
+    rendered = agent._render_prompt(prompt, kind="speech")
+
+    assert rendered == "请进行白天公开发言。"
+    assert "本轮已听到的发言" not in rendered
+    assert "子阶段" not in rendered
+    assert "任务" not in rendered
+
+
 def test_human_prompt_classifies_wolf_discussion_as_speech() -> None:
     agent = HumanInteractiveAgent(name="玩家1", model="human")
     prompt = "\n".join([
@@ -36,3 +143,42 @@ def test_human_prompt_classifies_wolf_discussion_as_speech() -> None:
     kind, _, _ = agent._classify(prompt)
 
     assert kind == "speech"
+
+
+def test_human_speech_rejects_repeated_placeholder_text() -> None:
+    normalized, error = HumanInteractiveAgent._normalize(
+        "speech",
+        0,
+        False,
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    )
+
+    assert normalized is None
+    assert "不能是重复字符" in error
+
+
+def test_human_speech_accepts_meaningful_chinese_text() -> None:
+    text = "我认为三号刚才带节奏太明显，今天应该优先听他解释。"
+
+    normalized, error = HumanInteractiveAgent._normalize("speech", 0, False, text)
+
+    assert normalized == text
+    assert error == ""
+
+
+def test_human_submission_confirmation_is_immediate_and_plain() -> None:
+    assert HumanInteractiveAgent._confirmation("speech", "我先听完大家发言再判断。").startswith("已提交发言")
+    assert HumanInteractiveAgent._confirmation("seat", "3") == "已提交目标：座位 3"
+
+
+def test_human_seat_input_must_be_in_options() -> None:
+    normalized, error = HumanInteractiveAgent._normalize(
+        "seat",
+        0,
+        True,
+        "2",
+        option_seats={0, 1, 5},
+    )
+
+    assert normalized is None
+    assert "不在可选目标中" in error

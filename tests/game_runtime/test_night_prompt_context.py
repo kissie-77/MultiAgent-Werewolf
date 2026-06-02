@@ -8,11 +8,14 @@ from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.registries.role_night_plans import (
     plan_guard_protect,
     plan_seer_check,
+    plan_witch_actions,
 )
-from llm_werewolf.game_runtime.roles import Guard, Seer, Villager, Werewolf
+from llm_werewolf.game_runtime.actions.villager import WitchPoisonAction
+from llm_werewolf.game_runtime.roles import Guard, Seer, Witch, Villager, Werewolf
 from llm_werewolf.game_runtime.roles.werewolf import build_werewolf_team_context
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.state.player import Player
+from llm_werewolf.strategy.decisions import WitchNightDecision
 
 
 class _CaptureInteraction:
@@ -22,6 +25,11 @@ class _CaptureInteraction:
     async def request_seat_choice(self, *args, **kwargs):  # noqa: ANN002, ANN003
         self.additional_context = kwargs.get("additional_context", "")
         return None
+
+
+class _WitchPoisonInteraction:
+    async def request_witch_night_choice(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        return WitchNightDecision(action="poison", seat=3, reason="test poison")
 
 
 def test_werewolf_team_context_does_not_repeat_role_private_notes() -> None:
@@ -64,3 +72,26 @@ async def test_seer_night_context_only_includes_checked_history() -> None:
 
     assert "预言家请睁眼" not in interaction.additional_context
     assert "已查验" in interaction.additional_context
+
+
+@pytest.mark.asyncio
+async def test_witch_poison_action_carries_current_decision_metadata() -> None:
+    witch = Player("player_1", "Witch1", Witch, agent=DemoAgent(name="Witch1", model="demo"))
+    old_target = Player(
+        "player_2", "Villager2", Villager, agent=DemoAgent(name="Villager2", model="demo")
+    )
+    poison_target = Player(
+        "player_3", "Villager3", Villager, agent=DemoAgent(name="Villager3", model="demo")
+    )
+    state = GameState([witch, old_target, poison_target])
+    witch.role.has_save_potion = False
+    interaction = _WitchPoisonInteraction()
+
+    actions = await plan_witch_actions(witch.role, state, interaction)
+
+    assert len(actions) == 1
+    assert isinstance(actions[0], WitchPoisonAction)
+    metadata = getattr(actions[0], "_decision_metadata")
+    assert metadata["decision_seat"] == 3
+    assert metadata["resolved_target_id"] == "player_3"
+    assert metadata["structured_decision"]["action"] == "poison"

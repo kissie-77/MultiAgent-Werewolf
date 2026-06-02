@@ -172,6 +172,9 @@ class ConsolePresenter:
             return
         if viewer_id is not None and self._is_night_action_event(event.event_type):
             return
+        if viewer_id is not None and event.event_type == EventType.PLAYER_SPEECH:
+            self._present_live_speech(event)
+            return
 
         # 处理阶段切换
         if event.event_type == EventType.PHASE_CHANGED:
@@ -307,6 +310,15 @@ class ConsolePresenter:
             player_name = event.data.get("player_name", "Unknown")
             speech = event.data.get("speech", "")
             self._discussion_messages.append(f"{player_name}: {speech}")
+
+    def _present_live_speech(self, event: Event) -> None:
+        """人类玩家视角下实时展示公开发言，避免投票后整轮重复刷屏。"""
+        if not event.data:
+            console.print(event.message, style="cyan")
+            return
+        player_name = event.data.get("player_name", "Unknown")
+        speech = event.data.get("speech", "")
+        console.print(f"\n💬 {player_name}: {speech}", style="cyan")
 
     def _buffer_werewolf_discussion(self, event: Event) -> None:
         """缓冲狼人讨论以便分组展示。"""

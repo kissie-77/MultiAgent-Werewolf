@@ -15,7 +15,7 @@ class StartupSelection:
 
 _PARTICIPATION_OPTIONS: dict[str, tuple[str, str | None]] = {
     "1": ("all_agent", None),
-    "2": ("all_agent", "1"),
+    "2": ("human_mixed", "1"),
 }
 
 _RULE_OPTIONS: dict[str, str] = {

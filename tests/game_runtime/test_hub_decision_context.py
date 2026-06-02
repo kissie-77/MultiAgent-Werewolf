@@ -7,6 +7,8 @@ from llm_werewolf.game_runtime.types import EventType
 from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 from llm_werewolf.interface.bootstrap import create_information_hub
 from llm_werewolf.agent_team.agents.base import DemoAgent
+from llm_werewolf.agent_team.agents.human_interactive_agent import HumanInteractiveAgent
+from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.roles.registry import create_roles
 from llm_werewolf.game_runtime.events.event_visibility import HUB_DIALOGUE_EVENT_TYPES
 
@@ -16,6 +18,14 @@ def test_hub_dialogue_event_types_cover_speech_channels() -> None:
     assert EventType.PLAYER_DISCUSSION in HUB_DIALOGUE_EVENT_TYPES
     assert EventType.SHERIFF_CANDIDATE_SPEECH in HUB_DIALOGUE_EVENT_TYPES
     assert EventType.PLAYER_ELIMINATED not in HUB_DIALOGUE_EVENT_TYPES
+
+
+def test_wolf_roundtable_memory_notice_uses_wolf_chat_terms() -> None:
+    notice = EngineContexts.hub_roundtable_memory_notice("wolf_team")
+
+    assert "狼队夜聊" in notice
+    assert "前面已发言队友" in notice
+    assert "公开发言由系统注入" not in notice
 
 
 @pytest.fixture
@@ -61,3 +71,54 @@ def test_observation_does_not_expose_player_model_or_backend(engine_with_speech_
     assert "backend" not in lowered
     assert "human" not in lowered
     assert "demo" not in lowered
+
+
+def test_human_discussion_context_excludes_belief_tracking_blocks() -> None:
+    config = create_game_config_from_player_count(6)
+    engine = GameEngine(config, information_hub=create_information_hub())
+    players = [HumanInteractiveAgent(name="玩家1", model="human")]
+    players.extend(
+        DemoAgent(name=f"Player{i}", model="demo") for i in range(2, config.num_players + 1)
+    )
+    roles = create_roles(role_names=config.role_names)
+    engine.setup_game(players=players, roles=roles)
+
+    assert engine.game_state is not None
+    context = engine._build_discussion_context(engine.game_state.players[0])
+
+    assert "当前信念矩阵" not in context
+    assert "内心信念" not in context
+    assert "信念/意向更新规则" not in context
+
+
+def test_agent_discussion_context_excludes_belief_tracking_blocks() -> None:
+    config = create_game_config_from_player_count(6)
+    engine = GameEngine(config, information_hub=create_information_hub())
+    players = [DemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)]
+    roles = create_roles(role_names=config.role_names)
+    engine.setup_game(players=players, roles=roles)
+
+    assert engine.game_state is not None
+    context = engine._build_discussion_context(engine.game_state.players[0])
+
+    assert "当前信念矩阵" not in context
+    assert "内心信念" not in context
+    assert "信念/意向更新规则" not in context
+
+
+def test_discussion_context_includes_current_role_pool_boundary() -> None:
+    config = create_game_config_from_player_count(6)
+    engine = GameEngine(config, information_hub=create_information_hub())
+    players = [DemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)]
+    roles = create_roles(role_names=config.role_names)
+    engine.setup_game(players=players, roles=roles)
+
+    assert engine.game_state is not None
+    context = engine._build_discussion_context(engine.game_state.players[0])
+
+    assert "【本局角色池】" in context
+    assert "Werewolf x2" in context
+    assert "Villager x2" in context
+    assert "Guard x" not in context
+    assert "【公开发言信息边界】" in context
+    assert "不要无意识泄露夜间技能结果" in context

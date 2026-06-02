@@ -51,6 +51,21 @@ def _seat_label(player: PlayerProtocol) -> str:
     return str(seat) if seat is not None else player.name
 
 
+def _attach_decision_metadata(
+    action: ActionProtocol, target: PlayerProtocol, decision: object | None
+) -> ActionProtocol:
+    metadata = {
+        "decision_seat": get_player_seat(target),
+        "resolved_target_id": target.player_id,
+        "resolved_target_name": target.name,
+        "fallback": False,
+    }
+    if decision is not None and hasattr(decision, "model_dump"):
+        metadata["structured_decision"] = decision.model_dump(mode="json")
+    setattr(action, "_decision_metadata", metadata)
+    return action
+
+
 def _werewolf_context(role: Role, game_state: GameStateProtocol) -> str:
     werewolves = [w for w in game_state.get_players_by_camp(Camp.WEREWOLF) if w.is_alive()]
     names = [w.name for w in werewolves]
@@ -294,7 +309,8 @@ async def plan_witch_actions(
     saved_this_night: PlayerProtocol | None = None
 
     if decision.action == "save" and has_save and can_see_victim and victim is not None:
-        actions.append(WitchSaveAction(role.player, victim, game_state))
+        action = WitchSaveAction(role.player, victim, game_state)
+        actions.append(_attach_decision_metadata(action, victim, decision))
         saved_this_night = victim
 
     if decision.action == "poison" and has_poison and decision.seat > 0:
@@ -305,7 +321,8 @@ async def plan_witch_actions(
         ]
         poison_target = resolve_player_by_seat(decision.seat, poison_candidates)
         if poison_target:
-            actions.append(WitchPoisonAction(role.player, poison_target, game_state))
+            action = WitchPoisonAction(role.player, poison_target, game_state)
+            actions.append(_attach_decision_metadata(action, poison_target, decision))
 
     return actions
 

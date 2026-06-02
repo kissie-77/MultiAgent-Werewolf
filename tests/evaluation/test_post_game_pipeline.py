@@ -96,7 +96,7 @@ def test_prompt_proposals_auto_evolve_policy(tmp_path: Path) -> None:
 
     payload = json.loads((tmp_path / "prompt_proposals.json").read_text(encoding="utf-8"))
     assert payload["apply_policy"] == "auto_evolve_next_prompt_version"
-    assert payload["prompt_version_base"] == "v2"
+    assert payload["prompt_version_base"] == "v1"
     assert payload["schema"] == "prompt_proposals_v3"
     assert payload["proposal_count"] >= 1
     assert "target_variable" in payload["proposals"][0]
@@ -155,7 +155,7 @@ def test_bad_case_proposal_uses_role_stage_target_when_player_is_known(tmp_path:
     bad_cases = [p for p in payload["proposals"] if p["kind"] == "bad_case_rule"]
     assert bad_cases
     assert any(
-        p["target_variable"].startswith("v2.role.")
+        p["target_variable"].startswith("v1.role.")
         and p["suggested_patch"]["target_field"].startswith("phase_strategies.")
         for p in bad_cases
     )

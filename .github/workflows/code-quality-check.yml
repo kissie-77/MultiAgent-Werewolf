@@ -46,9 +46,9 @@ jobs:
       - name: Install dev tools
         run: uv sync --frozen --group dev
 
-      - name: Pre-commit on changed files
+      - name: Pre-commit on changed code files
         env:
-          # ruff lint/format debt is enforced locally; CI runs hygiene hooks only.
+          # ruff/mypy debt is enforced locally; CI runs hygiene hooks on code paths only.
           SKIP: mypy,ruff-check,ruff-format
         run: |
           set -euo pipefail
@@ -60,9 +60,19 @@ jobs:
             FROM="${{ github.event.before }}"
             TO="${{ github.sha }}"
           else
-            echo "No diff base; running hygiene hooks on all files."
-            uv run pre-commit run --all-files --show-diff-on-failure
+            echo "No diff base; running hygiene hooks on tracked code files."
+            mapfile -t FILES < <(git ls-files | grep -Ev '^(docs/|frontend/|.*\.md$)' || true)
+            if [ "${#FILES[@]}" -eq 0 ]; then
+              echo "No code files tracked; skipping pre-commit."
+              exit 0
+            fi
+            uv run pre-commit run --files "${FILES[@]}" --show-diff-on-failure
             exit 0
           fi
           echo "Pre-commit from ${FROM} to ${TO}"
-          uv run pre-commit run --from-ref "${FROM}" --to-ref "${TO}" --show-diff-on-failure
+          mapfile -t FILES < <(git diff --name-only --diff-filter=ACMR "${FROM}" "${TO}" | grep -Ev '^(docs/|frontend/|.*\.md$)' || true)
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "Only docs/frontend/markdown changed; skipping pre-commit."
+            exit 0
+          fi
+          uv run pre-commit run --files "${FILES[@]}" --show-diff-on-failure

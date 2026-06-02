@@ -13,7 +13,14 @@ def collect_entries(root_dir: str | Path) -> list[dict]:
     entries: list[dict] = []
     for path in root.rglob("leaderboard_entry.json"):
         entries.append(json.loads(path.read_text(encoding="utf-8")))
-    entries.sort(key=lambda item: (item.get("win_rate", 0.0), item.get("completion_rate", 0.0)), reverse=True)
+    entries.sort(
+        key=lambda item: (
+            item.get("win_rate", 0.0),
+            item.get("completion_rate", 0.0),
+            str(item.get("version_id") or ""),
+        ),
+        reverse=True,
+    )
     return entries
 
 

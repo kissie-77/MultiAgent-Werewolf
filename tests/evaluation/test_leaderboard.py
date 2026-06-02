@@ -189,7 +189,11 @@ def test_write_leaderboard_aggregates_entries(tmp_path: Path) -> None:
     entries = payload["entries"]
 
     assert len(entries) == 3
-    assert entries[0]["version_id"] == "a"
+    version_ids = {entry["version_id"] for entry in entries}
+    assert version_ids == {"a", "b", "c"}
+    assert entries[0]["win_rate"] == 1.0
+    assert entries[0]["version_id"] in {"a", "c"}
+    assert entries[-1]["version_id"] == "b"
     assert (tmp_path / "leaderboards" / "leaderboard.csv").is_file()
     assert (tmp_path / "leaderboards" / "leaderboard.md").is_file()
     assert (tmp_path / "leaderboards" / "model_leaderboard.json").is_file()

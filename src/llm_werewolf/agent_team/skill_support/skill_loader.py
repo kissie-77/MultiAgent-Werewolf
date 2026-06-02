@@ -46,14 +46,9 @@ def role_skill_version_dir(role_key: str, skill_version: str | None = None) -> P
 
 
 def list_skill_versions(role_key: str) -> tuple[str, ...]:
-    role_root = agent_skills_root() / role_key
-    if not role_root.is_dir():
-        return ()
-    from llm_werewolf.strategy.role_version_manifest import version_sort_key
+    from llm_werewolf.strategy.role_version_manifest import list_skill_versions as _list_versions
 
-    versions = [path.name for path in role_root.iterdir() if path.is_dir()]
-    versions.sort(key=version_sort_key)
-    return tuple(versions)
+    return _list_versions(role_key)
 
 
 def resolve_latest_skill_version(role_key: str, *, fallback: str = "v1") -> str:

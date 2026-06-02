@@ -35,6 +35,10 @@ def test_manifest_uses_latest_prompt_and_skill_when_unpinned(
 
     role_prompt_registry.register_role_prompt_search_root(prompt_root)
     monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: skill_root)
+    monkeypatch.setattr(
+        "llm_werewolf.strategy.role_version_manifest._skills_root",
+        lambda: skill_root,
+    )
     skill_loader.list_role_skill_files.cache_clear()
 
     manifest = RoleVersionManifest()
@@ -57,6 +61,10 @@ def test_manifest_honors_explicit_role_pins(tmp_path: Path, monkeypatch) -> None
 
     role_prompt_registry.register_role_prompt_search_root(prompt_root)
     monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: skill_root)
+    monkeypatch.setattr(
+        "llm_werewolf.strategy.role_version_manifest._skills_root",
+        lambda: skill_root,
+    )
     skill_loader.list_role_skill_files.cache_clear()
 
     manifest = RoleVersionManifest(

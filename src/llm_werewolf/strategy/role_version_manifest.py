@@ -36,6 +36,20 @@ def pick_latest_version(versions: Iterable[str], *, fallback: str = _FALLBACK_VE
     return max(items, key=version_sort_key)
 
 
+def _skills_root() -> Path:
+    return Path(__file__).resolve().parents[1] / "agent_team" / "skills"
+
+
+def list_skill_versions(role_key: str) -> tuple[str, ...]:
+    """List on-disk skill version folders for a role (filesystem only, no agent_team import)."""
+    role_root = _skills_root() / role_key
+    if not role_root.is_dir():
+        return ()
+    versions = [path.name for path in role_root.iterdir() if path.is_dir()]
+    versions.sort(key=version_sort_key)
+    return tuple(versions)
+
+
 @dataclass
 class RoleVersionManifest:
     """Maps each prompt_role_key to its prompt and skill version."""
@@ -59,8 +73,6 @@ class RoleVersionManifest:
     def skill_version_for(self, role_key: str) -> str:
         if role_key in self.skill_versions:
             return self.skill_versions[role_key]
-        from llm_werewolf.agent_team.skill_support.skill_loader import list_skill_versions
-
         return pick_latest_version(
             list_skill_versions(role_key),
             fallback=self.default_skill_version,

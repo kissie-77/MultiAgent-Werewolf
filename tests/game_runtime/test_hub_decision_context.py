@@ -13,6 +13,15 @@ from llm_werewolf.game_runtime.roles.registry import create_roles
 from llm_werewolf.game_runtime.events.event_visibility import HUB_DIALOGUE_EVENT_TYPES
 
 
+class _MemoryContext:
+    def __init__(self) -> None:
+        self.include_belief: bool | None = None
+
+    def get_context_for_decision(self, *, include_belief: bool = True) -> str:
+        self.include_belief = include_belief
+        return "【内心信念】\n- 【当前信念矩阵 · 仅自己可见】测试信念"
+
+
 def test_hub_dialogue_event_types_cover_speech_channels() -> None:
     assert EventType.PLAYER_SPEECH in HUB_DIALOGUE_EVENT_TYPES
     assert EventType.PLAYER_DISCUSSION in HUB_DIALOGUE_EVENT_TYPES
@@ -91,7 +100,7 @@ def test_human_discussion_context_excludes_belief_tracking_blocks() -> None:
     assert "信念/意向更新规则" not in context
 
 
-def test_agent_discussion_context_excludes_belief_tracking_blocks() -> None:
+def test_agent_discussion_context_includes_belief_from_working_memory() -> None:
     config = create_game_config_from_player_count(6)
     engine = GameEngine(config, information_hub=create_information_hub())
     players = [DemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)]
@@ -99,11 +108,13 @@ def test_agent_discussion_context_excludes_belief_tracking_blocks() -> None:
     engine.setup_game(players=players, roles=roles)
 
     assert engine.game_state is not None
+    memory = _MemoryContext()
+    engine.game_state.players[0].agent.memory_manager = memory
     context = engine._build_discussion_context(engine.game_state.players[0])
 
-    assert "当前信念矩阵" not in context
-    assert "内心信念" not in context
-    assert "信念/意向更新规则" not in context
+    assert memory.include_belief is True
+    assert "当前信念矩阵" in context
+    assert "内心信念" in context
 
 
 def test_discussion_context_includes_current_role_pool_boundary() -> None:

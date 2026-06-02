@@ -64,7 +64,7 @@ class DayPhaseMixin:
         if self.game_state.belief_log is not None and not _is_human_player(player):
             from llm_werewolf.strategy.belief_format import append_working_memory_context
 
-            append_working_memory_context(context_parts, player, include_belief=False)
+            append_working_memory_context(context_parts, player, include_belief=True)
 
         return "\n".join(context_parts)
 

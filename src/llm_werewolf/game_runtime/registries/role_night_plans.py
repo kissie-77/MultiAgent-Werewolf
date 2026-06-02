@@ -54,11 +54,7 @@ def _seat_label(player: PlayerProtocol) -> str:
 def _werewolf_context(role: Role, game_state: GameStateProtocol) -> str:
     werewolves = [w for w in game_state.get_players_by_camp(Camp.WEREWOLF) if w.is_alive()]
     names = [w.name for w in werewolves]
-    parts = []
-    if role.player.agent:
-        parts.append(role.player.agent.get_decision_context())
-    parts.append(build_werewolf_team_context(role, game_state, names))
-    return "\n\n".join(filter(None, parts))
+    return build_werewolf_team_context(role, game_state, names)
 
 
 async def _plan_werewolf_pack_vote(
@@ -324,13 +320,11 @@ async def plan_guard_protect(
     ]
     if not possible_targets or not role.player.agent:
         return []
-    context = GamePrompts.GUARD_ACTION
+    context = ""
     if role.last_protected:
         last_player = game_state.get_player(role.last_protected)
         if last_player:
-            context += (
-                f"\n\n你不能连续两晚守护 {last_player.name}（{_seat_label(last_player)}号）。"
-            )
+            context = f"你不能连续两晚守护 {last_player.name}（{_seat_label(last_player)}号）。"
     target = await interaction.request_seat_choice(
         role.player,
         role.player.agent,
@@ -363,9 +357,9 @@ async def plan_seer_check(
         player = game_state.get_player(player_id)
         if player:
             checked_info.append(f"第{round_num}轮：{_seat_label(player)}号 {player.name}")
-    context = GamePrompts.PROPHET_ACTION
+    context = ""
     if checked_info:
-        context += f"\n\n已查验：{', '.join(checked_info)}。尽量不要重复验同一人。"
+        context = f"已查验：{', '.join(checked_info)}。尽量不要重复验同一人。"
     target = await interaction.request_seat_choice(
         role.player,
         role.player.agent,

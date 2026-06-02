@@ -10,6 +10,7 @@ def test_v2_agent_base_loaded() -> None:
     assert "多 Agent 狼人杀博弈" in text
     assert "{number}" in text
     assert "{role_name}" in text
+    assert "不要推断、讨论或利用任何玩家的游戏外控制方式、运行环境或技术来源" in text
 
 
 def test_v2_role_card() -> None:

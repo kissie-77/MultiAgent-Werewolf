@@ -1,8 +1,11 @@
+import logging
 import re
 import random
 
 from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+
+logger = logging.getLogger(__name__)
 
 
 def _role_display_name(agent: AgentProtocol, role_name: str) -> str:
@@ -146,6 +149,7 @@ class ActionSelector:
                 return random.choice(possible_targets)  # noqa: S311
 
         except Exception:
+            logger.warning("get_target_from_agent failed agent=%s", getattr(agent, "name", "?"), exc_info=True)
             if fallback_random:
                 return random.choice(possible_targets)  # noqa: S311
 
@@ -171,6 +175,7 @@ class ActionSelector:
             response = await agent.get_response(prompt)
             return PromptManager.parse_yes_no(response)
         except Exception:
+            logger.warning("ask_yes_no failed agent=%s, returning False", getattr(agent, "name", "?"), exc_info=True)
             return False
 
     @staticmethod
@@ -208,4 +213,5 @@ class ActionSelector:
         try:
             return await agent.get_response(full_prompt)
         except Exception:
+            logger.warning("get_free_response failed agent=%s", getattr(agent, "name", "?"), exc_info=True)
             return ""

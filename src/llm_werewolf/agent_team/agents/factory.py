@@ -348,10 +348,18 @@ def configure_agents_for_players(
         bind_role_fn = getattr(agent, "bind_role", None)
         if callable(bind_role_fn) and not callable(bind_prompt):
             bind_role_fn(type(player.role), seat, plan_name)
+            if hasattr(agent, "player_count"):
+                agent.player_count = len(players)
             continue
 
         if callable(bind_prompt):
-            bind_prompt(role_name, seat, plan_text, prompt_version=role_prompt_version)
+            bind_prompt(
+                role_name,
+                seat,
+                plan_text,
+                prompt_version=role_prompt_version,
+                player_count=len(players),
+            )
             if hasattr(agent, "memory_manager"):
                 agent.memory_manager = _build_memory_manager(
                     player, role_name, plan_name, memory_config, event_logger=event_logger

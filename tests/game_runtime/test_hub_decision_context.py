@@ -45,3 +45,19 @@ def test_for_agent_decision_excludes_dialogue_from_observation(engine_with_speec
     decision = engine.build_player_observation(player, for_agent_decision=True)
     assert "secret accusation" in full
     assert "secret accusation" not in decision
+
+
+def test_observation_does_not_expose_player_model_or_backend(engine_with_speech_event) -> None:
+    """玩家可见上下文只包含游戏内信息，不暴露真人/模型/后端字段。"""
+    engine, player = engine_with_speech_event
+    player.ai_model = "human"
+    engine.game_state.players[1].ai_model = "demo"
+
+    text = engine.build_player_observation(player, for_agent_decision=True)
+    lowered = text.lower()
+
+    assert "ai_model" not in lowered
+    assert "model" not in lowered
+    assert "backend" not in lowered
+    assert "human" not in lowered
+    assert "demo" not in lowered

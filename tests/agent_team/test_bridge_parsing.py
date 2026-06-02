@@ -3,6 +3,7 @@
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.game_runtime.roles import Villager, Werewolf
 from llm_werewolf.game_runtime.state.player import Player
+from llm_werewolf.strategy.phase_outputs import ActionPhase
 
 
 def test_target_selection_uses_player_seat_not_list_position() -> None:
@@ -48,3 +49,18 @@ def test_yes_no_rejects_ambiguous_substrings() -> None:
 
     with pytest.raises(Exception):
         WerewolfAdapterBridge.parse_yes_no("I know")
+
+
+def test_day_vote_prompt_does_not_include_role_night_action() -> None:
+    targets = [Player("player_2", "玩家2", Villager), Player("player_3", "玩家3", Werewolf)]
+
+    prompt = WerewolfAdapterBridge.build_target_selection_prompt(
+        "Seer",
+        "请投票选择你想淘汰的玩家",
+        targets,
+        allow_skip=True,
+        action_phase=ActionPhase.DAY_VOTE,
+    )
+
+    assert "预言家请睁眼" not in prompt
+    assert "请投票选择你想淘汰的玩家" in prompt

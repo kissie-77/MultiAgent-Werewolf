@@ -7,11 +7,14 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import random
 from typing import TYPE_CHECKING, Any
 
 from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
+
+logger = logging.getLogger(__name__)
 from llm_werewolf.strategy.decisions import (
     YesNoDecision,
     SpeechDecision,
@@ -50,8 +53,6 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
-
-    pass
 
 
 class WerewolfAdapterBridge:
@@ -174,8 +175,14 @@ class WerewolfAdapterBridge:
         if allow_skip:
             prompt_parts.append("- 座位 0：跳过（不执行此行动）")
 
-        action_line = ROLE_SEAT_ACTION.get(role_name, GamePrompts.PROPHET_ACTION)
-        prompt_parts.extend(["", action_line])
+        suppress_role_action_line = action_phase in {
+            ActionPhase.DAY_VOTE,
+            ActionPhase.SHERIFF_VOTE,
+            ActionPhase.BADGE_TRANSFER,
+        }
+        if not suppress_role_action_line:
+            action_line = ROLE_SEAT_ACTION.get(role_name, GamePrompts.PROPHET_ACTION)
+            prompt_parts.extend(["", action_line])
         if action_phase is not None:
             prompt_parts.extend(["", action_phase_instruction(action_phase)])
         if structured:
@@ -426,7 +433,7 @@ class WerewolfAdapterBridge:
                     return default
                 return WitchNightDecision(action="poison", seat=seat, reason=response[:200])
         except Exception:
-            pass
+            logger.warning("request_witch_night_choice failed, using default", exc_info=True)
         return default
 
     @staticmethod
@@ -835,6 +842,12 @@ class WerewolfAdapterBridge:
                 WerewolfAdapterBridge._store_decision_metadata(agent, target, fallback=True)
                 return target
         except Exception:
+            logger.warning(
+                "request_seat_choice failed agent=%s, using random fallback=%s",
+                getattr(agent, "name", "?"),
+                fallback_random,
+                exc_info=True,
+            )
             if fallback_random:
                 target = random.choice(possible_targets)  # noqa: S311
                 WerewolfAdapterBridge._store_decision_metadata(agent, target, fallback=True)
@@ -867,6 +880,7 @@ class WerewolfAdapterBridge:
             response = await agent.get_response(prompt)
             return WerewolfAdapterBridge.parse_yes_no(response)
         except Exception:
+            logger.warning("request_yes_no failed agent=%s, returning False", getattr(agent, "name", "?"), exc_info=True)
             return False
 
     @staticmethod
@@ -917,7 +931,7 @@ class WerewolfAdapterBridge:
                     response, possible_targets, num_targets
                 )
         except Exception:
-            pass
+            logger.warning("request_multi_target failed agent=%s", getattr(agent, "name", "?"), exc_info=True)
         return None
 
     @staticmethod
@@ -954,7 +968,7 @@ class WerewolfAdapterBridge:
                 if is_valid_public_speech(parsed.public_speech):
                     return parsed
         except Exception:
-            pass
+            logger.warning("request_speech failed agent=%s, using fallback", getattr(agent, "name", "?"), exc_info=True)
         fallback_getter = getattr(agent, "_generate_fallback_response", None)
         if callable(fallback_getter):
             raw = fallback_getter(prompt, "speech_fallback")

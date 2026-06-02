@@ -37,6 +37,8 @@ async def main(
     rules: str = "badge_flow",
     players: int | None = None,
     human_seat: str | None = None,
+    plan_assignment: str | None = None,
+    plan_assignment_seed: int | None = None,
     badge_flow: bool = False,
 ) -> None:
     """在控制台模式下运行狼人杀游戏（自动进行）。
@@ -47,6 +49,8 @@ async def main(
         rules: 规则模式，例如 basic、badge_flow、extended_roles。
         players: 覆盖总座位数（含人类座位），范围 6-20；缺省沿用 YAML 名单。
         human_seat: 人类玩家的 1-based 座位号，可用逗号分隔多个（如 "1,3"）；缺省为纯 Agent 局。
+        plan_assignment: 覆盖开局 plan 分流：off、role_cycle 或 role_random。
+        plan_assignment_seed: role_random 的复现种子；也可覆盖 YAML 中的 seed。
         badge_flow: 是否开启警长 / 警徽流（首夜后的警长选举）；缺省关闭，行为与现状一致。
     """
     config_path = resolve_config_path(config, participation=participation, rules=rules)
@@ -61,13 +65,21 @@ async def main(
             from llm_werewolf.interface.cli.runtime.overrides import parse_seat_list, apply_human_seats
 
             players_config = apply_human_seats(players_config, parse_seat_list(human_seat))
+        if plan_assignment is not None or plan_assignment_seed is not None:
+            from llm_werewolf.interface.cli.runtime.overrides import apply_plan_assignment_override
+
+            players_config = apply_plan_assignment_override(
+                players_config,
+                plan_assignment,
+                seed=plan_assignment_seed,
+            )
     except (ValueError, TypeError) as exc:
         console.print(f"[red]参数错误: {exc}[/red]")
         return
 
     num_players = len(players_config.players)
     agents, roles, game_config = prepare_game_roster(players_config)
-    if badge_flow:
+    if badge_flow or rules == "badge_flow":
         game_config = game_config.model_copy(update={"enable_sheriff": True})
 
     locale = Locale(players_config.language)
@@ -156,6 +168,8 @@ def _run_main(
     rules: str = "badge_flow",
     players: int | None = None,
     human_seat: str | None = None,
+    plan_assignment: str | None = None,
+    plan_assignment_seed: int | None = None,
     badge_flow: bool = False,
 ) -> None:
     """同步包装器，用于运行异步 main 函数。"""
@@ -166,6 +180,8 @@ def _run_main(
             rules=rules,
             players=players,
             human_seat=human_seat,
+            plan_assignment=plan_assignment,
+            plan_assignment_seed=plan_assignment_seed,
             badge_flow=badge_flow,
         )
     )

@@ -34,6 +34,9 @@ class ConsolePresenter:
         self._discussion_messages: list[str] = []
         self._werewolf_discussion: list[str] = []
 
+    def _is_traditional_chinese(self) -> bool:
+        return getattr(self.locale, "language", "") == "zh-TW"
+
     def _is_night_action_event(self, event_type: EventType) -> bool:
         """判断事件类型是否为应缓冲的夜间行动。
 
@@ -195,15 +198,20 @@ class ConsolePresenter:
 
     def _handle_phase_change(self, event: Event) -> None:
         """处理阶段切换并输出视觉分隔符。"""
+        tw = self._is_traditional_chinese()
         if event.data and event.data.get("phase") == "night":
             # 入夜前刷新已缓冲内容（但不刷新狼人讨论）
             self._flush_discussion()
             self._flush_votes()
 
             round_num = event.data.get("round", 0)
+            round_label = "輪" if tw else "轮"
             console.print()
             console.print("═" * 70, style="blue")
-            console.print(f"                    🌙 第 {round_num} 輪 - 黑夜 🌙", style="bold blue")
+            console.print(
+                f"                    🌙 第 {round_num} {round_label} - 黑夜 🌙",
+                style="bold blue",
+            )
             console.print("═" * 70, style="blue")
             console.print()
         elif event.data and event.data.get("phase") == "day":
@@ -211,10 +219,12 @@ class ConsolePresenter:
             self._flush_night_actions()
 
             round_num = event.data.get("round", 0)
+            round_label = "輪" if tw else "轮"
             console.print()
             console.print("═" * 70, style="yellow")
             console.print(
-                f"                    ☀️  第 {round_num} 輪 - 白天 ☀️", style="bold yellow"
+                f"                    ☀️  第 {round_num} {round_label} - 白天 ☀️",
+                style="bold yellow",
             )
             console.print("═" * 70, style="yellow")
             console.print()
@@ -226,12 +236,13 @@ class ConsolePresenter:
             return
 
         action = event.data.get("action", "")
+        tw = self._is_traditional_chinese()
 
         if action == "night_falls":
-            console.print("🌙 天黑請閉眼...", style="bold blue")
+            console.print("🌙 天黑請閉眼..." if tw else "🌙 天黑请闭眼...", style="bold blue")
         elif action == "werewolves_wake":
             console.print()
-            console.print("🐺 狼人，請睜眼...", style="bold red")
+            console.print("🐺 狼人，請睜眼..." if tw else "🐺 狼人，请睁眼...", style="bold red")
             console.print()
         elif action == "werewolves_vote":
             # 投票前先刷新狼人讨论
@@ -242,9 +253,12 @@ class ConsolePresenter:
             # 狼人闭眼时刷新夜间行动
             self._flush_night_actions()
             console.print()
-            console.print("🐺 狼人，請閉眼...", style="bold blue")
+            console.print("🐺 狼人，請閉眼..." if tw else "🐺 狼人，请闭眼...", style="bold blue")
         elif action == "daybreak":
-            console.print("☀️  天亮了，所有人請睜眼...", style="bold yellow")
+            console.print(
+                "☀️  天亮了，所有人請睜眼..." if tw else "☀️  天亮了，所有人请睁眼...",
+                style="bold yellow",
+            )
         else:
             console.print(event.message, style="dim italic")
 
@@ -279,7 +293,8 @@ class ConsolePresenter:
             return
 
         console.print()
-        console.print("─── 夜晚行動結果 ───", style="dim cyan")
+        title = "─── 夜晚行動結果 ───" if self._is_traditional_chinese() else "─── 夜晚行动结果 ───"
+        console.print(title, style="dim cyan")
         for action in self._night_actions:
             console.print(f"   {action}", style="cyan")
         console.print()
@@ -306,7 +321,7 @@ class ConsolePresenter:
             console.print()
             panel = Panel(
                 "\n".join(self._werewolf_discussion),
-                title="狼人討論",
+                title="狼人討論" if self._is_traditional_chinese() else "狼人讨论",
                 border_style="red",
                 padding=(1, 2),
             )
@@ -317,7 +332,8 @@ class ConsolePresenter:
         """展示所有已缓冲的玩家发言。"""
         if self._discussion_messages:
             console.print()
-            console.print("💬 玩家發言", style="bold cyan")
+            title = "💬 玩家發言" if self._is_traditional_chinese() else "💬 玩家发言"
+            console.print(title, style="bold cyan")
             console.print("─" * 70, style="dim")
             for msg in self._discussion_messages:
                 console.print(f"   {msg}", style="cyan")
@@ -342,14 +358,16 @@ class ConsolePresenter:
         self._flush_discussion()
 
         console.print()
-        console.print("🗳️  投票階段", style="bold yellow")
+        title = "🗳️  投票階段" if self._is_traditional_chinese() else "🗳️  投票阶段"
+        console.print(title, style="bold yellow")
         console.print()
 
         # 构建投票汇总表
+        tw = self._is_traditional_chinese()
         table = Table(show_header=True, header_style="bold yellow", box=None)
         table.add_column("排名", justify="center", width=6)
-        table.add_column("候選人", style="cyan", width=20)
-        table.add_column("票數", justify="center", style="yellow", width=8)
+        table.add_column("候選人" if tw else "候选人", style="cyan", width=20)
+        table.add_column("票數" if tw else "票数", justify="center", style="yellow", width=8)
         table.add_column("投票者", style="dim")
 
         # 按得票数排序
@@ -371,19 +389,23 @@ class ConsolePresenter:
 
     def _present_game_start(self, event: Event) -> None:
         """展示游戏开始。"""
+        tw = self._is_traditional_chinese()
+        title = "🎮 遊戲開始 🎮" if tw else "🎮 游戏开始 🎮"
+        count_label = "玩家人數" if tw else "玩家人数"
         console.print()
         console.print("═" * 70, style="bold green")
-        console.print("                      🎮 遊戲開始 🎮", style="bold green")
+        console.print(f"{title:^36}", style="bold green")
         console.print("═" * 70, style="bold green")
         if event.data:
             player_count = event.data.get("player_count", 0)
-            console.print(f"\n📋 玩家人數：{player_count} 人\n", style="green")
+            console.print(f"\n📋 {count_label}：{player_count} 人\n", style="green")
 
     def _present_game_end(self, event: Event) -> None:
         """展示游戏结束。"""
+        title = "🏆 遊戲結束 🏆" if self._is_traditional_chinese() else "🏆 游戏结束 🏆"
         console.print()
         console.print("═" * 70, style="bold magenta")
-        console.print("                      🏆 遊戲結束 🏆", style="bold magenta")
+        console.print(f"{title:^36}", style="bold magenta")
         console.print("═" * 70, style="bold magenta")
         console.print()
         console.print(event.message, style="bold magenta")

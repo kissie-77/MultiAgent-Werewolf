@@ -1,5 +1,7 @@
 """AgentScopeWerewolfAgent 回退响应的测试。"""
 
+from types import SimpleNamespace
+
 import pytest
 from pydantic import BaseModel
 
@@ -67,6 +69,28 @@ class DummyResponse:
     def __init__(self, content, metadata=None) -> None:
         self.content = content
         self.metadata = metadata or {}
+
+
+class DummyMemoryMsg:
+    def __init__(self, msg_id: str, content) -> None:
+        self.id = msg_id
+        self.content = content
+
+
+class DummyMemory:
+    def __init__(self, messages: list[DummyMemoryMsg]) -> None:
+        self.messages = messages
+        self.deleted: list[str] = []
+
+    async def get_memory(self, **kwargs):
+        del kwargs
+        return list(self.messages)
+
+    async def delete(self, msg_ids: list[str]) -> int:
+        self.deleted.extend(msg_ids)
+        before = len(self.messages)
+        self.messages = [msg for msg in self.messages if msg.id not in set(msg_ids)]
+        return before - len(self.messages)
 
 
 def test_sanitize_agentscope_response_msg_removes_thinking_blocks() -> None:
@@ -230,6 +254,49 @@ async def test_get_structured_response_rejects_invalid_tool_use_payload(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_get_structured_response_cleans_interrupt_memory_and_retries(monkeypatch) -> None:
+    agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
+    memory = DummyMemory([
+        DummyMemoryMsg(
+            "bad-tool-result",
+            [{"output": "The tool call has been interrupted by the user."}],
+        ),
+        DummyMemoryMsg("normal", "keep me"),
+    ])
+    agent.agentscope_agent = SimpleNamespace(memory=memory)
+    responses = [
+        DummyResponse("I noticed that you have interrupted me. What can I do for you?"),
+        DummyResponse(
+            [
+                {
+                    "type": "tool_use",
+                    "name": "generate_response",
+                    "id": "call_1",
+                    "input": {"action": "vote"},
+                }
+            ],
+            metadata=None,
+        ),
+    ]
+
+    async def fake_serial_call(fn):
+        del fn
+        return responses.pop(0)
+
+    monkeypatch.setattr(
+        "llm_werewolf.agent_team.agents.agentscope_agent.run_serial_agent_call",
+        fake_serial_call,
+    )
+
+    decision = await agent.get_structured_response("请输入结构化结果", DummyStructuredDecision)
+
+    assert decision is not None
+    assert decision.action == "vote"
+    assert memory.deleted == ["bad-tool-result"]
+    assert [msg.id for msg in memory.messages] == ["normal"]
+
+
+@pytest.mark.asyncio
 async def test_get_structured_response_falls_back_to_plain_json_call(monkeypatch) -> None:
     agent = AgentScopeWerewolfAgent(name="P1", role="villager", number=1)
     agent.agentscope_agent = object()
@@ -272,4 +339,4 @@ async def test_get_structured_response_treats_agentscope_interrupt_as_failure(
     decision = await agent.get_structured_response("请输出结构化结果", DummyStructuredDecision)
 
     assert decision is None
-    assert agent._last_structured_source == "none"
+    assert agent._last_structured_source == "interrupted"

@@ -13,7 +13,7 @@ agent_backend: agentscope
 default_plan: default
 
 players:
-  - name: 你
+  - name: 玩家1
     model: human
   - name: 机器人2
     model: demo

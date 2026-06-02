@@ -30,6 +30,9 @@ _RULE_PLAYER_COUNTS: dict[str, int] = {
     "extended_roles": 12,
 }
 
+_MIN_PLAYERS = 6
+_MAX_PLAYERS = 20
+
 
 def _prompt_choice(prompt: str, valid_options: set[str], default: str) -> str:
     while True:
@@ -40,13 +43,24 @@ def _prompt_choice(prompt: str, valid_options: set[str], default: str) -> str:
         print(f"输入无效，请输入 {', '.join(sorted(valid_options))}。")
 
 
-def _prompt_human_seat(default: str = "1") -> str:
+def _prompt_player_count(default: int) -> int:
     while True:
-        raw = input(f"请输入人类玩家座位号（1-20，默认 {default}）：").strip()
+        raw = input(
+            f"请输入本局总人数（{_MIN_PLAYERS}-{_MAX_PLAYERS}，默认 {default}）："
+        ).strip()
+        value = raw or str(default)
+        if value.isdigit() and _MIN_PLAYERS <= int(value) <= _MAX_PLAYERS:
+            return int(value)
+        print(f"输入无效，请输入 {_MIN_PLAYERS} 到 {_MAX_PLAYERS} 的整数。")
+
+
+def _prompt_human_seat(default: str = "1", *, max_seat: int = _MAX_PLAYERS) -> str:
+    while True:
+        raw = input(f"请输入人类玩家座位号（1-{max_seat}，默认 {default}）：").strip()
         seat = raw or default
-        if seat.isdigit() and 1 <= int(seat) <= 20:
+        if seat.isdigit() and 1 <= int(seat) <= max_seat:
             return seat
-        print("输入无效，请输入 1 到 20 的整数。")
+        print(f"输入无效，请输入 1 到 {max_seat} 的整数。")
 
 
 def prompt_startup_selection() -> StartupSelection:
@@ -62,13 +76,16 @@ def prompt_startup_selection() -> StartupSelection:
     print("3. 扩展角色对局")
     rules_choice = _prompt_choice("请输入 1、2 或 3（默认 2）：", {"1", "2", "3"}, "2")
 
+    rules = _RULE_OPTIONS[rules_choice]
+    player_count = _prompt_player_count(default=_RULE_PLAYER_COUNTS[rules])
+
     participation, human_seat = _PARTICIPATION_OPTIONS[participation_choice]
     if participation_choice == "2":
-        human_seat = _prompt_human_seat(default=human_seat or "1")
+        human_seat = _prompt_human_seat(default=human_seat or "1", max_seat=player_count)
 
     return StartupSelection(
         participation=participation,
-        rules=_RULE_OPTIONS[rules_choice],
+        rules=rules,
         human_seat=human_seat,
-        players=_RULE_PLAYER_COUNTS[_RULE_OPTIONS[rules_choice]],
+        players=player_count,
     )

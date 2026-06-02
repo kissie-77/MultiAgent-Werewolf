@@ -88,6 +88,9 @@ def test_present_phase_changes_flush_buffers(presenter: ConsolePresenter, mock_p
         )
     )
     assert mock_print.call_count >= 3
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    assert "第 1 轮 - 黑夜" in rendered
+    assert "第 1 輪 - 黑夜" not in rendered
 
 
 def test_present_narrator_messages(presenter: ConsolePresenter, mock_print) -> None:
@@ -105,6 +108,9 @@ def test_present_narrator_messages(presenter: ConsolePresenter, mock_print) -> N
     assert mock_print.call_count >= len(
         ("night_falls", "werewolves_wake", "werewolves_vote", "werewolves_sleep", "daybreak", "unknown_action")
     )
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    assert "请睁眼" in rendered
+    assert "請睜眼" not in rendered
 
 
 def test_present_night_actions_and_flush(presenter: ConsolePresenter, mock_print) -> None:
@@ -169,11 +175,23 @@ def test_present_vote_table_and_discussion_flush(presenter: ConsolePresenter, mo
     )
     presenter.present_event(_event(EventType.VOTE_RESULT, message="📊 stats"))
     assert mock_print.call_count >= 1
+    tables = [
+        call.args[0]
+        for call in mock_print.call_args_list
+        if call.args and call.args[0].__class__.__name__ == "Table"
+    ]
+    assert tables
+    headers = [column.header for column in tables[-1].columns]
+    assert headers == ["排名", "候选人", "票数", "投票者"]
 
 
 def test_present_game_start_includes_player_count(presenter: ConsolePresenter, mock_print) -> None:
     presenter.present_event(_event(EventType.GAME_STARTED, data={"player_count": 6}))
     assert mock_print.call_count >= 1
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    assert "游戏开始" in rendered
+    assert "玩家人数" in rendered
+    assert "遊戲開始" not in rendered
 
 
 def test_present_default_style_for_unknown_event(presenter: ConsolePresenter, mock_print) -> None:

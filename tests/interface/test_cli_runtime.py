@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 
 from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
-from llm_werewolf.interface.cli.runtime.overrides import apply_human_seats, parse_seat_list
+from llm_werewolf.interface.cli.runtime.overrides import (
+    apply_human_seats,
+    apply_plan_assignment_override,
+    parse_seat_list,
+)
 from llm_werewolf.interface.cli.runtime.player_count import resize_players_config
 
 
@@ -41,6 +45,27 @@ def test_apply_human_seats_noop() -> None:
 def test_apply_human_seats_out_of_range() -> None:
     with pytest.raises(ValueError, match="超出范围"):
         apply_human_seats(_demo_config(), [7])
+
+
+def test_apply_plan_assignment_override_role_random_with_seed() -> None:
+    cfg = _demo_config()
+    updated = apply_plan_assignment_override(cfg, "role_random", seed=42)
+    assert updated.plan_assignment.enabled is True
+    assert updated.plan_assignment.mode == "role_random"
+    assert updated.plan_assignment.seed == 42
+
+
+def test_apply_plan_assignment_override_off_preserves_manual_plans() -> None:
+    cfg = _demo_config()
+    cfg.players[0].plan = "wolf_aggressive"
+    updated = apply_plan_assignment_override(cfg, "off")
+    assert updated.plan_assignment.enabled is False
+    assert updated.players[0].plan == "wolf_aggressive"
+
+
+def test_apply_plan_assignment_override_rejects_unknown_mode() -> None:
+    with pytest.raises(ValueError, match="plan_assignment"):
+        apply_plan_assignment_override(_demo_config(), "surprise")
 
 
 def test_resize_players_config_same_size() -> None:

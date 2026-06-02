@@ -29,11 +29,18 @@ from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_cal
 from llm_werewolf.agent_team.invocation.structured_invoke import (
     parse_structured_from_text,
     unwrap_structured_metadata,
+    _unwrap_tool_payload,
 )
 
 logger = logging.getLogger(__name__)
 
+_MIN_PLAYERS = 6
+_MAX_PLAYERS = 20
 _AGENTSCOPE_INTERRUPT_TEXT = "I noticed that you have interrupted me. What can I do for you?"
+_INTERRUPTED_MEMORY_MARKERS = (
+    _AGENTSCOPE_INTERRUPT_TEXT,
+    "The tool call has been interrupted by the user.",
+)
 
 
 def _preview(value: Any, limit: int = 500) -> str:
@@ -80,24 +87,9 @@ def _extract_structured_payload_from_content(content: Any) -> dict[str, Any] | N
             continue
         payload = block.get("input")
         if isinstance(payload, dict) and payload:
-            return _unwrap_tool_use_payload(payload)
+            result = _unwrap_tool_payload(payload)
+            return result if result else None
     return None
-
-
-def _unwrap_tool_use_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
-    """Normalize nested tool payload shapes into the target schema payload."""
-    for key in ("structured_output", "input", "arguments", "kwargs"):
-        nested = payload.get(key)
-        if isinstance(nested, dict) and nested:
-            return nested
-        if isinstance(nested, str) and nested.strip():
-            try:
-                decoded = json.loads(nested)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(decoded, dict) and decoded:
-                return decoded
-    return payload if payload else None
 
 
 class AgentScopeWerewolfAgent(BaseAgent):
@@ -110,6 +102,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     model: str = Field(default="agentscope")
     role: str = Field(default="villager")
     number: int = Field(default=1)
+    player_count: int | None = Field(default=None, exclude=True)
     plan: str = Field(default="自由发挥")
     plan_name: str = Field(default="default")
     prompt_version: str = Field(default="v1")
@@ -128,6 +121,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         model: str = "agentscope",
         role: str = "villager",
         number: int = 1,
+        player_count: int | None = None,
         plan: str = "自由发挥",
         plan_name: str = "default",
         language: str = "zh-TW",
@@ -151,6 +145,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         super().__init__(name=name, model=model)
         self.role = role
         self.number = number
+        self.player_count = player_count
         self.plan = plan
         self.plan_name = plan_name
         self.prompt_version = prompt_version
@@ -170,6 +165,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         plan_text: str,
         *,
         prompt_version: str | None = None,
+        player_count: int | None = None,
     ) -> None:
         """引擎分配角色后应用角色专属系统 prompt。"""
         from llm_werewolf.agent_team.agents.factory import (
@@ -180,6 +176,8 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
         if prompt_version is not None:
             self.prompt_version = prompt_version
+        if player_count is not None:
+            self.player_count = player_count
         self.number = seat_number
         self.game_role_name = game_role_name
         self.role = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
@@ -204,6 +202,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         plan: str | None = None,
         *,
         prompt_version: str | None = None,
+        player_count: int | None = None,
     ) -> None:
         """协作者 API：在 ``setup_game`` 之后绑定引擎分配的角色。"""
         plan_text = plan if plan is not None else self.plan
@@ -212,6 +211,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
             game_role_name=role_name,
             plan_text=plan_text,
             prompt_version=prompt_version or self.prompt_version,
+            player_count=player_count,
         )
 
     def _init_system_prompt(self) -> None:
@@ -294,8 +294,16 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 )
                 response_msg = self._sanitize_agentscope_response_msg(response_msg)
                 response_text = self._extract_agentscope_text(response_msg)
-                if not response_text:
-                    response_text = self._generate_fallback_response(message, "空内容")
+                if not response_text or _is_agentscope_interrupt_text(response_text):
+                    logger.warning(
+                        "agentscope_interrupt_or_empty agent=%s attempt=%s has_text=%s",
+                        self.name, attempt, bool(response_text),
+                    )
+                    if _is_agentscope_interrupt_text(response_text):
+                        await self._cleanup_agentscope_interrupt_memory()
+                    response_text = self._generate_fallback_response(message, "interrupted")
+                    last_error = None
+                    break
                 elif not self._message_expects_seat_only(message):
                     if (
                         not self._is_werewolf_private_chat(message)
@@ -308,6 +316,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 last_error = exc
                 if attempt < 2:
                     await asyncio.sleep(2**attempt)
+            except asyncio.CancelledError:
+                await self._cleanup_agentscope_interrupt_memory()
+                raise
             except Exception as exc:
                 last_error = exc
                 if "429" in str(exc) and attempt < 2:
@@ -345,16 +356,20 @@ class AgentScopeWerewolfAgent(BaseAgent):
         input_msg = AgentScopeMsg(name="Moderator", content=message, role="user")
         last_error: Exception | None = None
 
+        async def handle_interrupted_text(text: str) -> bool:
+            if not _is_agentscope_interrupt_text(text):
+                return False
+            logger.warning(
+                "structured_response_interrupted agent=%s model=%s",
+                self.name,
+                structured_model.__name__,
+            )
+            object.__setattr__(self, "_last_structured_source", "interrupted")
+            await self._cleanup_agentscope_interrupt_memory()
+            return True
+
         def parse_text_decision(text: str) -> BaseModel | None:
             if not text.strip():
-                return None
-            if _is_agentscope_interrupt_text(text):
-                logger.warning(
-                    "structured_response_interrupted agent=%s model=%s",
-                    self.name,
-                    structured_model.__name__,
-                )
-                object.__setattr__(self, "_last_structured_source", "interrupted")
                 return None
             if structured_model is SpeechDecision:
                 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
@@ -381,6 +396,8 @@ class AgentScopeWerewolfAgent(BaseAgent):
             response_msg = await run_serial_agent_call(lambda: self.agentscope_agent(plain_msg))
             response_msg = self._sanitize_agentscope_response_msg(response_msg)
             text = self._extract_agentscope_text(response_msg)
+            if await handle_interrupted_text(text):
+                return None
             decision = parse_text_decision(text)
             if decision is not None:
                 self.chat_history.append({
@@ -503,6 +520,8 @@ class AgentScopeWerewolfAgent(BaseAgent):
                                 structured_source,
                             )
                             return decision
+                if await handle_interrupted_text(text):
+                    continue
                 decision = parse_text_decision(text)
                 if decision is not None:
                     self.chat_history.append({
@@ -538,6 +557,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 last_error = exc
                 if attempt < 2:
                     await asyncio.sleep(2**attempt)
+            except asyncio.CancelledError:
+                await self._cleanup_agentscope_interrupt_memory()
+                raise
             except Exception as exc:
                 last_error = exc
                 if _structured_tool_choice_unsupported(exc):
@@ -546,6 +568,8 @@ class AgentScopeWerewolfAgent(BaseAgent):
                             lambda: self.agentscope_agent(input_msg)
                         )
                         text = self._extract_agentscope_text(response_msg)
+                        if await handle_interrupted_text(text):
+                            continue
                         decision = parse_text_decision(text)
                         if decision is not None:
                             self.chat_history.append({
@@ -571,6 +595,44 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 "content": f"structured_output_failed: {last_error}",
             })
         return None
+
+    @staticmethod
+    def _message_has_interrupt_marker(msg: Any) -> bool:
+        content = getattr(msg, "content", "")
+        preview = str(content)
+        return any(marker in preview for marker in _INTERRUPTED_MEMORY_MARKERS)
+
+    async def _cleanup_agentscope_interrupt_memory(self) -> None:
+        """Remove AgentScope cancellation artifacts that would poison later turns."""
+        memory = getattr(getattr(self, "agentscope_agent", None), "memory", None)
+        get_memory = getattr(memory, "get_memory", None)
+        delete = getattr(memory, "delete", None)
+        if not callable(get_memory) or not callable(delete):
+            return
+
+        try:
+            try:
+                messages = await get_memory(prepend_summary=False)
+            except TypeError:
+                messages = await get_memory()
+            msg_ids = [
+                msg.id
+                for msg in messages
+                if getattr(msg, "id", None) and self._message_has_interrupt_marker(msg)
+            ]
+            if msg_ids:
+                removed = await delete(msg_ids)
+                logger.debug(
+                    "agentscope_interrupt_memory_cleaned agent=%s removed=%s",
+                    self.name,
+                    removed,
+                )
+        except Exception:
+            logger.warning(
+                "agentscope_interrupt_memory_cleanup_failed agent=%s",
+                self.name,
+                exc_info=True,
+            )
 
     @staticmethod
     def _sanitize_agentscope_response_msg(response_msg: Any) -> Any:
@@ -629,12 +691,13 @@ class AgentScopeWerewolfAgent(BaseAgent):
             return random.choice(["[[0]]", "[[1]]"])
 
         if self._message_expects_seat_only(message):
+            max_players = self._max_players_for_fallback(message)
             seat = self._pick_seat_from_message(message)
             if seat is None:
                 # 使用当前玩家座位号作为参考
-                seat = max(1, min(self.number, 12))
+                seat = max(1, min(self.number, max_players))
             # 确保座位号在有效范围内
-            seat = max(1, min(seat, 12))
+            seat = max(1, min(seat, max_players))
             lowered = message.lower()
             if "only the number" in lowered or "responding with only the number" in lowered:
                 return str(seat)
@@ -705,14 +768,25 @@ class AgentScopeWerewolfAgent(BaseAgent):
         speeches = fallbacks.get(role_key, fallbacks["villager"])
         return random.choice(speeches)
 
+    def _max_players_for_fallback(self, message: str = "") -> int:
+        """Return the safest known player-count bound for fallback seat choices."""
+        if self.player_count is not None:
+            return max(_MIN_PLAYERS, min(self.player_count, _MAX_PLAYERS))
+        numbers = [int(n) for n in re.findall(r"(\d+)\s*号", message)]
+        numbers.extend(int(n) for n in re.findall(r"^\s*(\d+)\.\s+", message, flags=re.M))
+        if numbers:
+            return max(_MIN_PLAYERS, min(max(numbers), _MAX_PLAYERS))
+        return _MAX_PLAYERS
+
     def _pick_seat_from_message(self, message: str) -> int | None:
         """从 prompt 中选择一个出现过的座位号。"""
         import random
 
+        max_players = self._max_players_for_fallback(message)
         numbers = [int(n) for n in re.findall(r"(\d+)\s*号", message)]
         if not numbers:
             numbers = [int(n) for n in re.findall(r"^\s*(\d+)\.\s+", message, flags=re.M)]
-        numbers = [n for n in numbers if 1 <= n <= 12 and n != self.number]
+        numbers = [n for n in numbers if 1 <= n <= max_players and n != self.number]
         if numbers:
             return random.choice(numbers)
         return None
@@ -738,10 +812,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
         """狼队私聊用的简短协调话术，避免公开身份式表达。"""
         import random
 
-        # 从消息中获取座位号，限制在合理范围内（1-12）
+        # 从消息中获取座位号，限制在本局人数范围内。
         seat = self._pick_seat_from_message(message)
         if seat is None:
-            candidates = [n for n in range(1, 13) if n != self.number]
+            max_players = self._max_players_for_fallback(message)
+            candidates = [n for n in range(1, max_players + 1) if n != self.number]
             seat = random.choice(candidates)
 
         english = sum(1 for char in message if ord(char) < 128) / max(len(message), 1) > 0.6

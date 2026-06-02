@@ -96,7 +96,7 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
                 rng=self._rng(),
                 random_mode=self.random_mode,
             )
-            return SeatChoiceDecision(seat=seat, reason="demo structured seat choice")
+            return SeatChoiceDecision(seat=seat, reason="离线座位选择")
 
         if model_name == "VoteIntentionDecision":
             seats = extract_seats(message)
@@ -107,12 +107,12 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
                 rng=self._rng(),
                 random_mode=self.random_mode,
             )
-            return VoteIntentionDecision(seat=seat, reason="demo structured vote intention")
+            return VoteIntentionDecision(seat=seat, reason="离线投票意向")
 
         if model_name == "YesNoDecision":
             return YesNoDecision(
                 choice=(self.seat_number or 1) % 2 == 1,
-                reason="demo structured yes/no",
+                reason="离线是否选择",
             )
 
         if model_name == "WitchNightDecision":
@@ -122,7 +122,7 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
                 return WitchNightDecision(
                     action=action,
                     seat=0,
-                    reason="demo structured witch choice",
+                    reason="离线女巫选择",
                 )
             if seats and (self.seat_number or 1) % 4 == 0:
                 seat = pick_seat(
@@ -135,9 +135,9 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
                 return WitchNightDecision(
                     action="poison",
                     seat=seat,
-                    reason="demo structured witch poison",
+                    reason="离线女巫用毒",
                 )
-            return WitchNightDecision(action="none", seat=0, reason="demo structured witch none")
+            return WitchNightDecision(action="none", seat=0, reason="离线女巫不行动")
 
         if model_name == "MultiSeatChoiceDecision":
             seats = [seat for seat in extract_seats(message) if seat > 0]
@@ -145,7 +145,7 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
                 rng = self._rng()
                 rng.shuffle(seats)
             picks = seats[:2] if len(seats) >= 2 else seats[:1]
-            return MultiSeatChoiceDecision(seats=picks, reason="demo structured multi-seat")
+            return MultiSeatChoiceDecision(seats=picks, reason="离线多目标选择")
 
         if model_name == "SpeechDecision":
             raw = fallback_speech(
@@ -153,7 +153,7 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
                 role_display=self.get_role_display_name(),
             )
             public = raw.removeprefix("[[").removesuffix("]]")
-            return SpeechDecision(public_speech=public, private_thought="demo structured speech")
+            return SpeechDecision(public_speech=public, private_thought="离线发言")
 
         if model_name != "MindStateDecision":
             return None

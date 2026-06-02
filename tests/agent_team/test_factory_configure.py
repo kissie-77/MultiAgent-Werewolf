@@ -146,6 +146,23 @@ def test_configure_agents_binds_demo_agent_role() -> None:
     assert agent.chat_history
 
 
+def test_configure_agents_passes_player_count_to_agentscope_agent() -> None:
+    players = [
+        _agentscope_player(
+            f"player_{seat}",
+            f"P{seat}",
+            Werewolf if seat <= 4 else Seer,
+        )
+        for seat in range(1, 14)
+    ]
+
+    with patch("llm_werewolf.agent_team.agents.factory.create_react_agent") as mock_create:
+        mock_create.return_value = MagicMock(name="ReActAgent")
+        configure_agents_for_players(players, default_plan="default", event_logger=EventLogger())
+
+    assert all(player.agent.player_count == 13 for player in players)
+
+
 def test_agent_uses_structured_output_requires_react_backend() -> None:
     from llm_werewolf.agent_team.invocation.structured_invoke import agent_uses_structured_output
 

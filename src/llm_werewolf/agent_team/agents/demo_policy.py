@@ -74,8 +74,9 @@ def extract_multi_count(message: str) -> int:
 
 
 def build_speech(seat_number: int, role_display: str) -> str:
+    del role_display
     text = (
-        f"我是{role_display}，{seat_number} 号位。"
+        f"我是 {seat_number} 号位。"
         "我会先完整听完本轮发言，再结合投票意向判断最可疑的对象。"
     )
     return text if is_valid_public_speech(text) else DEFAULT_SPEECH

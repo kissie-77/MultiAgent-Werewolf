@@ -51,16 +51,7 @@ class VotingPhaseMixin:
         if not self.game_state:
             return ""
 
-        context_parts = [
-            self.build_player_observation(
-                player,
-                include_visible_events=True,
-                include_private_notes=True,
-                for_agent_decision=True,
-            ),
-            "",
-            EngineContexts.hub_decision_memory_notice(),
-        ]
+        context_parts = [EngineContexts.hub_decision_memory_notice()]
 
         context_parts.extend([
             "",

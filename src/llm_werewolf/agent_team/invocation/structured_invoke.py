@@ -87,7 +87,7 @@ def _iter_balanced_json_objects(text: str) -> list[str]:
 
 def _unwrap_tool_payload(data: dict[str, Any]) -> dict[str, Any]:
     """兼容模型把 generate_response 工具调用包装进 content JSON 的形态。"""
-    for key in ("structured_output", "input", "arguments", "kwargs"):
+    for key in ("generate_response", "structured_output", "input", "arguments", "kwargs"):
         value = data.get(key)
         if isinstance(value, dict):
             return value

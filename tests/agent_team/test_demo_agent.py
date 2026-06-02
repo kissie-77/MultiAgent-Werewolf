@@ -11,6 +11,7 @@ from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.agent_team.agents.demo_policy import (
     DemoPromptKind,
     classify_prompt,
+    build_speech,
     respond,
 )
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
@@ -134,6 +135,13 @@ def test_demo_agent_fallback_speech_is_valid() -> None:
     fallback = agent._generate_fallback_response("bad", "too short")
     decision = WerewolfAdapterBridge.parse_speech(fallback)
     assert is_valid_public_speech(decision.public_speech)
+
+
+def test_demo_speech_does_not_reveal_role() -> None:
+    speech = build_speech(seat_number=4, role_display="狼人")
+
+    assert "狼人" not in speech
+    assert "我是 4 号位" in speech
 
 
 def test_demo_agent_tracks_decision_context() -> None:

@@ -11,13 +11,11 @@ from llm_werewolf.game_runtime.roles.base import Role
 def build_werewolf_team_context(
     role: Role, game_state: GameStateProtocol, werewolf_names: list[str]
 ) -> str:
-    private_notes = role.get_private_notes(game_state)
     role_name = role.name
     return "\n\n".join(
         filter(
             None,
             [
-                *private_notes,
                 (
                     f"你的狼队友：{', '.join(werewolf_names)}。\n"
                     f"所有狼人将在今晚投票决定击杀目标。\n"

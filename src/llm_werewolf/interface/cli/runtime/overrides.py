@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llm_werewolf.game_runtime.config.player_config import PlayersConfig
+from llm_werewolf.game_runtime.config.player_config import PlayersConfig, PlanAssignmentConfig
 
 
 def parse_seat_list(spec: str | int | tuple | list | None) -> list[int]:
@@ -37,4 +37,45 @@ def apply_human_seats(cfg: PlayersConfig, seats: list[int]) -> PlayersConfig:
 
     data = cfg.model_dump(mode="json", exclude={"use_agentscope_backend"})
     data["players"] = new_players
+    return PlayersConfig.model_validate(data)
+
+
+def apply_plan_assignment_override(
+    cfg: PlayersConfig,
+    mode: str | None,
+    *,
+    seed: int | None = None,
+) -> PlayersConfig:
+    """覆盖开局 plan 分流设置，方便同配置做 A/B 验证。"""
+    if mode is None and seed is None:
+        return cfg
+
+    data = cfg.model_dump(mode="json", exclude={"use_agentscope_backend"})
+    current = cfg.plan_assignment.model_dump(mode="json")
+    normalized = (mode or "").strip().lower()
+
+    if normalized in {"", "keep"}:
+        assignment = PlanAssignmentConfig.model_validate(current)
+    elif normalized in {"off", "none", "disabled", "false", "0"}:
+        assignment = PlanAssignmentConfig.model_validate({**current, "enabled": False})
+    elif normalized in {"role_cycle", "cycle"}:
+        assignment = PlanAssignmentConfig.model_validate({
+            **current,
+            "enabled": True,
+            "mode": "role_cycle",
+        })
+    elif normalized in {"role_random", "random"}:
+        assignment = PlanAssignmentConfig.model_validate({
+            **current,
+            "enabled": True,
+            "mode": "role_random",
+        })
+    else:
+        msg = "--plan_assignment 只能是 off、role_cycle 或 role_random"
+        raise ValueError(msg)
+
+    if seed is not None:
+        assignment = assignment.model_copy(update={"seed": int(seed)})
+
+    data["plan_assignment"] = assignment.model_dump(mode="json")
     return PlayersConfig.model_validate(data)

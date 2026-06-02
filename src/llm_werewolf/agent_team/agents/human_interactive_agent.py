@@ -40,6 +40,15 @@ _NOISE_MARKERS = (
     "【输出方式】",
     "【信息隔离】",
     "【本任务输出",
+    "【本阶段输出】",
+    "SeatChoiceDecision",
+    "SpeechDecision",
+    "VoteIntentionDecision",
+    "WitchNightDecision",
+    "MindStateDecision",
+    "public_speech",
+    "private_thought",
+    "reason 必填",
     "不要输出其他文字",
     "不是列表序号",
 )
@@ -79,6 +88,14 @@ class HumanInteractiveAgent(BaseAgent):
 
         Returns: (kind, num_targets, allow_skip)
         """
+        if (
+            "【子阶段·仅发言】" in message
+            or "请仔细分析当前局势，发表你的观点" in message
+            or "与狼队友讨论" in message
+            or "公开讨论轮" in message
+        ):
+            return _KIND_SPEECH, 0, False
+
         if "三选一" in message or "救人(save)" in message:
             return _KIND_WITCH, 0, False
 

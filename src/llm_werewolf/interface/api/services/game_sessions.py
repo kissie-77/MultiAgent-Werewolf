@@ -272,6 +272,23 @@ class GameSessionManager:
             custom_roster=custom_roster,
         )
 
+    @staticmethod
+    async def _run_step_pump(session: GameSession, *, dwell: float = 0.4) -> str:
+        """Pump engine.step() one phase at a time, honoring the control gate."""
+        engine = session.engine
+        while not engine.is_over():
+            await session.gate.wait()                 # honor pause/step
+            await engine.step()                       # one phase
+            session.capture_phase_snapshot()          # snapshot BEFORE next clear
+            if session.step_once:
+                session.step_once = False
+                session.gate.clear()
+            if dwell:
+                await asyncio.sleep(dwell / max(session.speed, 1))
+        if engine.game_state and engine.game_state.winner:
+            return engine.locale.get("game_over", winner=engine.game_state.winner)
+        return engine.locale.get("game_ended", winner="unknown", reason="")
+
     async def _run_game(self, session: GameSession) -> None:
         try:
             players_config = session.players_config or load_config(config_path=session.config_path)
@@ -290,7 +307,8 @@ class GameSessionManager:
             _write_full_roster(engine, session.run_dir)
             wire_agentscope_after_setup(engine, players_config)
 
-            result = await engine.play_game()
+            session.engine = engine
+            result = await self._run_step_pump(session)
             session.result_text = result
             persist_run_artifacts(engine, session.run_dir)
             post = await finalize_run(

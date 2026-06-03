@@ -85,3 +85,74 @@ def test_capture_phase_snapshot_survives_next_phase_clear(tmp_path: Path) -> Non
 
     assert gs.werewolf_target is None            # engine cleared it
     assert session.last_night["deaths"] == [{"seat": 3, "cause": "wolf_kill"}]  # capture survived
+
+
+@pytest.mark.asyncio
+async def test_run_step_pump_completes_game(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import random
+    from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
+
+    random.seed(99)
+    session = _session(tmp_path)
+    engine = GameEngine(
+        create_game_config_from_player_count(6), information_hub=InformationHub()
+    )
+    events: list = []
+    engine.on_event = events.append
+    players = [DemoAgent(name=f"P{i}", model="demo", seed=99) for i in range(6)]
+    roles = create_roles(role_names=engine.config.role_names)
+    engine.setup_game(players=players, roles=roles)
+    session.engine = engine
+
+    # zero dwell so the test does not sleep
+    result = await GameSessionManager._run_step_pump(session, dwell=0.0)
+
+    assert session.engine.game_state.phase == GamePhase.ENDED
+    assert isinstance(result, str) and result
+    ended = [e for e in events if e.event_type.value == "game_ended"]
+    assert len(ended) == 1
+
+
+@pytest.mark.asyncio
+async def test_step_pump_pause_halts_after_current_phase(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
+
+    session = _session(tmp_path)
+    engine = _engine_in_night(seed=5)
+    engine.game_state.set_phase(GamePhase.SETUP)
+    session.engine = engine
+    session.gate.clear()  # paused
+
+    pump = asyncio.create_task(GameSessionManager._run_step_pump(session, dwell=0.0))
+    await asyncio.sleep(0.05)
+    assert not pump.done()                       # blocked on the gate, no phase ran
+    assert engine.game_state.phase == GamePhase.SETUP
+    pump.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await pump
+
+
+@pytest.mark.asyncio
+async def test_step_pump_single_step_runs_one_phase(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
+
+    session = _session(tmp_path)
+    engine = GameEngine(
+        create_game_config_from_player_count(6), information_hub=InformationHub()
+    )
+    engine.on_event = lambda _e: None
+    players = [DemoAgent(name=f"P{i}", model="demo", seed=3) for i in range(6)]
+    roles = create_roles(role_names=engine.config.role_names)
+    engine.setup_game(players=players, roles=roles)
+    session.engine = engine
+    session.gate.clear()
+    session.step_once = True
+    session.gate.set()  # request exactly one phase
+
+    pump = asyncio.create_task(GameSessionManager._run_step_pump(session, dwell=0.0))
+    await asyncio.sleep(0.05)
+    assert engine.game_state.phase == GamePhase.NIGHT   # SETUP -> NIGHT, one phase
+    assert session.gate.is_set() is False               # auto-paused
+    pump.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await pump

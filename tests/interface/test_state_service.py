@@ -19,3 +19,32 @@ def _make_session(tmp_path: Path) -> GameSession:
 def test_game_session_has_engine_field_defaulting_none(tmp_path):
     session = _make_session(tmp_path)
     assert session.engine is None
+
+
+from llm_werewolf.interface.api.models.state import (
+    GameStateResponse,
+    LastNight,
+    StatePlayer,
+    StateVotes,
+)
+
+
+def test_state_models_defaults_match_spec():
+    resp = GameStateResponse(status="running", phase="night", round=2)
+    assert resp.play_state == "playing"
+    assert resp.speed == 1
+    assert resp.sub_phase is None
+    assert resp.current_actor_seat is None
+    assert resp.winner is None
+    assert resp.error is None
+    assert resp.last_night == LastNight()
+    assert resp.votes == StateVotes()
+    assert resp.players == []
+    assert resp.cursor == 0
+
+
+def test_state_player_status_flags_default_empty():
+    p = StatePlayer(seat=1, name="P1")
+    assert p.status_flags == []
+    assert p.is_alive is True
+    assert p.is_sheriff is False

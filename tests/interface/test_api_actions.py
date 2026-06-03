@@ -189,6 +189,7 @@ def test_view_endpoint_returns_projection(tmp_path, monkeypatch):
 
     app = create_app()
     app.dependency_overrides[deps.get_runs_dir] = lambda: tmp_path / "runs"
+    app.dependency_overrides[deps.get_eval_runs_dir] = lambda: tmp_path / "runs"
     client = TestClient(app)
 
     res = client.get("/api/v1/games/demo-1/view?since=0")

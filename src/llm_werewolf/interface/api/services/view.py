@@ -20,6 +20,8 @@ _SKILL_TYPES = {
 }
 _PHASE_TYPES = {"phase_changed", "round_started"}
 _NIGHT_PHASES = {"night", "setup"}
+# Skills that happen publicly during the day; never god-only.
+_PUBLIC_SKILLS = {"hunter_revenge", "sheriff_badge_transferred"}
 
 _PHASE_LABELS = {
     "setup": "准备", "night": "夜晚", "sheriff_election": "警长竞选",
@@ -80,6 +82,9 @@ def _classify(event_type: str) -> str:
 
 def _reveal_visibility(event_type: str, phase: str) -> tuple[str, str]:
     ui = _classify(event_type)
+    if event_type in _PUBLIC_SKILLS:
+        return "now", "public"
+    # night-phase speech/vote/death stay public; other night actions are god-only until game end
     if ui in {"skill", "belief", "vote_intention"} or phase in _NIGHT_PHASES:
         if ui == "speech" or event_type in _VOTE_TYPES or ui == "death":
             return "now", "public"
@@ -163,7 +168,7 @@ def _build_snapshot(run_dir: Path, rows: list[dict], status: str) -> ViewSnapsho
     return ViewSnapshot(
         day=last_round, phase=last_phase,
         phase_label=f"第{last_round}天 · {_PHASE_LABELS.get(last_phase, last_phase)}",
-        winner=winner, alive_count=len(players) - len(dead_ids),
+        winner=winner, alive_count=sum(1 for p in players if p.is_alive),
         dead_count=len(dead_ids), sheriff_seat=sheriff_seat, players=players,
     )
 

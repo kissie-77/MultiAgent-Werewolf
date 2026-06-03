@@ -58,7 +58,14 @@ def _write_full_roster(engine: Any, run_dir: Path) -> None:
         role = getattr(player, "role", None)
         if role is not None and getattr(role, "camp", None) is not None:
             camp = role.camp.value
-        seat = int(player.player_id.rsplit("_", 1)[-1])
+        try:
+            seat = int(player.player_id.rsplit("_", 1)[-1])
+        except (ValueError, AttributeError):
+            logger.warning(
+                "Skipping roster entry with unparseable player_id: %r",
+                getattr(player, "player_id", None),
+            )
+            continue
         players.append({
             "seat": seat,
             "player_id": player.player_id,

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.interface.api.services.view import build_view
+from llm_werewolf.interface.api.services.view import _reveal_visibility, build_view
 
 
 def _seed_run(tmp_path: Path) -> Path:
@@ -56,3 +56,50 @@ def test_build_view_snapshot_alive_and_role(tmp_path):
     p2 = next(p for p in snap.players if p.seat == 2)
     assert p2.role == "狼人"
     assert p2.is_alive is False
+
+
+def test_build_view_alive_count_never_negative_with_off_roster_deaths(tmp_path):
+    run_dir = tmp_path / "run_offroster"
+    run_dir.mkdir()
+    (run_dir / "roster.json").write_text(json.dumps({"players": [
+        {"seat": 1, "player_id": "player_1", "name": "P1", "role": "村民", "camp": "villager", "model": "demo"},
+    ]}), encoding="utf-8")
+    rows = [
+        {"event_type": "player_eliminated", "round_number": 1, "phase": "day_voting", "message": "x",
+         "data": {"player_id": "player_99", "player_name": "ghost"}},
+        {"event_type": "player_died", "round_number": 1, "phase": "night", "message": "y",
+         "data": {"player_id": "player_42", "player_name": "ghost2"}},
+    ]
+    (run_dir / "events.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8"
+    )
+    view = build_view(run_dir, since=0, status="running")
+    snap = view.snapshot
+    # roster player_1 is not in the death events, so it remains alive
+    assert snap.alive_count == 1
+    assert snap.alive_count >= 0
+
+
+def test_public_skills_are_immediately_visible():
+    # hunter_revenge and sheriff_badge_transferred happen publicly during the day
+    assert _reveal_visibility("hunter_revenge", "day_voting") == ("now", "public")
+    assert _reveal_visibility("sheriff_badge_transferred", "day_discussion") == ("now", "public")
+
+
+def test_build_view_hunter_revenge_event_is_public(tmp_path):
+    run_dir = tmp_path / "run_hunter"
+    run_dir.mkdir()
+    (run_dir / "roster.json").write_text(json.dumps({"players": [
+        {"seat": 1, "player_id": "player_1", "name": "P1", "role": "猎人", "camp": "villager", "model": "demo"},
+    ]}), encoding="utf-8")
+    rows = [
+        {"event_type": "hunter_revenge", "round_number": 1, "phase": "day_voting", "message": "猎人开枪带走2号",
+         "data": {"player_id": "player_1", "target_id": "player_2"}},
+    ]
+    (run_dir / "events.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8"
+    )
+    view = build_view(run_dir, since=0, status="running")
+    ev = next(e for e in view.events if e.type == "skill")
+    assert ev.reveal == "now"
+    assert ev.visibility == "public"

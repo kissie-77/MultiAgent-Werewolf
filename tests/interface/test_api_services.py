@@ -252,6 +252,28 @@ def test_write_full_roster_json(tmp_path):
     assert data["players"][1]["role"] == "狼人"
 
 
+def test_write_full_roster_skips_unparseable_seat(tmp_path):
+    import json
+    from types import SimpleNamespace
+    from llm_werewolf.interface.api.services.game_sessions import _write_full_roster
+
+    players = [
+        SimpleNamespace(player_id="human-viewer", name="Bad", ai_model="demo",
+                        get_role_name=lambda: "村民",
+                        role=SimpleNamespace(camp=SimpleNamespace(value="villager"))),
+        SimpleNamespace(player_id="player_2", name="P2", ai_model="doubao",
+                        get_role_name=lambda: "狼人",
+                        role=SimpleNamespace(camp=SimpleNamespace(value="werewolf"))),
+    ]
+    engine = SimpleNamespace(game_state=SimpleNamespace(players=players))
+    # must not crash on the unparseable seat; just skips it
+    _write_full_roster(engine, tmp_path)
+
+    data = json.loads((tmp_path / "roster.json").read_text(encoding="utf-8"))
+    assert [p["player_id"] for p in data["players"]] == ["player_2"]
+    assert data["players"][0]["seat"] == 2
+
+
 def test_launch_roster_never_persists_api_key(tmp_path):
     import json
     from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig

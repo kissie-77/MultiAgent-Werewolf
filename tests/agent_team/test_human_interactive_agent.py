@@ -221,6 +221,43 @@ def test_human_witch_prompt_keeps_only_action_facts() -> None:
     assert "可见事件记录" not in rendered
 
 
+def test_human_witch_prompt_with_used_antidote_keeps_victim_but_no_save() -> None:
+    agent = HumanInteractiveAgent(name="玩家3", model="human")
+    prompt = "\n".join([
+        "你是Witch。",
+        "女巫请睁眼。",
+        "当前：第 2 轮 — Night",
+        "今晚狼人刀口：玩家2（2号）。你的解药已用完，不能救；你仍可选择是否使用毒药。",
+        "若选择 poison，可选毒杀目标：",
+        "- 座位 1：玩家1（ID: player_1）",
+        "请在本回合二选一：毒人(poison) / 不行动(none)。",
+        "解药不可用或没有可救刀口，不能选择 save；毒人需指定 seat。",
+    ])
+
+    rendered = agent._render_prompt(prompt, kind="witch")
+    kind, _, _ = agent._classify(prompt)
+
+    assert kind == "witch"
+    assert "今晚狼人刀口：玩家2" in rendered
+    assert "解药已用完，不能救" in rendered
+    assert "二选一" in rendered
+    assert "救人(save)" not in rendered
+    assert not agent._witch_save_allowed(prompt)
+
+
+def test_human_witch_save_is_rejected_when_antidote_unavailable() -> None:
+    normalized, error = HumanInteractiveAgent._normalize(
+        "witch",
+        0,
+        False,
+        "救",
+        allow_witch_save=False,
+    )
+
+    assert normalized is None
+    assert "不能救人" in error
+
+
 def test_human_prompt_classifies_wolf_discussion_as_speech() -> None:
     agent = HumanInteractiveAgent(name="玩家1", model="human")
     prompt = "\n".join([
@@ -259,6 +296,9 @@ def test_human_speech_accepts_meaningful_chinese_text() -> None:
 def test_human_submission_confirmation_is_immediate_and_plain() -> None:
     assert HumanInteractiveAgent._confirmation("speech", "我先听完大家发言再判断。").startswith("已提交发言")
     assert HumanInteractiveAgent._confirmation("seat", "3") == "已提交目标：座位 3"
+    assert HumanInteractiveAgent._confirmation(
+        "seat", "3", is_werewolf_kill=True
+    ) == "已提交你的狼刀票：座位 3；最终刀口以狼队结算为准"
 
 
 def test_human_seat_input_must_be_in_options() -> None:

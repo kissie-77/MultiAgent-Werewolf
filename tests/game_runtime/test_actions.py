@@ -4,13 +4,22 @@ from llm_werewolf.game_runtime.roles import Seer, Witch, Villager, Werewolf
 from llm_werewolf.game_runtime.types import Camp
 from llm_werewolf.game_runtime.roles.names import seer_apparent_camp
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.roles.werewolf import WhiteWolf, HiddenWolf
+from llm_werewolf.game_runtime.roles.werewolf import (
+    WhiteWolf,
+    HiddenWolf,
+    GuardianWolf,
+    BloodMoonApostle,
+)
 from llm_werewolf.game_runtime.actions.villager import (
     SeerCheckAction,
     WitchSaveAction,
     WitchPoisonAction,
 )
-from llm_werewolf.game_runtime.actions.werewolf import WerewolfVoteAction, WhiteWolfKillAction
+from llm_werewolf.game_runtime.actions.werewolf import (
+    WerewolfVoteAction,
+    WhiteWolfKillAction,
+    GuardianWolfProtectAction,
+)
 from llm_werewolf.game_runtime.state.game_state import GameState
 
 
@@ -72,6 +81,16 @@ def test_werewolf_vote_rejects_wolf_target() -> None:
     assert action.validate() is False
 
 
+def test_werewolf_vote_can_target_untransformed_blood_moon() -> None:
+    wolf = Player("w1", "Wolf", Werewolf)
+    blood_moon = Player("b1", "BloodMoon", BloodMoonApostle)
+    state = GameState([wolf, blood_moon])
+
+    action = WerewolfVoteAction(wolf, blood_moon, state)
+
+    assert action.validate() is True
+
+
 def test_seer_hidden_wolf_appears_villager() -> None:
     hidden = Player("h1", "Hidden", HiddenWolf)
     assert seer_apparent_camp(hidden) == Camp.VILLAGER
@@ -89,3 +108,14 @@ def test_white_wolf_kill_validate_uses_role_config_name() -> None:
 
     action = WhiteWolfKillAction(white_wolf, teammate, state)
     assert action.validate() is True
+
+
+def test_wolf_special_actions_exclude_untransformed_blood_moon_teammate() -> None:
+    white_wolf = Player("ww1", "WhiteWolf", WhiteWolf)
+    guardian_wolf = Player("gw1", "GuardianWolf", GuardianWolf)
+    blood_moon = Player("b1", "BloodMoon", BloodMoonApostle)
+    state = GameState([white_wolf, guardian_wolf, blood_moon])
+    state.round_number = 1
+
+    assert WhiteWolfKillAction(white_wolf, blood_moon, state).validate() is False
+    assert GuardianWolfProtectAction(guardian_wolf, blood_moon, state).validate() is False

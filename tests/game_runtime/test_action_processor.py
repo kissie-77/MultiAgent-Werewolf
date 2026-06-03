@@ -70,6 +70,24 @@ def test_log_witch_save_action() -> None:
     processor._log_event.assert_called_once()
 
 
+def test_log_seer_action_includes_private_result() -> None:
+    seer = Player("s1", "Seer", Seer)
+    wolf = Player("w1", "Wolf", Werewolf)
+    state = GameState([seer, wolf])
+    state.round_number = 1
+    processor = _Processor(state)
+    processor.locale = Locale("zh-CN")
+
+    action = SeerCheckAction(seer, wolf, state)
+    processor._log_seer_action(action)
+
+    _, message = processor._log_event.call_args.args[:2]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert "Wolf" in message
+    assert "狼人" in message
+    assert data["result"] == "werewolf"
+
+
 def test_decision_data_prefers_action_metadata_over_agent_cache() -> None:
     witch = Player("player_1", "Witch", Witch)
     old_target = Player("player_2", "Old", Villager)

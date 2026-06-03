@@ -4,19 +4,29 @@ from llm_werewolf.game_runtime.types import EventType
 from llm_werewolf.game_runtime.events.event_visibility import resolve_visible_to
 
 
-def test_werewolf_killed_visible_to_witch_only() -> None:
+def test_werewolf_killed_visible_to_wolf_team_and_witch() -> None:
     visible = resolve_visible_to(
         EventType.WEREWOLF_KILLED,
         {"target_id": "v1", "target_name": "Alice"},
+        wolf_player_ids=["wolf_1", "wolf_2"],
         witch_player_ids=["witch_1"],
     )
-    assert visible == ["witch_1"]
+    assert visible == ["wolf_1", "wolf_2", "witch_1"]
 
 
 def test_werewolf_killed_no_witch_in_game() -> None:
     visible = resolve_visible_to(
-        EventType.WEREWOLF_KILLED, {"target_id": "v1"}, witch_player_ids=[]
+        EventType.WEREWOLF_KILLED,
+        {"target_id": "v1"},
+        wolf_player_ids=["wolf_1"],
+        witch_player_ids=[],
     )
+    assert visible == ["wolf_1"]
+
+
+def test_werewolf_killed_without_wolves_or_witch_is_not_public() -> None:
+    visible = resolve_visible_to(EventType.WEREWOLF_KILLED, {"target_id": "v1"})
+
     assert visible == []
 
 
@@ -30,6 +40,16 @@ def test_seer_checked_still_actor_only() -> None:
 def test_role_acting_visible_to_actor_only() -> None:
     visible = resolve_visible_to(EventType.ROLE_ACTING, {"player_id": "wolf_1"})
     assert visible == ["wolf_1"]
+
+
+def test_private_actor_event_without_actor_id_is_not_public() -> None:
+    visible = resolve_visible_to(EventType.ROLE_ACTING, {})
+    assert visible == []
+
+
+def test_lovers_linked_without_cupid_id_is_not_public() -> None:
+    visible = resolve_visible_to(EventType.LOVERS_LINKED, {})
+    assert visible == []
 
 
 def test_replay_only_events_are_hidden_from_observation() -> None:

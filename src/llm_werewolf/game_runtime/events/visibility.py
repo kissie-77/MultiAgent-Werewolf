@@ -6,7 +6,7 @@ from enum import Enum
 
 from pydantic import Field, BaseModel
 
-from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
+from llm_werewolf.game_runtime.types import EventType, PlayerProtocol
 
 
 class VisibilityChannel(str, Enum):
@@ -42,8 +42,10 @@ def audience_for_channel(channel: VisibilityChannel, players: list[PlayerProtoco
     if channel == VisibilityChannel.PUBLIC:
         return [p.player_id for p in alive]
     if channel == VisibilityChannel.WOLF_TEAM:
-        return [p.player_id for p in alive if p.get_camp() == Camp.WEREWOLF]
-    return [p.player_id for p in alive]
+        from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
+
+        return [p.player_id for p in alive if participates_in_wolf_team(p)]
+    return []
 
 
 def event_type_for_channel(channel: VisibilityChannel) -> EventType:

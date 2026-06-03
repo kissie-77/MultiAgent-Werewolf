@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.types import EventType
+from llm_werewolf.game_runtime.types import Camp, EventType
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.roles.names import seer_apparent_camp
 from llm_werewolf.game_runtime.actions.base import Action
@@ -119,9 +119,14 @@ class ActionProcessorMixin:
     def _log_seer_action(self, action: SeerCheckAction) -> None:
         """记录预言家查验行动。"""
         apparent = seer_apparent_camp(action.target)
+        result = (
+            ("狼人" if apparent == Camp.WEREWOLF else "好人")
+            if getattr(self.locale, "language", "").startswith("zh")
+            else apparent.value
+        )
         self._log_event(
             EventType.SEER_CHECKED,
-            self.locale.get("seer_checked_public", target=action.target.name),
+            self.locale.get("seer_checked", target=action.target.name, result=result),
             data={
                 "player_id": action.actor.player_id,
                 "target_id": action.target.player_id,
@@ -136,7 +141,6 @@ class ActionProcessorMixin:
             )
         if self.game_state and getattr(self.game_state, "belief_log", None) is not None:
             from llm_werewolf.game_runtime.seat import get_player_seat
-            from llm_werewolf.game_runtime.types import Camp
             from llm_werewolf.strategy.belief_updater import apply_seer_check, ensure_agent_belief_state
 
             alive = self.game_state.get_alive_players()

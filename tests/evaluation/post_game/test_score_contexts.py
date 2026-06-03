@@ -68,6 +68,10 @@ def test_score_contexts_isolate_channels(tmp_path: Path) -> None:
     assert bundles[DIM_PERSUASION].vote_intention_records
     assert bundles[DIM_WOLF_NIGHT].vote_intention_records
     assert all(e.get("event_type") != "player_discussion" for e in bundles[DIM_PERSUASION].events)
+    assert all(
+        e.get("event_type") != "vote_intention_snapshot"
+        for e in bundles[DIM_PERSUASION].events
+    )
 
     manifest = write_score_contexts(ctx)
     assert (tmp_path / "views" / "score_contexts" / "manifest.json").is_file()

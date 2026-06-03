@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 PROTECTED_PERSISTENT_TAGS = frozenset({"belief", "wolf_camp", "belief_rules"})
+FIXED_GAME_INFO_TAGS = frozenset({"role_pool"})
 BELIEF_PERSISTENT_PRIORITY = 10
 _BELIEF_RULES_TEXT = "\n".join([
     "【信念/意向更新规则】",
@@ -135,11 +136,21 @@ class WorkingMemory:
                 for item in self._persistent
                 if item.tag in PROTECTED_PERSISTENT_TAGS
             ]
+        fixed_game_items = [
+            item
+            for item in self._persistent
+            if item.tag in FIXED_GAME_INFO_TAGS
+        ]
         stable_items = [
             item
             for item in self._persistent
             if item.tag not in PROTECTED_PERSISTENT_TAGS
+            and item.tag not in FIXED_GAME_INFO_TAGS
         ]
+        if fixed_game_items:
+            parts.append(
+                "【本局固定信息】\n" + "\n".join(f"- {item.content}" for item in fixed_game_items)
+            )
         if belief_items:
             ordered = sorted(
                 belief_items,

@@ -121,11 +121,66 @@ def test_replay_helpers(service_dirs: dict[str, Path]) -> None:
 def test_replay_and_share_pages(service_dirs: dict[str, Path]) -> None:
     replay = get_replay_page("svc-run", service_dirs["runs_dir"], service_dirs["eval_runs_dir"])
     assert replay is not None
+    assert replay.view_scope == "public"
     assert replay.report_markdown
 
     share = get_share_replay_page("svc-run", service_dirs["runs_dir"], service_dirs["eval_runs_dir"])
     assert share is not None
     assert share.share_url_path == "/share/replay/svc-run"
+
+
+def test_replay_page_defaults_to_public_visibility(service_dirs: dict[str, Path]) -> None:
+    run_dir = service_dirs["runs_dir"] / "svc-run"
+    private_event = {
+        "event_type": "belief_snapshot",
+        "round_number": 1,
+        "phase": "day_discussion",
+        "message": "私密信念矩阵",
+        "visible_to": [],
+        "data": {},
+    }
+    malformed_legacy_event = {
+        "event_type": "belief_snapshot",
+        "round_number": 1,
+        "phase": "day_discussion",
+        "message": "legacy belief snapshot",
+        "visible_to": None,
+        "data": {},
+    }
+    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write("\n" + json.dumps(private_event, ensure_ascii=False))
+        fh.write("\n" + json.dumps(malformed_legacy_event, ensure_ascii=False))
+    (run_dir / "beliefs.jsonl").write_text(
+        json.dumps({"observer_seat": 1, "first_order": []}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    public_page = get_replay_page(
+        "svc-run", service_dirs["runs_dir"], service_dirs["eval_runs_dir"]
+    )
+    god_page = get_replay_page(
+        "svc-run", service_dirs["runs_dir"], service_dirs["eval_runs_dir"], view="god"
+    )
+    player_page = get_replay_page(
+        "svc-run",
+        service_dirs["runs_dir"],
+        service_dirs["eval_runs_dir"],
+        viewer_id="player_1",
+    )
+
+    assert public_page is not None
+    assert god_page is not None
+    assert player_page is not None
+    assert public_page.view_scope == "public"
+    assert god_page.view_scope == "god"
+    assert player_page.view_scope == "player"
+    assert "legacy belief snapshot" not in [event.message for event in public_page.timeline]
+    assert "legacy belief snapshot" not in [event.message for event in player_page.timeline]
+    assert "私密信念矩阵" not in [event.message for event in public_page.timeline]
+    assert "私密信念矩阵" in [event.message for event in god_page.timeline]
+    assert "legacy belief snapshot" in [event.message for event in god_page.timeline]
+    assert public_page.belief_snapshots == []
+    assert god_page.belief_snapshots
 
 
 def test_page_builders(service_dirs: dict[str, Path]) -> None:

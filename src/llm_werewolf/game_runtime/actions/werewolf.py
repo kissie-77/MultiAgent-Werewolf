@@ -1,5 +1,10 @@
-from llm_werewolf.game_runtime.types import Camp, ActionType, PlayerProtocol, GameStateProtocol
-from llm_werewolf.game_runtime.roles.names import RoleNames, role_name_is, player_camp_is
+from llm_werewolf.game_runtime.types import ActionType, PlayerProtocol, GameStateProtocol
+from llm_werewolf.game_runtime.roles.names import (
+    RoleNames,
+    role_name_is,
+    player_camp_is,
+    participates_in_wolf_team,
+)
 from llm_werewolf.game_runtime.actions.base import Action
 
 
@@ -28,8 +33,8 @@ class WerewolfVoteAction(Action):
         return (
             self.actor.is_alive()
             and self.target.is_alive()
-            and player_camp_is(self.actor, Camp.WEREWOLF)
-            and not player_camp_is(self.target, Camp.WEREWOLF)
+            and participates_in_wolf_team(self.actor)
+            and not participates_in_wolf_team(self.target)
             and self.actor.player_id != self.target.player_id
         )
 
@@ -107,7 +112,7 @@ class WhiteWolfKillAction(Action):
         return (
             self.actor.is_alive()
             and self.target.is_alive()
-            and player_camp_is(self.target, Camp.WEREWOLF)
+            and participates_in_wolf_team(self.target)
             and self.target.player_id != self.actor.player_id
         )
 
@@ -195,7 +200,7 @@ class GuardianWolfProtectAction(Action):
         return (
             self.actor.is_alive()
             and self.target.is_alive()
-            and player_camp_is(self.target, Camp.WEREWOLF)
+            and participates_in_wolf_team(self.target)
             and self.actor.player_id != self.target.player_id
         )
 

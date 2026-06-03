@@ -28,7 +28,11 @@ _PUBLIC_EVENT_TYPES = frozenset({
     "game_ended",
     "phase_change",
     "death_announcement",
+})
+
+_REPLAY_ONLY_EVENT_TYPES = frozenset({
     "vote_intention_snapshot",
+    "belief_snapshot",
 })
 
 
@@ -90,7 +94,8 @@ def build_public_digest(events: list[dict[str, Any]], *, max_events: int = 200) 
     public = [
         e
         for e in events
-        if e.get("visible_to") is None or e.get("event_type") in _PUBLIC_EVENT_TYPES
+        if e.get("visible_to") is None
+        and e.get("event_type") not in _REPLAY_ONLY_EVENT_TYPES
     ][-max_events:]
     lines = ["# Public Digest", ""]
     for event in public:

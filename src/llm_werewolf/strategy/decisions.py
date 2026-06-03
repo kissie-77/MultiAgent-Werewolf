@@ -195,12 +195,12 @@ def seat_choice_schema_instruction(*, allow_skip: bool = False, require_reason: 
     ])
 
 
-def witch_night_schema_instruction(*, can_see_victim: bool) -> str:
+def witch_night_schema_instruction(*, can_save: bool) -> str:
     """WitchNightDecision 的提示块。"""
     victim_line = (
-        "你已得知今晚狼人刀口目标，可选择：save（救该刀口）、poison（毒杀某人）、none（不行动）。"
-        if can_see_victim
-        else "解药已用完，你无法得知今晚刀口。可选择：poison（毒杀某人）、none（不行动）。"
+        "你可以选择：save（救该刀口）、poison（毒杀某人）、none（不行动）。"
+        if can_save
+        else "你不能选择 save。可选择：poison（毒杀某人）、none（不行动）。"
     )
     return "\n".join([
         "【本任务输出 — 仅 WitchNightDecision Schema】",

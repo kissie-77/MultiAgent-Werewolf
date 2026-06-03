@@ -10,6 +10,7 @@ from llm_werewolf.game_runtime.actions import VoteAction
 from llm_werewolf.strategy.role_prompts import GamePrompts
 from llm_werewolf.strategy.phase_outputs import ActionPhase, action_phase_instruction
 from llm_werewolf.game_runtime.roles.names import RoleNames
+from llm_werewolf.game_runtime.seat import get_player_seat
 from llm_werewolf.game_runtime.actions.base import Action
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
@@ -71,6 +72,38 @@ class VotingPhaseMixin:
         if not self.game_state:
             return []
 
+        def _fallback_target_from_vote_intention(
+            player: PlayerProtocol, possible_targets: list[PlayerProtocol]
+        ) -> PlayerProtocol | None:
+            tracker = getattr(self.game_state, "vote_intention_tracker", None)
+            if tracker is None:
+                return None
+
+            entry = None
+            for record in reversed(getattr(tracker, "speech_records", [])):
+                entry = getattr(record, "after", {}).get(player.player_id)
+                if entry is not None:
+                    break
+            if entry is None:
+                for snapshot in reversed(getattr(tracker, "snapshots", [])):
+                    entry = getattr(snapshot, "intentions", {}).get(player.player_id)
+                    if entry is not None:
+                        break
+            if entry is None or getattr(entry, "seat", 0) <= 0:
+                return None
+
+            target_id = getattr(entry, "target_id", None)
+            if target_id:
+                for target in possible_targets:
+                    if target.player_id == target_id:
+                        return target
+
+            seat = int(getattr(entry, "seat", 0))
+            for target in possible_targets:
+                if get_player_seat(target) == seat:
+                    return target
+            return None
+
         async def _get_vote(player: PlayerProtocol) -> Action | None:
             """获取单个玩家的投票。"""
             possible_targets = self.game_state.get_alive_players(except_ids=[player.player_id])
@@ -100,6 +133,15 @@ class VotingPhaseMixin:
                     )
                     return VoteAction(player, target_player, self.game_state)
             except Exception as e:
+                fallback_target = _fallback_target_from_vote_intention(player, possible_targets)
+                if fallback_target is not None:
+                    player.agent.add_decision(
+                        "Round "
+                        f"{self.game_state.round_number}: Voted for "
+                        f"{fallback_target.name} (fallback from vote intention)"
+                    )
+                    return VoteAction(player, fallback_target, self.game_state)
+
                 error_text = _format_runtime_error(e)
                 self._log_event(
                     EventType.ERROR,

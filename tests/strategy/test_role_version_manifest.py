@@ -2,11 +2,28 @@
 
 from pathlib import Path
 
+import pytest
+
 from llm_werewolf.strategy.role_version_manifest import (
     RoleVersionManifest,
     pick_latest_version,
     version_sort_key,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_role_prompt_roots(monkeypatch: pytest.MonkeyPatch):
+    from llm_werewolf.strategy import role_prompt_registry
+
+    monkeypatch.setattr(role_prompt_registry, "_EXTRA_ROLE_PROMPT_ROOTS", [])
+    monkeypatch.delenv("LLM_WEREWOLF_ROLE_PROMPT_ROOTS", raising=False)
+    role_prompt_registry.resolve_role_prompt_dir.cache_clear()
+    role_prompt_registry.get_role_card.cache_clear()
+    role_prompt_registry.list_prompt_versions.cache_clear()
+    yield
+    role_prompt_registry.resolve_role_prompt_dir.cache_clear()
+    role_prompt_registry.get_role_card.cache_clear()
+    role_prompt_registry.list_prompt_versions.cache_clear()
 
 
 def test_version_sort_key_orders_numeric_suffixes() -> None:

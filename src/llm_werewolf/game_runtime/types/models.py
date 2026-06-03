@@ -30,8 +30,6 @@ class GameStateInfo(BaseModel):
     round_number: int = Field(..., description="Current round number")
     total_players: int = Field(..., description="Total number of players")
     alive_players: int = Field(..., description="Number of alive players")
-    werewolves_alive: int = Field(..., description="Number of alive werewolves")
-    villagers_alive: int = Field(..., description="Number of alive villagers")
 
 
 class PlayerInfo(BaseModel):

@@ -17,7 +17,7 @@ from llm_werewolf.agent_team.agents.factory import (
 )
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.events.events import EventLogger
-from llm_werewolf.game_runtime.roles.villager import Seer
+from llm_werewolf.game_runtime.roles.villager import Seer, Villager, Witch
 from llm_werewolf.game_runtime.roles.werewolf import Werewolf
 from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
@@ -131,6 +131,52 @@ def test_configure_agents_uses_assigned_role_plan_text() -> None:
 
     assert "狼人质疑派打法" in player.agent.plan
     assert player.agent.memory_manager.plan_name == "wolf_skeptical"
+
+
+def test_configure_agents_injects_current_role_pool_into_system_prompt() -> None:
+    players = [
+        _agentscope_player("player_1", "P1", Werewolf),
+        _agentscope_player("player_2", "P2", Werewolf),
+        _agentscope_player("player_3", "P3", Seer),
+        _agentscope_player("player_4", "P4", Witch),
+        _agentscope_player("player_5", "P5", Villager),
+        _agentscope_player("player_6", "P6", Villager),
+    ]
+
+    with patch("llm_werewolf.agent_team.agents.factory.create_react_agent") as mock_create:
+        mock_create.return_value = MagicMock(name="ReActAgent")
+        configure_agents_for_players(players, default_plan="default", event_logger=EventLogger())
+
+    prompt = mock_create.call_args.kwargs["sys_prompt"]
+    assert "【本局角色池】" in prompt
+    assert "Werewolf x2" in prompt
+    assert "Villager x2" in prompt
+    assert "Seer x1" in prompt
+    assert "Witch x1" in prompt
+    assert "Guard x" not in prompt
+    assert "如果长期策略、经验或示例提到未出现在本局角色池的身份" in prompt
+    assert prompt.rstrip().endswith("如果长期策略、经验或示例提到未出现在本局角色池的身份，本局忽略这些身份。")
+
+
+def test_configure_agents_injects_current_role_pool_into_working_memory() -> None:
+    players = [
+        _agentscope_player("player_1", "P1", Werewolf),
+        _agentscope_player("player_2", "P2", Werewolf),
+        _agentscope_player("player_3", "P3", Seer),
+        _agentscope_player("player_4", "P4", Witch),
+        _agentscope_player("player_5", "P5", Villager),
+        _agentscope_player("player_6", "P6", Villager),
+    ]
+
+    with patch("llm_werewolf.agent_team.agents.factory.create_react_agent") as mock_create:
+        mock_create.return_value = MagicMock(name="ReActAgent")
+        configure_agents_for_players(players, default_plan="default", event_logger=EventLogger())
+
+    context = players[0].agent.memory_manager.get_context_for_decision()
+    assert "【本局固定信息】" in context
+    assert "【本局角色池】" in context
+    assert "Werewolf x2" in context
+    assert "Guard x" not in context
 
 
 def test_configure_agents_binds_demo_agent_role() -> None:

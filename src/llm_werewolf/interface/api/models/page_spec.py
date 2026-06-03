@@ -112,9 +112,10 @@ PAGE_SPECS: dict[str, PageSpec] = {
         api_path="/api/v1/pages/replay",
         title="本局复盘",
         description="完整时间线、评分、转折点、MVP 榜、报告",
-        query_params=["run_id", "source"],
+        query_params=["run_id", "source", "view"],
         fields=[
             PageFieldSpec(name="run", type="RunDetail", description="对局元数据"),
+            PageFieldSpec(name="view_scope", type="string", description="public 或 god"),
             PageFieldSpec(name="timeline", type="ReplayEventItem[]", description="事件时间线"),
             PageFieldSpec(name="phase_summary", type="PhaseSummary[]", description="按回合/阶段汇总"),
             PageFieldSpec(name="turning_points", type="string[]", description="关键转折"),

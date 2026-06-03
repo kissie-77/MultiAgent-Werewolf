@@ -32,6 +32,15 @@ class _WitchPoisonInteraction:
         return WitchNightDecision(action="poison", seat=3, reason="test poison")
 
 
+class _CaptureWitchInteraction:
+    def __init__(self) -> None:
+        self.kwargs = {}
+
+    async def request_witch_night_choice(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        self.kwargs = kwargs
+        return WitchNightDecision(action="none", seat=0, reason="test none")
+
+
 def test_werewolf_team_context_does_not_repeat_role_private_notes() -> None:
     wolf = Player("w1", "Wolf1", Werewolf, agent=DemoAgent(name="Wolf1", model="demo"))
     teammate = Player("w2", "Wolf2", Werewolf, agent=DemoAgent(name="Wolf2", model="demo"))
@@ -95,3 +104,28 @@ async def test_witch_poison_action_carries_current_decision_metadata() -> None:
     assert metadata["decision_seat"] == 3
     assert metadata["resolved_target_id"] == "player_3"
     assert metadata["structured_decision"]["action"] == "poison"
+
+
+@pytest.mark.asyncio
+async def test_witch_still_sees_wolf_victim_after_antidote_is_used() -> None:
+    witch = Player("player_1", "Witch1", Witch, agent=DemoAgent(name="Witch1", model="demo"))
+    victim = Player(
+        "player_2", "Villager2", Villager, agent=DemoAgent(name="Villager2", model="demo")
+    )
+    poison_target = Player(
+        "player_3", "Villager3", Villager, agent=DemoAgent(name="Villager3", model="demo")
+    )
+    state = GameState([witch, victim, poison_target])
+    state.werewolf_target = victim.player_id
+    witch.role.has_save_potion = False
+    witch.role.has_poison_potion = True
+    interaction = _CaptureWitchInteraction()
+
+    actions = await plan_witch_actions(witch.role, state, interaction)
+
+    assert actions == []
+    assert interaction.kwargs["can_see_victim"] is True
+    assert interaction.kwargs["can_save"] is False
+    assert "今晚狼人刀口：Villager2" in interaction.kwargs["victim_line"]
+    assert "不能救" in interaction.kwargs["victim_line"]
+    assert "不会告知刀口" not in interaction.kwargs["additional_context"]

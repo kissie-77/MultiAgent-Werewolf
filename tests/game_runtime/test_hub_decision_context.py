@@ -87,10 +87,14 @@ def test_observation_does_not_expose_hidden_alive_camp_counts(engine_with_speech
     engine, player = engine_with_speech_event
 
     text = engine.build_player_observation(player, for_agent_decision=True)
+    public_state = engine.game_state.get_public_info().model_dump()
 
     assert "存活概况：6/6 人存活" in text
     assert "狼人 2" not in text
     assert "好人 4" not in text
+
+    assert "werewolves_alive" not in public_state
+    assert "villagers_alive" not in public_state
 
 
 def test_human_discussion_context_excludes_belief_tracking_blocks() -> None:

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from llm_werewolf.interface.modes import list_modes, resolve_config_path
+from llm_werewolf.game_runtime.utils import load_config
 
 
 def test_explicit_config_overrides_mode() -> None:
@@ -22,6 +23,16 @@ def test_human_mixed_basic_uses_llm_config_not_demo() -> None:
     assert resolve_config_path(participation="human_mixed", rules="basic") == Path(
         "configs/xiaomi.yaml"
     )
+
+
+def test_real_llm_modes_use_current_kimi_vibe_config() -> None:
+    for rules in ("badge_flow", "extended_roles"):
+        cfg = load_config(resolve_config_path(participation="all_agent", rules=rules))
+
+        assert {player.model for player in cfg.players} == {"kimi-k2.5"}
+        assert {player.base_url for player in cfg.players} == {"https://www.vibeapi.cn/v1"}
+        assert {player.api_key_env for player in cfg.players} == {"VIBE_API_KEY"}
+        assert all(player.reasoning_effort is None for player in cfg.players)
 
 
 def test_unknown_mode_raises() -> None:

@@ -1,162 +1,164 @@
 import { create } from "zustand";
-import { GameState, Player } from "./types";
+import { ViewResponse, ViewSnapshot, ViewEvent, RenderLog, SeatConfig } from "./types";
+import { getApiKey, providerById } from "./lib/api-keys";
+
+const API = "/api/v1";
+const POLL_MS = 1000;
+
+type Speed = 1 | 2 | 999; // 999 = 瞬间
+type RevealView = "god" | "suspense";
 
 interface GameStore {
-  state: GameState | null;
-  selectedCardId: number | null;
-  isLoading: boolean;
-  userSpeechText: string;
-  isAutoPlaying: boolean;
-  setupCount: number | null;
-  
-  // Actions
-  fetchState: () => Promise<void>;
-  resetGame: (userRole?: "预言家" | "女巫" | "猎人" | "狼人" | "村民", playerCount?: number, gameMode?: "llmOnly" | "humanVsAI", startImmediately?: boolean) => Promise<void>;
-  submitUserSpeech: () => Promise<void>;
-  castVote: () => Promise<void>;
-  simulateNextAI: () => Promise<void>;
-  nightSkillAction: (actionType: "NIGHT_KILL" | "NIGHT_INSPECT" | "NIGHT_SAVED_OR_POISON", targetId: number, additional?: any) => Promise<void>;
-  transitionToDebate: () => Promise<void>;
-  exitGame: () => Promise<void>;
-  setSelectedCardId: (id: number | null) => void;
-  setUserSpeechText: (text: string) => void;
-  toggleAutoPlay: () => void;
-  setSetupCount: (count: number | null) => void;
+  runId: string | null;
+  status: ViewResponse["status"] | "idle";
+  snapshot: ViewSnapshot | null;
+  logs: RenderLog[];
+  cursor: number;
+  queue: ViewEvent[];
+  isPlaying: boolean;
+  speed: Speed;
+  revealView: RevealView;
+  error: string | null;
+
+  startGame: (seats: SeatConfig[], opts?: { language?: string; enableSheriff?: boolean }) => Promise<void>;
+  cancelGame: () => Promise<void>;
+  togglePlay: () => void;
+  setSpeed: (s: Speed) => void;
+  setRevealView: (v: RevealView) => void;
+  exitToSetup: () => void;
+  _poll: () => Promise<void>;
+  _drain: () => void;
+}
+
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let drainTimer: ReturnType<typeof setInterval> | null = null;
+
+function unwrap<T>(json: any): T {
+  return (json && typeof json === "object" && "data" in json ? json.data : json) as T;
+}
+
+// 是否对该事件做悬念遮挡（仅前端）
+function shouldMask(ev: ViewEvent, view: RevealView): boolean {
+  if (view === "god") return false;
+  return ev.reveal !== "now"; // suspense: on_death / on_game_end 暂时遮挡
+}
+
+function toRenderLog(ev: ViewEvent, view: RevealView): RenderLog {
+  const masked = shouldMask(ev, view);
+  let text = ev.text;
+  if (ev.type === "speech") {
+    text = ev.public_text || ev.text;
+  } else if (masked) {
+    text = ev.type === "skill" ? "🌙 夜间有角色行动了…" : ev.text;
+  }
+  return {
+    seq: ev.seq,
+    kind: ev.type,
+    day: ev.day,
+    speakerSeat: ev.speaker?.seat ?? null,
+    speakerName: ev.speaker?.name ?? "",
+    text,
+    privateThought: view === "god" ? ev.private_thought ?? null : null,
+    visibility: ev.visibility,
+  };
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  state: null,
-  selectedCardId: null,
-  isLoading: false,
-  userSpeechText: "",
-  isAutoPlaying: false,
-  setupCount: null,
-  setSetupCount: (count) => set({ setupCount: count }),
+  runId: null,
+  status: "idle",
+  snapshot: null,
+  logs: [],
+  cursor: 0,
+  queue: [],
+  isPlaying: true,
+  speed: 1,
+  revealView: "god",
+  error: null,
 
-  fetchState: async () => {
+  startGame: async (seats, opts) => {
+    set({ status: "running", logs: [], cursor: 0, queue: [], snapshot: null, error: null, isPlaying: true });
+    const players = seats.map((s) => ({
+      name: s.name,
+      model: s.model,
+      base_url: s.base_url || providerById(s.provider)?.base_url,
+      api_key: getApiKey(s.provider),
+      temperature: s.temperature,
+    }));
     try {
-      const res = await fetch("/api/game/state");
-      const data = await res.json();
-      set({ state: data });
-    } catch (err) {
-      console.error("Failed to fetch game state:", err);
-    }
-  },
-
-  resetGame: async (userRole = "预言家", playerCount = 6, gameMode = "humanVsAI", startImmediately = false) => {
-    set({ isLoading: true, selectedCardId: null, userSpeechText: "" });
-    try {
-      const res = await fetch("/api/game/reset", {
+      const res = await fetch(`${API}/games/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userRole, playerCount, gameMode, startImmediately })
+        body: JSON.stringify({
+          participation: "all_agent",
+          rules: opts?.enableSheriff ? "badge_flow" : "basic",
+          player_count: seats.length,
+          badge_flow: !!opts?.enableSheriff,
+          players,
+        }),
       });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
+      const data = unwrap<{ run_id: string }>(await res.json());
+      set({ runId: data.run_id });
+      if (pollTimer) clearInterval(pollTimer);
+      if (drainTimer) clearInterval(drainTimer);
+      pollTimer = setInterval(() => get()._poll(), POLL_MS);
+      drainTimer = setInterval(() => get()._drain(), 220);
+      get()._poll();
     } catch (err) {
-      console.error("Failed to reset game:", err);
-      set({ isLoading: false });
+      console.error("startGame failed", err);
+      set({ status: "error", error: String(err) });
     }
   },
 
-  submitUserSpeech: async () => {
-    const { userSpeechText } = get();
-    set({ isLoading: true });
+  _poll: async () => {
+    const { runId, cursor } = get();
+    if (!runId) return;
     try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SPEECH_SUBMIT", text: userSpeechText })
-      });
-      const data = await res.json();
-      set({ state: data, userSpeechText: "", selectedCardId: null, isLoading: false });
+      const res = await fetch(`${API}/games/${runId}/view?since=${cursor}`);
+      if (!res.ok) return;
+      const view = unwrap<ViewResponse>(await res.json());
+      set((st) => ({
+        snapshot: view.snapshot,
+        cursor: view.cursor,
+        status: view.status,
+        error: view.error,
+        queue: [...st.queue, ...view.events],
+      }));
+      if (view.status === "ended" || view.status === "cancelled" || view.status === "error") {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
     } catch (err) {
-      console.error("Failed to submit speech:", err);
-      set({ isLoading: false });
+      console.error("poll failed", err);
     }
   },
 
-  castVote: async () => {
-    const { selectedCardId } = get();
-    if (selectedCardId === null) return;
-    set({ isLoading: true });
-    try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "USER_VOTE", targetId: selectedCardId })
-      });
-      const data = await res.json();
-      set({ state: data, selectedCardId: null, isLoading: false });
-    } catch (err) {
-      console.error("Failed to cast vote:", err);
-      set({ isLoading: false });
-    }
+  _drain: () => {
+    const { isPlaying, queue, speed, revealView } = get();
+    if (!isPlaying || queue.length === 0) return;
+    const take = speed === 999 ? queue.length : speed;
+    const batch = queue.slice(0, take);
+    const rest = queue.slice(take);
+    set((st) => ({
+      queue: rest,
+      logs: [...st.logs, ...batch.map((ev) => toRenderLog(ev, revealView))],
+    }));
   },
 
-  simulateNextAI: async () => {
-    set({ isLoading: true });
-    try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SIMULATE_NEXT_SPEAKER" })
-      });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
-    } catch (err) {
-      console.error("Failed to simulate speaker:", err);
-      set({ isLoading: false });
+  cancelGame: async () => {
+    const { runId } = get();
+    if (runId) {
+      try { await fetch(`${API}/games/${runId}/cancel`, { method: "POST" }); } catch { /* ignore */ }
     }
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    set({ status: "cancelled", isPlaying: false });
   },
 
-  nightSkillAction: async (actionType, targetId, additional) => {
-    set({ isLoading: true });
-    try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: actionType, targetId, ...additional })
-      });
-      const data = await res.json();
-      set({ state: data, selectedCardId: null, isLoading: false });
-    } catch (err) {
-      console.error("Failed to exert night action:", err);
-      set({ isLoading: false });
-    }
-  },
+  togglePlay: () => set((st) => ({ isPlaying: !st.isPlaying })),
+  setSpeed: (s) => set({ speed: s }),
+  setRevealView: (v) => set({ revealView: v }),
 
-  transitionToDebate: async () => {
-    set({ isLoading: true });
-    try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "TRANSITION_TO_DEBATE" })
-      });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
-    } catch (err) {
-      console.error("Failed executing transition:", err);
-      set({ isLoading: false });
-    }
+  exitToSetup: () => {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
+    set({ runId: null, status: "idle", snapshot: null, logs: [], cursor: 0, queue: [], error: null });
   },
-
-  exitGame: async () => {
-    set({ isLoading: true, isAutoPlaying: false });
-    try {
-      const res = await fetch("/api/game/exit", {
-        method: "POST"
-      });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
-    } catch (err) {
-      console.error("Failed executing exitGame:", err);
-      set({ isLoading: false });
-    }
-  },
-
-  setSelectedCardId: (id) => set({ selectedCardId: id }),
-  setUserSpeechText: (text) => set({ userSpeechText: text }),
-  toggleAutoPlay: () => set((state) => ({ isAutoPlaying: !state.isAutoPlaying }))
 }));

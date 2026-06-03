@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.config.player_config import PlayersConfig
+from llm_werewolf.game_runtime.types import GamePhase
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.interface.api.models.actions import (
     CancelGameResponse,
@@ -81,12 +82,27 @@ def _write_full_roster(engine: Any, run_dir: Path) -> None:
     )
 
 
+def _seat_of(player_id: str) -> int | None:
+    """Parse the 1-based seat number out of a 'player_N' id."""
+    try:
+        return int(player_id.rsplit("_", 1)[-1])
+    except (ValueError, AttributeError):
+        return None
+
+
 def _dump_roster_without_secrets(players_config: PlayersConfig) -> dict:
     """Serialize roster for disk, stripping per-seat literal api_key."""
     data = players_config.model_dump(mode="json", exclude={"use_agentscope_backend"})
     for player in data.get("players", []):
         player.pop("api_key", None)
     return data
+
+
+def _playing_event() -> asyncio.Event:
+    """Control gate that starts in the 'playing' (set) state."""
+    ev = asyncio.Event()
+    ev.set()
+    return ev
 
 
 class GameSessionStatus(str, Enum):
@@ -115,6 +131,29 @@ class GameSession:
     rules: str | None = None
     human_seats: list[int] = field(default_factory=list)
     engine: Any | None = None
+    gate: asyncio.Event = field(default_factory=lambda: _playing_event())
+    step_once: bool = False
+    speed: int = 1
+    last_night: dict[str, Any] = field(default_factory=dict)
+
+    def capture_phase_snapshot(self) -> None:
+        """Snapshot night results BEFORE next_phase()/reset_deaths() clears them."""
+        engine = self.engine
+        state = getattr(engine, "game_state", None) if engine else None
+        if state is None:
+            return
+        if state.get_phase() != GamePhase.NIGHT:
+            return
+        deaths = [
+            {"seat": _seat_of(pid), "cause": state.death_causes.get(pid, "unknown")}
+            for pid in sorted(state.night_deaths)
+        ]
+        self.last_night = {
+            "deaths": [d for d in deaths if d["seat"] is not None],
+            "saved_seat": _seat_of(state.witch_saved_target) if state.witch_saved_target else None,
+            "guarded_seat": _seat_of(state.guard_protected) if state.guard_protected else None,
+            "poisoned_seat": _seat_of(state.witch_poison_target) if state.witch_poison_target else None,
+        }
 
 
 class IncrementalEventWriter:

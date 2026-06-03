@@ -80,6 +80,21 @@ class PlayerConfig(BaseModel):
         description="Environment variable name containing the API key (e.g., OPENAI_API_KEY)",
         examples=["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
     )
+    api_key: str | None = Field(
+        default=None,
+        title="Literal API Key",
+        description=(
+            "Literal API key (web/inline mode only). Takes precedence over "
+            "api_key_env. Never written to disk by the engine."
+        ),
+    )
+    temperature: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        title="Sampling Temperature",
+        description="Optional per-seat sampling temperature; falls back to engine default.",
+    )
     reasoning_effort: ReasoningEffort | None = Field(
         default=None, title="Reasoning Effort", description="Reasoning effort level for LLM"
     )

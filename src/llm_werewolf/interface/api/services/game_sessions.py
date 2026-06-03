@@ -9,7 +9,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from llm_werewolf.interface.api.models.view import ViewResponse
 
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.game_runtime import GameEngine
@@ -42,6 +45,47 @@ logger = logging.getLogger(__name__)
 
 def _has_human_player(players_config: PlayersConfig) -> bool:
     return any(player.model == "human" for player in players_config.players)
+
+
+def _write_full_roster(engine: Any, run_dir: Path) -> None:
+    """Persist god-view roster (seat -> role/camp/model) at game start for /view."""
+    state = getattr(engine, "game_state", None)
+    if state is None:
+        return
+    players = []
+    for player in state.players:
+        camp = None
+        role = getattr(player, "role", None)
+        if role is not None and getattr(role, "camp", None) is not None:
+            camp = role.camp.value
+        try:
+            seat = int(player.player_id.rsplit("_", 1)[-1])
+        except (ValueError, AttributeError):
+            logger.warning(
+                "Skipping roster entry with unparseable player_id: %r",
+                getattr(player, "player_id", None),
+            )
+            continue
+        players.append({
+            "seat": seat,
+            "player_id": player.player_id,
+            "name": player.name,
+            "role": player.get_role_name(),
+            "camp": camp,
+            "model": getattr(player, "ai_model", "unknown"),
+        })
+    players.sort(key=lambda p: p["seat"])
+    (run_dir / "roster.json").write_text(
+        json.dumps({"players": players}, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _dump_roster_without_secrets(players_config: PlayersConfig) -> dict:
+    """Serialize roster for disk, stripping per-seat literal api_key."""
+    data = players_config.model_dump(mode="json", exclude={"use_agentscope_backend"})
+    for player in data.get("players", []):
+        player.pop("api_key", None)
+    return data
 
 
 class GameSessionStatus(str, Enum):
@@ -145,11 +189,7 @@ class GameSessionManager:
         )
         if players_config is not None:
             (run_dir / "launch_roster.json").write_text(
-                json.dumps(
-                    players_config.model_dump(mode="json", exclude={"use_agentscope_backend"}),
-                    ensure_ascii=False,
-                    indent=2,
-                ),
+                json.dumps(_dump_roster_without_secrets(players_config), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
 
@@ -205,6 +245,7 @@ class GameSessionManager:
             writer = IncrementalEventWriter(session.run_dir)
             engine.on_event = writer
             engine.setup_game(players=players, roles=roles)
+            _write_full_roster(engine, session.run_dir)
             wire_agentscope_after_setup(engine, players_config)
 
             result = await engine.play_game()
@@ -296,6 +337,32 @@ class GameSessionManager:
             has_post_game=has_post_game,
             has_replay=has_replay,
         )
+
+    def get_view(
+        self, run_id: str, *, runs_dir: Path, eval_runs_dir: Path,
+        since: int = 0, source: str | None = None,
+    ) -> "ViewResponse | None":
+        from llm_werewolf.interface.api.services.view import build_view
+
+        session = self._sessions.get(run_id)
+        if session is not None:
+            run_dir = session.run_dir
+            status_map = {
+                GameSessionStatus.RUNNING: "running", GameSessionStatus.PENDING: "running",
+                GameSessionStatus.COMPLETED: "ended", GameSessionStatus.CANCELLED: "cancelled",
+                GameSessionStatus.FAILED: "error",
+            }
+            status = status_map.get(session.status, "running")
+            error = session.error
+        else:
+            detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
+            if detail is None:
+                return None
+            run_dir = Path(detail.path)
+            status, error = "ended", None
+        if not run_dir.is_dir():
+            return None
+        return build_view(run_dir, since=since, status=status, error=error)
 
     async def cancel_game(self, run_id: str) -> CancelGameResponse | None:
         session = self._sessions.get(run_id)

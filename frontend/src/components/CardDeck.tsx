@@ -1,6 +1,5 @@
 import React from "react";
 import { useGameStore } from "../store";
-import { Player } from "../types";
 
 // Black and White high-contrast woodcut-themed SVGs for each role illustration
 function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; role: string; isExposed: boolean }) {
@@ -11,13 +10,13 @@ function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; r
         {/* Woodcut frame border */}
         <rect x="5" y="5" width="110" height="150" rx="3" stroke="currentColor" strokeWidth="3" fill="none" />
         <rect x="8" y="8" width="104" height="144" rx="2" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" fill="none" />
-        
+
         {/* Central mystical pattern (All-Seeing Eye) */}
         <path d="M60 45 L95 100 L25 100 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="miter" />
         <circle cx="60" cy="85" r="15" stroke="currentColor" strokeWidth="3" />
         <line x1="60" y1="35" x2="60" y2="45" stroke="currentColor" strokeWidth="2" />
         <line x1="25" y1="120" x2="95" y2="120" stroke="currentColor" strokeWidth="2" />
-        
+
         {/* Moon phases */}
         <circle cx="60" cy="22" r="6" fill="currentColor" />
         <path d="M30 22 Q40 12 30 2" stroke="currentColor" strokeWidth="1" />
@@ -27,7 +26,7 @@ function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; r
         <line x1="15" y1="15" x2="25" y2="25" stroke="currentColor" strokeWidth="1" opacity="0.3" />
         <line x1="105" y1="145" x2="95" y2="135" stroke="currentColor" strokeWidth="1" opacity="0.3" />
         <line x1="100" y1="20" x2="105" y2="15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-        
+
         {/* Label "? ? ?" */}
         <text x="60" y="140" fill="currentColor" fontSize="12" fontWeight="bold" fontFamily="monospace" textAnchor="middle" letterSpacing="2">秘 匿</text>
       </svg>
@@ -84,7 +83,7 @@ function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; r
           <path d="M85 45 C95 30 100 20 95 15 C90 20 85 30 85 45 Z" fill="#3b82f6" stroke="currentColor" strokeWidth="1" />
           {/* Musket Rifle body with metal sheen */}
           <path d="M20 110 L100 110 L95 120 L25 120 Z" fill="#18181b" stroke="currentColor" strokeWidth="2" />
-          <line x1="45" y1="120" x2="45" y2="135" stroke="currentColor" strokeWidth="2" /> {/* gun grip */}
+          <line x1="45" y1="120" x2="45" y2="135" stroke="currentColor" strokeWidth="2" />
           {/* Target mark */}
           <circle cx="60" cy="88" r="8" stroke="#ef4444" strokeWidth="1.5" />
           <line x1="60" y1="76" x2="60" y2="100" stroke="#ef4444" strokeWidth="1" />
@@ -129,152 +128,67 @@ function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; r
 }
 
 export default function CardDeck() {
-  const gameState = useGameStore((state) => state.state);
-  const selectedCardId = useGameStore((state) => state.selectedCardId);
-  const setSelectedCardId = useGameStore((state) => state.setSelectedCardId);
-
-  const players = gameState?.players || [];
-  const currentSpeakerId = gameState?.currentSpeakerId;
-  const phase = gameState?.phase;
-
-  // Decide context colors
-  const isNight = phase?.startsWith("NIGHT");
-
-  // Clicking player card triggers high-focus highlights
-  const handleCardClick = (player: Player) => {
-    if (!player.isAlive) return; // dead players don't spark action inputs
-
-    if (selectedCardId === player.id) {
-      setSelectedCardId(null);
-    } else {
-      setSelectedCardId(player.id);
-    }
-  };
+  const snapshot = useGameStore((s) => s.snapshot);
+  const revealView = useGameStore((s) => s.revealView);
+  const players = snapshot?.players || [];
 
   return (
     <div className="flex flex-col h-full w-full max-w-[280px] bg-[#050505]/75 backdrop-blur-md px-3 py-4 select-none relative z-10 shrink-0 shadow-2xl overflow-y-auto woodcut-texture">
-      {/* Heavy Woodcut Branding Header */}
       <div className="border-b-4 border-black pb-3 mb-4 text-center">
-        <h2 className="font-sans font-extrabold tracking-widest text-red-600 text-lg uppercase ink-shadow">
-          ⚔ 审判席位卡牌 ⚔
-        </h2>
+        <h2 className="font-sans font-extrabold tracking-widest text-red-600 text-lg uppercase ink-shadow">⚔ 席位卡牌 ⚔</h2>
         <p className="font-mono text-[9px] text-[#e0e0e0]/70 tracking-widest uppercase mt-1">
-          Gothic Woodcut Deck Layout
+          {revealView === "god" ? "God View" : "Suspense"}
         </p>
       </div>
 
-      {/* Grid of character illustration cards */}
       <div className="flex flex-col gap-4">
         {players.map((p) => {
-          const isSpeaking = currentSpeakerId === p.id;
-          const isSelected = selectedCardId === p.id;
-          
-          // Identity exposure: expose if it is the User themselves, OR if they are dead, OR if game is over!
-          const isExposed = p.isUser || !p.isAlive || phase === "GAME_OVER";
-
-          // Color tags for role highlights
+          // 上帝视角：始终亮身份；悬念模式：仅死亡或终局亮身份
+          const isExposed = revealView === "god" || !p.is_alive || !!snapshot?.winner;
+          const roleStr = p.role || "未知";
           let roleColor = "text-zinc-400";
           if (isExposed) {
-            if (p.role === "狼人") roleColor = "text-red-500 font-bold ink-shadow";
-            else if (p.role === "预言家") roleColor = "text-[#c084fc] font-bold ink-shadow";
-            else if (p.role === "女巫") roleColor = "text-[#eab308] font-bold ink-shadow";
-            else if (p.role === "猎人") roleColor = "text-[#3b82f6] font-bold ink-shadow";
+            if (roleStr.includes("狼")) roleColor = "text-red-500 font-bold ink-shadow";
+            else if (roleStr.includes("预言")) roleColor = "text-[#c084fc] font-bold ink-shadow";
+            else if (roleStr.includes("女巫")) roleColor = "text-[#eab308] font-bold ink-shadow";
+            else if (roleStr.includes("猎人")) roleColor = "text-[#3b82f6] font-bold ink-shadow";
             else roleColor = "text-[#10b981] font-bold ink-shadow";
           }
 
           return (
-            <div
-              key={p.id}
-              onClick={() => handleCardClick(p)}
-              className={`group flex items-center bg-[#111] cursor-pointer transition-all duration-300 rounded ${
-                !p.isAlive
-                  ? "opacity-55 border-black/80 scale-95 hover:cursor-not-allowed border-2"
-                  : isSpeaking
-                    ? "border-yellow-400 border-2 ring-2 ring-yellow-400/80 bg-yellow-950/20 shadow-lg translate-x-2"
-                    : isSelected
-                      ? "border-red-600 border-2 bg-red-950/20 translate-x-1"
-                      : "manga-border hover:border-zinc-500 hover:bg-[#181818]"
-              }`}
-            >
-              {/* Card Number Emblem */}
-              <div className={`p-2 flex flex-col justify-center items-center h-full border-r border-black w-10 text-center ${
-                isSpeaking ? "bg-yellow-950/40 text-yellow-400" : "bg-black text-[#e0e0e0]/50"
+            <div key={p.seat}
+              className={`group flex items-center bg-[#111] transition-all duration-300 rounded ${
+                !p.is_alive ? "opacity-55 border-black/80 scale-95 border-2"
+                : p.is_sheriff ? "border-yellow-500 border-2 ring-1 ring-yellow-500/50"
+                : "manga-border"
               }`}>
-                <span className="font-mono text-xs font-bold">{p.id}</span>
-                {isSpeaking && (
-                  <span className="text-[9px] text-yellow-500 font-bold tracking-tighter uppercase animate-pulse mt-1">
-                    言
-                  </span>
-                )}
+              <div className="p-2 flex flex-col justify-center items-center h-full border-r border-black w-10 text-center bg-black text-[#e0e0e0]/50">
+                <span className="font-mono text-xs font-bold">{p.seat}</span>
+                {p.is_sheriff && <span className="text-[8px] text-yellow-500 font-bold mt-0.5">警</span>}
               </div>
 
-              {/* Mini Custom Woodcut Illustration */}
               <div className="w-16 h-20 shrink-0 overflow-hidden relative border-r border-[#222]">
-                <RoleIllustration roleColor={roleColor} role={p.role} isExposed={isExposed} />
-                
-                {/* Dead Overlay Banner */}
-                {!p.isAlive && (
+                <RoleIllustration roleColor={roleColor} role={isExposed ? roleStr : ""} isExposed={isExposed} />
+                {!p.is_alive && (
                   <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-                    <span className="text-[10px] text-red-600 font-extrabold tracking-widest border-2 border-red-700/80 px-1 py-0.5 uppercase bg-black rotate-12">
-                      放 逐
-                    </span>
+                    <span className="text-[10px] text-red-600 font-extrabold tracking-widest border-2 border-red-700/80 px-1 py-0.5 uppercase bg-black rotate-12">出局</span>
                   </div>
                 )}
               </div>
 
-              {/* Player Metadata Deck */}
               <div className="p-2 flex-grow min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <h3 className={`font-sans font-black text-xs truncate ${p.isUser ? "text-yellow-400" : "text-[#e0e0e0]"}`}>
-                    {p.name}
-                  </h3>
-                  {p.isUser && (
-                    <span className="text-[7px] bg-red-950 border border-red-800 text-red-400 px-1 rounded uppercase font-mono font-bold">
-                      你
-                    </span>
-                  )}
-                </div>
-
-                {/* Identity line */}
+                <h3 className="font-sans font-black text-xs truncate text-[#e0e0e0]">{p.name}</h3>
                 <p className="font-mono text-[9px] mt-1 text-[#e0e0e0]/70 truncate">
-                  役：<span className={roleColor}>{isExposed ? p.role : "未知秘匿"}</span>
+                  役：<span className={roleColor}>{isExposed ? roleStr : "未知秘匿"}</span>
                 </p>
-
-                {/* Private annotations (e.g., Seer checks) */}
-                {p.isUser && p.statusNotes && (
-                  <p className="font-mono text-[8px] text-fuchsia-400/90 mt-1 uppercase font-bold tracking-tight truncate border-t border-black pt-1">
-                    {p.statusNotes}
-                  </p>
-                )}
-
-                {/* AI players status indicators for speaking */}
-                {isSpeaking && (
-                  <p className="font-sans text-[8px] text-yellow-400 animate-pulse truncate mt-1 font-bold">
-                    💬 "发言中聚焦..."
-                  </p>
+                {p.model && (
+                  <p className="font-mono text-[8px] text-zinc-500 mt-0.5 truncate">🤖 {p.model}</p>
                 )}
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* Target prompt guide panel */}
-      {selectedCardId !== null && (
-        <div className="mt-auto border-t-4 border-black pt-3 bg-black/40">
-          <div className="p-2 bg-black border-2 border-yellow-500/20 rounded flex flex-col gap-1 text-center font-mono">
-            <span className="text-[9.5px] text-yellow-400 font-black uppercase tracking-widest">
-              [ 选定卡牌聚焦 ]
-            </span>
-            <span className="text-[11px] text-zinc-100 font-black">
-              玩家 {selectedCardId} 号
-            </span>
-            <span className="text-[8.5px] text-zinc-400">
-              请在底部施放技能或投出封印！
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

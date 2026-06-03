@@ -13,6 +13,8 @@ class PlayerRosterDefaults(BaseModel):
     api_key_env: str | None = Field(default=None, description="Env var name for API key")
     model_env: str | None = Field(default=None, description="Env var name for model/endpoint id")
     plan: str | None = Field(default=None, description="AgentScope plan strategy name")
+    api_key: str | None = Field(default=None, description="Literal API key (inline mode; not persisted)")
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0, description="Per-seat sampling temperature")
 
 
 class PlayerRosterSlot(BaseModel):
@@ -22,6 +24,8 @@ class PlayerRosterSlot(BaseModel):
     api_key_env: str | None = Field(default=None, description="Env var name for API key")
     model_env: str | None = Field(default=None, description="Env var name for model/endpoint id")
     plan: str | None = Field(default=None, description="AgentScope plan strategy name")
+    api_key: str | None = Field(default=None, description="Literal API key (inline mode; not persisted)")
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0, description="Per-seat sampling temperature")
 
 
 class StartGameRequest(BaseModel):

@@ -227,3 +227,68 @@ def test_aggregate_model_usage_reads_mvp_scores(api_dirs: dict[str, Path]) -> No
     demo = next(item for item in stats if item.model_id == "demo")
     assert demo.avg_mvp == pytest.approx(8.25)
 
+
+def test_write_full_roster_json(tmp_path):
+    import json
+    from types import SimpleNamespace
+    from llm_werewolf.interface.api.services.game_sessions import _write_full_roster
+
+    players = [
+        SimpleNamespace(player_id="player_1", name="P1", ai_model="deepseek-chat",
+                        get_role_name=lambda: "预言家",
+                        role=SimpleNamespace(camp=SimpleNamespace(value="villager"))),
+        SimpleNamespace(player_id="player_2", name="P2", ai_model="doubao",
+                        get_role_name=lambda: "狼人",
+                        role=SimpleNamespace(camp=SimpleNamespace(value="werewolf"))),
+    ]
+    engine = SimpleNamespace(game_state=SimpleNamespace(players=players))
+    _write_full_roster(engine, tmp_path)
+
+    data = json.loads((tmp_path / "roster.json").read_text(encoding="utf-8"))
+    assert data["players"][0] == {
+        "seat": 1, "player_id": "player_1", "name": "P1",
+        "role": "预言家", "camp": "villager", "model": "deepseek-chat",
+    }
+    assert data["players"][1]["role"] == "狼人"
+
+
+def test_write_full_roster_skips_unparseable_seat(tmp_path):
+    import json
+    from types import SimpleNamespace
+    from llm_werewolf.interface.api.services.game_sessions import _write_full_roster
+
+    players = [
+        SimpleNamespace(player_id="human-viewer", name="Bad", ai_model="demo",
+                        get_role_name=lambda: "村民",
+                        role=SimpleNamespace(camp=SimpleNamespace(value="villager"))),
+        SimpleNamespace(player_id="player_2", name="P2", ai_model="doubao",
+                        get_role_name=lambda: "狼人",
+                        role=SimpleNamespace(camp=SimpleNamespace(value="werewolf"))),
+    ]
+    engine = SimpleNamespace(game_state=SimpleNamespace(players=players))
+    # must not crash on the unparseable seat; just skips it
+    _write_full_roster(engine, tmp_path)
+
+    data = json.loads((tmp_path / "roster.json").read_text(encoding="utf-8"))
+    assert [p["player_id"] for p in data["players"]] == ["player_2"]
+    assert data["players"][0]["seat"] == 2
+
+
+def test_launch_roster_never_persists_api_key(tmp_path):
+    import json
+    from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig
+    from llm_werewolf.interface.api.services.game_sessions import _dump_roster_without_secrets
+
+    cfg = PlayersConfig(
+        language="zh-CN",
+        players=[
+            PlayerConfig(name="P1", model="deepseek-chat",
+                         base_url="https://api.deepseek.com/v1", api_key="sk-secret"),
+            *[PlayerConfig(name=f"P{i}", model="demo") for i in range(2, 7)],
+        ],
+    )
+    dumped = _dump_roster_without_secrets(cfg)
+    text = json.dumps(dumped, ensure_ascii=False)
+    assert "sk-secret" not in text
+    assert all("api_key" not in p for p in dumped["players"])
+

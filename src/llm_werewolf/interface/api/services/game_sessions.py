@@ -22,6 +22,7 @@ from llm_werewolf.game_runtime.types import GamePhase
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.interface.api.models.actions import (
     CancelGameResponse,
+    ControlGameResponse,
     GameStatusResponse,
     StartGameRequest,
     StartGameResponse,
@@ -501,6 +502,33 @@ class GameSessionManager:
             run_id=run_id,
             status=session.status.value,
             message="Game task cancelled",
+        )
+
+    async def control(
+        self, run_id: str, *, action: str, value: int | None = None
+    ) -> ControlGameResponse | None:
+        session = self._sessions.get(run_id)
+        if session is None:
+            return None
+        if action == "pause":
+            session.gate.clear()
+        elif action == "resume":
+            session.gate.set()
+        elif action == "step":
+            session.step_once = True
+            session.gate.set()
+        elif action == "speed":
+            if value not in (1, 2, 4):
+                msg = f"speed value must be one of 1, 2, 4; got {value}"
+                raise ValueError(msg)
+            session.speed = value
+        state = getattr(session.engine, "game_state", None)
+        phase = state.get_phase().value if state else GamePhase.SETUP.value
+        return ControlGameResponse(
+            run_id=run_id,
+            play_state="playing" if session.gate.is_set() else "paused",
+            speed=session.speed,
+            phase=phase,
         )
 
     async def trigger_post_game(

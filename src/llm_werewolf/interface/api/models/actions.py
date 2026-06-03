@@ -127,6 +127,26 @@ class CancelGameResponse(BaseModel):
     message: str | None = None
 
 
+class ControlGameRequest(BaseModel):
+    action: str = Field(..., pattern="^(pause|resume|step|speed)$")
+    value: int | None = Field(default=None, description="Speed factor; required for action=speed")
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, value: int | None) -> int | None:
+        if value is not None and value not in (1, 2, 4):
+            msg = f"speed value must be one of 1, 2, 4; got {value}"
+            raise ValueError(msg)
+        return value
+
+
+class ControlGameResponse(BaseModel):
+    run_id: str
+    play_state: str
+    speed: int
+    phase: str
+
+
 class ModelCompareRequest(BaseModel):
     ids: list[str] = Field(..., min_length=2, max_length=8)
 

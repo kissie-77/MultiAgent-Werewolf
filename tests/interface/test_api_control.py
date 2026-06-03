@@ -156,3 +156,56 @@ async def test_step_pump_single_step_runs_one_phase(tmp_path: Path) -> None:
     pump.cancel()
     with pytest.raises(asyncio.CancelledError):
         await pump
+
+
+@pytest.mark.asyncio
+async def test_control_pause_resume_step_speed(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import (
+        GameSessionManager,
+        GameSessionStatus,
+    )
+
+    mgr = GameSessionManager()
+    session = _session(tmp_path)
+    engine = _engine_in_night(seed=11)
+    session.engine = engine
+    session.status = GameSessionStatus.RUNNING
+    mgr._sessions[session.run_id] = session
+
+    paused = await mgr.control(session.run_id, action="pause")
+    assert paused.play_state == "paused"
+    assert session.gate.is_set() is False
+    assert paused.phase == "night"
+
+    resumed = await mgr.control(session.run_id, action="resume")
+    assert resumed.play_state == "playing"
+    assert session.gate.is_set() is True
+
+    stepped = await mgr.control(session.run_id, action="step")
+    assert stepped.play_state == "playing"
+    assert session.step_once is True
+    assert session.gate.is_set() is True
+
+    sped = await mgr.control(session.run_id, action="speed", value=4)
+    assert sped.speed == 4
+    assert session.speed == 4
+
+
+@pytest.mark.asyncio
+async def test_control_unknown_run_returns_none(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
+
+    mgr = GameSessionManager()
+    assert await mgr.control("nope", action="pause") is None
+
+
+@pytest.mark.asyncio
+async def test_control_rejects_bad_speed(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
+
+    mgr = GameSessionManager()
+    session = _session(tmp_path)
+    session.engine = _engine_in_night()
+    mgr._sessions[session.run_id] = session
+    with pytest.raises(ValueError):
+        await mgr.control(session.run_id, action="speed", value=3)

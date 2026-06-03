@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from llm_werewolf.interface.api.models.state import GameStateResponse
+    from llm_werewolf.interface.api.models.state import GameStateResponse, LastNight
     from llm_werewolf.interface.api.models.view import ViewResponse
 
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
@@ -89,6 +89,28 @@ def _seat_of(player_id: str) -> int | None:
         return int(player_id.rsplit("_", 1)[-1])
     except (ValueError, AttributeError):
         return None
+
+
+def _captured_last_night(captured: dict | None) -> "LastNight | None":
+    """Convert a capture_phase_snapshot() dict into the typed LastNight model.
+
+    Returns None when no capture exists yet (live composition is then the fallback).
+    """
+    from llm_werewolf.interface.api.models.state import LastNight, NightDeath
+
+    if not captured:
+        return None
+    deaths = [
+        NightDeath(seat=d["seat"], cause=d.get("cause"))
+        for d in captured.get("deaths", [])
+        if isinstance(d, dict) and d.get("seat") is not None
+    ]
+    return LastNight(
+        deaths=deaths,
+        saved_seat=captured.get("saved_seat"),
+        guarded_seat=captured.get("guarded_seat"),
+        poisoned_seat=captured.get("poisoned_seat"),
+    )
 
 
 def _dump_roster_without_secrets(players_config: PlayersConfig) -> dict:
@@ -454,12 +476,24 @@ class GameSessionManager:
                     if getattr(p, "role", None) is not None
                 }
                 cursor = self._count_events(session.run_dir)
+                base_status = status_map.get(session.status, "running")
+                play_state = "playing" if session.gate.is_set() else "paused"
+                # spec §5.1: a paused RUNNING game collapses status -> "paused"
+                status = (
+                    "paused"
+                    if (base_status == "running" and play_state == "paused")
+                    else base_status
+                )
+                captured = _captured_last_night(session.last_night)
                 return build_state_from_snapshot(
                     snapshot,
-                    status=status_map.get(session.status, "running"),
+                    status=status,
                     error=session.error,
                     cursor=cursor,
                     camps=camps,
+                    play_state=play_state,
+                    speed=session.speed,
+                    captured_last_night=captured,
                 )
 
         if session is not None:

@@ -264,3 +264,40 @@ def test_control_endpoint_rejects_bad_speed(api_client, tmp_path: Path) -> None:
         "/api/v1/games/ctrl-run2/control", json={"action": "speed", "value": 3}
     )
     assert resp.status_code == 422  # pydantic request validation rejects value=3
+
+
+@pytest.mark.asyncio
+async def test_state_reports_play_state_speed_and_last_night(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import (
+        GameSessionManager,
+        GameSessionStatus,
+    )
+
+    mgr = GameSessionManager()
+    session = _session(tmp_path)
+    engine = _engine_in_night(seed=31)
+    session.engine = engine
+    session.status = GameSessionStatus.RUNNING
+    gs = engine.game_state
+    gs.werewolf_target = gs.players[0].player_id
+    gs.night_deaths.add(gs.players[0].player_id)
+    gs.death_causes[gs.players[0].player_id] = "wolf_kill"
+    session.capture_phase_snapshot()
+    session.gate.clear()   # paused
+    session.speed = 2
+    mgr._sessions[session.run_id] = session
+
+    state = mgr.get_state(
+        session.run_id,
+        runs_dir=tmp_path,
+        eval_runs_dir=tmp_path,
+    )
+    assert state is not None
+    # status collapses to "paused" because the gate is cleared on a RUNNING session
+    assert state.status == "paused"
+    assert state.play_state == "paused"
+    assert state.speed == 2
+    # ATTRIBUTE access against the typed LastNight model (NOT dict subscript)
+    assert [d.model_dump() for d in state.last_night.deaths] == [
+        {"seat": 1, "cause": "wolf_kill"}
+    ]

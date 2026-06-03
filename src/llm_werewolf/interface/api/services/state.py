@@ -61,6 +61,9 @@ def build_state_from_snapshot(
     error: str | None,
     cursor: int,
     camps: dict[str, str],
+    play_state: str = "playing",
+    speed: int = 1,
+    captured_last_night: LastNight | None = None,
 ) -> GameStateResponse:
     sheriff_seat = _seat_of(snapshot.sheriff_id)
     players: list[StatePlayer] = []
@@ -85,13 +88,15 @@ def build_state_from_snapshot(
     return GameStateResponse(
         status=status,
         error=error,
+        play_state=play_state,
+        speed=speed,
         phase=snapshot.phase,
         round=snapshot.round_number,
         winner=snapshot.winner,
         sheriff_seat=sheriff_seat,
         alive_count=alive_count,
         dead_count=len(players) - alive_count,
-        last_night=_last_night(snapshot),
+        last_night=captured_last_night if captured_last_night is not None else _last_night(snapshot),
         votes=_votes(snapshot),
         cursor=cursor,
         players=players,

@@ -44,6 +44,14 @@ def _has_human_player(players_config: PlayersConfig) -> bool:
     return any(player.model == "human" for player in players_config.players)
 
 
+def _dump_roster_without_secrets(players_config: PlayersConfig) -> dict:
+    """Serialize roster for disk, stripping per-seat literal api_key."""
+    data = players_config.model_dump(mode="json", exclude={"use_agentscope_backend"})
+    for player in data.get("players", []):
+        player.pop("api_key", None)
+    return data
+
+
 class GameSessionStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -145,11 +153,7 @@ class GameSessionManager:
         )
         if players_config is not None:
             (run_dir / "launch_roster.json").write_text(
-                json.dumps(
-                    players_config.model_dump(mode="json", exclude={"use_agentscope_backend"}),
-                    ensure_ascii=False,
-                    indent=2,
-                ),
+                json.dumps(_dump_roster_without_secrets(players_config), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
 

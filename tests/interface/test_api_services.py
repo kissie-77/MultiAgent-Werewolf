@@ -227,3 +227,22 @@ def test_aggregate_model_usage_reads_mvp_scores(api_dirs: dict[str, Path]) -> No
     demo = next(item for item in stats if item.model_id == "demo")
     assert demo.avg_mvp == pytest.approx(8.25)
 
+
+def test_launch_roster_never_persists_api_key(tmp_path):
+    import json
+    from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig
+    from llm_werewolf.interface.api.services.game_sessions import _dump_roster_without_secrets
+
+    cfg = PlayersConfig(
+        language="zh-CN",
+        players=[
+            PlayerConfig(name="P1", model="deepseek-chat",
+                         base_url="https://api.deepseek.com/v1", api_key="sk-secret"),
+            *[PlayerConfig(name=f"P{i}", model="demo") for i in range(2, 7)],
+        ],
+    )
+    dumped = _dump_roster_without_secrets(cfg)
+    text = json.dumps(dumped, ensure_ascii=False)
+    assert "sk-secret" not in text
+    assert all("api_key" not in p for p in dumped["players"])
+

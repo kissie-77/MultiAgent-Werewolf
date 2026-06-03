@@ -120,3 +120,52 @@ def test_build_state_from_snapshot_players_projection():
     p2 = next(p for p in state.players if p.seat == 2)
     assert p2.is_alive is False
     assert p2.is_sheriff is False
+
+
+import json
+
+from llm_werewolf.interface.api.services.state import build_state_from_view
+from llm_werewolf.interface.api.services.view import build_view
+
+
+def _seed_finished_run(tmp_path) -> Path:
+    run_dir = tmp_path / "finished"
+    run_dir.mkdir()
+    (run_dir / "roster.json").write_text(json.dumps({"players": [
+        {"seat": 1, "player_id": "player_1", "name": "P1", "role": "预言家",
+         "camp": "villager", "model": "deepseek-chat"},
+        {"seat": 2, "player_id": "player_2", "name": "P2", "role": "狼人",
+         "camp": "werewolf", "model": "doubao"},
+    ]}), encoding="utf-8")
+    rows = [
+        {"event_type": "sheriff_elected", "round_number": 1, "phase": "sheriff_election",
+         "message": "1号当选警长", "data": {"player_id": "player_1"}},
+        {"event_type": "player_eliminated", "round_number": 1, "phase": "day_voting",
+         "message": "2号被放逐", "data": {"player_id": "player_2", "player_name": "P2"}},
+        {"event_type": "game_ended", "round_number": 1, "phase": "ended",
+         "message": "好人获胜", "data": {"winner_camp": "villager"}},
+    ]
+    (run_dir / "events.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
+    return run_dir
+
+
+def test_build_state_from_view_disk_fallback(tmp_path):
+    run_dir = _seed_finished_run(tmp_path)
+    view = build_view(run_dir, since=0, status="ended", error=None)
+    state = build_state_from_view(view)
+    assert state.status == "ended"
+    assert state.phase == "ended"
+    assert state.round == 1
+    assert state.winner == "villager"
+    assert state.sheriff_seat == 1
+    assert state.alive_count == 1
+    assert state.dead_count == 1
+    assert state.cursor == 3
+    p1 = next(p for p in state.players if p.seat == 1)
+    assert p1.role == "预言家"
+    assert p1.camp == "villager"
+    assert p1.is_sheriff is True
+    p2 = next(p for p in state.players if p.seat == 2)
+    assert p2.is_alive is False
+    assert p2.status_flags == ["dead"]

@@ -96,3 +96,41 @@ def build_state_from_snapshot(
         cursor=cursor,
         players=players,
     )
+
+
+def build_state_from_view(view: ViewResponse) -> GameStateResponse:
+    snap = view.snapshot
+    tally: dict[str, int] = {}
+    if isinstance(snap.vote_tally, dict):
+        for target, count in snap.vote_tally.items():
+            try:
+                tally[str(target)] = int(count)
+            except (TypeError, ValueError):
+                continue
+    players = [
+        StatePlayer(
+            seat=p.seat,
+            name=p.name,
+            role=p.role,
+            camp=p.camp,
+            is_alive=p.is_alive,
+            is_sheriff=p.is_sheriff,
+            model=p.model,
+            status_flags=["alive"] if p.is_alive else ["dead"],
+        )
+        for p in snap.players
+    ]
+    players.sort(key=lambda sp: sp.seat)
+    return GameStateResponse(
+        status=view.status,
+        error=view.error,
+        phase=snap.phase,
+        round=snap.day,
+        winner=snap.winner,
+        sheriff_seat=snap.sheriff_seat,
+        alive_count=snap.alive_count,
+        dead_count=snap.dead_count,
+        votes=StateVotes(tally=tally),
+        cursor=view.cursor,
+        players=players,
+    )

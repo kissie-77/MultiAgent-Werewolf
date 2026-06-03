@@ -168,3 +168,32 @@ def test_trigger_post_game_missing(api_client: TestClient) -> None:
 def test_cancel_unknown_session(api_client: TestClient) -> None:
     resp = api_client.post("/api/v1/games/not-started/cancel")
     assert resp.status_code == 404
+
+
+def test_view_endpoint_returns_projection(tmp_path, monkeypatch):
+    import json
+    from fastapi.testclient import TestClient
+    from llm_werewolf.interface.api.app import create_app
+    from llm_werewolf.interface.api import deps
+
+    run_dir = tmp_path / "runs" / "demo-1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "roster.json").write_text(json.dumps({"players": [
+        {"seat": 1, "player_id": "player_1", "name": "P1", "role": "预言家", "camp": "villager", "model": "demo"},
+    ]}), encoding="utf-8")
+    (run_dir / "events.jsonl").write_text(
+        json.dumps({"event_type": "player_speech", "round_number": 1, "phase": "day_discussion",
+                    "message": "P1: hi", "data": {"player_id": "player_1", "player_name": "P1", "speech": "hi"}}) + "\n",
+        encoding="utf-8")
+    (run_dir / "run_meta.json").write_text(json.dumps({"status": "running"}), encoding="utf-8")
+
+    app = create_app()
+    app.dependency_overrides[deps.get_runs_dir] = lambda: tmp_path / "runs"
+    client = TestClient(app)
+
+    res = client.get("/api/v1/games/demo-1/view?since=0")
+    assert res.status_code == 200
+    body = res.json()["data"] if "data" in res.json() else res.json()
+    assert body["cursor"] == 1
+    assert body["events"][0]["type"] == "speech"
+    assert body["snapshot"]["players"][0]["role"] == "预言家"

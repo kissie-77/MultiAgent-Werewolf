@@ -9,7 +9,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from llm_werewolf.interface.api.models.view import ViewResponse
 
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.game_runtime import GameEngine
@@ -327,6 +330,32 @@ class GameSessionManager:
             has_post_game=has_post_game,
             has_replay=has_replay,
         )
+
+    def get_view(
+        self, run_id: str, *, runs_dir: Path, eval_runs_dir: Path,
+        since: int = 0, source: str | None = None,
+    ) -> "ViewResponse | None":
+        from llm_werewolf.interface.api.services.view import build_view
+
+        session = self._sessions.get(run_id)
+        if session is not None:
+            run_dir = session.run_dir
+            status_map = {
+                GameSessionStatus.RUNNING: "running", GameSessionStatus.PENDING: "running",
+                GameSessionStatus.COMPLETED: "ended", GameSessionStatus.CANCELLED: "cancelled",
+                GameSessionStatus.FAILED: "error",
+            }
+            status = status_map.get(session.status, "running")
+            error = session.error
+        else:
+            detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
+            if detail is None:
+                return None
+            run_dir = Path(detail.path)
+            status, error = "ended", None
+        if not run_dir.is_dir():
+            return None
+        return build_view(run_dir, since=since, status=status, error=error)
 
     async def cancel_game(self, run_id: str) -> CancelGameResponse | None:
         session = self._sessions.get(run_id)

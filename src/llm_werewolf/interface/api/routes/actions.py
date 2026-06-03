@@ -145,6 +145,22 @@ def game_status(
     return ApiResponse(data=data)
 
 
+@router.get("/games/{run_id}/view")
+def game_view(
+    run_id: str,
+    since: int = Query(0, ge=0),
+    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    runs_dir=Depends(get_runs_dir),
+    eval_runs_dir=Depends(get_eval_runs_dir),
+) -> ApiResponse:
+    data = game_session_manager.get_view(
+        run_id, runs_dir=runs_dir, eval_runs_dir=eval_runs_dir, since=since, source=source,
+    )
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    return ApiResponse(data=data)
+
+
 @router.post("/games/{run_id}/cancel")
 async def cancel_game(run_id: str) -> ApiResponse[CancelGameResponse]:
     data = await game_session_manager.cancel_game(run_id)

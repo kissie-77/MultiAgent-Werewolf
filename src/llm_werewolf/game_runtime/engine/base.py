@@ -284,6 +284,12 @@ class GameEngineBase:
 
         return False
 
+    def is_over(self) -> bool:
+        """游戏是否已结束（阶段为 ENDED）。"""
+        if not self.game_state:
+            return False
+        return self.game_state.get_phase() == GamePhase.ENDED
+
     def _log_vote_intention_record(self, record: object) -> None:
         """记录与发言关联的投票意向变化，供回放分析。"""
         from llm_werewolf.strategy.vote_intention import (
@@ -577,22 +583,19 @@ class GameEngineBase:
 
         if current_phase == GamePhase.SETUP:
             self.game_state.next_phase()
-            phase_messages = [
-                "Game initialized! Press 'n' to start the first night phase.",
-                f"Round {self.game_state.round_number} begins.",
-            ]
+            phase_messages = []
         elif current_phase == GamePhase.NIGHT:
+            self.game_state.reset_deaths()
             phase_messages = await self.run_night_phase()
             if not self.check_victory():
                 self.game_state.next_phase()
                 if self.game_state.get_phase() == GamePhase.SHERIFF_ELECTION:
                     await self.execute_sheriff_election()
                     self.game_state.next_phase()
-                    phase_messages.append("Sheriff election completed.")
         elif current_phase == GamePhase.SHERIFF_ELECTION:
             await self.execute_sheriff_election()
             self.game_state.next_phase()
-            phase_messages = ["Sheriff election completed."]
+            phase_messages = []
         elif current_phase == GamePhase.DAY_DISCUSSION:
             phase_messages = await self.run_day_phase()
             self.game_state.next_phase()

@@ -9,6 +9,8 @@ from llm_werewolf.interface.api.models import ApiResponse
 from llm_werewolf.interface.api.models.actions import (
     ActionSpecResponse,
     CancelGameResponse,
+    ControlGameRequest,
+    ControlGameResponse,
     GameStatusResponse,
     ModelCompareRequest,
     ModelCompareResponse,
@@ -82,6 +84,16 @@ ACTION_SPECS: list[PageActionSpec] = [
         api_path="/api/v1/games/{run_id}/cancel",
         description="Cancel running game task",
         response_model="CancelGameResponse",
+    ),
+    PageActionSpec(
+        page_key="game",
+        frontend_route="/game",
+        action="control_game",
+        method="POST",
+        api_path="/api/v1/games/{run_id}/control",
+        description="Pause / resume / single-step / set speed for a running game",
+        request_model="ControlGameRequest",
+        response_model="ControlGameResponse",
     ),
     PageActionSpec(
         page_key="replay",
@@ -189,6 +201,22 @@ def game_state_snapshot(
 @router.post("/games/{run_id}/cancel")
 async def cancel_game(run_id: str) -> ApiResponse[CancelGameResponse]:
     data = await game_session_manager.cancel_game(run_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Active session not found: {run_id}")
+    return ApiResponse(data=data)
+
+
+@router.post("/games/{run_id}/control")
+async def control_game(
+    run_id: str,
+    body: ControlGameRequest,
+) -> ApiResponse[ControlGameResponse]:
+    try:
+        data = await game_session_manager.control(
+            run_id, action=body.action, value=body.value
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if data is None:
         raise HTTPException(status_code=404, detail=f"Active session not found: {run_id}")
     return ApiResponse(data=data)

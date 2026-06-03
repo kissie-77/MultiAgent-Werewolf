@@ -209,3 +209,58 @@ async def test_control_rejects_bad_speed(tmp_path: Path) -> None:
     mgr._sessions[session.run_id] = session
     with pytest.raises(ValueError):
         await mgr.control(session.run_id, action="speed", value=3)
+
+
+def test_control_endpoint_unknown_run_404(api_client) -> None:
+    resp = api_client.post(
+        "/api/v1/games/not-started/control", json={"action": "pause"}
+    )
+    assert resp.status_code == 404
+
+
+def test_control_endpoint_pause(api_client, tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import (
+        game_session_manager,
+        GameSessionStatus,
+    )
+
+    run_dir = tmp_path / "ctrl-run"
+    run_dir.mkdir()
+    session = GameSession(
+        run_id="ctrl-run",
+        run_dir=run_dir,
+        config_path=tmp_path / "cfg.yaml",
+        config_id="demo-6",
+    )
+    session.engine = _engine_in_night(seed=21)
+    session.status = GameSessionStatus.RUNNING
+    game_session_manager._sessions["ctrl-run"] = session
+
+    resp = api_client.post(
+        "/api/v1/games/ctrl-run/control", json={"action": "pause"}
+    )
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["run_id"] == "ctrl-run"
+    assert data["play_state"] == "paused"
+    assert data["phase"] == "night"
+
+
+def test_control_endpoint_rejects_bad_speed(api_client, tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+
+    run_dir = tmp_path / "ctrl-run2"
+    run_dir.mkdir()
+    session = GameSession(
+        run_id="ctrl-run2",
+        run_dir=run_dir,
+        config_path=tmp_path / "cfg.yaml",
+        config_id="demo-6",
+    )
+    session.engine = _engine_in_night(seed=22)
+    game_session_manager._sessions["ctrl-run2"] = session
+
+    resp = api_client.post(
+        "/api/v1/games/ctrl-run2/control", json={"action": "speed", "value": 3}
+    )
+    assert resp.status_code == 422  # pydantic request validation rejects value=3

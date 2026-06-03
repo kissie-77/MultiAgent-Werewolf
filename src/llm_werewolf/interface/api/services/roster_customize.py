@@ -7,7 +7,7 @@ from llm_werewolf.interface.api.models.actions import PlayerRosterDefaults, Play
 from llm_werewolf.interface.cli.runtime.overrides import apply_human_seats
 from llm_werewolf.interface.cli.runtime.player_count import resize_players_config
 
-_ROSTER_FIELDS = ("name", "model", "base_url", "api_key_env", "model_env", "plan")
+_ROSTER_FIELDS = ("name", "model", "base_url", "api_key_env", "model_env", "plan", "api_key", "temperature")
 
 
 def _extract_updates(source: PlayerRosterDefaults | PlayerRosterSlot) -> dict[str, object]:

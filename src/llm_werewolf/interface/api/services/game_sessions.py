@@ -113,6 +113,7 @@ class GameSession:
     participation: str | None = None
     rules: str | None = None
     human_seats: list[int] = field(default_factory=list)
+    engine: Any | None = None
 
 
 class IncrementalEventWriter:
@@ -245,6 +246,7 @@ class GameSessionManager:
             writer = IncrementalEventWriter(session.run_dir)
             engine.on_event = writer
             engine.setup_game(players=players, roles=roles)
+            session.engine = engine
             _write_full_roster(engine, session.run_dir)
             wire_agentscope_after_setup(engine, players_config)
 

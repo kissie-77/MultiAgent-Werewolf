@@ -251,3 +251,21 @@ def test_vote_intention_concurrency_must_be_positive() -> None:
             role_names=["Werewolf", "Werewolf", "Seer", "Witch", "Villager", "Villager"],
             vote_intention_concurrency=0,
         )
+
+
+def test_player_config_accepts_literal_api_key_and_temperature():
+    from llm_werewolf.game_runtime.config.player_config import PlayerConfig
+
+    cfg = PlayerConfig(
+        name="P1",
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com/v1",
+        api_key="sk-literal-123",
+        temperature=1.1,
+    )
+    assert cfg.api_key == "sk-literal-123"
+    assert cfg.temperature == 1.1
+    # api_key_env 仍可单独使用，互不影响
+    cfg2 = PlayerConfig(name="P2", model="demo")
+    assert cfg2.api_key is None
+    assert cfg2.temperature is None

@@ -35,3 +35,14 @@ def test_create_react_agent_prefers_literal_api_key_and_sets_temperature(monkeyp
 
     assert captured["api_key"] == "sk-literal"
     assert captured["generate_kwargs"]["temperature"] == 0.4
+
+
+def test_create_react_agent_raises_when_no_key(monkeypatch):
+    import pytest
+    import llm_werewolf.agent_team.agents.factory as factory_mod
+    from llm_werewolf.game_runtime.config.player_config import PlayerConfig
+
+    cfg = PlayerConfig(name="P1", model="deepseek-chat",
+                       base_url="https://api.deepseek.com/v1")
+    with pytest.raises(ValueError):
+        factory_mod.create_react_agent(cfg, agent_name="P1", sys_prompt="x")

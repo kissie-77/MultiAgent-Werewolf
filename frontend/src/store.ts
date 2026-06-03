@@ -47,7 +47,7 @@ function toRenderLog(ev: ViewEvent, view: RevealView): RenderLog {
   const masked = shouldMask(ev, view);
   let text = ev.text;
   if (ev.type === "speech") {
-    text = ev.public_text || ev.text;
+    text = masked ? "🌙 有角色在暗中交流…" : (ev.public_text || ev.text);
   } else if (masked) {
     text = ev.type === "skill" ? "🌙 夜间有角色行动了…" : ev.text;
   }
@@ -96,7 +96,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
           players,
         }),
       });
+      if (!res.ok) {
+        const msg = `start failed: HTTP ${res.status}`;
+        set({ status: "error", error: msg });
+        return;
+      }
       const data = unwrap<{ run_id: string }>(await res.json());
+      if (!data?.run_id) {
+        set({ status: "error", error: "start failed: no run_id" });
+        return;
+      }
       set({ runId: data.run_id });
       if (pollTimer) clearInterval(pollTimer);
       if (drainTimer) clearInterval(drainTimer);
@@ -114,7 +123,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!runId) return;
     try {
       const res = await fetch(`${API}/games/${runId}/view?since=${cursor}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        set({ status: "error", error: `view failed: HTTP ${res.status}` });
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        return;
+      }
       const view = unwrap<ViewResponse>(await res.json());
       set((st) => ({
         snapshot: view.snapshot,
@@ -149,6 +162,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       try { await fetch(`${API}/games/${runId}/cancel`, { method: "POST" }); } catch { /* ignore */ }
     }
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
     set({ status: "cancelled", isPlaying: false });
   },
 

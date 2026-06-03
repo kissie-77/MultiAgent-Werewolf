@@ -205,13 +205,13 @@ export default function GameSetup() {
                 <span className="font-mono text-[11px] text-yellow-500 font-bold uppercase tracking-widest">Ⅰ. 默认模型 (Default Model)</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <select value={defaultProvider}
-                    onChange={(e) => { const p = e.target.value; setDefaultProvider(p); setDefaultModel(providerById(p)!.models[0]); }}
+                    onChange={(e) => { const p = e.target.value; setDefaultProvider(p); setDefaultModel((providerById(p) ?? PROVIDER_PRESETS[0]).models[0]); }}
                     className="bg-black border border-zinc-800 text-zinc-200 px-2 py-1 text-xs rounded">
                     {PROVIDER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                   </select>
                   <select value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)}
                     className="bg-black border border-zinc-800 text-zinc-200 px-2 py-1 text-xs rounded">
-                    {providerById(defaultProvider)!.models.map((m) => <option key={m} value={m}>{m}</option>)}
+                    {(providerById(defaultProvider) ?? PROVIDER_PRESETS[0]).models.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                   <label className="flex items-center gap-1.5 text-xs text-zinc-300 font-mono ml-2">
                     <input type="checkbox" checked={enableSheriff} onChange={(e) => setEnableSheriff(e.target.checked)} className="accent-yellow-500" />
@@ -242,18 +242,18 @@ export default function GameSetup() {
                 </span>
                 <div className="max-h-56 overflow-y-auto flex flex-col gap-1.5 pr-1">
                   {seats.map((seat, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-zinc-950/30 border border-zinc-900/60 rounded px-2 py-1">
+                    <div key={seat.seat} className="flex items-center gap-2 bg-zinc-950/30 border border-zinc-900/60 rounded px-2 py-1">
                       <span className="text-yellow-500 font-mono text-[11px] w-8 shrink-0">#{seat.seat}</span>
                       <input value={seat.name} onChange={(e) => updateSeat(idx, { name: e.target.value })}
                         className="w-24 bg-black border border-zinc-800 text-zinc-200 px-1.5 py-0.5 text-[11px] rounded" />
                       <select value={seat.provider}
-                        onChange={(e) => { const p = e.target.value; updateSeat(idx, { provider: p, model: providerById(p)!.models[0], base_url: providerById(p)!.base_url }); }}
+                        onChange={(e) => { const p = e.target.value; const preset = providerById(p) ?? PROVIDER_PRESETS[0]; updateSeat(idx, { provider: p, model: preset.models[0], base_url: preset.base_url }); }}
                         className="bg-black border border-zinc-800 text-zinc-300 px-1.5 py-0.5 text-[11px] rounded">
                         {PROVIDER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
                       </select>
                       <select value={seat.model} onChange={(e) => updateSeat(idx, { model: e.target.value })}
                         className="flex-grow bg-black border border-zinc-800 text-zinc-300 px-1.5 py-0.5 text-[11px] rounded">
-                        {providerById(seat.provider)!.models.map((m) => <option key={m} value={m}>{m}</option>)}
+                        {(providerById(seat.provider) ?? PROVIDER_PRESETS[0]).models.map((m) => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
                   ))}

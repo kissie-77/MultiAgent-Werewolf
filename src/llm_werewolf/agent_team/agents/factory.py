@@ -226,12 +226,12 @@ def build_system_prompt(
 
 def create_react_agent(config: PlayerConfig, *, agent_name: str, sys_prompt: str) -> ReActAgent:
     """创建接入 OpenAI 兼容端点的 AgentScope ReActAgent。"""
-    api_key = None
-    if config.api_key_env:
-        api_key = os.getenv(config.api_key_env)
+    api_key = config.api_key or (
+        os.getenv(config.api_key_env) if config.api_key_env else None
+    )
     if not api_key:
         msg = (
-            f"API key not found in environment variable "
+            f"API key not found: set literal api_key or env var "
             f"'{config.api_key_env}' for player '{config.name}'"
         )
         raise ValueError(msg)
@@ -243,6 +243,8 @@ def create_react_agent(config: PlayerConfig, *, agent_name: str, sys_prompt: str
     generate_kwargs: dict[str, Any] = {"max_tokens": 2048}
     if config.reasoning_effort:
         generate_kwargs["reasoning_effort"] = config.reasoning_effort
+    if config.temperature is not None:
+        generate_kwargs["temperature"] = config.temperature
 
     model = OpenAIChatModel(
         model_name=config.model,

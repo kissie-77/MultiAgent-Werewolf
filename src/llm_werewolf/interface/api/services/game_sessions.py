@@ -44,6 +44,32 @@ def _has_human_player(players_config: PlayersConfig) -> bool:
     return any(player.model == "human" for player in players_config.players)
 
 
+def _write_full_roster(engine: Any, run_dir: Path) -> None:
+    """Persist god-view roster (seat -> role/camp/model) at game start for /view."""
+    state = getattr(engine, "game_state", None)
+    if state is None:
+        return
+    players = []
+    for player in state.players:
+        camp = None
+        role = getattr(player, "role", None)
+        if role is not None and getattr(role, "camp", None) is not None:
+            camp = role.camp.value
+        seat = int(player.player_id.rsplit("_", 1)[-1])
+        players.append({
+            "seat": seat,
+            "player_id": player.player_id,
+            "name": player.name,
+            "role": player.get_role_name(),
+            "camp": camp,
+            "model": getattr(player, "ai_model", "unknown"),
+        })
+    players.sort(key=lambda p: p["seat"])
+    (run_dir / "roster.json").write_text(
+        json.dumps({"players": players}, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
 def _dump_roster_without_secrets(players_config: PlayersConfig) -> dict:
     """Serialize roster for disk, stripping per-seat literal api_key."""
     data = players_config.model_dump(mode="json", exclude={"use_agentscope_backend"})
@@ -209,6 +235,7 @@ class GameSessionManager:
             writer = IncrementalEventWriter(session.run_dir)
             engine.on_event = writer
             engine.setup_game(players=players, roles=roles)
+            _write_full_roster(engine, session.run_dir)
             wire_agentscope_after_setup(engine, players_config)
 
             result = await engine.play_game()

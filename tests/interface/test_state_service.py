@@ -169,3 +169,66 @@ def test_build_state_from_view_disk_fallback(tmp_path):
     p2 = next(p for p in state.players if p.seat == 2)
     assert p2.is_alive is False
     assert p2.status_flags == ["dead"]
+
+
+from types import SimpleNamespace
+
+from llm_werewolf.game_runtime.types import GamePhase
+from llm_werewolf.interface.api.services.game_sessions import (
+    GameSessionManager,
+    GameSessionStatus,
+)
+
+
+def _live_engine():
+    role = SimpleNamespace(camp=SimpleNamespace(value="villager"))
+    player = SimpleNamespace(
+        player_id="player_1", name="P1", ai_model="deepseek-chat",
+        get_role_name=lambda: "Seer", get_camp=lambda: role.camp,
+        is_alive=lambda: True, statuses=[SimpleNamespace(value="alive")],
+        lover_partner_id=None, can_vote_flag=True, role=role,
+    )
+    game_state = SimpleNamespace(
+        players=[player], phase=GamePhase.NIGHT, round_number=2,
+        night_deaths=set(), day_deaths=set(), death_abilities_used=set(),
+        death_causes={}, werewolf_target=None, werewolf_votes={},
+        witch_save_used=False, witch_poison_used=False, witch_saved_target=None,
+        witch_poison_target=None, guard_protected=None, guardian_wolf_protected=None,
+        nightmare_blocked=None, seer_checked={}, graveyard_checked={}, votes={},
+        raven_marked=None, wolf_beauty_charmed=None, sheriff_id=None,
+        enable_sheriff=False, sheriff_election_done=False, sheriff_votes={},
+        sheriff_tie_count=0, vote_tie_count=0, winner=None,
+    )
+    return SimpleNamespace(game_state=game_state)
+
+
+def test_get_state_uses_live_engine(tmp_path):
+    mgr = GameSessionManager()
+    session = GameSession(
+        run_id="live-1", run_dir=tmp_path, config_path=tmp_path / "c.yaml",
+        config_id="demo-6", status=GameSessionStatus.RUNNING,
+    )
+    session.engine = _live_engine()
+    mgr._sessions["live-1"] = session
+    state = mgr.get_state("live-1", runs_dir=tmp_path, eval_runs_dir=tmp_path)
+    assert state is not None
+    assert state.status == "running"
+    assert state.phase == "night"
+    assert state.round == 2
+    assert state.players[0].camp == "villager"
+
+
+def test_get_state_disk_fallback_when_no_session(tmp_path):
+    run_dir = _seed_finished_run(tmp_path)
+    runs_dir = run_dir.parent
+    mgr = GameSessionManager()
+    state = mgr.get_state("finished", runs_dir=runs_dir, eval_runs_dir=runs_dir)
+    assert state is not None
+    assert state.status == "ended"
+    assert state.winner == "villager"
+
+
+def test_get_state_unknown_run_returns_none(tmp_path):
+    mgr = GameSessionManager()
+    state = mgr.get_state("nope", runs_dir=tmp_path, eval_runs_dir=tmp_path)
+    assert state is None

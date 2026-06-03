@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from llm_werewolf.interface.api.models.state import GameStateResponse
     from llm_werewolf.interface.api.models.view import ViewResponse
 
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
@@ -365,6 +366,65 @@ class GameSessionManager:
         if not run_dir.is_dir():
             return None
         return build_view(run_dir, since=since, status=status, error=error)
+
+    def get_state(
+        self, run_id: str, *, runs_dir: Path, eval_runs_dir: Path,
+        source: str | None = None,
+    ) -> "GameStateResponse | None":
+        from llm_werewolf.game_runtime.state.serialization import serialize_game_state
+        from llm_werewolf.interface.api.services.state import (
+            build_state_from_snapshot,
+            build_state_from_view,
+        )
+        from llm_werewolf.interface.api.services.view import build_view
+
+        status_map = {
+            GameSessionStatus.RUNNING: "running", GameSessionStatus.PENDING: "running",
+            GameSessionStatus.COMPLETED: "ended", GameSessionStatus.CANCELLED: "cancelled",
+            GameSessionStatus.FAILED: "error",
+        }
+
+        session = self._sessions.get(run_id)
+        if session is not None and session.engine is not None:
+            engine = session.engine
+            game_state = getattr(engine, "game_state", None)
+            if game_state is not None:
+                snapshot = serialize_game_state(game_state)
+                camps = {
+                    p.player_id: p.get_camp().value
+                    for p in game_state.players
+                    if getattr(p, "role", None) is not None
+                }
+                cursor = self._count_events(session.run_dir)
+                return build_state_from_snapshot(
+                    snapshot,
+                    status=status_map.get(session.status, "running"),
+                    error=session.error,
+                    cursor=cursor,
+                    camps=camps,
+                )
+
+        if session is not None:
+            run_dir = session.run_dir
+            status = status_map.get(session.status, "running")
+            error = session.error
+        else:
+            detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
+            if detail is None:
+                return None
+            run_dir = Path(detail.path)
+            status, error = "ended", None
+        if not run_dir.is_dir():
+            return None
+        view = build_view(run_dir, since=0, status=status, error=error)
+        return build_state_from_view(view)
+
+    @staticmethod
+    def _count_events(run_dir: Path) -> int:
+        path = run_dir / "events.jsonl"
+        if not path.is_file():
+            return 0
+        return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
 
     async def cancel_game(self, run_id: str) -> CancelGameResponse | None:
         session = self._sessions.get(run_id)

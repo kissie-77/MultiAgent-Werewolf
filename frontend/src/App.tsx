@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import ThreeCanvas from "./components/ThreeCanvas";
 import CardDeck from "./components/CardDeck";
 import SpeechConsole from "./components/SpeechConsole";
@@ -7,43 +7,25 @@ import TopHeader from "./components/TopHeader";
 import GameSetup from "./components/GameSetup";
 import GameOverPanel from "./components/GameOverPanel";
 import { useGameStore } from "./store";
-import { Skull, ShieldAlert } from "lucide-react";
 import { motion } from "motion/react";
 
 export default function App() {
-  const fetchState = useGameStore((state) => state.fetchState);
-  const gameState = useGameStore((state) => state.state);
-  const resetGame = useGameStore((state) => state.resetGame);
-  const exitGame = useGameStore((state) => state.exitGame);
+  const snapshot = useGameStore((state) => state.snapshot);
+  const status = useGameStore((state) => state.status);
+  const exitToSetup = useGameStore((state) => state.exitToSetup);
   const [isSpeechExpanded, setIsSpeechExpanded] = useState(true);
   const [speechHeight, setSpeechHeight] = useState(210);
   const [isDragging, setIsDragging] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
-  // Initialize game state on page load
-  useEffect(() => {
-    fetchState();
-  }, [fetchState]);
+  // 未开局（idle）显示开局配置页
+  const inSetup = status === "idle" || (!snapshot && status !== "running");
 
-  if (!gameState) {
-    return (
-      <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs uppercase tracking-widest gap-2">
-        <div className="w-6 h-6 border-2 border-t-yellow-500 border-zinc-800 rounded-full animate-spin" />
-        <span>召唤宿命之光...</span>
-      </div>
-    );
-  }
-
-  if (gameState.phase === "START_SCREEN") {
+  if (inSetup) {
     return (
       <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-[#0b0914] text-zinc-100 overflow-hidden font-sans select-none antialiased">
-        {/* Cinematic orbiting 3D Roundtable background */}
         <ThreeCanvas />
-        
-        {/* Glassmorphic floating setup form */}
         <GameSetup />
-        
-        {/* Heavy woodcut border frame overlay */}
         <div className="absolute inset-0 pointer-events-none border-4 border-zinc-950/80 z-50 rounded" />
       </div>
     );
@@ -110,13 +92,13 @@ export default function App() {
       <ThreeCanvas />
 
       {/* GameOver Panel Overlay */}
-      {gameState?.phase === "GAME_OVER" && (
-        <GameOverPanel gameState={gameState} onRestart={resetGame} onExit={exitGame} />
+      {snapshot?.winner && (
+        <GameOverPanel winner={snapshot.winner} onExit={exitToSetup} />
       )}
 
       {/* 2D Overlay Interface */}
       <div className="absolute inset-0 flex flex-col pointer-events-none z-10 w-full h-full">
-        
+
         {/* Top Header Deck (always interactive) */}
         <div className="pointer-events-auto">
           <TopHeader />
@@ -124,7 +106,7 @@ export default function App() {
 
         {/* Main Workspace Layout (split sidebar + transparent center scene) */}
         <div className="flex-grow flex flex-row w-full min-h-0 relative">
-          
+
           {/* Left Panel Sidebar: Card Deck with glassmorphic transparency & collapsible motion */}
           <motion.div
             initial={{ width: 280 }}
@@ -148,29 +130,17 @@ export default function App() {
 
           {/* Right/Center Area: Floating transparent view above with combined bottom console panel */}
           <div className="flex-grow flex flex-col justify-between min-w-0 h-full relative">
-            
+
             {/* Top Transparent Space for 3D Camera Focus & Gameplay */}
             <div className="flex-grow p-4 pointer-events-none flex items-start justify-end">
-              {gameState?.winner && (
-                <div className="bg-red-950/90 border-2 border-red-500/80 px-4 py-2.5 rounded shadow-2xl relative max-w-sm pointer-events-auto animate-bounce flex items-center gap-3">
-                  <Skull className="w-6 h-6 text-red-500 shrink-0" />
-                  <div className="flex flex-col">
-                    <span className="font-sans font-black text-xs uppercase tracking-widest text-red-100">
-                      审判庭决议：终盘
-                    </span>
-                    <span className="font-mono text-[9px] text-zinc-400 mt-0.5">
-                      {gameState.winner === "WOLVES" ? "狼人肆虐 篡夺王庭" : "好人抱团 朝晖复苏"}
-                    </span>
-                  </div>
-                </div>
-              )}
+              {/* Status indicator when game is running but no winner yet */}
             </div>
 
-            {/* Bottom Console Panel (containing Speech Log + User Input/Skill Bar stacked) */}
+            {/* Bottom Console Panel (containing Speech Log + Control Bar stacked) */}
             <div className="w-full flex flex-col pointer-events-auto bg-transparent border-t border-zinc-900/40 relative z-10 shrink-0">
-              
+
               {/* Drag resizing handle with sleek styling */}
-              <div 
+              <div
                 className="w-full h-2.5 bg-zinc-950/80 border-y border-zinc-900/50 hover:bg-yellow-500/80 cursor-ns-resize flex items-center justify-center gap-1.5 transition-colors select-none z-30"
                 onMouseDown={startResizing}
                 onTouchStart={startResizingTouch}
@@ -189,8 +159,8 @@ export default function App() {
               >
                 <SpeechConsole isExpanded={isSpeechExpanded} onToggle={() => setIsSpeechExpanded(!isSpeechExpanded)} />
               </motion.div>
-              
-              {/* User Input, Auto Debate & Skill Actions at the absolute bottom */}
+
+              {/* Playback Control Panel at the absolute bottom */}
               <ControlPanel />
             </div>
 

@@ -114,7 +114,7 @@ Served from the live engine when the session is in memory; falls back to disk re
   "votes": { "by_seat": {"1": 5, "2": 5}, "tally": {"5": 2} },
   "cursor": 142,                       // current max event seq (for resume / display sync)
   "players": [
-    {"seat": 1, "name": "...", "role": "Seer", "camp": "good",
+    {"seat": 1, "name": "...", "role": "Seer", "camp": "villager",
      "is_alive": true, "is_sheriff": false, "model": "deepseek-chat",
      "status_flags": ["alive"]}
   ]

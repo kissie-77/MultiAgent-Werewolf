@@ -19,6 +19,7 @@ from llm_werewolf.interface.api.models.actions import (
     TriggerPostGameRequest,
     TriggerPostGameResponse,
 )
+from llm_werewolf.interface.api.models.state import GameStateResponse
 from llm_werewolf.interface.api.services.config import compare_models
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
 from llm_werewolf.interface.api.services.start_modes import build_start_modes
@@ -63,6 +64,15 @@ ACTION_SPECS: list[PageActionSpec] = [
         api_path="/api/v1/games/{run_id}/status",
         description="Poll game progress for spectate page",
         response_model="GameStatusResponse",
+    ),
+    PageActionSpec(
+        page_key="game",
+        frontend_route="/game",
+        action="get_state",
+        method="GET",
+        api_path="/api/v1/games/{run_id}/state",
+        description="Authoritative live game state snapshot",
+        response_model="GameStateResponse",
     ),
     PageActionSpec(
         page_key="game",
@@ -155,6 +165,21 @@ def game_view(
 ) -> ApiResponse:
     data = game_session_manager.get_view(
         run_id, runs_dir=runs_dir, eval_runs_dir=eval_runs_dir, since=since, source=source,
+    )
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    return ApiResponse(data=data)
+
+
+@router.get("/games/{run_id}/state")
+def game_state_snapshot(
+    run_id: str,
+    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    runs_dir=Depends(get_runs_dir),
+    eval_runs_dir=Depends(get_eval_runs_dir),
+) -> ApiResponse[GameStateResponse]:
+    data = game_session_manager.get_state(
+        run_id, runs_dir=runs_dir, eval_runs_dir=eval_runs_dir, source=source,
     )
     if data is None:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")

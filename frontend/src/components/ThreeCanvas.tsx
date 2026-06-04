@@ -3,6 +3,8 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "../store";
+import { GamePhase } from "../types";
+import { isNightPhase } from "../lib/api";
 
 // Derive current speaker seat from the most recent speech log
 function useCurrentSpeakerSeat(): number | null {
@@ -18,12 +20,12 @@ function useCurrentSpeakerSeat(): number | null {
 // Camera controller component to smoothly pan and track the active speaker
 function CameraTracker() {
   const { camera } = useThree();
-  const snapshot = useGameStore((state) => state.snapshot);
+  const gameState = useGameStore((state) => state.gameState);
   const status = useGameStore((state) => state.status);
   const currentSpeakerSeat = useCurrentSpeakerSeat();
 
-  const players = snapshot?.players || [];
-  const phase = snapshot?.phase ?? "";
+  const players = gameState?.players || [];
+  const phase = gameState?.phase ?? GamePhase.setup;
 
   // Targets for camera position and target position
   const targetCamPos = useRef(new THREE.Vector3(0, 8.5, 12.0));
@@ -587,20 +589,20 @@ function CentralEnergyOrb({ isNight }: { isNight: boolean }) {
 }
 
 const ThreeCanvas = React.memo(function ThreeCanvas() {
-  const snapshot = useGameStore((state) => state.snapshot);
+  const gameState = useGameStore((state) => state.gameState);
   const status = useGameStore((state) => state.status);
   const currentSpeakerSeat = useCurrentSpeakerSeat();
 
-  const phase = snapshot?.phase ?? "";
-  // Derive night from phase name (Python backend uses lowercase phase names)
-  const isNight = phase === "night" || phase === "setup" || status === "idle";
+  const phase = gameState?.phase ?? GamePhase.setup;
+  // Single authoritative night/day decision — no string matching.
+  const isNight = isNightPhase(phase) || status === "idle";
   const fogColor = isNight ? "#0d0415" : "#1e0b02";
   const lightColor = isNight ? "#7c3aed" : "#ea580c";
   const ambientIntensity = isNight ? 0.15 : 0.38;
 
-  // Build preview players: during idle use 6 placeholder seats; during game use snapshot players
+  // Build preview players: during idle use 6 placeholder seats; during game use gameState players
   const previewPlayers = React.useMemo(() => {
-    if (status === "idle" || !snapshot) {
+    if (status === "idle" || !gameState) {
       // Show 6 placeholder seats during setup screen
       return Array.from({ length: 6 }, (_, idx) => ({
         seat: idx + 1,
@@ -609,13 +611,13 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
         isSpeaking: false,
       }));
     }
-    return (snapshot.players || []).map((p) => ({
+    return (gameState.players || []).map((p) => ({
       seat: p.seat,
       name: p.name,
       is_alive: p.is_alive,
       isSpeaking: currentSpeakerSeat === p.seat,
     }));
-  }, [status, snapshot, currentSpeakerSeat]);
+  }, [status, gameState, currentSpeakerSeat]);
 
   const playersCount = previewPlayers.length;
 

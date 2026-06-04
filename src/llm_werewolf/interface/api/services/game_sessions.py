@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from llm_werewolf.interface.api.models.state import GameStateResponse, LastNight
@@ -29,6 +29,7 @@ from llm_werewolf.interface.api.models.actions import (
     TriggerPostGameResponse,
 )
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
+from llm_werewolf.interface.api.services.event_hub import EventHub
 from llm_werewolf.interface.api.services.roster_customize import (
     has_roster_customizations,
     prepare_start_players_config,
@@ -145,6 +146,9 @@ class GameSession:
     participation: str | None = None
     rules: str | None = None
     human_seats: list[int] = field(default_factory=list)
+    hub: "EventHub" = field(default_factory=lambda: EventHub())
+    current_sub_phase: str | None = None
+    current_actor_seat: int | None = None
     engine: Any | None = None
     gate: asyncio.Event = field(default_factory=lambda: _playing_event())
     step_once: bool = False
@@ -191,8 +195,48 @@ class IncrementalEventWriter:
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, event: object) -> None:
+        self._write_row(event_to_dict(event))
+
+    def _write_row(self, row: dict) -> None:
         with self._path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event_to_dict(event), ensure_ascii=False) + "\n")
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+_SPEECH_EVENT_TYPES = {"player_speech", "player_discussion", "role_acting"}
+
+
+def _track_phase_signals(session: "GameSession", row: dict) -> None:
+    """Maintain session.current_sub_phase / current_actor_seat from the event stream."""
+    etype = str(row.get("event_type", ""))
+    data = row.get("data") or {}
+    if etype == "sub_phase":
+        session.current_sub_phase = data.get("name")
+    elif etype == "phase_changed":
+        session.current_sub_phase = None  # a new GamePhase ends any night sub-phase
+    if etype in _SPEECH_EVENT_TYPES:
+        seat = _seat_of(str(data.get("player_id") or ""))
+        if seat is not None:
+            session.current_actor_seat = seat
+
+
+def make_fanout_on_event(
+    writer: IncrementalEventWriter, session: "GameSession"
+) -> Callable[[object], None]:
+    """One source, two sinks: append to events.jsonl AND publish to the hub.
+
+    The same ``event_to_dict`` row is used for both so the hub seq stays
+    aligned with the events.jsonl line index (the 0-based /view cursor). The
+    wrapper also tracks transient stream signals (sub_phase / current_actor_seat)
+    on the session for /state.
+    """
+
+    def _fanout(event: object) -> None:
+        row = event_to_dict(event)
+        writer._write_row(row)
+        session.hub.publish(row)
+        _track_phase_signals(session, row)
+
+    return _fanout
 
 
 class GameSessionManager:
@@ -326,7 +370,7 @@ class GameSessionManager:
                 information_hub=create_information_hub(),
             )
             writer = IncrementalEventWriter(session.run_dir)
-            engine.on_event = writer
+            engine.on_event = make_fanout_on_event(writer, session)
             engine.setup_game(players=players, roles=roles)
             session.engine = engine
             _write_full_roster(engine, session.run_dir)
@@ -355,6 +399,17 @@ class GameSessionManager:
             session.error = str(exc) or type(exc).__name__
             logger.exception("Game session %s failed", session.run_id)
         finally:
+            if session.error and session.status is GameSessionStatus.FAILED:
+                # Spec §8: terminal type=system error event onto the hub BEFORE close,
+                # so connected SSE clients (and hub-backfill reconnects) receive it.
+                session.hub.publish({
+                    "event_type": "system",
+                    "round_number": 0,
+                    "phase": "ended",
+                    "message": session.error,
+                    "data": {"error": session.error},
+                })
+            session.hub.close()
             session.completed_at = datetime.now().isoformat(timespec="seconds")
             self._write_meta(session)
 

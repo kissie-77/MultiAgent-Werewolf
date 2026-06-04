@@ -3,50 +3,52 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+from fixtures import write_sample_run, write_demo_config
 
-from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
-from llm_werewolf.interface.api.services.config import (
-    compare_models,
-    get_model_detail,
-    list_config_files,
-    list_models_page,
-    parse_config_brief,
-)
-from llm_werewolf.interface.api.services.content import (
-    get_about_page,
-    get_features_page,
-    get_how_to_play_page,
-    get_night_phase_page,
-    get_strategy_page,
+from llm_werewolf.interface.api.services.runs import (
+    list_run_dirs,
+    paginate_runs,
+    get_run_detail,
+    resolve_run_path,
+    aggregate_model_usage,
 )
 from llm_werewolf.interface.api.services.pages import (
     build_game_page,
     build_home_page,
-    build_replay_page_enriched,
     build_role_detail_page,
+    build_replay_page_enriched,
     build_share_replay_page_enriched,
 )
+from llm_werewolf.interface.api.services.config import (
+    compare_models,
+    get_model_detail,
+    list_models_page,
+    list_config_files,
+    parse_config_brief,
+)
 from llm_werewolf.interface.api.services.replay import (
+    build_timeline,
+    get_replay_page,
     build_mvp_ranking,
     build_phase_summary,
-    build_timeline,
     extract_camp_counts,
     extract_game_snapshot,
-    get_replay_page,
     get_share_replay_page,
 )
-from llm_werewolf.interface.api.services.runs import (
-    aggregate_model_usage,
-    get_run_detail,
-    list_run_dirs,
-    paginate_runs,
-    resolve_run_path,
+from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
+from llm_werewolf.interface.api.services.content import (
+    get_about_page,
+    get_features_page,
+    get_strategy_page,
+    get_how_to_play_page,
+    get_night_phase_page,
 )
 
-from fixtures import write_demo_config, write_sample_run
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -229,8 +231,8 @@ def test_aggregate_model_usage_reads_mvp_scores(api_dirs: dict[str, Path]) -> No
 
 
 def test_write_full_roster_json(tmp_path):
-    import json
     from types import SimpleNamespace
+
     from llm_werewolf.interface.api.services.game_sessions import _write_full_roster
 
     players = [
@@ -253,8 +255,8 @@ def test_write_full_roster_json(tmp_path):
 
 
 def test_write_full_roster_skips_unparseable_seat(tmp_path):
-    import json
     from types import SimpleNamespace
+
     from llm_werewolf.interface.api.services.game_sessions import _write_full_roster
 
     players = [
@@ -275,7 +277,6 @@ def test_write_full_roster_skips_unparseable_seat(tmp_path):
 
 
 def test_launch_roster_never_persists_api_key(tmp_path):
-    import json
     from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig
     from llm_werewolf.interface.api.services.game_sessions import _dump_roster_without_secrets
 
@@ -292,3 +293,65 @@ def test_launch_roster_never_persists_api_key(tmp_path):
     assert "sk-secret" not in text
     assert all("api_key" not in p for p in dumped["players"])
 
+
+
+import json as _json
+
+from llm_werewolf.interface.api.services.event_hub import EventHub
+from llm_werewolf.interface.api.services.game_sessions import (
+    GameSession,
+    GameSessionStatus,
+    IncrementalEventWriter,
+    make_fanout_on_event,
+)
+
+
+class _StubEvent:
+    """Minimal stand-in for game_runtime Event accepted by event_to_dict."""
+
+    def __init__(self, etype: str) -> None:
+        from datetime import datetime
+
+        from llm_werewolf.game_runtime.types.enums import EventType, GamePhase
+
+        self.event_type = EventType(etype)
+        self.timestamp = datetime.now()
+        self.round_number = 1
+        self.phase = GamePhase.DAY_DISCUSSION
+        self.message = "P1: hi"
+        self.data = {"player_id": "player_1", "player_name": "P1", "speech": "hi"}
+        self.visible_to = None
+
+
+def test_fanout_writes_disk_and_publishes_to_hub(tmp_path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    session = GameSession(
+        run_id="r", run_dir=run_dir,
+        config_path=tmp_path / "c.yaml", config_id="c",
+    )
+    writer = IncrementalEventWriter(run_dir)
+    on_event = make_fanout_on_event(writer, session)
+
+    on_event(_StubEvent("player_speech"))
+    on_event(_StubEvent("phase_changed"))
+
+    # disk sink received both rows
+    lines = (run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    assert _json.loads(lines[0])["event_type"] == "player_speech"
+
+    # hub sink assigned 0-based monotonic seqs and buffered both rows
+    assert session.hub.next_seq == 2          # two events published -> next seq is 2
+    backfilled = session.hub.backfill(after_seq=-1)   # -1 => all seqs >= 0
+    assert [seq for seq, _ in backfilled] == [0, 1]
+    assert backfilled[0][1]["event_type"] == "player_speech"
+
+
+def test_game_session_has_hub_field() -> None:
+    session = GameSession(
+        run_id="r", run_dir=__import__("pathlib").Path("."),
+        config_path=__import__("pathlib").Path("."), config_id="c",
+    )
+    assert isinstance(session.hub, EventHub)
+    assert session.status is GameSessionStatus.PENDING

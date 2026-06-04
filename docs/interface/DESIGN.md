@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 > **关联代码**：`src/llm_werewolf/interface/`
 
 ## 1. 目标
@@ -199,6 +199,9 @@ uv run werewolf configs/llm-12p-doubao.yaml      # 12 人 CLI 对局
 | `/games/start` | POST | 启动游戏 |
 | `/games/{run_id}/status` | GET | 轮询对局状态 |
 | `/games/{run_id}/cancel` | POST | 取消对局 |
+| `/games/{run_id}/state` | GET | 权威实时状态（引擎驱动观战，见 §11） |
+| `/games/{run_id}/stream` | GET | SSE 事件流，`Last-Event-ID` 续传（见 §11） |
+| `/games/{run_id}/control` | POST | 暂停/继续/单步/变速（见 §11） |
 | `/runs/{run_id}/post-game` | POST | 触发或重跑 PostGame |
 | `/runs` | GET | 对局列表（legacy page API） |
 | `/runs/{run_id}` | GET | 对局详情 |
@@ -289,7 +292,35 @@ await finalize_run(
 - `interface` 是装配层，不被其他业务模块依赖
 - `interface` 可以写入 `evaluation` 产物目录
 
-## 11. 相关文档
+## 11. 引擎驱动观战 API（纯 LLM 观战）
+
+> 关联代码：`interface/api/services/{game_sessions,state,view,event_hub,sse_stream}.py`、`interface/api/models/{state,view,actions}.py`、`interface/api/routes/actions.py`。引擎侧信号见 [../game_runtime/ROADMAP.md](../game_runtime/ROADMAP.md)，前端消费见 [../frontend/ROADMAP.md](../frontend/ROADMAP.md)。
+
+### 11.1 动机：日志驱动 → 引擎驱动
+
+旧观战为"日志驱动"：`play_game()` 一口气跑完整局，仅经 `on_event` 写入 `events.jsonl`；读接口重读日志、反推阶段/死活/胜负，引擎打完即丢、状态不可查。改造后为"引擎驱动"：保活引擎、逐阶段推进、直接上报权威状态。
+
+### 11.2 运行模型
+
+- `GameSession` 保活 `engine`；`_run_game` 用 `engine.step()` 逐阶段泵推进，过一道控制闸（playing/paused + 单步 + 变速）。
+- 阶段间在 `next_phase()` 清空前抓取夜晚结果（`last_night`），保证不丢。
+- `on_event` 一源两写：磁盘 `events.jsonl`（回放/复盘照旧）+ 内存 `EventHub`（0-based `seq`、环形缓冲、SSE 实时推送）。
+
+### 11.3 接口契约
+
+| 路由 | 方法 | 说明 |
+|------|------|------|
+| `/games/{run_id}/state` | GET | 权威实时状态：序列化活引擎；打完/被回收回落读盘 |
+| `/games/{run_id}/stream` | GET (SSE) | `id:<seq>` + `event:game` + `data:<JSON>`；`Last-Event-ID` 续传，缓冲外则读盘补缺 |
+| `/games/{run_id}/control` | POST | `{action: pause\|resume\|step\|speed, value?}` → `{run_id, play_state, speed, phase}` |
+
+`/state` 关键字段：`phase`(权威 GamePhase)、`sub_phase`、`round`、`play_state`、`speed`、`current_actor_seat`、`winner`、`sheriff_seat`、`alive_count`/`dead_count`、`last_night`、`votes`、`cursor`、`players[]`。`/stream` 事件 `type ∈ {speech, skill, vote, death, phase, sub_phase, system, belief, vote_intention}`；`seq`/`/state.cursor`/`Last-Event-ID` 三者均 0-based 对齐。
+
+### 11.4 鲁棒性
+
+暂停在阶段边界真停引擎（不空烧 LLM）；断线由浏览器 `EventSource` 自动重连续传、`/state` 全量兜底；运行出错发终止 `system` 事件并落盘；事件分类与可见性由服务端权威给出，前端不猜。完整启动见 [README 快速入口](./README.md#快速入口)，变更记录见 [ROADMAP](./ROADMAP.md)。
+
+## 12. 相关文档
 
 - 进度：[ROADMAP.md](./ROADMAP.md)
 - 工程结构方案：[../architecture/工程结构整理方案.md](../architecture/工程结构整理方案.md)

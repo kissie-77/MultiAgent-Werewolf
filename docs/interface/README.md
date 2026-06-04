@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 > **关联代码**：`src/llm_werewolf/interface/`
 > **关联测试**：`tests/interface/`
 
@@ -73,4 +73,9 @@ uv run werewolf-evidence
 uv run werewolf-vote-swing <run_dir>
 
 # PostGame：对局结束后 finalize_run 自动触发，或 POST /api/v1/runs/{run_id}/post-game
+
+# 纯 LLM 观战（引擎驱动 API：/state · /stream(SSE) · /control）
+#   一键：双击 start-spectate.bat（等前端就绪自动开 http://127.0.0.1:5173；务必用 127.0.0.1，勿用 localhost）
+#   手动：uv run werewolf-api --host 127.0.0.1 --port 8000  ＋  cd frontend && npm run dev:spectate
+#   进页面在 DeepSeek 栏填 key、model 选 deepseek-chat 即可开局；顶部控制条暂停/单步/变速。详见 DESIGN §11。
 ```

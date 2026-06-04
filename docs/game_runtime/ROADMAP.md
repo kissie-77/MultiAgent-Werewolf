@@ -2,7 +2,7 @@
 
 > **模块**：game_runtime
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 
 ## 总览
 
@@ -40,6 +40,7 @@
 - [x] 夜间行动调度器
 - [x] Agent 决策 observation 不暴露隐藏阵营存活数量
 - [x] 警长投票使用独立 `SHERIFF_VOTE` action phase，避免串入夜间角色行动 prompt
+- [x] 引擎驱动观战所需信号：`engine.step()` 与 `play_game()` 行为对齐（可被 API 逐阶段泵）、补全 `phase_changed`（警长竞选/投票/结束）、子阶段信号、5 个技能结构化事件（白狼/狼美人/噩梦/守卫狼→`guardian_wolf_guard`/乌鸦）、拓宽 `role_data`（Hunter/Seer）
 
 ## 进行中
 
@@ -57,6 +58,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-04 | 引擎信号补全（供引擎驱动观战）：step()↔play_game() 对齐、phase_changed 补全、子阶段信号、5 技能结构化事件、role_data 拓宽 |
 | 2026-06-02 | 人机混战信息隔离：observation 隐藏阵营存活数；警长投票 prompt 阶段修正 |
 | 2026-05-24 | 初始化 game_runtime 三件套文档 |
 | 2026-05-23 | 修复 PK 发言方法名冲突（sheriff_election vs voting_phase） |

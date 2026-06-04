@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 
 ## 总览
 
@@ -17,6 +17,7 @@
 | API 回放功能 | 🔄 In Progress | replay / runs 页面 API |
 | CLI 12 人 LLM 对局验证 | ✅ Done | `llm-12p-doubao.yaml` + ARK 连通脚本 |
 | Web 前端对接 | 📋 Planned | 与 frontend 模块对接 |
+| 引擎驱动观战 API（/state·/stream·/control）| ✅ Done | 保活引擎 + step 泵 + 控制闸 + SSE + 真机联调 |
 
 ## 已完成
 
@@ -41,24 +42,26 @@
 - [x] 人机混战人类输入提示收敛为必要行动信息，不展示 Agent observation / schema / 策略提示
 
 - [x] ARK 连通性脚本（`scripts/test_ark_connectivity.py`）
+- [x] 引擎驱动观战：保活引擎 + `engine.step()` 逐阶段泵 + 控制闸（暂停/继续/单步/变速）
+- [x] `GET /games/{id}/state`（权威实时 + 读盘兜底）、SSE `GET /games/{id}/stream`（`Last-Event-ID` 续传）、`POST /games/{id}/control`
+- [x] `on_event` 一源两写（`events.jsonl` + 内存 `EventHub`）；真 DeepSeek 端到端联调通过
 
 ## 进行中
 
 - [ ] 对局回放 API 完善
 - [ ] API 文档自动生成（OpenAPI/Swagger）
-- [ ] 游戏状态实时推送（WebSocket/SSE）
 
 ## 计划中
 
 - [ ] Web 前端对接（与 frontend 模块协作）
 - [ ] 多房间支持（并发多局游戏）
-- [ ] 观战模式（旁观者视角）
 - [ ] 对局录制与回放增强
 
 ## 变更记录
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-04 | 引擎驱动观战 API：保活引擎 + step 泵 + 控制闸 + `GET /state` + SSE `GET /stream`（Last-Event-ID 续传）+ `POST /control`；真 DeepSeek 端到端联调通过（详见 DESIGN §11） |
 | 2026-06-02 | 人机混战：显式配置优先级、极简人类输入提示、提交后等待提示 |
 | 2026-06-02 | 文档：TUI 移除、ARK 连通验证、12p 配置、产物路径；CLI 入口新增人数选择；人机混战按人数校验座位；修正 CORS 来源解析；默认模型配置切换为 `kimi-k2.5` |
 | 2026-05-23 | 修正 CLI/API 文档与实现对齐 |

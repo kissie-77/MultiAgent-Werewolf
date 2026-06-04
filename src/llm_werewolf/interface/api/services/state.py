@@ -92,7 +92,9 @@ def build_state_from_snapshot(
         sheriff_seat=sheriff_seat,
         alive_count=alive_count,
         dead_count=len(players) - alive_count,
-        last_night=captured_last_night if captured_last_night is not None else _last_night(snapshot),
+        last_night=(
+            captured_last_night if captured_last_night is not None else _last_night(snapshot)
+        ),
         votes=_votes(snapshot),
         cursor=cursor,
         players=players,

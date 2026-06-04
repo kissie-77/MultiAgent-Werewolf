@@ -129,6 +129,18 @@ class GameSessionStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+# Base mapping from session lifecycle status -> response status string, shared by
+# get_view() and get_state(). (get_state additionally collapses a paused RUNNING
+# session to "paused"; that override lives at the call site.)
+_SESSION_STATUS_MAP = {
+    GameSessionStatus.RUNNING: "running",
+    GameSessionStatus.PENDING: "running",
+    GameSessionStatus.COMPLETED: "ended",
+    GameSessionStatus.CANCELLED: "cancelled",
+    GameSessionStatus.FAILED: "error",
+}
+
+
 @dataclass
 class GameSession:
     run_id: str
@@ -183,7 +195,9 @@ class GameSession:
             "deaths": [d for d in deaths if d["seat"] is not None],
             "saved_seat": _seat_of(state.witch_saved_target) if state.witch_saved_target else None,
             "guarded_seat": _seat_of(state.guard_protected) if state.guard_protected else None,
-            "poisoned_seat": _seat_of(state.witch_poison_target) if state.witch_poison_target else None,
+            "poisoned_seat": (
+                _seat_of(state.witch_poison_target) if state.witch_poison_target else None
+            ),
         }
 
 
@@ -202,7 +216,12 @@ class IncrementalEventWriter:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-_SPEECH_EVENT_TYPES = {"player_speech", "player_discussion", "role_acting"}
+_SPEECH_EVENT_TYPES = {
+    "player_speech",
+    "player_discussion",
+    "role_acting",
+    "sheriff_candidate_speech",  # view.py classifies campaign speeches as a speech UI event
+}
 
 
 def _track_phase_signals(session: "GameSession", row: dict) -> None:
@@ -212,7 +231,9 @@ def _track_phase_signals(session: "GameSession", row: dict) -> None:
     if etype == "sub_phase":
         session.current_sub_phase = data.get("name")
     elif etype == "phase_changed":
-        session.current_sub_phase = None  # a new GamePhase ends any night sub-phase
+        # A new GamePhase ends any night sub-phase and any in-progress actor.
+        session.current_sub_phase = None
+        session.current_actor_seat = None
     if etype in _SPEECH_EVENT_TYPES:
         seat = _seat_of(str(data.get("player_id") or ""))
         if seat is not None:
@@ -379,7 +400,6 @@ class GameSessionManager:
             _write_full_roster(engine, session.run_dir)
             wire_agentscope_after_setup(engine, players_config)
 
-            session.engine = engine
             result = await self._run_step_pump(session)
             session.result_text = result
             persist_run_artifacts(engine, session.run_dir)
@@ -405,13 +425,21 @@ class GameSessionManager:
             if session.error and session.status is GameSessionStatus.FAILED:
                 # Spec §8: terminal type=system error event onto the hub BEFORE close,
                 # so connected SSE clients (and hub-backfill reconnects) receive it.
-                session.hub.publish({
+                # Also persist the SAME row to events.jsonl so a client that reconnects
+                # after the session is evicted from memory still gets it via the disk
+                # backfill path (the run-error event would otherwise be hub-only).
+                error_row = {
                     "event_type": "system",
                     "round_number": 0,
                     "phase": "ended",
                     "message": session.error,
                     "data": {"error": session.error},
-                })
+                }
+                session.hub.publish(error_row)
+                try:
+                    IncrementalEventWriter(session.run_dir)._write_row(error_row)
+                except OSError:
+                    logger.exception("Failed to persist terminal error event for %s", session.run_id)
             session.hub.close()
             session.completed_at = datetime.now().isoformat(timespec="seconds")
             self._write_meta(session)
@@ -490,12 +518,7 @@ class GameSessionManager:
         session = self._sessions.get(run_id)
         if session is not None:
             run_dir = session.run_dir
-            status_map = {
-                GameSessionStatus.RUNNING: "running", GameSessionStatus.PENDING: "running",
-                GameSessionStatus.COMPLETED: "ended", GameSessionStatus.CANCELLED: "cancelled",
-                GameSessionStatus.FAILED: "error",
-            }
-            status = status_map.get(session.status, "running")
+            status = _SESSION_STATUS_MAP.get(session.status, "running")
             error = session.error
         else:
             detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
@@ -518,12 +541,6 @@ class GameSessionManager:
         )
         from llm_werewolf.interface.api.services.view import build_view
 
-        status_map = {
-            GameSessionStatus.RUNNING: "running", GameSessionStatus.PENDING: "running",
-            GameSessionStatus.COMPLETED: "ended", GameSessionStatus.CANCELLED: "cancelled",
-            GameSessionStatus.FAILED: "error",
-        }
-
         session = self._sessions.get(run_id)
         if session is not None and session.engine is not None:
             engine = session.engine
@@ -536,7 +553,7 @@ class GameSessionManager:
                     if getattr(p, "role", None) is not None
                 }
                 cursor = self._count_events(session.run_dir)
-                base_status = status_map.get(session.status, "running")
+                base_status = _SESSION_STATUS_MAP.get(session.status, "running")
                 play_state = "playing" if session.gate.is_set() else "paused"
                 # spec §5.1: a paused RUNNING game collapses status -> "paused"
                 status = (
@@ -560,7 +577,7 @@ class GameSessionManager:
 
         if session is not None:
             run_dir = session.run_dir
-            status = status_map.get(session.status, "running")
+            status = _SESSION_STATUS_MAP.get(session.status, "running")
             error = session.error
         else:
             detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")

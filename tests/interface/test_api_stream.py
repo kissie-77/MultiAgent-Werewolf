@@ -65,3 +65,53 @@ def test_stream_unknown_run_is_404(tmp_path) -> None:
     client = _client(tmp_path)
     resp = client.get("/api/v1/games/no-such-run/stream")
     assert resp.status_code == 404
+
+
+import threading
+import time
+
+from llm_werewolf.interface.api.services.game_sessions import (
+    GameSession,
+    game_session_manager,
+)
+
+
+def _live_speech_row(pid: int) -> dict:
+    return {"event_type": "player_speech", "round_number": 1, "phase": "day_discussion",
+            "message": f"P{pid}", "data": {"player_id": f"player_{pid}",
+            "player_name": f"P{pid}", "speech": "x"}}
+
+
+def test_stream_live_session_pushes_then_closes(tmp_path) -> None:
+    game_session_manager.reset()
+    runs_dir = tmp_path / "runs"
+    run_dir = runs_dir / "live-1"
+    run_dir.mkdir(parents=True)
+    session = GameSession(
+        run_id="live-1", run_dir=run_dir,
+        config_path=run_dir, config_id="c",
+    )
+    game_session_manager._sessions["live-1"] = session
+
+    app = create_app()
+    app.dependency_overrides[deps.get_runs_dir] = lambda: runs_dir
+    app.dependency_overrides[deps.get_eval_runs_dir] = lambda: runs_dir
+    client = TestClient(app)
+
+    def _producer() -> None:
+        time.sleep(0.2)
+        session.hub.publish(_live_speech_row(1))  # seq 0
+        session.hub.publish(_live_speech_row(2))  # seq 1
+        time.sleep(0.1)
+        session.hub.close()
+
+    t = threading.Thread(target=_producer)
+    t.start()
+    with client.stream("GET", "/api/v1/games/live-1/stream") as resp:
+        body = "".join(resp.iter_text())
+    t.join()
+    game_session_manager.reset()
+
+    assert "id: 0\n" in body
+    assert "id: 1\n" in body
+    assert '"type": "speech"' in body

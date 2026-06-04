@@ -3,7 +3,7 @@ import {
   ControlRequest, GamePhase, GameStateResponse, PlayState, RenderLog,
   SeatConfig, StreamEvent, Visibility,
 } from "./types";
-import { API, fetchState, postControl, streamUrl } from "./lib/api";
+import { API, fetchState, postControl, streamUrl, unwrap } from "./lib/api";
 import { getApiKey, providerById } from "./lib/api-keys";
 
 type Speed = 1 | 2 | 4;
@@ -130,8 +130,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }),
       });
       if (!res.ok) { set({ status: "error", error: `start failed: HTTP ${res.status}` }); return; }
-      const body = await res.json();
-      const data = (body && "data" in body ? body.data : body) as { run_id?: string };
+      const data = unwrap<{ run_id?: string }>(await res.json());
       if (!data?.run_id) { set({ status: "error", error: "start failed: no run_id" }); return; }
       set({ runId: data.run_id });
       get()._openStream(data.run_id);

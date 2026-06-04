@@ -2,7 +2,7 @@ import { ControlRequest, ControlResponse, GamePhase, GameStateResponse } from ".
 
 export const API = "/api/v1";
 
-function unwrap<T>(json: unknown): T {
+export function unwrap<T>(json: unknown): T {
   return (json && typeof json === "object" && "data" in (json as Record<string, unknown>)
     ? (json as { data: T }).data
     : json) as T;

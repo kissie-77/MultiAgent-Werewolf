@@ -2,7 +2,7 @@
 
 > **模块**：agent_team / memory
 > **状态**：active
-> **最后更新**：2026-05-26
+> **最后更新**：2026-05-23
 > **关联代码**：`src/llm_werewolf/agent_team/memory/`
 > **关联测试**：`tests/agent_team/test_*memory*`、`tests/game_runtime/test_memory_*`
 
@@ -56,16 +56,18 @@ SemanticMemory         ProceduralMemory
 |----|-----|----------|----------|
 | 工作 | `WorkingMemory` | 发言、事件、决策 | 压缩摘要、persistent 条 |
 | 情景 | `EpisodicMemory` | `event_logger` | `get_all_events()` 等 |
-| 语义 | `SemanticMemory` | `skill_loader`、卡片 JSON | 注入 prompt 的 Skill 描述 |
+| 语义 | `SemanticMemory` | `skill_loader`、卡片 JSON | 信念匹配后的 Skill 注入块 |
 | 程序 | `ProceduralMemory` | `plan_name`、角色 | `[程序记忆]` 摘要 |
 
 ## 4. 生命周期
 
 ```text
 on_game_start(role)
-  → 注入 SemanticMemory（load_role_skills，按 weight 降序 top_k）
-  → 记录本局 prompt 注入的 skill
-  → ProceduralMemory.build_plan_summary → working.add_persistent
+  → 角色池说明、ProceduralMemory.build_plan_summary → working.add_persistent
+  → （可选）SemanticMemory 后端卡片 → working persistent
+
+发言/决策前
+  → refresh_player_belief_skills → 按信念矩阵匹配 Skill → decision context
 
 每轮 on_round_end(round)
   → working.end_round()（可选 LLMCompressor 压缩）

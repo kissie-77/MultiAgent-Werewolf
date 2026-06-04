@@ -28,7 +28,7 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-23 | 信念驱动 Skill 注入（belief 模式）；12p 对局 4/4 回匹配测试 |
+| 2026-05-23 | 信念驱动 Skill 注入（唯一方式）；12p 对局 4/4 回匹配测试 |
 | 2026-06-04 | Skill 写库：when_to_use 相似合并 +0.15、稀疏 bump；文档见 evaluation/DESIGN §10 |
 | 2026-06-02 | 文档三件套归位；RuntimeMemoryManager 命名同步 |
 | 2026-05-26 | memory 三件套；Per-role Skill 版本目录 |

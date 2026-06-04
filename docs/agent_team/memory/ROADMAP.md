@@ -50,7 +50,7 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-05-23 | belief 模式 Skill 注入：signal 自动标注、发言前匹配；见 memory/DESIGN §6.1 |
+| 2026-05-23 | 信念驱动 Skill 注入：signal 自动标注、发言前匹配；见 memory/DESIGN §6.1 |
 | 2026-06-02 | ReMe 代码已移除；文档对齐 |
 | 2026-05-26 | 文档三件套；ReMe 下线；Skill 语义；Episodic 全局化；Coach 占位对接 |
 | 2026-05-26 | LLMCompressor 重试与降级日志 |

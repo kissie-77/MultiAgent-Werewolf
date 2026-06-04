@@ -2,14 +2,14 @@
 
 > **模块**：agent_team / memory
 > **状态**：active
-> **最后更新**：2026-05-26
+> **最后更新**：2026-05-23
 > **关联代码**：`src/llm_werewolf/agent_team/memory/`
 > **关联测试**：`tests/agent_team/test_*memory*`、`tests/game_runtime/test_memory_*`
 > **Agent Skill**：`.agents/skills/generated/agent-team/`
 
 ## 职责
 
-运行时四层记忆编排：工作 / 情景 / 语义 / 程序记忆的生命周期、决策上下文组装、Skill 注入与局后权重更新入口。
+运行时四层记忆编排：工作 / 情景 / 语义 / 程序记忆的生命周期、决策上下文组装、**信念矩阵驱动的 Skill 注入**与局后权重更新入口。
 
 - **WorkingMemory** — 短期上下文，按轮压缩（可插拔 `LLMCompressor`）
 - **EpisodicMemory** — 关键事件与玩家 POV 查询（含全局查询 API）

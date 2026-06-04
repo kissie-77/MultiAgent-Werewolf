@@ -112,6 +112,8 @@ class GameStatusResponse(BaseModel):
     result_text: str | None = None
     has_post_game: bool = False
     has_replay: bool = False
+    post_game_status: str | None = None
+    alert_count: int | None = None
 
 
 class CancelGameResponse(BaseModel):

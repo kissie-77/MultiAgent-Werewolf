@@ -35,9 +35,25 @@ from llm_werewolf.interface.bootstrap import (
     prepare_game_roster,
     wire_agentscope_after_setup,
 )
+from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
+from llm_werewolf.observability.dispatcher import get_dispatcher, update_run_meta_alerts
+from llm_werewolf.observability.runtime_log import attach_run_log_handler, detach_run_log_handler
 
 logger = logging.getLogger(__name__)
+
+
+def _read_alert_count(run_dir: Path) -> int:
+    report = run_dir / "alert_report.json"
+    if not report.is_file():
+        return 0
+    try:
+        payload = json.loads(report.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return 0
+    if isinstance(payload, dict):
+        return int(payload.get("alert_count") or 0)
+    return 0
 
 
 class GameSessionStatus(str, Enum):
@@ -65,6 +81,8 @@ class GameSession:
     participation: str | None = None
     rules: str | None = None
     human_seats: list[int] = field(default_factory=list)
+    post_game_status: str | None = None
+    alert_count: int = 0
 
 
 class IncrementalEventWriter:
@@ -184,6 +202,7 @@ class GameSessionManager:
         )
 
     async def _run_game(self, session: GameSession) -> None:
+        attach_run_log_handler(session.run_dir)
         try:
             players_config = session.players_config or load_config(config_path=session.config_path)
             players, roles, game_config = prepare_game_roster(players_config)
@@ -209,6 +228,12 @@ class GameSessionManager:
                 config_path=session.config_path,
                 prompt_version=players_config.prompt_version,
             )
+            session.post_game_status = derive_post_game_status(
+                result_ok=post.ok,
+                error=post.error,
+                stage_errors=post.stage_errors or None,
+            )
+            session.alert_count = _read_alert_count(session.run_dir)
             if post.error:
                 logger.warning("PostGame failed for %s: %s", session.run_id, post.error)
             session.status = GameSessionStatus.COMPLETED
@@ -220,22 +245,44 @@ class GameSessionManager:
             session.status = GameSessionStatus.FAILED
             session.error = str(exc) or type(exc).__name__
             logger.exception("Game session %s failed", session.run_id)
+            try:
+                await get_dispatcher().emit_session_failed(
+                    run_id=session.run_id,
+                    run_dir=session.run_dir,
+                    error=session.error,
+                )
+            except Exception as alert_exc:
+                logger.warning("Alert dispatch failed for %s: %s", session.run_id, alert_exc)
         finally:
+            detach_run_log_handler()
             session.completed_at = datetime.now().isoformat(timespec="seconds")
             self._write_meta(session)
 
     def _write_meta(self, session: GameSession) -> None:
-        meta = {
-            "run_id": session.run_id,
-            "config_id": session.config_id,
-            "config_path": str(session.config_path.as_posix()),
-            "status": session.status.value,
-            "started_at": session.started_at,
-            "completed_at": session.completed_at,
-            "error": session.error,
-            "result_text": session.result_text,
-        }
-        (session.run_dir / "run_meta.json").write_text(
+        meta_path = session.run_dir / "run_meta.json"
+        meta: dict[str, Any] = {}
+        if meta_path.is_file():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                meta = {}
+        meta.update(
+            {
+                "run_id": session.run_id,
+                "config_id": session.config_id,
+                "config_path": str(session.config_path.as_posix()),
+                "status": session.status.value,
+                "started_at": session.started_at,
+                "completed_at": session.completed_at,
+                "error": session.error,
+                "result_text": session.result_text,
+            }
+        )
+        if session.post_game_status is not None:
+            meta["post_game_status"] = session.post_game_status
+        if session.alert_count:
+            meta["alert_count"] = session.alert_count
+        meta_path.write_text(
             json.dumps(meta, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
@@ -255,6 +302,8 @@ class GameSessionManager:
             status = session.status.value
             error = session.error
             result_text = session.result_text
+            post_game_status = session.post_game_status
+            alert_count = session.alert_count
         else:
             detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
             if detail is None:
@@ -264,12 +313,17 @@ class GameSessionManager:
             status = "completed"
             error = None
             result_text = detail.game_result_text
+            post_game_status = None
+            alert_count = None
             if meta_path.is_file():
                 try:
                     meta = json.loads(meta_path.read_text(encoding="utf-8"))
                     status = str(meta.get("status") or status)
                     error = meta.get("error")
                     result_text = meta.get("result_text") or result_text
+                    post_game_status = meta.get("post_game_status")
+                    if meta.get("alert_count") is not None:
+                        alert_count = int(meta["alert_count"])
                 except json.JSONDecodeError:
                     pass
 
@@ -287,6 +341,8 @@ class GameSessionManager:
             result_text=result_text,
             has_post_game=has_post_game,
             has_replay=has_replay,
+            post_game_status=post_game_status,
+            alert_count=alert_count,
         )
 
     async def cancel_game(self, run_id: str) -> CancelGameResponse | None:

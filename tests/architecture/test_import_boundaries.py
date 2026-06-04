@@ -1,4 +1,4 @@
-"""Architecture import boundary checks for the six project areas."""
+"""Architecture import boundary checks for the seven project areas."""
 
 from __future__ import annotations
 
@@ -8,10 +8,11 @@ from pathlib import Path
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "llm_werewolf"
 
 FORBIDDEN_IMPORTS: dict[str, set[str]] = {
-    "game_runtime": {"agent_team", "evaluation", "interface", "ui"},
-    "strategy": {"agent_team", "evaluation", "interface", "ui"},
-    "agent_team": {"evaluation", "interface", "ui"},
-    "ui": {"agent_team", "evaluation", "interface"},
+    "game_runtime": {"agent_team", "evaluation", "interface", "ui", "observability"},
+    "strategy": {"agent_team", "evaluation", "interface", "ui", "observability"},
+    "agent_team": {"evaluation", "interface", "ui", "observability"},
+    "evaluation": {"observability"},
+    "ui": {"agent_team", "evaluation", "interface", "observability"},
 }
 
 KNOWN_IMPORT_DEBT: set[tuple[str, str]] = {
@@ -81,3 +82,21 @@ def test_known_import_debt_still_documents_real_violations() -> None:
     assert not stale_debt, "以下历史依赖债务已不存在，请从 allowlist 删除：\n" + "\n".join(
         f"{path} -> llm_werewolf.{module}" for path, module in sorted(stale_debt)
     )
+
+
+def test_observability_imports_stay_within_allowed_areas() -> None:
+    obs_root = SRC_ROOT / "observability"
+    if not obs_root.is_dir():
+        return
+    violations: list[str] = []
+    for path in sorted(obs_root.rglob("*.py")):
+        source_path = _relative_source(path)
+        for imported_module in sorted(_imported_modules(path)):
+            area = imported_module.split(".", 1)[0]
+            if area in {"observability", "evaluation"}:
+                continue
+            if imported_module.startswith("game_runtime.types"):
+                continue
+            violations.append(f"{source_path} -> llm_werewolf.{imported_module}")
+
+    assert not violations, "observability 引入了不允许的依赖：\n" + "\n".join(violations)

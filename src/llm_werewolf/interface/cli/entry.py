@@ -101,15 +101,17 @@ async def main(
     console.print(f"[cyan]{locale.get('player_count_info', num_players=num_players)}[/cyan]")
     console.print(f"[cyan]{locale.get('interface_mode')}[/cyan]")
 
+    from datetime import datetime
+
+    from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run
+    from llm_werewolf.observability.runtime_log import attach_run_log_handler, detach_run_log_handler
+
+    run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
+    attach_run_log_handler(run_dir)
     try:
         result = await engine.play_game()
         console.print(f"\n{result}")
 
-        from datetime import datetime
-
-        from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run
-
-        run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
         post = await finalize_run(
             engine,
             run_dir,
@@ -160,6 +162,8 @@ async def main(
         else:
             console.print(f"[red]Error executing game: {exc}[/red]")
         raise
+    finally:
+        detach_run_log_handler()
 
 
 def _run_main(

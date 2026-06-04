@@ -1,0 +1,29 @@
+notifiers:
+  webhook:
+    url: ${OBS_ALERT_WEBHOOK_URL}
+    min_severity: warning
+rules:
+  run_failed:
+    enabled: true
+  post_game_failed:
+    enabled: true
+  error_events_per_run:
+    threshold: 3
+    severity: warning
+  checker_critical:
+    enabled: true
+    severity: critical
+  llm_replay_failed:
+    enabled: true
+    severity: warning
+  vote_timeout_per_run:
+    threshold: 2
+    severity: warning
+  structured_invoke_gave_up:
+    threshold: 10
+    severity: warning
+  provider_429_burst:
+    threshold: 3
+    severity: error
+dispatcher:
+  dedupe_ttl_seconds: 300

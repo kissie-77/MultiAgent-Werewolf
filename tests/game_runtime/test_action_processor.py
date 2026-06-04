@@ -2,17 +2,35 @@
 
 from unittest.mock import MagicMock
 
-from llm_werewolf.game_runtime.roles import Seer, Guard, Witch, Villager, Werewolf, NightmareWolf
-from llm_werewolf.game_runtime.types import ActionPriority
+from llm_werewolf.game_runtime.roles import (
+    Seer,
+    Guard,
+    Witch,
+    Raven,
+    Villager,
+    Werewolf,
+    WolfBeauty,
+    WhiteWolf,
+    NightmareWolf,
+    GuardianWolf,
+)
+from llm_werewolf.game_runtime.types import EventType, ActionPriority
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.state.player import Player
+from llm_werewolf.game_runtime.actions.werewolf import (
+    WerewolfVoteAction,
+    WhiteWolfKillAction,
+    WolfBeautyCharmAction,
+    NightmareWolfBlockAction,
+    GuardianWolfProtectAction,
+)
 from llm_werewolf.game_runtime.actions.villager import (
     SeerCheckAction,
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
+    RavenMarkAction,
 )
-from llm_werewolf.game_runtime.actions.werewolf import WerewolfVoteAction, NightmareWolfBlockAction
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.engine.action_processor import ActionProcessorMixin
 
@@ -93,3 +111,88 @@ def test_decision_data_prefers_action_metadata_over_agent_cache() -> None:
             "resolved_target_id": "player_3",
         }
     }
+
+
+def test_log_white_wolf_action_emits_typed_event() -> None:
+    white = Player("w1", "White", WhiteWolf)
+    target = Player("w2", "Wolf", Werewolf)
+    state = GameState([white, target])
+    state.round_number = 1
+    processor = _Processor(state)
+
+    processor._log_white_wolf_action(WhiteWolfKillAction(white, target, state))
+
+    event_type, _message = processor._log_event.call_args.args[:2]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == EventType.WHITE_WOLF_KILLED
+    assert data["actor_id"] == "w1"
+    assert data["target_id"] == "w2"
+    assert data["result"] == "killed"
+
+
+def test_log_wolf_beauty_action_emits_typed_event() -> None:
+    beauty = Player("b1", "Beauty", WolfBeauty)
+    target = Player("v1", "Villager", Villager)
+    state = GameState([beauty, target])
+    state.round_number = 1
+    processor = _Processor(state)
+
+    processor._log_wolf_beauty_action(WolfBeautyCharmAction(beauty, target, state))
+
+    event_type = processor._log_event.call_args.args[0]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == EventType.WOLF_BEAUTY_CHARMED
+    assert data["actor_id"] == "b1"
+    assert data["target_id"] == "v1"
+    assert data["result"] == "charmed"
+
+
+def test_log_nightmare_block_action_emits_typed_event() -> None:
+    nightmare = Player("n1", "Nightmare", NightmareWolf)
+    target = Player("s1", "Seer", Seer)
+    state = GameState([nightmare, target])
+    state.round_number = 1
+    processor = _Processor(state)
+
+    processor._log_nightmare_block_action(NightmareWolfBlockAction(nightmare, target, state))
+
+    event_type = processor._log_event.call_args.args[0]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == EventType.NIGHTMARE_BLOCKED
+    assert data["actor_id"] == "n1"
+    assert data["target_id"] == "s1"
+    assert data["result"] == "blocked"
+
+
+def test_log_guardian_wolf_action_emits_typed_event() -> None:
+    guardian = Player("g1", "Guardian", GuardianWolf)
+    target = Player("w2", "Wolf", Werewolf)
+    state = GameState([guardian, target])
+    state.round_number = 1
+    processor = _Processor(state)
+
+    processor._log_guardian_wolf_action(GuardianWolfProtectAction(guardian, target, state))
+
+    event_type = processor._log_event.call_args.args[0]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == EventType.GUARDIAN_WOLF_PROTECTED
+    assert data["actor_id"] == "g1"
+    assert data["target_id"] == "w2"
+    assert data["result"] == "protected"
+
+
+def test_log_raven_action_emits_typed_event() -> None:
+    raven = Player("r1", "Raven", Raven)
+    target = Player("v1", "Villager", Villager)
+    state = GameState([raven, target])
+    state.round_number = 1
+    processor = _Processor(state)
+
+    processor._log_raven_action(RavenMarkAction(raven, target, state))
+
+    event_type = processor._log_event.call_args.args[0]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == EventType.RAVEN_MARKED
+    assert data["actor_id"] == "r1"
+    assert data["target_id"] == "v1"
+    assert data["result"] == "marked"

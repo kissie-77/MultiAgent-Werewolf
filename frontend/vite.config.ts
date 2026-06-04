@@ -21,6 +21,21 @@ export default defineConfig(() => {
         "/api/v1": {
           target: "http://127.0.0.1:8000",
           changeOrigin: true,
+          // SSE: keep the upstream stream open and unbuffered.
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq, req) => {
+              if (req.url?.endsWith("/stream")) {
+                proxyReq.setHeader("Accept", "text/event-stream");
+                proxyReq.setHeader("Cache-Control", "no-cache");
+              }
+            });
+            proxy.on("proxyRes", (proxyRes, req) => {
+              if (req.url?.endsWith("/stream")) {
+                proxyRes.headers["cache-control"] = "no-cache";
+                delete proxyRes.headers["content-length"];
+              }
+            });
+          },
         },
       },
     },

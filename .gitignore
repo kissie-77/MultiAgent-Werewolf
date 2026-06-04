@@ -259,3 +259,6 @@ configs/human_game.yaml
 *.pptx
 generate_ppt.py
 add_agentscope_slides.py
+
+# Local API keys — never commit
+Apikey.txt

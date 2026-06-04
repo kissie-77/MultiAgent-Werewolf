@@ -2,7 +2,7 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
@@ -29,7 +29,7 @@
 |----------|------|
 | `evaluation/core/` | runner、checkers、scenarios |
 | `evaluation/post_game/` | pipeline、Coach、eval_agent |
-| `evaluation/post_game/skill_generation/` | Skill 提取、MD、写回 `skills/<role>/<version>/` |
+| `evaluation/post_game/skill_generation/` | Skill 提取、场景合并（+0.15）、稀疏 bump 写回 `skills/<role>/<version>/` |
 | `evaluation/scoring/` | intention、benefit、belief_calibration |
 | `evaluation/log_views/` | POV 视图 |
 | `evaluation/leaderboard/` | entry、A/B CLI |

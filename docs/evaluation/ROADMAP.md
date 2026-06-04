@@ -2,7 +2,7 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
@@ -27,6 +27,7 @@
 - [x] PostGame pipeline、`finalize_run`、PostGame API
 - [x] intention / mvp / benefit（部分）、camp_persuasion、counterfactual
 - [x] role_skills 全量提取 + 门控双写 `skills/<role>/<version>/`
+- [x] Skill 写库：`when_to_use` 相似合并（+0.15 权重）+ 稀疏 bump（仅新建时 vN→vN+1）
 - [x] prompt_evolver per-role + `restore_runtime_from_manifest`
 - [x] Leaderboard CLI、evolution runner、grading evidence 命令
 - [x] skill draft/active/deprecated 测试（test_skill_extractor 等）
@@ -64,6 +65,7 @@
 
 | 日期       | 摘要                                               |
 | ---------- | -------------------------------------------------- |
+| 2026-06-04 | Skill 写库：when_to_use 相似合并 +0.15、稀疏 bump；DESIGN §8.2 / §10 |
 | 2026-06-02 | PostGame 质量门控 + review-dashboard；DESIGN §5.2–§5.3 |
 | 2026-06-02 | 赛后质量门禁：运行时错误降置信度；新增公开事实无支撑 bad-case 检测 |
 | 2026-06-02 | eval_agent 复盘 structured 解析兜底；DESIGN §5.1    |

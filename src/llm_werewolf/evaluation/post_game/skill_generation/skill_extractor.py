@@ -27,6 +27,8 @@ _ACTIVATE_WEIGHT_THRESHOLD = 1.05
 _DEPRECATE_WEIGHT_THRESHOLD = 0.95
 _WINNING_SKILL_WEIGHT_DELTA = 0.10
 _LOSING_SKILL_WEIGHT_DELTA = -0.05
+_MERGE_WEIGHT_DELTA = 0.15
+_WHEN_TO_USE_MATCH_THRESHOLD = 0.78
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -241,7 +243,12 @@ def build_role_skills(ctx: RunContext, camp_report: CampPersuasionReport) -> dic
             }
             for s in skipped
         ],
-        "apply_policy": "run_scoped_md_only",
+        "apply_policy": "merge_when_to_use_then_sparse_bump",
+        "merge_policy": {
+            "match_field": "when_to_use",
+            "similarity_threshold": _WHEN_TO_USE_MATCH_THRESHOLD,
+            "weight_delta_on_merge": _MERGE_WEIGHT_DELTA,
+        },
     }
 
 
@@ -330,6 +337,145 @@ def is_eligible_for_agent_library(skill: dict[str, Any]) -> bool:
     return is_trusted_source_run(str(skill.get("source_run") or ""))
 
 
+def _when_to_use_from_skill(skill: dict[str, Any]) -> str:
+    card = skill.get("skill_card") or {}
+    return str(card.get("when_to_use") or "").strip()
+
+
+def _load_existing_skills_for_merge(
+    role_key: str,
+    skill_version: str,
+    *,
+    agent_skills_root: Path,
+) -> list[dict[str, Any]]:
+    from llm_werewolf.agent_team.skill_support.skill_markdown import extract_when_to_use, read_skill_markdown
+
+    role_dir = agent_skills_root / role_key / skill_version
+    if not role_dir.is_dir():
+        return []
+    items: list[dict[str, Any]] = []
+    for path in sorted(role_dir.glob("*.md")):
+        meta, body = read_skill_markdown(path)
+        when_to_use = str(meta.get("when_to_use") or extract_when_to_use(body) or "").strip()
+        items.append({
+            "skill_id": str(meta.get("skill_id") or path.stem),
+            "path": path,
+            "when_to_use": when_to_use,
+        })
+    return items
+
+
+def find_matching_library_skill(
+    candidate: dict[str, Any],
+    existing_items: list[dict[str, Any]],
+    *,
+    threshold: float = _WHEN_TO_USE_MATCH_THRESHOLD,
+) -> dict[str, Any] | None:
+    """Match a candidate skill to an existing library card by when_to_use similarity."""
+    from llm_werewolf.agent_team.memory.semantic_matching import similarity
+
+    when = _when_to_use_from_skill(candidate)
+    if not when:
+        return None
+    best: dict[str, Any] | None = None
+    best_score = 0.0
+    for item in existing_items:
+        existing_when = str(item.get("when_to_use") or "").strip()
+        if not existing_when:
+            continue
+        score = similarity(when, existing_when)
+        if score >= threshold and score > best_score:
+            best = item
+            best_score = score
+    return best
+
+
+def _merge_markdown_section(body: str, heading: str, incoming: str, merge_fn) -> str:
+    if not incoming:
+        return body
+    if heading not in body:
+        return f"{body.rstrip()}\n\n{heading}\n{incoming}\n"
+    idx = body.index(heading)
+    after = body[idx + len(heading) :]
+    next_heading = after.find("\n## ")
+    if next_heading == -1:
+        section_text = after.strip()
+        tail = ""
+    else:
+        section_text = after[:next_heading].strip()
+        tail = after[next_heading:]
+    merged = merge_fn(section_text, incoming) if section_text else incoming
+    return body[:idx] + heading + "\n" + merged + "\n" + tail
+
+
+def merge_candidate_into_existing_skill(
+    existing: dict[str, Any],
+    candidate: dict[str, Any],
+    *,
+    target_dir: Path,
+    weight_delta: float = _MERGE_WEIGHT_DELTA,
+) -> Path:
+    """Rewrite an existing library skill and bump its weight when scenarios match."""
+    from llm_werewolf.agent_team.memory.semantic_memory import clamp_weight
+    from llm_werewolf.agent_team.memory.semantic_matching import merge_card_contents
+    from llm_werewolf.agent_team.skill_support.skill_markdown import (
+        read_skill_markdown,
+        render_frontmatter_markdown,
+    )
+
+    source_path = Path(existing["path"])
+    path = target_dir / source_path.name
+    if not path.is_file() and source_path.is_file():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    meta, body = read_skill_markdown(path)
+    old_weight = float(meta.get("weight", 1.0))
+    meta["weight"] = f"{clamp_weight(old_weight + weight_delta):.2f}"
+    meta["use_count"] = str(int(meta.get("use_count", 0) or 0) + 1)
+    meta["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if candidate.get("source_run"):
+        meta["source_run"] = str(candidate["source_run"])
+
+    card = candidate.get("skill_card") or {}
+    body = _merge_markdown_section(
+        body,
+        "## 公开行为",
+        str(card.get("public_behavior") or "").strip(),
+        merge_card_contents,
+    )
+    body = _merge_markdown_section(
+        body,
+        "## 避免",
+        str(card.get("avoid") or "").strip(),
+        merge_card_contents,
+    )
+    rationale = str(candidate.get("rationale") or "").strip()
+    if rationale:
+        body = _merge_markdown_section(body, "## 提取依据", rationale, merge_card_contents)
+
+    path.write_text(render_frontmatter_markdown(meta, body), encoding="utf-8")
+    return path
+
+
+def _copy_skills_to_new_version(
+    role_key: str,
+    *,
+    base_version: str,
+    new_version: str,
+    agent_skills_root: Path,
+) -> None:
+    source_dir = agent_skills_root / role_key / base_version
+    target_dir = agent_skills_root / role_key / new_version
+    target_dir.mkdir(parents=True, exist_ok=True)
+    if not source_dir.is_dir():
+        return
+    for path in source_dir.glob("*.md"):
+        target_path = target_dir / path.name
+        if not target_path.is_file():
+            target_path.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def write_skill_markdown_files(
     skills: list[dict[str, Any]], *, run_skills_dir: Path, agent_skills_root: Path | None = None
 ) -> list[str]:
@@ -338,41 +484,82 @@ def write_skill_markdown_files(
     from llm_werewolf.strategy.role_version_manifest import get_active_manifest, set_active_manifest
 
     written: list[str] = []
-    library_roles: dict[str, list[dict[str, Any]]] = {}
-    for skill in skills:
-        if skill.get("status") == "skipped":
-            continue
-        role_key = str(skill.get("prompt_role_key") or "villager")
-        if agent_skills_root is not None and is_eligible_for_agent_library(skill):
-            library_roles.setdefault(role_key, []).append(skill)
+    merges_by_role: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}
+    new_by_role: dict[str, list[dict[str, Any]]] = {}
 
     manifest = get_active_manifest()
+    if agent_skills_root is not None:
+        for skill in skills:
+            if skill.get("status") == "skipped":
+                continue
+            if not is_eligible_for_agent_library(skill):
+                continue
+            role_key = str(skill.get("prompt_role_key") or "villager")
+            current_version = manifest.skill_version_for(role_key)
+            existing = _load_existing_skills_for_merge(
+                role_key,
+                current_version,
+                agent_skills_root=agent_skills_root,
+            )
+            match = find_matching_library_skill(skill, existing)
+            if match is not None:
+                merges_by_role.setdefault(role_key, []).append((match, skill))
+                skill["library_action"] = "merged"
+                skill["merged_into_skill_id"] = match["skill_id"]
+                skill["merge_weight_delta"] = _MERGE_WEIGHT_DELTA
+            else:
+                new_by_role.setdefault(role_key, []).append(skill)
+                skill["library_action"] = "created"
+
     role_new_versions: dict[str, str] = {}
-    for role_key, role_skills in library_roles.items():
-        current_version = manifest.skill_version_for(role_key)
-        new_version = skill_loader.next_skill_version(role_key, current_version)
-        skill_loader.copy_skills_to_new_version(
-            role_key,
-            base_version=current_version,
-            new_version=new_version,
-        )
-        role_new_versions[role_key] = new_version
-        role_dir = agent_skills_root / role_key / new_version  # type: ignore[operator]
-        for skill in role_skills:
+    library_roles = set(new_by_role) | set(merges_by_role)
+    for role_key in sorted(library_roles):
+        new_skills = new_by_role.get(role_key, [])
+        merge_pairs = merges_by_role.get(role_key, [])
+        if new_skills:
+            current_version = manifest.skill_version_for(role_key)
+            new_version = skill_loader.next_skill_version(role_key, current_version)
+            _copy_skills_to_new_version(
+                role_key,
+                base_version=current_version,
+                new_version=new_version,
+                agent_skills_root=agent_skills_root,  # type: ignore[arg-type]
+            )
+            role_new_versions[role_key] = new_version
+            target_version = new_version
+        else:
+            target_version = manifest.skill_version_for(role_key)
+
+        role_dir = agent_skills_root / role_key / target_version  # type: ignore[operator]
+        for existing, candidate in merge_pairs:
+            agent_path = merge_candidate_into_existing_skill(
+                existing,
+                candidate,
+                target_dir=role_dir,
+            )
+            candidate["agent_skill_path"] = str(agent_path)
+            candidate["skill_version"] = target_version
+            written.append(
+                f"agent_team/skills/{role_key}/{target_version}/{agent_path.name}"
+            )
+
+        for skill in new_skills:
             skill_id = str(skill.get("skill_id") or "skill")
             filename = f"{skill_id}.md"
             body = render_skill_markdown(skill)
             agent_path = role_dir / filename
             agent_path.write_text(body, encoding="utf-8")
             skill["agent_skill_path"] = str(agent_path)
-            skill["skill_version"] = new_version
-            written.append(f"agent_team/skills/{role_key}/{new_version}/{filename}")
+            skill["skill_version"] = target_version
+            written.append(f"agent_team/skills/{role_key}/{target_version}/{filename}")
 
     if role_new_versions:
         updated = manifest
         for role_key, version in role_new_versions.items():
             updated = updated.with_skill_version(role_key, version)
         set_active_manifest(updated)
+        skill_loader.list_role_skill_files.cache_clear()
+    elif merges_by_role:
         skill_loader.list_role_skill_files.cache_clear()
 
     for skill in skills:

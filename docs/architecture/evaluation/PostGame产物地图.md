@@ -192,7 +192,7 @@
 
 作用：
 
-- 本局提取出的 Skill 列表
+- 本局提取出的 Skill 列表与写库决策记录
 
 包含内容通常有：
 
@@ -201,11 +201,13 @@
 - 来源玩家
 - 证据
 - 质量门结果
-- `skill_card`
+- `skill_card`（含 `when_to_use`）
+- `apply_policy` / `merge_policy`（场景合并 + 稀疏 bump）
+- `library_action`（`merged` | `created`）、`merged_into_skill_id`（合并时）
 
 可以证明：
 
-- 你们已经能把对局经验结构化成 Skill 候选
+- 你们已经能把对局经验结构化成 Skill 候选，并在写库前按使用场景去重合并
 
 ### `skills/`
 

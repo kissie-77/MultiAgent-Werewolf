@@ -2,7 +2,7 @@
 
 > **模块**：agent_team
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 > **关联代码**：`src/llm_werewolf/agent_team/`
 
 ## 1. 目标
@@ -107,17 +107,19 @@ Bridge 层负责将 LLM 输出解析为结构化决策：
 ## 8. Skill 生命周期
 
 ```
-evaluation/post_game/coach 复盘
+evaluation/post_game/skill_extractor 复盘
+    → 写库前按 when_to_use 合并已有 card（+0.15）或新建（稀疏 bump vN→vN+1）
     → evaluation 写入 agent_team/skills/<role>/<skill_version>/
-    → agent_team/skill_loader 读取
-    → memory 注入描述或上下文
+    → agent_team/skill_loader 读取（默认 manifest / 磁盘 latest）
+    → memory 记录本局注入的 skill id；局末 ±权重
     → Agent 使用 skill 决策
 ```
 
 关键规则：
-- `evaluation` 可以写入 `agent_team/skills`
+- `evaluation` 可以写入 `agent_team/skills`（详见 [skills/README.md](../../src/llm_werewolf/agent_team/skills/README.md)）
 - `agent_team` 只读取 `agent_team/skills`
 - Skill 文件按 `skills/<role>/<version>/` 存放（guard/、prophet/、villager/、wolf/ 等）
+- **不是每局 bump 版本**：场景一致时原地合并；仅全新 skill 才 copy 到新版本目录
 
 ## 9. 兜底回复机制
 

@@ -114,7 +114,8 @@ run_dir/
 | 字段     | 说明                                                                          |
 | -------- | ----------------------------------------------------------------------------- |
 | 生成时机 | PostGame skill 提取步骤                                                       |
-| 内容     | 提取的 Skill 候选列表（skill_id、camp、status、weight、skill_card、evidence） |
+| 内容     | 提取的 Skill 候选列表（skill_id、camp、status、weight、skill_card、evidence、`library_action`、`merge_policy`） |
+| 写库策略 | `merge_when_to_use_then_sparse_bump`：场景一致合并 +0.15；仅新建时稀疏 bump 版本 |
 | 消费方   | skill MD 写入、coach 分析、leaderboard                                        |
 | 生成器   | `post_game/skill_generation/skill_extractor.py`                               |
 
@@ -122,8 +123,9 @@ run_dir/
 
 | 字段     | 说明                                                                     |
 | -------- | ------------------------------------------------------------------------ |
-| 生成时机 | skill 提取后，通过质量门控的候选写入                                     |
+| 生成时机 | skill 提取后，通过质量门控的候选写入共享库；或合并进已有 MD（不新建文件） |
 | 内容     | YAML frontmatter（skill_id、status、weight、when_to_use）+ Markdown 正文 |
+| 版本     | 新建 skill → bump `vN+1`；仅合并 → 原地更新当前版本                      |
 | 消费方   | runtime agent prompt 注入（`skill_loader.py`）、semantic memory          |
 | 生成器   | `skill_generation/skill_md.py` + `skill_extractor.py`                    |
 

@@ -384,3 +384,18 @@ def test_fanout_tracks_sub_phase_and_actor_seat(tmp_path) -> None:
     phase.data = {}
     on_event(phase)
     assert session.current_sub_phase is None   # a new GamePhase clears the sub-phase
+
+
+from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+
+
+def test_get_session_returns_registered_and_none() -> None:
+    game_session_manager.reset()
+    assert game_session_manager.get_session("nope") is None
+    session = GameSession(
+        run_id="abc", run_dir=__import__("pathlib").Path("."),
+        config_path=__import__("pathlib").Path("."), config_id="c",
+    )
+    game_session_manager._sessions["abc"] = session
+    assert game_session_manager.get_session("abc") is session
+    game_session_manager.reset()

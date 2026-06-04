@@ -249,6 +249,9 @@ class GameSessionManager:
     def reset(self) -> None:
         self._sessions.clear()
 
+    def get_session(self, run_id: str) -> GameSession | None:
+        return self._sessions.get(run_id)
+
     async def start_game(
         self,
         *,

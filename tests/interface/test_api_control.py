@@ -59,6 +59,9 @@ def test_capture_phase_snapshot_records_night_results(tmp_path: Path) -> None:
     gs.guard_protected = guarded
     gs.night_deaths.add(victim)
     gs.death_causes[victim] = "wolf_kill"
+    # Capture runs AFTER step() has advanced the phase out of NIGHT (the real
+    # pump ordering): night data is still present in the DAY phases.
+    gs.set_phase(GamePhase.DAY_DISCUSSION)
 
     session.capture_phase_snapshot()
 
@@ -69,6 +72,22 @@ def test_capture_phase_snapshot_records_night_results(tmp_path: Path) -> None:
     assert ln["poisoned_seat"] is None
 
 
+def test_capture_phase_snapshot_noop_while_phase_is_night(tmp_path: Path) -> None:
+    """While phase is NIGHT the resolution has not produced final deaths yet, and
+    the previous-night data has been cleared at NIGHT entry; capture is a no-op."""
+    session = _session(tmp_path)
+    engine = _engine_in_night()
+    session.engine = engine
+    gs = engine.game_state
+    gs.night_deaths.add(gs.players[0].player_id)
+    gs.death_causes[gs.players[0].player_id] = "wolf_kill"
+
+    assert gs.get_phase() == GamePhase.NIGHT
+    session.capture_phase_snapshot()
+
+    assert session.last_night == {}              # no capture while still NIGHT
+
+
 def test_capture_phase_snapshot_survives_next_phase_clear(tmp_path: Path) -> None:
     session = _session(tmp_path)
     engine = _engine_in_night()
@@ -77,6 +96,7 @@ def test_capture_phase_snapshot_survives_next_phase_clear(tmp_path: Path) -> Non
     gs.werewolf_target = gs.players[2].player_id
     gs.night_deaths.add(gs.players[2].player_id)
     gs.death_causes[gs.players[2].player_id] = "wolf_kill"
+    gs.set_phase(GamePhase.DAY_DISCUSSION)       # post-resolution phase (real ordering)
 
     session.capture_phase_snapshot()
     # simulate DAY_VOTING -> NIGHT clear
@@ -111,6 +131,49 @@ async def test_run_step_pump_completes_game(tmp_path: Path, monkeypatch: pytest.
     assert isinstance(result, str) and result
     ended = [e for e in events if e.event_type.value == "game_ended"]
     assert len(ended) == 1
+
+
+@pytest.mark.asyncio
+async def test_step_pump_captures_last_night_from_real_pump(
+    tmp_path: Path,
+) -> None:
+    """Drive the REAL pump (capture runs after step() advances the phase) and
+    assert session.last_night reflects the actual resolved night_deaths.
+
+    Regression guard: capture_phase_snapshot must NOT require phase==NIGHT,
+    because by the time the pump calls it the engine has already advanced past
+    NIGHT (NIGHT branch of step() runs next_phase() before returning)."""
+    import random
+    from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
+
+    random.seed(99)
+    session = _session(tmp_path)
+    engine = GameEngine(
+        create_game_config_from_player_count(6), information_hub=InformationHub()
+    )
+    engine.on_event = lambda _e: None
+    players = [DemoAgent(name=f"P{i}", model="demo", seed=99) for i in range(6)]
+    roles = create_roles(role_names=engine.config.role_names)
+    engine.setup_game(players=players, roles=roles)
+    session.engine = engine
+
+    # Pump a single step at a time so we can observe capture after a resolved
+    # night while the game is still mid-flight (seed 99 -> player_6 dies night 1).
+    gs = engine.game_state
+    while gs.phase != GamePhase.DAY_DISCUSSION and not engine.is_over():
+        await engine.step()
+        session.capture_phase_snapshot()
+
+    assert sorted(gs.night_deaths) == ["player_6"]      # actual resolved death
+    assert session.last_night != {}                      # capture happened
+    assert session.last_night["deaths"] == [{"seat": 6, "cause": "werewolf"}]
+
+    # Run to completion via the real pump; final night kill must surface too.
+    result = await GameSessionManager._run_step_pump(session, dwell=0.0)
+    assert gs.phase == GamePhase.ENDED
+    assert isinstance(result, str) and result
+    assert session.last_night["deaths"]                  # non-empty at game end
+    assert all(d["seat"] is not None for d in session.last_night["deaths"])
 
 
 @pytest.mark.asyncio
@@ -282,6 +345,7 @@ async def test_state_reports_play_state_speed_and_last_night(tmp_path: Path) -> 
     gs.werewolf_target = gs.players[0].player_id
     gs.night_deaths.add(gs.players[0].player_id)
     gs.death_causes[gs.players[0].player_id] = "wolf_kill"
+    gs.set_phase(GamePhase.DAY_DISCUSSION)   # post-resolution phase (real ordering)
     session.capture_phase_snapshot()
     session.gate.clear()   # paused
     session.speed = 2

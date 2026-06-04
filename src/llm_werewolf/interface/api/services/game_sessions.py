@@ -160,15 +160,27 @@ class GameSession:
     last_night: dict[str, Any] = field(default_factory=dict)
 
     def capture_phase_snapshot(self) -> None:
-        """Snapshot night results BEFORE next_phase()/reset_deaths() clears them."""
+        """Snapshot night results BEFORE the next NIGHT entry clears them.
+
+        The pump calls this right after engine.step(), by which point the NIGHT
+        branch of step() has already run next_phase() and advanced the phase to a
+        post-resolution phase (DAY_DISCUSSION / SHERIFF_ELECTION / DAY_VOTING, or
+        ENDED when the night kill ended the game). night_deaths and friends stay
+        populated through those phases and are only cleared on the
+        DAY_VOTING -> NIGHT transition, so we must capture WHILE the data is
+        present (phase != NIGHT), NOT while phase == NIGHT (when it is empty).
+        """
         engine = self.engine
         state = getattr(engine, "game_state", None) if engine else None
         if state is None:
             return
-        if state.get_phase() != GamePhase.NIGHT:
+        # No night data is present while still in NIGHT (it has been reset at
+        # NIGHT entry and the resolution's results land only after next_phase()),
+        # nor during SETUP. Capturing then would clobber the real snapshot.
+        if state.get_phase() in (GamePhase.NIGHT, GamePhase.SETUP):
             return
         deaths = [
-            {"seat": _seat_of(pid), "cause": state.death_causes.get(pid, "unknown")}
+            {"seat": _seat_of(pid), "cause": state.death_causes.get(pid)}
             for pid in sorted(state.night_deaths)
         ]
         self.last_night = {

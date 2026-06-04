@@ -8,8 +8,8 @@
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
-| CLI 入口 | ✅ Done | werewolf / werewolf-api / werewolf-eval / werewolf-evidence / werewolf-vote-swing |
-| 运行时装配 | ✅ Done | bootstrap、finalize_run、modes |
+| CLI 入口 | ✅ Done | werewolf / werewolf-api / werewolf-eval / werewolf-evidence / werewolf-vote-swing / **werewolf-watch** |
+| 运行时装配 | ✅ Done | bootstrap、finalize_run、modes、**observability log handler** |
 | 配置加载 | ✅ Done | YAML 解析 + 部分 CLI 覆盖 |
 | Web API 基础 | ✅ Done | FastAPI、actions + pages 路由 |
 | 控制台展示 | ✅ Done | CLI 挂载 `ui.ConsolePresenter`（TUI 已移除） |
@@ -23,7 +23,8 @@
 
 - [x] CLI 主入口（`werewolf <config>`、`--human_seat`、`--players`）
 - [x] 运行时装配（prepare_game_roster、wire_agentscope_after_setup）
-- [x] 对局结算（finalize_run → PostGame pipeline）
+- [x] 对局结算（finalize_run → PostGame pipeline + **告警 dispatch**）
+- [x] API `GET /ready`、会话 `post_game_status` / `alert_count`
 - [x] YAML 配置加载与解析
 - [x] FastAPI 应用与 CORS
 - [x] API 路由（games/start、status、post-game、pages/*）

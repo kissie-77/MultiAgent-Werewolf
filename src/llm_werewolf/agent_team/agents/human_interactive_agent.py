@@ -165,7 +165,10 @@ class HumanInteractiveAgent(BaseAgent):
                 or "被狼人" in stripped
                 or "击杀" in stripped
                 or "解药已用完" in stripped
+                or "解药不可用" in stripped
+                or "不能选择 save" in stripped
                 or "三选一" in stripped
+                or "二选一" in stripped
             ):
                 kept.append(stripped)
 
@@ -227,7 +230,14 @@ class HumanInteractiveAgent(BaseAgent):
         ):
             return _KIND_SPEECH, 0, False
 
-        if "三选一" in message or "救人(save)" in message:
+        if (
+            "女巫请睁眼" in message
+            or "三选一" in message
+            or "二选一" in message
+            or "救人(save)" in message
+            or "毒人(poison)" in message
+            or "WitchNightDecision" in message
+        ):
             return _KIND_WITCH, 0, False
 
         multi = re.search(r"选择\s*(\d+)\s*个不同目标", message) or re.search(
@@ -251,8 +261,10 @@ class HumanInteractiveAgent(BaseAgent):
         return _KIND_SPEECH, 0, False
 
     @staticmethod
-    def _hint(kind: str, n: int, allow_skip: bool) -> str:
+    def _hint(kind: str, n: int, allow_skip: bool, *, allow_witch_save: bool = True) -> str:
         if kind == _KIND_WITCH:
+            if not allow_witch_save:
+                return "[dim]毒人输入「毒 座位号」(如 毒 3)；不行动输入 0 或直接回车。[/dim]"
             return "[dim]救人输入「救」；毒人输入「毒 座位号」(如 毒 3)；不行动输入 0 或直接回车。[/dim]"
         if kind == _KIND_MULTI:
             return f"[dim]请输入 {n} 个不同座位号，用空格分隔，例如 3 5。[/dim]"
@@ -265,7 +277,13 @@ class HumanInteractiveAgent(BaseAgent):
         return "[dim]请输入你的发言（完整中文，至少 15 字）。[/dim]"
 
     @staticmethod
-    def _confirmation(kind: str, normalized: str) -> str:
+    def _is_werewolf_kill_prompt(message: str) -> bool:
+        return "狼人请睁眼" in message or "今晚你要刀谁" in message
+
+    @staticmethod
+    def _confirmation(
+        kind: str, normalized: str, *, is_werewolf_kill: bool = False
+    ) -> str:
         if kind == _KIND_SPEECH:
             return f"已提交发言：{normalized}"
         if kind == _KIND_WITCH:
@@ -276,6 +294,8 @@ class HumanInteractiveAgent(BaseAgent):
             return f"已提交选择：{'是' if normalized == '1' else '否'}"
         if normalized == "0":
             return "已提交：跳过 / 弃票"
+        if kind == _KIND_SEAT and is_werewolf_kill:
+            return f"已提交你的狼刀票：座位 {normalized}；最终刀口以狼队结算为准"
         return f"已提交目标：座位 {normalized}"
 
     @staticmethod
@@ -307,6 +327,22 @@ class HumanInteractiveAgent(BaseAgent):
         return seats
 
     @staticmethod
+    def _witch_save_allowed(message: str) -> bool:
+        if "救人(save)" not in message and "救今晚刀口" not in message:
+            return False
+        return not any(
+            marker in message
+            for marker in (
+                "解药已用完",
+                "解药已耗尽",
+                "解药不可用",
+                "不能救",
+                "不能选择 save",
+                "没有可救刀口",
+            )
+        )
+
+    @staticmethod
     def _looks_like_valid_speech(text: str) -> bool:
         if len(text) < 15:
             return False
@@ -328,6 +364,7 @@ class HumanInteractiveAgent(BaseAgent):
         raw: str,
         *,
         option_seats: set[int] | None = None,
+        allow_witch_save: bool = True,
     ) -> tuple[str | None, str]:
         text = raw.strip()
         low = text.lower()
@@ -356,6 +393,8 @@ class HumanInteractiveAgent(BaseAgent):
             if text in {"", "0"} or "不行动" in text or "none" in low or "跳过" in text:
                 return "none", ""
             if "救" in text or "save" in low:
+                if not allow_witch_save:
+                    return None, "解药已用完或本夜没有可救刀口，不能救人；请输入 毒 座位号 或 0。"
                 return "救", ""
             if "毒" in text or "poison" in low:
                 nums = re.findall(r"\d+", text)
@@ -393,9 +432,11 @@ class HumanInteractiveAgent(BaseAgent):
     async def get_response(self, message: str) -> str:
         kind, n, allow_skip = self._classify(message)
         option_seats = self._extract_option_seats(message)
+        allow_witch_save = kind == _KIND_WITCH and self._witch_save_allowed(message)
+        is_werewolf_kill = kind == _KIND_SEAT and self._is_werewolf_kill_prompt(message)
         console.print(f"\n[bold cyan]──── 轮到你（{self.name}）────[/bold cyan]")
         console.print(self._render_prompt(message, kind=kind))
-        console.print(self._hint(kind, n, allow_skip))
+        console.print(self._hint(kind, n, allow_skip, allow_witch_save=allow_witch_save))
 
         raw = ""
         for _ in range(_MAX_ATTEMPTS):
@@ -410,9 +451,15 @@ class HumanInteractiveAgent(BaseAgent):
                 allow_skip,
                 raw,
                 option_seats=option_seats,
+                allow_witch_save=allow_witch_save,
             )
             if normalized is not None:
-                console.print(f"[green]{self._confirmation(kind, normalized)}[/green]")
+                confirmation = self._confirmation(
+                    kind,
+                    normalized,
+                    is_werewolf_kill=is_werewolf_kill,
+                )
+                console.print(f"[green]{confirmation}[/green]")
                 self._print_waiting_hint()
                 return normalized
             console.print(f"[yellow]{error}[/yellow]")

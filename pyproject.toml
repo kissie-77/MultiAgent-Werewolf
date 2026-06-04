@@ -104,6 +104,7 @@ werewolf = "llm_werewolf.interface.cli.entry:entry"
 werewolf-eval = "llm_werewolf.interface.eval_cli:entry"
 werewolf-evidence = "llm_werewolf.interface.evidence_cli:entry"
 werewolf-vote-swing = "llm_werewolf.interface.vote_swing_cli:entry"
+werewolf-watch = "llm_werewolf.interface.watch_cli:entry"
 werewolf-api = "llm_werewolf.interface.api.app:main"
 
 [dependency-groups]

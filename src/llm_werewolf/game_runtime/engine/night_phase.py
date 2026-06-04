@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.types import Camp, EventType, GamePhase, PlayerProtocol
+from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
@@ -66,7 +66,7 @@ class NightPhaseMixin:
             w for w in werewolves if w.player_id != werewolf.player_id
         ]
         possible_targets = [
-            p for p in self.game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
+            p for p in self.game_state.get_alive_players() if not participates_in_wolf_team(p)
         ]
         werewolf_names = [w.name for w in werewolves]
         target_names = [p.name for p in possible_targets]
@@ -169,7 +169,7 @@ class NightPhaseMixin:
         )
 
         possible_targets = [
-            p for p in self.game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
+            p for p in self.game_state.get_alive_players() if not participates_in_wolf_team(p)
         ]
         if not possible_targets:
             return messages

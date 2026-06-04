@@ -6,6 +6,7 @@ from llm_werewolf.game_runtime.types import (
     GameStateProtocol,
 )
 from llm_werewolf.game_runtime.roles.base import Role
+from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 
 
 def build_werewolf_team_context(
@@ -40,8 +41,9 @@ class Werewolf(Role):
 
         teammates = [
             player.name
-            for player in game_state.get_players_by_camp(Camp.WEREWOLF)
+            for player in game_state.get_alive_players()
             if player.player_id != self.player.player_id and player.is_alive()
+            and participates_in_wolf_team(player)
         ]
         if teammates:
             notes.append(f"存活的狼队友：{', '.join(teammates)}。")

@@ -2,7 +2,7 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-05-26
+> **最后更新**：2026-06-02
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
@@ -34,10 +34,12 @@
 | `evaluation/log_views/` | POV 视图 |
 | `evaluation/leaderboard/` | entry、A/B CLI |
 | `evaluation/evolution/` | `run_evolution_cycle`、manifest |
+| `evaluation/signals/` | run 产物扫描信号（供 observability / `werewolf-watch`） |
 
 ## 依赖关系
 
 - **可依赖**：`game_runtime`、`strategy`、`agent_team`
+- **不可依赖**：`observability`（质量信号由 observability 只读调用 `evaluation/signals/`）
 - **被依赖**：`interface`（finalize_run、werewolf-eval、PostGame API）
 - **可写入**：`agent_team/skills/<role>/<skill_version>/`
 
@@ -49,6 +51,7 @@
 |------|------|
 | [DESIGN.md](./DESIGN.md) | 设计、产物、Leaderboard、自进化、边界（**单一真相**） |
 | [ROADMAP.md](./ROADMAP.md) | 进度与计划 |
+| [review-dashboard.html](./review-dashboard.html) | 复盘系统静态可视化（浏览器打开，备查 PostGame 流水线与产物） |
 
 历史专题原文已迁至 [architecture/evaluation/](../architecture/evaluation/)，内容已合并进 DESIGN，**勿再单独维护**。
 

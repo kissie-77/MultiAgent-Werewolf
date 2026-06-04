@@ -183,10 +183,19 @@ def get_run(
 def replay_page(
     run_id: str,
     source: str | None = Query(None, pattern="^(runs|eval)$"),
+    view: str = Query("public", pattern="^(public|god)$"),
+    viewer_id: str | None = Query(None),
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[ReplayPageData]:
-    page = get_replay_page(run_id, runs_dir, eval_runs_dir, source=source)
+    page = get_replay_page(
+        run_id,
+        runs_dir,
+        eval_runs_dir,
+        source=source,
+        view=view,
+        viewer_id=viewer_id,
+    )
     if page is None:
         raise HTTPException(status_code=404, detail=f"Replay not found: {run_id}")
     return ApiResponse(data=page)

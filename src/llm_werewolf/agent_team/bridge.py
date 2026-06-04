@@ -342,10 +342,25 @@ class WerewolfAdapterBridge:
         object.__setattr__(agent, "_last_decision_metadata", None)
 
     @staticmethod
+    def _with_formal_vote_reason(
+        decision: SeatChoiceDecision, target: PlayerProtocol | None
+    ) -> SeatChoiceDecision:
+        if not validate_seat_choice_reason(decision):
+            return decision
+
+        if decision.seat == 0:
+            reason = "模型未提供正式投票理由，保留其弃票选择。"
+        else:
+            target_name = target.name if target is not None else f"{decision.seat}号"
+            reason = f"模型未提供正式投票理由，保留其投票目标：{target_name}。"
+        return decision.model_copy(update={"reason": reason})
+
+    @staticmethod
     def build_witch_night_prompt(
         role_name: str,
         *,
         can_see_victim: bool,
+        can_save: bool,
         victim_line: str,
         poison_targets: list[PlayerProtocol],
         additional_context: str = "",
@@ -360,8 +375,8 @@ class WerewolfAdapterBridge:
 
         if can_see_victim and victim_line:
             prompt_parts.extend(["", victim_line])
-        elif not can_see_victim:
-            prompt_parts.extend(["", "你的解药已用完，系统不会告知今晚狼人刀口是谁。"])
+        elif not can_save:
+            prompt_parts.extend(["", "本夜没有可救刀口信息，不能选择 save。"])
 
         if additional_context:
             prompt_parts.extend(["", additional_context, ""])
@@ -375,16 +390,29 @@ class WerewolfAdapterBridge:
                     f"- 座位 {seat_label}：{target.name}（ID: {target.player_id}）"
                 )
 
-        prompt_parts.extend([
-            "",
-            "请在本回合三选一：救人(save) / 毒人(poison) / 不行动(none)。",
-            "救人仅当仍有解药且本提示给出了刀口目标；毒人需指定 seat。",
-        ])
+        prompt_parts.append("")
+        if can_save and poison_targets:
+            prompt_parts.extend([
+                "请在本回合三选一：救人(save) / 毒人(poison) / 不行动(none)。",
+                "救人会使用解药救今晚刀口；毒人需指定 seat。",
+            ])
+        elif can_save:
+            prompt_parts.extend([
+                "请在本回合二选一：救人(save) / 不行动(none)。",
+                "救人会使用解药救今晚刀口。",
+            ])
+        elif poison_targets:
+            prompt_parts.extend([
+                "请在本回合二选一：毒人(poison) / 不行动(none)。",
+                "解药不可用或没有可救刀口，不能选择 save；毒人需指定 seat。",
+            ])
+        else:
+            prompt_parts.append("本回合没有可执行药水行动，请选择不行动(none)。")
         prompt_parts.extend(["", action_phase_instruction(ActionPhase.WITCH_NIGHT)])
         if structured:
             prompt_parts.extend([
                 "",
-                witch_night_schema_instruction(can_see_victim=can_see_victim),
+                witch_night_schema_instruction(can_save=can_save),
             ])
         return "\n".join(prompt_parts)
 
@@ -394,6 +422,7 @@ class WerewolfAdapterBridge:
         role_name: str,
         *,
         can_see_victim: bool,
+        can_save: bool,
         victim_line: str,
         poison_targets: list[PlayerProtocol],
         additional_context: str = "",
@@ -408,6 +437,7 @@ class WerewolfAdapterBridge:
         prompt = WerewolfAdapterBridge.build_witch_night_prompt(
             role_name,
             can_see_victim=can_see_victim,
+            can_save=can_save,
             victim_line=victim_line,
             poison_targets=poison_targets,
             additional_context=additional_context,
@@ -420,11 +450,18 @@ class WerewolfAdapterBridge:
             if structured:
                 result = await invoke_structured(agent, prompt, WitchNightDecision)
                 if isinstance(result, WitchNightDecision):
+                    if result.action == "save" and not can_save:
+                        WerewolfAdapterBridge._store_decision_metadata(
+                            agent, None, decision=default
+                        )
+                        return default
                     WerewolfAdapterBridge._store_decision_metadata(agent, None, decision=result)
                     return result
             response = await agent.get_response(prompt)
             lowered = response.lower()
             if "save" in lowered or "救" in response:
+                if not can_save:
+                    return default
                 return WitchNightDecision(action="save", seat=0, reason=response[:200])
             if "poison" in lowered or "毒" in response:
                 seat_match = re.search(r"\[\[\s*(\d+)\s*\]\]", response)
@@ -805,11 +842,11 @@ class WerewolfAdapterBridge:
             if structured:
                 result = await invoke_structured(agent, prompt, SeatChoiceDecision)
                 if isinstance(result, SeatChoiceDecision):
-                    if require_reason:
-                        errors = validate_seat_choice_reason(result)
-                        if errors:
-                            raise ValueError(errors[0])
                     if allow_skip and result.seat == 0:
+                        if require_reason:
+                            result = WerewolfAdapterBridge._with_formal_vote_reason(
+                                result, None
+                            )
                         WerewolfAdapterBridge._store_decision_metadata(
                             agent, None, decision=result
                         )
@@ -818,6 +855,10 @@ class WerewolfAdapterBridge:
                         result.seat, possible_targets
                     )
                     if target is not None:
+                        if require_reason:
+                            result = WerewolfAdapterBridge._with_formal_vote_reason(
+                                result, target
+                            )
                         WerewolfAdapterBridge._store_decision_metadata(
                             agent, target, decision=result
                         )

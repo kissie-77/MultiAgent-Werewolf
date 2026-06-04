@@ -149,11 +149,20 @@ def page_model_detail(
 def page_replay(
     run_id: str = Query(...),
     source: str | None = Query(None, pattern="^(runs|eval)$"),
+    view: str = Query("public", pattern="^(public|god)$"),
+    viewer_id: str | None = Query(None),
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[Any]:
     """本局游戏复盘页。"""
-    data = build_replay_page_enriched(run_id, runs_dir, eval_runs_dir, source=source)
+    data = build_replay_page_enriched(
+        run_id,
+        runs_dir,
+        eval_runs_dir,
+        source=source,
+        view=view,
+        viewer_id=viewer_id,
+    )
     if data is None:
         raise HTTPException(status_code=404, detail=f"Replay not found: {run_id}")
     return ApiResponse(data=data.model_dump())

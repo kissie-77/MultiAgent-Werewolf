@@ -116,6 +116,11 @@ class DayPhaseMixin:
             )
         else:
             opening_announcement = self.locale.get("peaceful_night_announcement")
+            self._log_event(
+                EventType.MESSAGE,
+                self.locale.get("peaceful_night"),
+                data={"action": "night_result", "result": "peaceful_night"},
+            )
 
         messages.append(opening_announcement)
         messages.append(self.locale.get("discussion_phase_separator"))

@@ -16,6 +16,7 @@ from llm_werewolf.evaluation.core.vote_swing_analysis import (
     VoteSwingReport,
     analyze_path,
     format_markdown_report,
+    load_speech_records,
 )
 
 
@@ -132,6 +133,32 @@ def _annotate_swings(
     return annotated
 
 
+def _speaker_advocated_targets(ctx: RunContext) -> dict[tuple[str, int], str]:
+    """发言者在当条 public 意向记录中自身主张的放逐目标。"""
+    try:
+        records = load_speech_records(ctx.run_dir)
+    except (FileNotFoundError, ValueError):
+        records = []
+    out: dict[tuple[str, int], str] = {}
+    for raw in records:
+        if str(raw.get("channel", "")) not in {"", "public"}:
+            continue
+        speaker_id = str(raw.get("speaker_id", ""))
+        rnd = int(raw.get("round_number", 0))
+        if not speaker_id or not rnd:
+            continue
+        after = raw.get("after") or {}
+        if not isinstance(after, dict):
+            continue
+        entry = after.get(speaker_id)
+        if not isinstance(entry, dict):
+            continue
+        target_id = entry.get("target_id")
+        if target_id:
+            out[(speaker_id, rnd)] = str(target_id)
+    return out
+
+
 def _matched_elimination_for_speaker(
     *,
     speaker_camp: str | None,
@@ -139,17 +166,27 @@ def _matched_elimination_for_speaker(
     elim_target_camp: str | None,
     camp_swings: list[CampAlignedSwing],
     drive_count: int,
+    speaker_advocated_target: str | None = None,
 ) -> bool:
-    """按阵营判断「发言是否推动当轮实际放逐」。"""
-    if not elim_target or drive_count <= 0:
+    """按阵营判断「发言是否推动当轮实际放逐且结果对发言方阵营有利」。
+
+    好人侧误出同伴（如抗推预言家）不算 matched，即使有人意向摇摆指向最终出局者。
+    终局全员已对齐、无 swing 但发言者意向即当轮出局者时仍算 matched。
+    """
+    if not elim_target:
         return False
+    camp_favorable = False
     if speaker_camp == Camp.WEREWOLF.value:
-        return elim_target_camp == Camp.VILLAGER.value
-    if speaker_camp == Camp.VILLAGER.value:
-        if elim_target_camp == Camp.WEREWOLF.value:
-            return True
-        return drive_count >= 1
-    return any(s.to_target_id == elim_target for s in camp_swings)
+        camp_favorable = elim_target_camp == Camp.VILLAGER.value
+    elif speaker_camp == Camp.VILLAGER.value:
+        camp_favorable = elim_target_camp == Camp.WEREWOLF.value
+    else:
+        return False
+    if not camp_favorable:
+        return False
+    if drive_count > 0:
+        return True
+    return speaker_advocated_target == elim_target
 
 
 def _persuasion_score_for_speech(
@@ -178,6 +215,7 @@ def build_camp_persuasion_report(
         swing_report = analyze_path(ctx.run_dir)
 
     elim_by_round = _eliminations_by_round(ctx)
+    advocated_targets = _speaker_advocated_targets(ctx)
     report = CampPersuasionReport(winner_camp=ctx.winner_camp, prompt_version=ctx.prompt_version)
 
     for speech in swing_report.speech_influences:
@@ -188,12 +226,14 @@ def build_camp_persuasion_report(
         elim_target = elim_by_round.get(speech.round_number)
         elim_target_camp = target_id_to_camp(elim_target, ctx.roster) if elim_target else None
         drive_count = sum(1 for s in camp_swings if elim_target and s.to_target_id == elim_target)
+        advocated = advocated_targets.get((speech.speaker_id, speech.round_number))
         matched_elim = _matched_elimination_for_speaker(
             speaker_camp=speaker_camp,
             elim_target=elim_target,
             elim_target_camp=elim_target_camp,
             camp_swings=camp_swings,
             drive_count=drive_count,
+            speaker_advocated_target=advocated,
         )
         camp_score = _persuasion_score_for_speech(
             aligned_count=aligned_count,

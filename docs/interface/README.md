@@ -34,10 +34,11 @@
 | `interface/eval_cli.py` | `werewolf-eval` |
 | `interface/evidence_cli.py` | `werewolf-evidence` |
 | `interface/vote_swing_cli.py` | `werewolf-vote-swing` |
+| `interface/watch_cli.py` | `werewolf-watch`（run 产物告警巡检） |
 
 ## 依赖关系
 
-- **可依赖**：`game_runtime`、`agent_team`、`strategy`、`evaluation`、`ui`
+- **可依赖**：`game_runtime`、`agent_team`、`strategy`、`evaluation`、`ui`、**`observability`**（装配告警 hook）
 - **被依赖**：无（装配层，不被其他业务模块依赖）
 
 ## 文档索引
@@ -78,4 +79,7 @@ uv run werewolf-vote-swing <run_dir>
 #   一键：双击 start-spectate.bat（等前端就绪自动开 http://127.0.0.1:5173；务必用 127.0.0.1，勿用 localhost）
 #   手动：uv run werewolf-api --host 127.0.0.1 --port 8000  ＋  cd frontend && npm run dev:spectate
 #   进页面在 DeepSeek 栏填 key、model 选 deepseek-chat 即可开局；顶部控制条暂停/单步/变速。详见 DESIGN §11。
+
+# 告警巡检（默认只写 artifacts/alerts/alerts.json）
+uv run werewolf-watch --since 24h
 ```

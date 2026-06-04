@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.evaluation.log_views.builder import write_log_views
+from llm_werewolf.evaluation.log_views.builder import build_public_digest, write_log_views
 from llm_werewolf.evaluation.log_views.filters import (
     strip_thinking,
     event_is_visible_to,
@@ -22,6 +22,11 @@ def test_visible_to_private_event() -> None:
     event = {"event_type": "night_action", "message": "secret", "visible_to": ["player_2"]}
     assert event_is_visible_to(event, "player_2")
     assert not event_is_visible_to(event, "player_1")
+
+
+def test_malformed_visible_to_is_not_public() -> None:
+    event = {"event_type": "night_action", "message": "secret", "visible_to": "player_2"}
+    assert not event_is_visible_to(event, "player_2")
 
 
 def test_filter_events_for_player() -> None:
@@ -80,3 +85,35 @@ def test_write_log_views_creates_manifest(tmp_path: Path) -> None:
     assert (tmp_path / "views_manifest.json").is_file()
     assert (tmp_path / "views" / "public_digest.md").is_file()
     assert len(manifest.views) >= 3
+
+
+def test_public_digest_excludes_replay_only_snapshots() -> None:
+    events = [
+        {
+            "event_type": "player_speech",
+            "round_number": 1,
+            "phase": "day_discussion",
+            "message": "公开发言",
+            "visible_to": None,
+        },
+        {
+            "event_type": "vote_intention_snapshot",
+            "round_number": 1,
+            "phase": "day_discussion",
+            "message": "私密投票意向",
+            "visible_to": [],
+        },
+        {
+            "event_type": "belief_snapshot",
+            "round_number": 1,
+            "phase": "day_discussion",
+            "message": "私密信念矩阵",
+            "visible_to": None,
+        },
+    ]
+
+    digest = build_public_digest(events)
+
+    assert "公开发言" in digest
+    assert "私密投票意向" not in digest
+    assert "私密信念矩阵" not in digest

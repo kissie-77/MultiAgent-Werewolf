@@ -34,6 +34,26 @@ def test_roster_from_role_acting_events() -> None:
     assert roster["player_1"].role_name == "Werewolf"
 
 
+def test_roster_from_hunter_message_and_revenge() -> None:
+    events = [
+        {
+            "event_type": "message",
+            "round_number": 5,
+            "phase": "night",
+            "data": {"player_id": "player_12", "role": "Hunter"},
+        },
+        {
+            "event_type": "hunter_revenge",
+            "round_number": 5,
+            "phase": "night",
+            "data": {"shooter_id": "player_12", "target_id": "player_5", "role": "Hunter"},
+        },
+    ]
+    roster = roster_from_events(events)
+    assert roster["player_12"].role_name == "Hunter"
+    assert roster["player_12"].camp == "villager"
+
+
 def test_load_run_context_doubao_run_roster() -> None:
     run_dir = Path("artifacts/runs/doubao-9p-20260525-170043")
     if not (run_dir / "events.jsonl").is_file():

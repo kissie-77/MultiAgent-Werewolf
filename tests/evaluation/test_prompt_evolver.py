@@ -29,6 +29,7 @@ def test_evolve_prompt_from_run_generates_runtime_readable_version(tmp_path: Pat
                         "kind": "positive_persuasion",
                         "priority": 1,
                         "confidence_score": 0.91,
+                        "evidence": {"matched_round_elimination": True},
                         "suggested_patch": {
                             "section": "vote_closing",
                             "target_field": "phase_strategies.vote_closing",
@@ -44,6 +45,7 @@ def test_evolve_prompt_from_run_generates_runtime_readable_version(tmp_path: Pat
                         "kind": "mvp_golden_quote",
                         "priority": 2,
                         "confidence_score": 0.88,
+                        "evidence": {"matched_elimination": True},
                         "suggested_patch": {
                             "section": "examples",
                             "target_field": "examples",
@@ -252,6 +254,7 @@ def test_evolve_prompt_replaces_same_family_example(tmp_path: Path) -> None:
                         "kind": "mvp_golden_quote",
                         "priority": 1,
                         "confidence_score": 0.9,
+                        "evidence": {"matched_elimination": True},
                         "suggested_patch": {
                             "section": "examples",
                             "target_field": "examples",
@@ -281,6 +284,49 @@ def test_evolve_prompt_replaces_same_family_example(tmp_path: Path) -> None:
     )
     assert "新版归票示例" in wolf["examples"]
     assert wolf["examples"].count("归票") == 1
+
+
+def test_evolve_prompt_skips_positive_without_matched_elimination(tmp_path: Path) -> None:
+    run_dir = tmp_path / "v1_initial"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir.joinpath("prompt_proposals.json").write_text(
+        json.dumps(
+            {
+                "schema": "prompt_proposals_v3",
+                "prompt_version_base": "v1",
+                "proposal_count": 1,
+                "proposals": [
+                    {
+                        "proposal_id": "high_conf_no_match",
+                        "prompt_role_key": "wolf",
+                        "target_variable": "v2.role.wolf",
+                        "status": "draft",
+                        "kind": "positive_persuasion",
+                        "priority": 1,
+                        "confidence_score": 0.91,
+                        "evidence": {"matched_round_elimination": False},
+                        "suggested_patch": {
+                            "section": "vote_closing",
+                            "target_field": "phase_strategies.vote_closing",
+                            "action": "update_rule",
+                            "text_zh": "高置信但未 matched 的规则不应采纳。",
+                        },
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    result = evolve_prompt_from_run(
+        run_dir,
+        base_prompt_version="v1",
+        output_root=tmp_path / "prompt_versions",
+    )
+
+    assert result.applied_count == 0
 
 
 def test_evolve_prompt_skips_low_confidence_proposals(tmp_path: Path) -> None:
@@ -382,6 +428,7 @@ def test_evolve_prompt_uses_history_support_to_raise_confidence(tmp_path: Path) 
                         "kind": "positive_persuasion",
                         "priority": 1,
                         "confidence_score": 0.63,
+                        "evidence": {"matched_round_elimination": True},
                         "suggested_patch": {
                             "section": "vote_closing",
                             "target_field": "phase_strategies.vote_closing",

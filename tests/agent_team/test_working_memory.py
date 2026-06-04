@@ -102,6 +102,21 @@ def test_get_context_groups_belief_separately() -> None:
     assert "程序记忆" in context
 
 
+def test_get_context_groups_role_pool_as_fixed_game_info() -> None:
+    memory = WorkingMemory()
+    memory.upsert_persistent("【本局角色池】Werewolf x2, Villager x2", tag="role_pool", priority=8)
+    memory.add_persistent("程序记忆", tag="procedural", priority=3)
+
+    context = memory.get_context()
+
+    assert "【本局固定信息】" in context
+    assert "【本局角色池】Werewolf x2, Villager x2" in context
+    assert "【稳定经验】" in context
+    assert "程序记忆" in context
+    stable_block = context.split("【稳定经验】", 1)[1]
+    assert "【本局角色池】" not in stable_block
+
+
 def test_get_context_can_exclude_belief_blocks() -> None:
     memory = WorkingMemory()
     memory.upsert_persistent("矩阵摘要", tag="belief", priority=10)

@@ -194,6 +194,9 @@ class ConsolePresenter:
             if event.event_type == EventType.PLAYER_SPEECH:
                 self._present_live_speech(event)
                 return
+            if event.event_type == EventType.PLAYER_DISCUSSION:
+                self._present_live_werewolf_discussion(event)
+                return
 
         # 处理阶段切换
         if event.event_type == EventType.PHASE_CHANGED:
@@ -355,6 +358,15 @@ class ConsolePresenter:
         player_name = event.data.get("player_name", "Unknown")
         speech = event.data.get("speech", "")
         console.print(f"\n💬 {player_name}: {speech}", style="cyan")
+
+    def _present_live_werewolf_discussion(self, event: Event) -> None:
+        """人类狼人视角下实时展示已可见的狼队夜聊。"""
+        if not event.data:
+            console.print(event.message, style="red")
+            return
+        player_name = event.data.get("player_name", "Unknown")
+        speech = event.data.get("speech", "")
+        console.print(f"\n🐺 {player_name}: {speech}", style="red")
 
     def _buffer_werewolf_discussion(self, event: Event) -> None:
         """缓冲狼人讨论以便分组展示。"""

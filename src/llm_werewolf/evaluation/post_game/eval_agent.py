@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import json
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 from agentscope.message import Msg as AgentScopeMsg
@@ -198,6 +199,45 @@ def build_replay_prompt(
     return "\n".join(sections)
 
 
+async def _invoke_eval_analyst(react_agent: Any, user_prompt: str) -> ReplayAnalysisDecision:
+    """结构化调用 eval analyst，含 429 重试与 plain JSON fallback。"""
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            input_msg = AgentScopeMsg(name="Moderator", content=user_prompt, role="user")
+            response_msg = await run_serial_agent_call(
+                lambda: react_agent(input_msg, structured_model=ReplayAnalysisDecision)
+            )
+            parsed = _parse_replay_decision(response_msg)
+            if parsed is not None:
+                return parsed
+            last_error = ValueError("empty eval agent response")
+        except Exception as exc:
+            last_error = exc
+            if "429" in str(exc) and attempt < 2:
+                await asyncio.sleep(2**attempt)
+                continue
+
+    plain_prompt = (
+        f"{user_prompt}\n\n"
+        "请不要调用工具，直接输出一个严格 JSON 对象，字段: summary_zh, prompt_suggestions, risks。\n"
+        "不要输出 Markdown、解释或额外文字。"
+    )
+    plain_msg = AgentScopeMsg(name="Moderator", content=plain_prompt, role="user")
+    try:
+        response_msg = await run_serial_agent_call(lambda: react_agent(plain_msg))
+        parsed = _parse_replay_decision(response_msg)
+        if parsed is not None:
+            return parsed
+    except Exception as exc:
+        last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    msg = "empty eval agent response"
+    raise ValueError(msg)
+
+
 async def run_eval_replay(
     ctx: RunContext,
     camp_report: CampPersuasionReport,
@@ -236,14 +276,7 @@ async def run_eval_replay(
             f"{prompt}\n\n请严格以 JSON 回复，字段: summary_zh, prompt_suggestions, risks。\n\n"
             f"{generate_response_instruction('ReplayAnalysisDecision')}"
         )
-        input_msg = AgentScopeMsg(name="Moderator", content=user_prompt, role="user")
-
-        response_msg = await run_serial_agent_call(
-            lambda: react_agent(input_msg, structured_model=ReplayAnalysisDecision)
-        )
-        parsed = _parse_replay_decision(response_msg)
-        if parsed is None:
-            raise ValueError("empty eval agent response")
+        parsed = await _invoke_eval_analyst(react_agent, user_prompt)
 
         return {
             "mode": "llm",

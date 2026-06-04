@@ -2,7 +2,7 @@
 
 > **模块**：architecture
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-03
 > **关联代码**：`src/llm_werewolf/strategy/`
 > **关联测试**：`tests/strategy/`
 > **Agent Skill**：`.agents/skills/generated/strategy/`
@@ -30,6 +30,7 @@
 | v2_20260601_172033_prompt | 2026-06-01 | `artifacts/prompt_versions/v2_20260601_172033_prompt/`             | 自进化 Prompt 快照       | 记录 6.1 迭代后的生成版 Prompt，父版本为 `v2`                                    | generated          |
 | v2_role_style_plans | 2026-06-02 | `PlanStrategies` + `PlayersConfig.plan_assignment`                 | 同模型同角色发言同质化问题 | 用角色专属风格 plan 做保守/激进/质疑/协调分流，支持手写与开局随机分配           | 已实现             |
 | v2_public_fact_boundary | 2026-06-02 | `EngineContexts.public_speech_information_boundary` + `PromptBadCaseChecker` | 人机混战公开发言幻觉 | 禁止把未公开出现的跳身份、救人、验人、刀口写成事实；赛后标记无支撑公开事实 claim | 已实现             |
+| v3_role_pool_boundary | 2026-06-03 | `factory.build_system_prompt` + `RuntimeMemoryManager` + per-role 角色卡 | 6 人局把不存在的守卫当成可能性 | 将本局真实角色池注入系统 prompt 与工作记忆，收紧“守卫/守护线”泛化话术 | 已实现 |
 
 ## v3 Per-role 版本控制（2026-05-26）
 
@@ -172,6 +173,32 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --plan_assignment role_r
 - 赛后 bad case：`PromptBadCaseChecker` 检测“公开事实无支撑”发言，例如在没有前置公开支撑时声称“2号跳女巫救了3号”，用于复盘和 prompt 调优定位。
 
 该修复不禁止玩家主动跳身份，也不禁止利用自己的私密信息制定策略；限制的是 public_speech 不能把未公开来源包装成“已经有人公开声明/已经发生”的事实。
+
+## 本局角色池边界加严（2026-06-03）
+
+6.3 人机/全 Agent 对局复盘发现，6 人局角色配置为 `Werewolf x2 + Seer x1 + Witch x1 + Villager x2`，不存在守卫；但部分 Agent 仍会在平安夜发言中提到“守卫守中”或“守护线”。根因不是角色分配错误，而是旧角色策略卡里存在狼人杀通用话术，同时“本局角色池”此前主要在白天阶段上下文里出现，没有稳定进入 Agent 开局系统 prompt 和工作记忆。
+
+本次修复把角色池边界作为运行时固定约束：
+
+- `agent_team/agents/factory.py` 在角色分配完成后统计真实角色池，并传入 `build_system_prompt()`。
+- `factory.build_system_prompt()` 将 `EngineContexts.role_pool_note()` 追加到系统 prompt 末尾，确保它压住前面的角色策略卡与 active Skill。
+- `AgentScopeWerewolfAgent` 保存 `role_counts`，保证真实 backend prompt 与本地 `chat_history` 镜像一致。
+- `RuntimeMemoryManager.on_game_start()` 将同一份角色池写入 `WorkingMemory` 常驻区，tag 为 `role_pool`，priority 为 `8`；`WorkingMemory.get_context()` 单独渲染为 `【本局固定信息】`，不再混入 `【稳定经验】`。
+- `EngineContexts.role_pool_note()` 增加兜底规则：如果长期策略、经验或示例提到未出现在本局角色池的身份，本局忽略这些身份。
+
+同时收紧 per-role 小包与 legacy v2 角色卡中的泛化话术：
+
+- 村民平安夜策略改为先核对本局角色池；如果本局没有守卫，不要解释成守卫守中。
+- 狼人、狼王、白狼平安夜策略改为只有本局角色池存在守卫时才讨论守护线，否则围绕刀口线、身份线和女巫用药空间推演。
+- 狼王示例中“女巫/守卫仍存活”改为“女巫或本局实际存在的防守神职仍存活”。
+
+验证：
+
+```bash
+uv run pytest tests/agent_team/test_factory_configure.py tests/game_runtime/test_prompt_manager.py tests/strategy/test_prompt_registry.py tests/strategy/test_role_prompt_registry.py tests/strategy/test_role_prompts.py -q --no-cov
+```
+
+结果：`38 passed`。新增回归断言系统 prompt 与工作记忆均包含 `【本局角色池】`，且 6 人局角色池中不出现 `Guard x`。
 
 ## v2_role_strategy 改动说明
 

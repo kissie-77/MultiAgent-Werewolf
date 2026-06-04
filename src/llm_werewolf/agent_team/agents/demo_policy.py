@@ -37,7 +37,14 @@ DEFAULT_SPEECH = (
 
 def classify_prompt(message: str) -> DemoPromptKind:
     """Map bridge-built prompts to a response strategy."""
-    if "三选一" in message or "救人(save)" in message or "WitchNightDecision" in message:
+    if (
+        "女巫请睁眼" in message
+        or "三选一" in message
+        or "二选一" in message
+        or "救人(save)" in message
+        or "毒人(poison)" in message
+        or "WitchNightDecision" in message
+    ):
         return DemoPromptKind.WITCH
     if "MindStateDecision" in message or "心智状态采集" in message:
         return DemoPromptKind.MIND_STATE

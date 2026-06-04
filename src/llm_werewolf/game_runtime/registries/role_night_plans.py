@@ -9,7 +9,10 @@ from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_se
 from llm_werewolf.game_runtime.types import Camp
 from llm_werewolf.strategy.role_prompts import GamePrompts
 from llm_werewolf.strategy.phase_outputs import ActionPhase
-from llm_werewolf.game_runtime.roles.names import is_untransformed_blood_moon
+from llm_werewolf.game_runtime.roles.names import (
+    is_untransformed_blood_moon,
+    participates_in_wolf_team,
+)
 from llm_werewolf.game_runtime.roles.werewolf import build_werewolf_team_context
 from llm_werewolf.game_runtime.actions.villager import (
     CupidLinkAction,
@@ -67,7 +70,9 @@ def _attach_decision_metadata(
 
 
 def _werewolf_context(role: Role, game_state: GameStateProtocol) -> str:
-    werewolves = [w for w in game_state.get_players_by_camp(Camp.WEREWOLF) if w.is_alive()]
+    werewolves = [
+        w for w in game_state.get_alive_players() if participates_in_wolf_team(w)
+    ]
     names = [w.name for w in werewolves]
     return build_werewolf_team_context(role, game_state, names)
 
@@ -77,7 +82,9 @@ async def _plan_werewolf_pack_vote(
 ) -> list[ActionProtocol]:
     if not role.player.is_alive() or not role.player.agent:
         return []
-    targets = [p for p in game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF]
+    targets = [
+        p for p in game_state.get_alive_players() if not participates_in_wolf_team(p)
+    ]
     if not targets:
         return []
     target = await interaction.request_seat_choice(
@@ -118,8 +125,10 @@ async def plan_white_wolf(
     if game_state.round_number % 2 == 1 and role.player.agent:
         wolf_targets = [
             p
-            for p in game_state.get_players_by_camp(Camp.WEREWOLF)
-            if p.is_alive() and p.player_id != role.player.player_id
+            for p in game_state.get_alive_players()
+            if p.is_alive()
+            and p.player_id != role.player.player_id
+            and participates_in_wolf_team(p)
         ]
         if wolf_targets:
             target = await interaction.request_seat_choice(
@@ -168,7 +177,9 @@ async def plan_guardian_wolf(
     role: GuardianWolf, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
     actions: list[ActionProtocol] = []
-    wolf_targets = [p for p in game_state.get_players_by_camp(Camp.WEREWOLF) if p.is_alive()]
+    wolf_targets = [
+        p for p in game_state.get_alive_players() if participates_in_wolf_team(p)
+    ]
     if wolf_targets and role.player.agent:
         target = await interaction.request_seat_choice(
             role.player,
@@ -272,15 +283,23 @@ async def plan_witch_actions(
 
     victim: PlayerProtocol | None = None
     can_see_victim = False
+    can_save = False
     victim_line = ""
-    if has_save and game_state.werewolf_target:
+    if game_state.werewolf_target:
         victim = game_state.get_player(game_state.werewolf_target)
         if victim:
             can_see_victim = True
+            can_save = has_save
             seat = _seat_label(victim)
-            victim_line = (
-                f"今晚狼人刀口：{victim.name}（{seat}号）。你仍持有解药，可以选择救他/她。"
-            )
+            if has_save:
+                victim_line = (
+                    f"今晚狼人刀口：{victim.name}（{seat}号）。你仍持有解药，可以选择救他/她。"
+                )
+            else:
+                victim_line = (
+                    f"今晚狼人刀口：{victim.name}（{seat}号）。你的解药已用完，不能救；"
+                    "你仍可选择是否使用毒药。"
+                )
 
     poison_targets = [
         p for p in game_state.get_alive_players() if p.player_id != role.player.player_id
@@ -290,14 +309,13 @@ async def plan_witch_actions(
         f"解药：{'可用' if has_save else '已用完'}。",
         f"毒药：{'可用' if has_poison else '已用完'}。",
     ]
-    if not can_see_victim and has_poison:
-        notes.append("解药已耗尽，本夜不会告知刀口身份。")
 
     decision = await interaction.request_witch_night_choice(
         role.player,
         role.player.agent,
         role_name="Witch",
         can_see_victim=can_see_victim,
+        can_save=can_save,
         victim_line=victim_line,
         poison_targets=poison_targets if has_poison else [],
         additional_context="\n".join(notes),

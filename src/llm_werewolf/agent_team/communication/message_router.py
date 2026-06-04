@@ -6,7 +6,8 @@ Hub 在 ``MessageRouter`` 按游戏规则解析受众后再投递。
 
 from __future__ import annotations
 
-from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
+from llm_werewolf.game_runtime.types import EventType, PlayerProtocol
+from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.events.visibility import (
     RoutedMessage,
     VisibilityChannel,
@@ -43,9 +44,9 @@ class MessageRouter:
             return [
                 p.player_id
                 for p in alive_players
-                if p.is_alive() and p.get_camp() == Camp.WEREWOLF
+                if p.is_alive() and participates_in_wolf_team(p)
             ]
-        return [p.player_id for p in alive_players if p.is_alive()]
+        return []
 
     @staticmethod
     def event_type_for_channel(channel: VisibilityChannel) -> EventType:
@@ -62,10 +63,8 @@ class MessageRouter:
             return list(wolf_player_ids)
         if routed.audience_player_ids:
             return list(routed.audience_player_ids)
-        return None
+        return []
 
     @staticmethod
     def wolf_player_ids(alive_players: list[PlayerProtocol]) -> list[str]:
-        from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
-
         return [p.player_id for p in alive_players if participates_in_wolf_team(p)]

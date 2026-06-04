@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from llm_werewolf.evaluation.core.checkers import PromptBadCaseChecker
 from llm_werewolf.evaluation.post_game.event_adapter import events_from_dicts
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.game_runtime.types.enums import Camp
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,6 +41,105 @@ def _role_key_for_player(ctx: RunContext, player_id: str | None) -> str:
 
 def _clamp_confidence(value: float) -> float:
     return max(0.0, min(1.0, round(value, 3)))
+
+
+_KEY_VILLAGER_ROLES = frozenset({
+    "Seer",
+    "Witch",
+    "Hunter",
+    "Guard",
+    "Cupid",
+    "Idiot",
+    "Elder",
+})
+
+
+def _truncate_at_sentence(text: str, max_len: int = 280) -> str:
+    """截断到完整句，避免补丁末尾出现「大家今天都。」这类半句。"""
+    cleaned = text.strip()
+    if len(cleaned) <= max_len:
+        return cleaned
+    chunk = cleaned[:max_len]
+    for sep in ("。", "！", "？", "；", ".", "!", "?"):
+        idx = chunk.rfind(sep)
+        if idx >= max(40, max_len // 3):
+            return chunk[: idx + 1]
+    return chunk.rstrip("，,、 ") + "…"
+
+
+def _sanitize_excerpt_for_role(excerpt: str, role_key: str) -> str:
+    """去掉不适合写入目标角色 prompt 的跨身份语境（如守卫金句里的丘比特情侣自证）。"""
+    text = excerpt.strip()
+    if not text:
+        return text
+    if role_key == "guard":
+        for marker in ("另外", "其次", "而且", "再者"):
+            if marker in text:
+                tail = text.split(marker, 1)[1].strip()
+                if len(tail) >= 20:
+                    return f"{marker}{tail}"
+    if role_key in {"prophet", "witch", "hunter", "villager"}:
+        if "情侣" in text and "丘比特" not in text and "另外" in text:
+            tail = text.split("另外", 1)[1].strip()
+            if len(tail) >= 20:
+                return f"另外{tail}"
+    return text
+
+
+def _eliminations_by_round(ctx: RunContext) -> dict[int, dict[str, Any]]:
+    out: dict[int, dict[str, Any]] = {}
+    for event in ctx.events:
+        if event.get("event_type") != "player_eliminated":
+            continue
+        rnd = int(event.get("round_number", 0))
+        data = event.get("data") or {}
+        pid = str(data.get("player_id", ""))
+        if pid:
+            out[rnd] = {
+                "player_id": pid,
+                "role": str(data.get("role") or ""),
+                "phase": str(event.get("phase") or ""),
+            }
+    return out
+
+
+def _proposal_from_mis_elimination(
+    ctx: RunContext,
+    *,
+    round_number: int,
+    eliminated_id: str,
+    role_name: str,
+    idx: int,
+) -> dict[str, Any]:
+    role_key = PromptManager.get_prompt_role_key(role_name)
+    return {
+        "proposal_id": f"bad_case_mis_elim_r{round_number}_{eliminated_id}",
+        "prompt_role_key": role_key,
+        "target_variable": f"{ctx.prompt_version}.role.{role_key}",
+        "prompt_version_base": ctx.prompt_version,
+        "status": "draft",
+        "kind": "bad_case_rule",
+        "priority": 90 + idx,
+        "confidence_score": 0.78,
+        "target_layer": "prompt_rule",
+        "evidence_scope": "single_game_quote",
+        "suggested_patch": {
+            "section": "vote_closing",
+            "target_field": "phase_strategies.vote_closing",
+            "action": "update_rule",
+            "text_zh": (
+                "归票前必须核对：目标是否神职、是否已被情侣/丘比特逻辑洗白、"
+                "是否与已公开查验或女巫叙事冲突；若无法排除上述风险，不要强行归票。"
+            ),
+        },
+        "evidence": {
+            "round_number": round_number,
+            "eliminated_player_id": eliminated_id,
+            "eliminated_role": role_name,
+            "phase": "day_voting",
+        },
+        "rationale": f"第 {round_number} 轮放逐了好人关键身份 {role_name}，需写入反例约束。",
+    }
 
 
 def _bad_case_patch_for_message(
@@ -244,6 +344,8 @@ def _proposal_from_golden_quote(
     confidence = _clamp_confidence(
         0.5 + min(0.35, raw_score / 20.0) + (0.08 if golden.get("matched_elimination") else 0.0)
     )
+    excerpt_raw = str(golden.get("excerpt") or "").strip()
+    excerpt = _truncate_at_sentence(_sanitize_excerpt_for_role(excerpt_raw, role_key))
     return {
         "proposal_id": f"mvp_{kind}_r{golden.get('round_number')}_{speaker_id}",
         "prompt_role_key": role_key,
@@ -260,7 +362,7 @@ def _proposal_from_golden_quote(
             "target_field": "examples" if is_public else "phase_strategies.opening",
             "action": "promote_quote_to_example" if is_public else "update_rule",
             "text_zh": (
-                str(golden.get("excerpt") or "").strip()[:180]
+                excerpt
                 if is_public
                 else "夜间定刀前先给出可执行的落刀目标与第二顺位备选，方便队友快速统一。"
             ),
@@ -293,6 +395,9 @@ def build_prompt_proposals(
         excerpt = str(golden.get("excerpt") or "").strip()
         if not excerpt or excerpt in seen_excerpts:
             continue
+        if golden.get("kind", "public_persuasion") == "public_persuasion":
+            if not golden.get("matched_elimination"):
+                continue
         seen_excerpts.add(excerpt)
         proposals.append(
             _proposal_from_golden_quote(
@@ -310,17 +415,36 @@ def build_prompt_proposals(
 
     seen_proposal_keys: set[str] = set()
     for rank, speech in enumerate(positive, start=len(proposals) + 1):
-        excerpt = (speech.public_speech or "").strip()[:120]
+        if not speech.matched_round_elimination:
+            continue
+        excerpt = _truncate_at_sentence(speech.public_speech or "", max_len=220)
         dedupe_key = excerpt or speech.speaker_id
         if dedupe_key in seen_proposal_keys:
             continue
         seen_proposal_keys.add(dedupe_key)
+        role_key = _role_key_for_speaker(ctx, speech.speaker_id)
         proposal = _proposal_from_speech(speech, ctx, rank=rank)
         if excerpt:
+            sanitized = _sanitize_excerpt_for_role(excerpt, role_key)
             proposal["suggested_patch"]["text_zh"] = (
-                f"参考本局有效发言模式：{excerpt}。后续归票阶段继续保持“结论+依据+次日回查”的收束方式。"
+                f"参考本局有效发言模式：{sanitized}。"
+                "后续归票阶段继续保持「结论+依据+次日回查」的收束方式。"
             )
         proposals.append(proposal)
+
+    mis_idx = 0
+    for rnd, elim in sorted(_eliminations_by_round(ctx).items()):
+        if elim.get("phase") != "day_voting":
+            continue
+        pid = elim["player_id"]
+        role_name = elim.get("role") or ""
+        entry = ctx.roster.get(pid)
+        if entry and entry.camp != Camp.VILLAGER.value:
+            continue
+        if role_name not in _KEY_VILLAGER_ROLES:
+            continue
+        proposals.append(_proposal_from_mis_elimination(ctx, round_number=rnd, eliminated_id=pid, role_name=role_name, idx=mis_idx))
+        mis_idx += 1
 
     events = _events_from_dicts(ctx.events)
     if events:

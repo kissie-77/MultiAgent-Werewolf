@@ -110,6 +110,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     language: str = Field(default="zh-TW")
     agentscope_agent: Any = Field(default=None, exclude=True)
     player_config: Any = Field(default=None, exclude=True)
+    role_counts: dict[str, int] | None = Field(default=None, exclude=True)
     uses_structured_output: bool = Field(default=True, exclude=True)
     decision_history: list[str] = Field(default=[])
     chat_history: list[dict] = Field(default=[])
@@ -128,6 +129,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         agentscope_agent: Any = None,
         player_config: Any = None,
         prompt_version: str = "v1",
+        role_counts: dict[str, int] | None = None,
     ):
         """初始化狼人杀 Agent。
 
@@ -152,6 +154,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.game_role_name = ""
         self.language = language
         self.player_config = player_config
+        self.role_counts = role_counts
         self.agentscope_agent = agentscope_agent
         self.decision_history = []
         self.chat_history = []
@@ -166,6 +169,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         *,
         prompt_version: str | None = None,
         player_count: int | None = None,
+        role_counts: dict[str, int] | None = None,
     ) -> None:
         """引擎分配角色后应用角色专属系统 prompt。"""
         from llm_werewolf.agent_team.agents.factory import (
@@ -178,13 +182,15 @@ class AgentScopeWerewolfAgent(BaseAgent):
             self.prompt_version = prompt_version
         if player_count is not None:
             self.player_count = player_count
+        if role_counts is not None:
+            self.role_counts = role_counts
         self.number = seat_number
         self.game_role_name = game_role_name
         self.role = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
         self.plan = plan_text
 
         sys_prompt = build_system_prompt(
-            seat_number, game_role_name, plan_text
+            seat_number, game_role_name, plan_text, role_counts=self.role_counts
         )
         if self.player_config is not None:
             self.agentscope_agent = create_react_agent(
@@ -203,6 +209,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         *,
         prompt_version: str | None = None,
         player_count: int | None = None,
+        role_counts: dict[str, int] | None = None,
     ) -> None:
         """协作者 API：在 ``setup_game`` 之后绑定引擎分配的角色。"""
         plan_text = plan if plan is not None else self.plan
@@ -212,6 +219,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
             plan_text=plan_text,
             prompt_version=prompt_version or self.prompt_version,
             player_count=player_count,
+            role_counts=role_counts,
         )
 
     def _init_system_prompt(self) -> None:
@@ -220,7 +228,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
 
         if self.game_role_name:
             sys_prompt = build_system_prompt(
-                self.number, self.game_role_name, self.plan
+                self.number,
+                self.game_role_name,
+                self.plan,
+                role_counts=self.role_counts,
             )
         else:
             sys_prompt = PromptManager.build_prompt_key_strategy_prompt(
@@ -236,6 +247,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
             )
             if skills:
                 sys_prompt = f"{sys_prompt}\n\n{skills}"
+            if self.role_counts:
+                from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+
+                sys_prompt = f"{sys_prompt}\n\n{EngineContexts.role_pool_note(self.role_counts)}"
 
         self.chat_history = [{"role": "system", "content": sys_prompt}]
 

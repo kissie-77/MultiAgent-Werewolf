@@ -9,6 +9,8 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from llm_werewolf.observability.health import check_readiness
+from llm_werewolf.paths import ARTIFACTS_DIR
 from llm_werewolf.interface.api.routes import (
     actions_router,
     content_router,
@@ -74,6 +76,11 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/ready")
+    def ready() -> dict[str, object]:
+        require_ark = os.environ.get("OBS_READY_REQUIRE_ARK", "1") != "0"
+        return check_readiness(artifacts_dir=ARTIFACTS_DIR, require_ark_key=require_ark)
 
     @app.get(f"{API_PREFIX}/pages")
     def page_route_index() -> dict[str, str]:

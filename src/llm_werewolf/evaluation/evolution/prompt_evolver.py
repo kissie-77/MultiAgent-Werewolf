@@ -42,6 +42,15 @@ SUPPORTED_ACTIONS = {
     "deprecate_rule",
 }
 
+_POSITIVE_PROPOSAL_KINDS = frozenset({"mvp_golden_quote", "positive_persuasion"})
+
+
+def _proposal_has_matched_elimination(row: dict[str, Any]) -> bool:
+    evidence = row.get("evidence") or {}
+    if not isinstance(evidence, dict):
+        return False
+    return bool(evidence.get("matched_elimination") or evidence.get("matched_round_elimination"))
+
 LIST_REPLACE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "forbidden_actions": (
         "空白",
@@ -305,13 +314,20 @@ def _judge_proposal(
     else:
         criteria_failed.append("非bad_case")
 
+    if kind in _POSITIVE_PROPOSAL_KINDS:
+        if _proposal_has_matched_elimination(row):
+            criteria_met.append("matched放逐")
+        else:
+            criteria_failed.append("未matched放逐")
+
     # 采纳规则
     confidence_ok = effective_confidence_score >= min_confidence_score
     high_confidence = effective_confidence_score >= 0.85
     has_history = support_count >= 1
     is_bad_case = kind == "bad_case_rule"
+    positive_ok = kind not in _POSITIVE_PROPOSAL_KINDS or _proposal_has_matched_elimination(row)
 
-    accepted = (
+    accepted = positive_ok and (
         (confidence_ok and has_history)     # 规则 1：置信度 + 历史支持
         or (is_bad_case and confidence_ok)   # 规则 2：bad case + 置信度
         or high_confidence                   # 规则 3：高置信度直接通过

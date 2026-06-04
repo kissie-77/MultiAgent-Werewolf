@@ -7,9 +7,11 @@ from typing import Any
 import logging
 from pathlib import Path
 
-from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
 from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_run
+from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
+from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
+from llm_werewolf.observability.dispatcher import get_dispatcher, update_run_meta_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -74,4 +76,18 @@ async def finalize_run(
         logger.warning(
             "PostGame completed with stage errors for %s: %s", path, result.stage_errors
         )
+
+    post_game_status = derive_post_game_status(
+        result_ok=result.ok,
+        error=result.error,
+        stage_errors=result.stage_errors or None,
+    )
+    try:
+        dispatcher = get_dispatcher()
+        emitted = await dispatcher.emit_from_post_game(path, result)
+        update_run_meta_alerts(path, post_game_status=post_game_status, alert_count=len(emitted))
+    except Exception as exc:
+        logger.warning("Alert dispatch failed for %s: %s", path, exc)
+        update_run_meta_alerts(path, post_game_status=post_game_status, alert_count=0)
+
     return result

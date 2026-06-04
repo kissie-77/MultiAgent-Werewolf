@@ -161,6 +161,41 @@ def test_present_event_skips_wolf_narration_for_villager_viewer(
     mock_print.assert_not_called()
 
 
+def test_human_wolf_viewer_sees_live_wolf_discussion_without_late_panel(
+    presenter: ConsolePresenter, mock_print
+) -> None:
+    presenter.present_event(
+        _event(
+            EventType.PLAYER_DISCUSSION,
+            phase=GamePhase.NIGHT,
+            data={"player_name": "玩家6", "speech": "我建议首刀1号。"},
+            visible_to=["player_6", "player_7"],
+        ),
+        viewer_id="player_7",
+    )
+    presenter.present_event(
+        _event(
+            EventType.MESSAGE,
+            message="🐺 狼人正在选择目标...",
+            phase=GamePhase.NIGHT,
+            data={"action": "werewolves_vote"},
+            visible_to=["player_6", "player_7"],
+        ),
+        viewer_id="player_7",
+    )
+
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    panels = [
+        call.args[0]
+        for call in mock_print.call_args_list
+        if call.args and call.args[0].__class__.__name__ == "Panel"
+    ]
+
+    assert "🐺 玩家6: 我建议首刀1号。" in rendered
+    assert "狼人正在选择目标" in rendered
+    assert not panels
+
+
 def test_present_game_lifecycle(presenter: ConsolePresenter, mock_print) -> None:
     presenter.present_event(_event(EventType.GAME_STARTED, data={"player_count": 6}))
     presenter.present_event(

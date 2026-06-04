@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.evaluation.log_views.filters import event_is_visible_to
 from llm_werewolf.evaluation.post_game.turning_points import build_turning_points
 from llm_werewolf.interface.api.models.common import PlayerBrief
 from llm_werewolf.interface.api.models.pages import (
@@ -83,10 +84,39 @@ def summarize_belief_heatmap(snapshots: list[dict]) -> dict[str, Any]:
     return {"observers": heatmap, "snapshot_count": len(snapshots)}
 
 
-def build_timeline(run_dir: Path, *, limit: int = 500) -> list[ReplayEventItem]:
+_REPLAY_ONLY_EVENT_TYPES = frozenset({"vote_intention_snapshot", "belief_snapshot"})
+
+
+def _event_visible_for_replay(
+    event: dict[str, Any],
+    *,
+    view: str,
+    viewer_id: str | None,
+) -> bool:
+    if view == "god":
+        return True
+    if event.get("event_type") in _REPLAY_ONLY_EVENT_TYPES:
+        return False
+    if viewer_id:
+        return event_is_visible_to(event, viewer_id)
+    return event.get("visible_to") is None
+
+
+def build_timeline(
+    run_dir: Path,
+    *,
+    limit: int = 500,
+    view: str = "public",
+    viewer_id: str | None = None,
+) -> list[ReplayEventItem]:
     ctx = load_run_context(run_dir)
     items: list[ReplayEventItem] = []
-    for idx, event in enumerate(ctx.events[:limit]):
+    filtered = [
+        event
+        for event in ctx.events
+        if _event_visible_for_replay(event, view=view, viewer_id=viewer_id)
+    ][:limit]
+    for idx, event in enumerate(filtered):
         items.append(
             ReplayEventItem(
                 index=idx,
@@ -124,7 +154,10 @@ def get_replay_page(
     eval_runs_dir: Path,
     *,
     source: str | None = None,
+    view: str = "public",
+    viewer_id: str | None = None,
 ) -> ReplayPageData | None:
+    view_scope = "god" if view == "god" else "player" if viewer_id else "public"
     detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source)
     if detail is None:
         return None
@@ -140,13 +173,16 @@ def get_replay_page(
 
     return ReplayPageData(
         run=detail,
-        timeline=build_timeline(run_dir),
+        view_scope=view_scope,
+        timeline=build_timeline(run_dir, view=view, viewer_id=viewer_id),
         scores=_score_blocks(run_dir),
         views_available=views_available,
         report_markdown=report_md,
-        belief_snapshots=load_belief_snapshots(run_dir),
-        wolf_camp_snapshots=load_wolf_camp_snapshots(run_dir),
-        belief_heatmap=summarize_belief_heatmap(load_belief_snapshots(run_dir)),
+        belief_snapshots=load_belief_snapshots(run_dir) if view == "god" else [],
+        wolf_camp_snapshots=load_wolf_camp_snapshots(run_dir) if view == "god" else [],
+        belief_heatmap=(
+            summarize_belief_heatmap(load_belief_snapshots(run_dir)) if view == "god" else {}
+        ),
     )
 
 

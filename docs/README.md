@@ -11,6 +11,7 @@
 | strategy | [README](./strategy/README.md) · [DESIGN](./strategy/DESIGN.md) · [ROADMAP](./strategy/ROADMAP.md) |
 | evaluation | [README](./evaluation/README.md) · [DESIGN](./evaluation/DESIGN.md) · [ROADMAP](./evaluation/ROADMAP.md) |
 | interface | [README](./interface/README.md) · [DESIGN](./interface/DESIGN.md) · [ROADMAP](./interface/ROADMAP.md) |
+| observability | [README](./observability/README.md) · [DESIGN](./observability/DESIGN.md) · [ROADMAP](./observability/ROADMAP.md) |
 | ui | [README](./ui/README.md) · [DESIGN](./ui/DESIGN.md) · [ROADMAP](./ui/ROADMAP.md) |
 | frontend | [README](./frontend/README.md) · [DESIGN](./frontend/DESIGN.md) · [ROADMAP](./frontend/ROADMAP.md) |
 | architecture | [Evaluation 历史专题](./architecture/evaluation/) · [Memory 历史专题](./architecture/memory/) · [提示词与 Skill 版本控制](./architecture/吕祎晗-提示词版本与变量设计.md) · [工程结构整理方案](./architecture/工程结构整理方案.md) · [信念矩阵功能设计](./architecture/信念矩阵功能设计.md) |
@@ -34,8 +35,11 @@
 
 ## 运维与验证
 
-| 脚本 | 用途 |
+| 脚本 / CLI | 用途 |
 |------|------|
 | `scripts/test_ark_connectivity.py` | 校验 `.env` 中 `ARK_API_KEY` + `ARK_EP` 是否可用（Doubao） |
 | `uv run werewolf configs/llm-12p-doubao.yaml` | 12 人标准 LLM 对局（CLI） |
-| `uv run werewolf-api` | Web API（前端对接目标，`:8000`） |
+| `uv run werewolf-api` | Web API（前端对接目标，`:8000`）；`GET /health`、`GET /ready` |
+| `uv run werewolf-watch --since 24h` | 扫描 run 产物并生成告警摘要（默认不 push Webhook） |
+
+告警与监控设计见 [observability/README.md](./observability/README.md)。

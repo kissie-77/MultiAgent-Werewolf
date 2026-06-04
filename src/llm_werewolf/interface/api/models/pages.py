@@ -279,6 +279,7 @@ class ReplayScoreBlock(BaseModel):
 
 class ReplayPageData(BaseModel):
     run: RunDetail
+    view_scope: str = "public"
     timeline: list[ReplayEventItem]
     phase_summary: list[PhaseSummary] = Field(default_factory=list)
     turning_points: list[str] = Field(default_factory=list)

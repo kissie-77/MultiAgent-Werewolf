@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections import Counter
 from random import Random
 from types import MethodType
 
@@ -132,6 +133,11 @@ def resolve_plan_text(plan_name: str, prompt_role_key: str) -> str:
     return PromptManager.resolve_plan_text(plan_name, prompt_role_key)
 
 
+def _role_counts(players: list[Player]) -> dict[str, int]:
+    counts = Counter(player.get_role_name() for player in players)
+    return dict(sorted(counts.items()))
+
+
 def _manual_plan_name(agent: Any) -> str | None:
     """Return a YAML-specified player plan, if present."""
     player_config = getattr(agent, "player_config", None)
@@ -199,6 +205,7 @@ def build_system_prompt(
     plan_text: str,
     *,
     include_role_skills: bool = True,
+    role_counts: dict[str, int] | None = None,
 ) -> str:
     """为已知角色的就座玩家构建系统 prompt。"""
     from llm_werewolf.strategy.role_version_manifest import get_active_manifest
@@ -211,8 +218,13 @@ def build_system_prompt(
         plan_text,
         prompt_version=manifest.prompt_version_for(prompt_key),
     )
+    role_pool_text = ""
+    if role_counts:
+        from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+
+        role_pool_text = EngineContexts.role_pool_note(role_counts)
     if not include_role_skills:
-        return base
+        return f"{base}\n\n{role_pool_text}" if role_pool_text else base
     from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
 
     skills = load_role_skills_text(
@@ -220,7 +232,9 @@ def build_system_prompt(
         skill_version=manifest.skill_version_for(prompt_key),
     )
     if skills:
-        return f"{base}\n\n{skills}"
+        base = f"{base}\n\n{skills}"
+    if role_pool_text:
+        base = f"{base}\n\n{role_pool_text}"
     return base
 
 
@@ -298,6 +312,7 @@ def _build_memory_manager(
     plan_name: str,
     memory_config: MemoryConfig | None,
     event_logger=None,
+    role_counts: dict[str, int] | None = None,
 ) -> RuntimeMemoryManager | None:
     """按玩家当前运行时上下文构建记忆管理器。"""
     if event_logger is None:
@@ -315,7 +330,7 @@ def _build_memory_manager(
         config=config,
         compressor=compressor,
     )
-    manager.on_game_start(manager.role)
+    manager.on_game_start(manager.role, role_counts=role_counts)
     return manager
 
 
@@ -331,6 +346,7 @@ def configure_agents_for_players(
     from llm_werewolf.strategy.role_version_manifest import get_active_manifest
 
     manifest = get_active_manifest()
+    role_counts = _role_counts(players)
     assigned_plan_names = assign_role_plan_names(
         players, default_plan=default_plan, plan_assignment=plan_assignment
     )
@@ -363,10 +379,16 @@ def configure_agents_for_players(
                 plan_text,
                 prompt_version=role_prompt_version,
                 player_count=len(players),
+                role_counts=role_counts,
             )
             if hasattr(agent, "memory_manager"):
                 agent.memory_manager = _build_memory_manager(
-                    player, role_name, plan_name, memory_config, event_logger=event_logger
+                    player,
+                    role_name,
+                    plan_name,
+                    memory_config,
+                    event_logger=event_logger,
+                    role_counts=role_counts,
                 )
             continue
 
@@ -379,8 +401,14 @@ def configure_agents_for_players(
             game_role_name=role_name,
             plan_text=plan_text,
             prompt_version=role_prompt_version,
+            role_counts=role_counts,
         )
         if hasattr(agent, "memory_manager"):
             agent.memory_manager = _build_memory_manager(
-                player, role_name, plan_name, memory_config, event_logger=event_logger
+                player,
+                role_name,
+                plan_name,
+                memory_config,
+                event_logger=event_logger,
+                role_counts=role_counts,
             )

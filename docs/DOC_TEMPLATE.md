@@ -26,6 +26,7 @@
 | `docs/strategy/`     | `src/llm_werewolf/strategy/`     | Prompt、决策 schema、信念      |
 | `docs/evaluation/`   | `src/llm_werewolf/evaluation/`   | 复盘、评分、PostGame、Coach     |
 | `docs/interface/`    | `src/llm_werewolf/interface/`    | CLI/API、装配与配置        |
+| `docs/observability/`| `src/llm_werewolf/observability/`| 告警、就绪探测、watch CLI   |
 | `docs/ui/`           | `src/llm_werewolf/ui/`           | 展示与 presenter            |
 | `docs/frontend/`     | `frontend/`                      | Web 前端（React + Three.js） |
 | `docs/architecture/` | （跨模块）                            | 全局依赖边界、跨板块方案；evaluation / memory 历史专题 |

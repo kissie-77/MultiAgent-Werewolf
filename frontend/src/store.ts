@@ -1,82 +1,106 @@
 import { create } from "zustand";
-import { ViewResponse, ViewSnapshot, ViewEvent, RenderLog, SeatConfig } from "./types";
+import {
+  ControlRequest, GamePhase, GameStateResponse, PlayState, RenderLog,
+  SeatConfig, StreamEvent, Visibility,
+} from "./types";
+import { API, fetchState, postControl, streamUrl } from "./lib/api";
 import { getApiKey, providerById } from "./lib/api-keys";
 
-const API = "/api/v1";
-const POLL_MS = 1000;
-
-type Speed = 1 | 2 | 999; // 999 = 瞬间
+type Speed = 1 | 2 | 4;
 type RevealView = "god" | "suspense";
 
 interface GameStore {
   runId: string | null;
-  status: ViewResponse["status"] | "idle";
-  snapshot: ViewSnapshot | null;
+  status: GameStateResponse["status"] | "idle";
+  gameState: GameStateResponse | null;
   logs: RenderLog[];
   cursor: number;
-  queue: ViewEvent[];
-  isPlaying: boolean;
+  queue: StreamEvent[];
+  playState: PlayState | "playing" | "paused";
   speed: Speed;
   revealView: RevealView;
   error: string | null;
 
   startGame: (seats: SeatConfig[], opts?: { language?: string; enableSheriff?: boolean }) => Promise<void>;
   cancelGame: () => Promise<void>;
-  togglePlay: () => void;
-  setSpeed: (s: Speed) => void;
+  controlGame: (action: "pause" | "resume" | "step") => Promise<void>;
+  stepGame: () => Promise<void>;
+  setSpeed: (s: Speed) => Promise<void>;
   setRevealView: (v: RevealView) => void;
+  isGameOver: () => boolean;
   exitToSetup: () => void;
-  _poll: () => Promise<void>;
+  _openStream: (runId: string) => void;
+  _refreshState: () => Promise<void>;
   _drain: () => void;
 }
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
+let eventSource: EventSource | null = null;
+let stateTimer: ReturnType<typeof setInterval> | null = null;
 let drainTimer: ReturnType<typeof setInterval> | null = null;
 
-function unwrap<T>(json: any): T {
-  return (json && typeof json === "object" && "data" in json ? json.data : json) as T;
+const STATE_REFRESH_MS = 1500; // authoritative phase/round/play_state poll (cheap, no events)
+const DRAIN_MS = 220;
+
+function teardown() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  if (stateTimer) { clearInterval(stateTimer); stateTimer = null; }
+  if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
 }
 
-// 是否对该事件做悬念遮挡（仅前端）
-function shouldMask(ev: ViewEvent, view: RevealView): boolean {
+function shouldMask(ev: StreamEvent, view: RevealView): boolean {
   if (view === "god") return false;
   return ev.reveal !== "now"; // suspense: on_death / on_game_end 暂时遮挡
 }
 
-function toRenderLog(ev: ViewEvent, view: RevealView): RenderLog {
+function eventText(ev: StreamEvent): string {
+  if (ev.type === "speech") return ev.public_text || ev.text || "";
+  if (ev.type === "skill" && ev.skill) {
+    const a = ev.skill.actor?.seat ?? "?";
+    const t = ev.skill.target?.seat;
+    return t != null ? `技能：${ev.skill.kind}（${a}号 → ${t}号）` : `技能：${ev.skill.kind}（${a}号）`;
+  }
+  if (ev.type === "vote" && ev.vote) {
+    return `投票：${ev.vote.voter?.seat ?? "?"}号 → ${ev.vote.target?.seat ?? "?"}号`;
+  }
+  if (ev.type === "death" && ev.death) {
+    return `出局：${ev.death.seat ?? "?"}号（${ev.death.cause ?? "未知"}）`;
+  }
+  return ev.text || ev.name || "";
+}
+
+function toRenderLog(ev: StreamEvent, view: RevealView): RenderLog {
   const masked = shouldMask(ev, view);
-  let text = ev.text;
-  if (ev.type === "speech") {
-    text = masked ? "🌙 有角色在暗中交流…" : (ev.public_text || ev.text);
-  } else if (masked) {
-    text = ev.type === "skill" ? "🌙 夜间有角色行动了…" : ev.text;
+  let text = eventText(ev);
+  if (masked) {
+    text = ev.type === "speech" ? "🌙 有角色在暗中交流…" : "🌙 夜间有角色行动了…";
   }
   return {
     seq: ev.seq,
     kind: ev.type,
-    day: ev.day,
-    speakerSeat: ev.speaker?.seat ?? null,
+    round: ev.round,
+    speakerSeat: ev.speaker?.seat ?? ev.skill?.actor?.seat ?? null,
     speakerName: ev.speaker?.name ?? "",
     text,
     privateThought: view === "god" ? ev.private_thought ?? null : null,
-    visibility: ev.visibility,
+    visibility: ev.visibility as Visibility,
   };
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   runId: null,
   status: "idle",
-  snapshot: null,
+  gameState: null,
   logs: [],
   cursor: 0,
   queue: [],
-  isPlaying: true,
+  playState: "playing",
   speed: 1,
   revealView: "god",
   error: null,
 
   startGame: async (seats, opts) => {
-    set({ status: "running", logs: [], cursor: 0, queue: [], snapshot: null, error: null, isPlaying: true });
+    teardown();
+    set({ status: "running", logs: [], cursor: 0, queue: [], gameState: null, error: null, playState: "playing" });
     const players = seats.map((s) => ({
       name: s.name,
       model: s.model,
@@ -96,58 +120,63 @@ export const useGameStore = create<GameStore>((set, get) => ({
           players,
         }),
       });
-      if (!res.ok) {
-        const msg = `start failed: HTTP ${res.status}`;
-        set({ status: "error", error: msg });
-        return;
-      }
-      const data = unwrap<{ run_id: string }>(await res.json());
-      if (!data?.run_id) {
-        set({ status: "error", error: "start failed: no run_id" });
-        return;
-      }
+      if (!res.ok) { set({ status: "error", error: `start failed: HTTP ${res.status}` }); return; }
+      const body = await res.json();
+      const data = (body && "data" in body ? body.data : body) as { run_id?: string };
+      if (!data?.run_id) { set({ status: "error", error: "start failed: no run_id" }); return; }
       set({ runId: data.run_id });
-      if (pollTimer) clearInterval(pollTimer);
-      if (drainTimer) clearInterval(drainTimer);
-      pollTimer = setInterval(() => get()._poll(), POLL_MS);
-      drainTimer = setInterval(() => get()._drain(), 220);
-      get()._poll();
+      get()._openStream(data.run_id);
+      stateTimer = setInterval(() => get()._refreshState(), STATE_REFRESH_MS);
+      drainTimer = setInterval(() => get()._drain(), DRAIN_MS);
+      get()._refreshState();
     } catch (err) {
       console.error("startGame failed", err);
       set({ status: "error", error: String(err) });
     }
   },
 
-  _poll: async () => {
-    const { runId, cursor } = get();
+  // SSE subscription — relies on the browser's built-in auto-reconnect + Last-Event-ID.
+  _openStream: (runId) => {
+    if (eventSource) eventSource.close();
+    const es = new EventSource(streamUrl(runId));
+    es.onmessage = (msg: MessageEvent) => {
+      try {
+        const ev = JSON.parse(msg.data) as StreamEvent;
+        set((st) => ({
+          queue: [...st.queue, ev],
+          cursor: Math.max(st.cursor, ev.seq),
+        }));
+        // Drain immediately while playing so the render buffer keeps up; when
+        // paused the periodic drainTimer takes over once resumed.
+        if (get().playState === "playing") get()._drain();
+      } catch (err) {
+        console.error("bad SSE payload", err);
+      }
+    };
+    es.onerror = () => { /* browser auto-reconnects with Last-Event-ID; nothing to do */ };
+    eventSource = es;
+  },
+
+  // Authoritative phase/round/play_state/winner + full-snapshot fallback.
+  _refreshState: async () => {
+    const { runId } = get();
     if (!runId) return;
     try {
-      const res = await fetch(`${API}/games/${runId}/view?since=${cursor}`);
-      if (!res.ok) {
-        set({ status: "error", error: `view failed: HTTP ${res.status}` });
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-        return;
-      }
-      const view = unwrap<ViewResponse>(await res.json());
-      set((st) => ({
-        snapshot: view.snapshot,
-        cursor: view.cursor,
-        status: view.status,
-        error: view.error,
-        queue: [...st.queue, ...view.events],
-      }));
-      if (view.status === "ended" || view.status === "cancelled" || view.status === "error") {
-        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      const state = await fetchState(runId);
+      set({ gameState: state, status: state.status, playState: state.play_state, speed: state.speed, error: state.error });
+      if (state.phase === GamePhase.ended || state.status === "cancelled" || state.status === "error") {
+        if (stateTimer) { clearInterval(stateTimer); stateTimer = null; }
+        if (eventSource) { eventSource.close(); eventSource = null; }
       }
     } catch (err) {
-      console.error("poll failed", err);
+      console.error("state refresh failed", err);
     }
   },
 
   _drain: () => {
-    const { isPlaying, queue, speed, revealView } = get();
-    if (!isPlaying || queue.length === 0) return;
-    const take = speed === 999 ? queue.length : speed;
+    const { playState, queue, speed, revealView } = get();
+    if (playState !== "playing" || queue.length === 0) return;
+    const take = Math.max(speed, 1);
     const batch = queue.slice(0, take);
     const rest = queue.slice(take);
     set((st) => ({
@@ -161,18 +190,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (runId) {
       try { await fetch(`${API}/games/${runId}/cancel`, { method: "POST" }); } catch { /* ignore */ }
     }
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
-    set({ status: "cancelled", isPlaying: false });
+    teardown();
+    set({ status: "cancelled" });
   },
 
-  togglePlay: () => set((st) => ({ isPlaying: !st.isPlaying })),
-  setSpeed: (s) => set({ speed: s }),
+  controlGame: async (action) => {
+    const { runId } = get();
+    if (!runId) return;
+    try {
+      const resp = await postControl(runId, { action } as ControlRequest);
+      set({ playState: resp.play_state, speed: resp.speed as Speed });
+    } catch (err) {
+      console.error("control failed", err);
+    }
+  },
+
+  stepGame: async () => {
+    const { runId } = get();
+    if (!runId) return;
+    try {
+      const resp = await postControl(runId, { action: "step" });
+      set({ playState: resp.play_state });
+    } catch (err) {
+      console.error("step failed", err);
+    }
+  },
+
+  setSpeed: async (s) => {
+    const { runId } = get();
+    set({ speed: s });
+    if (!runId) return;
+    try {
+      const resp = await postControl(runId, { action: "speed", value: s });
+      set({ speed: resp.speed as Speed, playState: resp.play_state });
+    } catch (err) {
+      console.error("speed failed", err);
+    }
+  },
+
   setRevealView: (v) => set({ revealView: v }),
 
+  isGameOver: () => get().gameState?.phase === GamePhase.ended,
+
   exitToSetup: () => {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
-    set({ runId: null, status: "idle", snapshot: null, logs: [], cursor: 0, queue: [], error: null });
+    teardown();
+    set({ runId: null, status: "idle", gameState: null, logs: [], cursor: 0, queue: [], error: null, playState: "playing" });
   },
 }));

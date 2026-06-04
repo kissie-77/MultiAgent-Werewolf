@@ -1,11 +1,56 @@
-// ===== /api/v1/games/{run_id}/view 的前端镜像类型 =====
+// ===== Engine-driven game API contract (mirrors docs/.../engine-driven-game-api-design §5) =====
 
-export type ViewEventType =
-  | "speech" | "skill" | "vote" | "death" | "phase" | "system" | "belief" | "vote_intention";
+export enum GamePhase {
+  setup = "setup",
+  night = "night",
+  sheriff_election = "sheriff_election",
+  day_discussion = "day_discussion",
+  day_voting = "day_voting",
+  ended = "ended",
+}
+
+export enum PlayState {
+  playing = "playing",
+  paused = "paused",
+}
+
+export type SessionStatus = "running" | "paused" | "ended" | "cancelled" | "error";
+export type SubPhase =
+  | "werewolf_chat" | "witch_decide" | "seer_check" | "guard_decide"
+  | "hunter_decide" | "graveyard_check" | string;
+
 export type RevealMode = "now" | "on_death" | "on_game_end";
 export type Visibility = "public" | "wolf" | "god";
 
-export interface ViewPlayer {
+export type StreamEventType =
+  | "speech" | "skill" | "vote" | "death" | "phase" | "sub_phase"
+  | "belief" | "vote_intention" | "system";
+
+export type SkillKind =
+  | "wolf_kill" | "white_wolf_kill" | "wolf_beauty_charm" | "nightmare_block"
+  | "guardian_wolf_guard" | "raven_mark" | "witch_save" | "witch_poison"
+  | "seer_check" | "guard" | "graveyard_check" | "hunter_shoot" | "badge_transfer"
+  | string;
+
+export const PHASE_LABELS: Record<GamePhase, string> = {
+  [GamePhase.setup]: "准备",
+  [GamePhase.night]: "黑夜",
+  [GamePhase.sheriff_election]: "警长竞选",
+  [GamePhase.day_discussion]: "白天讨论",
+  [GamePhase.day_voting]: "白天投票",
+  [GamePhase.ended]: "对局结束",
+};
+
+export const SUB_PHASE_LABELS: Record<string, string> = {
+  werewolf_chat: "狼人夜聊中",
+  witch_decide: "女巫决策中",
+  seer_check: "预言家查验中",
+  guard_decide: "守卫守护中",
+  hunter_decide: "猎人决策中",
+  graveyard_check: "盗墓查验中",
+};
+
+export interface StatePlayer {
   seat: number;
   name: string;
   role: string | null;
@@ -13,47 +58,76 @@ export interface ViewPlayer {
   is_alive: boolean;
   is_sheriff: boolean;
   model: string | null;
-  provider?: string | null;
-  death?: { day?: number; phase?: string; cause?: string; reveal?: RevealMode } | null;
+  status_flags: string[];
 }
 
-export interface ViewSnapshot {
-  day: number;
-  phase: string;
-  phase_label: string;
+export interface LastNight {
+  deaths: { seat: number; cause: string }[];
+  saved_seat: number | null;
+  guarded_seat: number | null;
+  poisoned_seat: number | null;
+}
+
+export interface VotesState {
+  by_seat: Record<string, number>;
+  tally: Record<string, number>;
+}
+
+export interface GameStateResponse {
+  status: SessionStatus;
+  error: string | null;
+  play_state: PlayState | "playing" | "paused";
+  speed: 1 | 2 | 4;
+  phase: GamePhase;
+  sub_phase: SubPhase | null;
+  round: number;
+  current_actor_seat: number | null;
   winner: string | null;
+  sheriff_seat: number | null;
   alive_count: number;
   dead_count: number;
-  sheriff_seat: number | null;
-  players: ViewPlayer[];
-  vote_tally?: { round?: number; counts?: Record<string, number>; result?: any } | null;
+  last_night: LastNight | null;
+  votes: VotesState | null;
+  cursor: number;
+  players: StatePlayer[];
 }
 
-export interface ViewEvent {
+export interface StreamEvent {
   seq: number;
-  type: ViewEventType;
-  day: number;
-  phase: string;
-  text: string;
+  type: StreamEventType;
+  phase: GamePhase;
+  sub_phase: SubPhase | null;
+  round: number;
+  reveal: RevealMode;
+  visibility: Visibility;
+  // speech
   speaker?: { seat: number | null; name?: string | null } | null;
   public_text?: string | null;
   private_thought?: string | null;
-  skill?: { kind: string; actor?: { seat: number | null }; target?: { seat: number | null }; result?: any } | null;
+  // skill
+  skill?: { kind: SkillKind; actor?: { seat: number | null }; target?: { seat: number | null }; result?: unknown } | null;
+  // vote
   vote?: { voter?: { seat: number | null }; target?: { seat: number | null } } | null;
+  // death
   death?: { seat: number | null; name?: string | null; cause?: string | null } | null;
-  reveal: RevealMode;
-  visibility: Visibility;
+  // phase / sub_phase / system display hint
+  name?: string | null;
+  text?: string | null;
 }
 
-export interface ViewResponse {
-  cursor: number;
-  status: "running" | "ended" | "cancelled" | "error";
-  error: string | null;
-  snapshot: ViewSnapshot;
-  events: ViewEvent[];
+export interface ControlRequest {
+  action: "pause" | "resume" | "step" | "speed";
+  value?: 1 | 2 | 4;
 }
 
-// ===== 逐座位 LLM 配置（开局用，参照 wolfcha ModelRef）=====
+export interface ControlResponse {
+  run_id: string;
+  play_state: PlayState | "playing" | "paused";
+  speed: 1 | 2 | 4;
+  phase: GamePhase;
+}
+
+// ===== Per-seat LLM 配置（开局用，沿用 wolfcha ModelRef）=====
 
 export interface SeatConfig {
   seat: number;
@@ -75,8 +149,8 @@ export interface ProviderPreset {
 
 export interface RenderLog {
   seq: number;
-  kind: ViewEventType;
-  day: number;
+  kind: StreamEventType;
+  round: number;
   speakerSeat: number | null;
   speakerName: string;
   text: string;            // 已揭示/遮挡处理后的展示文本

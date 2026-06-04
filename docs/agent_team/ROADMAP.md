@@ -12,7 +12,7 @@
 | Skill 按版本目录加载 | ✅ Done | `skills/<role>/<version>/`；默认 latest |
 | 记忆四层 + RuntimeMemoryManager | ✅ Done | 见 [memory/ROADMAP.md](./memory/ROADMAP.md) |
 | Skill 写回消费 | 🔄 In Progress | evaluation 门控写库；when_to_use 合并 +0.15；稀疏 bump |
-| 信念驱动 Skill 注入 | ✅ Done | belief 模式 + 自动 belief_signals；见 memory/DESIGN §6.1 |
+| 信念驱动 Skill 注入 | ✅ Done | 信念矩阵匹配 + 自动 belief_signals |
 
 ## 已完成
 

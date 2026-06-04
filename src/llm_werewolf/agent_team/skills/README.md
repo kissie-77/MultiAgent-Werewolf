@@ -46,31 +46,18 @@ belief_signals: vote_intention_set,b1_top_above_0_7
 - `belief_pattern` — 生成时刻 B1/B2 分布模式（`concentrated` / `dispersed` / `mixed` / …），无 `belief_signals` 时用于 fallback 匹配
 - `belief_signals` — PostGame 从 `beliefs.jsonl` **自动生成**的触发信号 ID（逗号分隔），运行时按子集匹配注入
 
-## 运行时加载
+## 运行时加载与注入
 
 `agent_team/skill_support/skill_loader.py` 读取 `skills/<role>/<skill_version>/` 下 **active** Skill（默认不加载 `draft`）。
 
-### 注入模式（`MemoryConfig.skill_injection_mode`）
-
-| 模式 | 行为 | 默认 |
-|------|------|------|
-| `static` | 开局将 top `semantic_top_k` 张 Skill **全文**写入 system prompt（「对局经验 Skill 卡片」段落） | ✅ |
-| `belief` | 开局不灌全文；**每次发言/决策前**按当前信念矩阵匹配 Skill，注入决策上下文 | |
-
-**belief 模式要点**：
+Skill **不在开局灌入 system prompt 全文**，而是每次发言/决策前按当前信念矩阵匹配后注入 decision context：
 
 1. **匹配时机**：`InformationHub` 在 `run_roundtable` / `collect_speech` 中，对当前发言人先 `refresh_player_belief_skills()`，再组装 decision context。
 2. **匹配规则**（`select_skills_for_belief`）：
-   - 若 frontmatter 有 `belief_signals`：Skill 所需信号必须是当前活跃信号的**子集**（方案 A：信 PostGame 自动生成，少人工标注）。
+   - 若 frontmatter 有 `belief_signals`：Skill 所需信号必须是当前活跃信号的**子集**（PostGame 自动生成，少人工标注）。
    - 否则 fallback：比较 `belief_pattern` 与当前分布模式，并结合正文/when_to_use 关键词。
 3. **注入块**：`RuntimeMemoryManager.get_context_for_decision()` 追加 `【信念匹配的对局经验 · 仅供参考】`（含触发信号、模式摘要、公开行为/避免）。
-4. **配置**：`skill_belief_top_k`（默认 3）、`skill_belief_pool_size`（默认 12）。
-
-启用示例：
-
-```python
-MemoryConfig(skill_injection_mode="belief", skill_belief_top_k=3)
-```
+4. **配置**：`MemoryConfig.skill_belief_top_k`（默认 3）、`skill_belief_pool_size`（默认 12）。
 
 默认加载各身份目录下**最新** `skill_version` 文件夹；进化/评测 manifest 可 pin 指定版本。
 
@@ -130,9 +117,7 @@ pytest / tmp / `artifacts/runs/` 等不可信 `source_run` 不会写共享库。
 
 ## 记忆系统分工
 
-- **Skill 库（本目录）**
-  - `static` 模式：开局全量注入 sys_prompt（active 卡片全文）
-  - `belief` 模式：按信念矩阵动态匹配，注入 decision context（发言前刷新）
+- **Skill 库（本目录）**：按信念矩阵动态匹配，注入 decision context（发言前 refresh）
 - **SemanticMemory（InMemory 后端）**：本局提炼的 ephemeral 经验 → `[经验]` 注入 WorkingMemory（与 Skill 库不重复）
 
 改 Prompt 策略卡走 `strategy/prompts/roles/<role>/<prompt_version>/role.yaml` + `prompts/shared/agent_base.md`；Skill 是 **行为模式补充**，不覆盖角色策略正文。

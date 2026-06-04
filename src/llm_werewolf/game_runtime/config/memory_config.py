@@ -1,10 +1,6 @@
 """Memory framework configuration."""
 
-from typing import Literal
-
 from pydantic import Field, BaseModel
-
-SkillInjectionMode = Literal["static", "belief"]
 
 
 class MemoryConfig(BaseModel):
@@ -32,13 +28,6 @@ class MemoryConfig(BaseModel):
     working_max_persistent_chars: int = Field(
         default=4000, ge=100, description="Maximum total characters in persistent memory zone."
     )
-    skill_injection_mode: SkillInjectionMode = Field(
-        default="static",
-        description=(
-            "static: inject top skill descriptions into system prompt at game start. "
-            "belief: match skills to current belief matrix and inject into decision context."
-        ),
-    )
     skill_belief_top_k: int = Field(
         default=3,
         ge=0,
@@ -50,7 +39,7 @@ class MemoryConfig(BaseModel):
         description="Max active skills considered when matching against belief matrix.",
     )
     semantic_top_k: int = Field(
-        default=3, ge=0, description="Number of role skill cards injected at game start."
+        default=3, ge=0, description="Top-k for semantic backend cards and coach extraction."
     )
     semantic_max_cards_good: int = Field(
         default=8, ge=1, description="Maximum semantic cards retained for non-werewolf roles."

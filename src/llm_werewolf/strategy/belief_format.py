@@ -399,8 +399,6 @@ def refresh_player_belief_skills(
     memory_manager = getattr(agent, "memory_manager", None)
     if memory_manager is None:
         return
-    if getattr(memory_manager.config, "skill_injection_mode", "static") != "belief":
-        return
     state = ensure_agent_belief_state(player, alive)
     memory_manager.refresh_belief_skills(state)
 

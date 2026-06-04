@@ -62,13 +62,13 @@ PhaseInteraction（游戏引擎接口）
 简要生命周期：
 
 ```text
-on_game_start → static: 注入 Skill 全文；belief: 仅程序记忆 + 信念说明
-发言/决策前   → belief: refresh_player_belief_skills → 匹配 Skill 注入 context
+on_game_start → 程序记忆 + 角色池说明（Skill 不在 sys_prompt 灌全文）
+发言/决策前   → refresh_player_belief_skills → 按信念矩阵匹配 Skill 注入 context
 on_round_end  → 压缩工作记忆
 on_game_end   → 更新 skill 权重 + 可选语义候选提炼
 ```
 
-Skill 注入模式见 `MemoryConfig.skill_injection_mode`（`static` | `belief`），详 [skills/README.md](../../src/llm_werewolf/agent_team/skills/README.md)。
+Skill 注入见 [skills/README.md](../../src/llm_werewolf/agent_team/skills/README.md)。
 
 ## 6. 通信系统
 
@@ -114,7 +114,7 @@ evaluation/post_game/skill_extractor 复盘
     → beliefs.jsonl 快照 → 自动生成 belief_signals + belief_pattern
     → 写库前按 when_to_use 合并已有 card（+0.15）或新建（稀疏 bump vN→vN+1）
     → evaluation 写入 agent_team/skills/<role>/<skill_version>/
-    → agent_team/skill_loader 读取（static 开局全文 / belief 按矩阵匹配）
+    → agent_team/skill_loader 按信念矩阵匹配后注入 decision context
     → memory 记录本局注入的 skill id；局末 ±权重
     → Agent 使用 skill 决策
 ```

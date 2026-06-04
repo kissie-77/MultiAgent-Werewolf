@@ -217,7 +217,7 @@ def test_sync_belief_context_injects_matched_skills(tmp_path: Path, monkeypatch)
         event_logger=object(),
         role="villager",
         player_id="player_1",
-        config=MemoryConfig(skill_injection_mode="belief", skill_belief_top_k=2),
+        config=MemoryConfig(skill_belief_top_k=2),
     )
     state = BeliefState(observer_seat=1, last_vote_seat=6)
     state.set_entry(BeliefEntry(target_seat=6, wolf_probability=0.95))

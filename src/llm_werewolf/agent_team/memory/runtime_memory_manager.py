@@ -71,7 +71,6 @@ class RuntimeMemoryManager:
             )
         if self._semantic_enabled():
             self._inject_semantic_context(role)
-            self._record_prompt_injected_skills(role)
         plan_summary = self.procedural.build_plan_summary(self.plan_name, role)
         self.working.add_persistent(f"[程序记忆] {plan_summary}", tag="procedural")
 
@@ -109,8 +108,6 @@ class RuntimeMemoryManager:
         return "\n\n".join(parts)
 
     def format_belief_skill_context(self) -> str:
-        if self.config.skill_injection_mode != "belief":
-            return ""
         return self._belief_skill_context
 
     def sync_belief_context(self, state: object, *, wolf_camp_text: str = "") -> None:
@@ -150,8 +147,7 @@ class RuntimeMemoryManager:
         else:
             self.working.remove_persistent("wolf_camp")
 
-        if self.config.skill_injection_mode == "belief":
-            self.refresh_belief_skills(state)
+        self.refresh_belief_skills(state)
 
     def refresh_belief_skills(self, state: object) -> None:
         """Match role skills to the current belief matrix for decision/speech injection."""
@@ -159,8 +155,6 @@ class RuntimeMemoryManager:
         from llm_werewolf.strategy.belief_state import BeliefState
         from llm_werewolf.strategy.role_version_manifest import get_active_manifest
 
-        if self.config.skill_injection_mode != "belief":
-            return
         if not isinstance(state, BeliefState) or not state.first_order:
             self._belief_skill_context = ""
             self._belief_matched_skill_ids = []
@@ -243,26 +237,13 @@ class RuntimeMemoryManager:
         return self.config.enabled and self.config.enable_episodic_memory
 
     def _inject_semantic_context(self, role: str) -> None:
-        # Shared Skill markdown is injected via sys_prompt; only backend cards enter working memory here.
+        # Skill MD is injected via belief matching; only backend cards enter working memory here.
         if self.semantic._backend is None:
             return
         for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
             description = card.description or extract_description(card.content)
             self.working.add_persistent(f"[经验] {description}", tag="semantic")
             self._used_card_ids.append(card.id)
-
-    def _record_prompt_injected_skills(self, role: str) -> None:
-        """Track active sys_prompt skills so post-game weight updates can still apply."""
-        if self.semantic._backend is not None:
-            return
-        if self.config.skill_injection_mode == "belief":
-            return
-        from llm_werewolf.agent_team.skill_support import skill_loader
-
-        for skill in skill_loader.load_role_skills(role, max_skills=5):
-            skill_id = str(skill.get("skill_id", ""))
-            if skill_id and skill_id not in self._used_card_ids:
-                self._used_card_ids.append(skill_id)
 
     def _semantic_llm(self):
         if self._llm_compressor is not None:

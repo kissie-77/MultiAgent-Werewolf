@@ -170,7 +170,6 @@ class AgentScopeWerewolfAgent(BaseAgent):
         prompt_version: str | None = None,
         player_count: int | None = None,
         role_counts: dict[str, int] | None = None,
-        skill_injection_mode: str = "static",
     ) -> None:
         """引擎分配角色后应用角色专属系统 prompt。"""
         from llm_werewolf.agent_team.agents.factory import (
@@ -189,14 +188,12 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.game_role_name = game_role_name
         self.role = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
         self.plan = plan_text
-        self._skill_injection_mode = skill_injection_mode
 
         sys_prompt = build_system_prompt(
             seat_number,
             game_role_name,
             plan_text,
             role_counts=self.role_counts,
-            skill_injection_mode=skill_injection_mode,
         )
         if self.player_config is not None:
             self.agentscope_agent = create_react_agent(
@@ -218,7 +215,6 @@ class AgentScopeWerewolfAgent(BaseAgent):
         prompt_version: str | None = None,
         player_count: int | None = None,
         role_counts: dict[str, int] | None = None,
-        skill_injection_mode: str = "static",
     ) -> None:
         """协作者 API：在 ``setup_game`` 之后绑定引擎分配的角色。"""
         plan_text = plan if plan is not None else self.plan
@@ -229,7 +225,6 @@ class AgentScopeWerewolfAgent(BaseAgent):
             prompt_version=prompt_version or self.prompt_version,
             player_count=player_count,
             role_counts=role_counts,
-            skill_injection_mode=skill_injection_mode,
         )
 
     def _init_system_prompt(self) -> None:
@@ -242,22 +237,15 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 self.game_role_name,
                 self.plan,
                 role_counts=self.role_counts,
-                skill_injection_mode=getattr(self, "_skill_injection_mode", "static"),
             )
         else:
             sys_prompt = PromptManager.build_prompt_key_strategy_prompt(
                 self.number, self.role, self.plan, prompt_version=self.prompt_version
             )
-            from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
-            from llm_werewolf.strategy.role_version_manifest import get_active_manifest
-
-            manifest = get_active_manifest()
-            skills = load_role_skills_text(
-                self.role,
-                skill_version=manifest.skill_version_for(self.role),
+            sys_prompt = (
+                f"{sys_prompt}\n\n"
+                "【对局经验 Skill】将根据当前信念矩阵（B1/B2/投票意向）动态注入决策上下文。"
             )
-            if skills:
-                sys_prompt = f"{sys_prompt}\n\n{skills}"
             if self.role_counts:
                 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 

@@ -205,7 +205,6 @@ def build_system_prompt(
     plan_text: str,
     *,
     include_role_skills: bool = True,
-    skill_injection_mode: str = "static",
     role_counts: dict[str, int] | None = None,
 ) -> str:
     """为已知角色的就座玩家构建系统 prompt。"""
@@ -224,18 +223,10 @@ def build_system_prompt(
         from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 
         role_pool_text = EngineContexts.role_pool_note(role_counts)
-    if include_role_skills and skill_injection_mode != "belief":
-        skill_version = manifest.skill_version_for(prompt_key)
-        from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
-
-        skills = load_role_skills_text(prompt_key, skill_version=skill_version)
-        if skills:
-            base = f"{base}\n\n{skills}"
-    elif include_role_skills and skill_injection_mode == "belief":
+    if include_role_skills:
         base = (
             f"{base}\n\n"
-            "【对局经验 Skill】将根据当前信念矩阵（B1/B2/投票意向）动态注入决策上下文，"
-            "开局不预置全文。"
+            "【对局经验 Skill】将根据当前信念矩阵（B1/B2/投票意向）动态注入决策上下文。"
         )
     if role_pool_text:
         base = f"{base}\n\n{role_pool_text}"
@@ -339,11 +330,6 @@ def _build_memory_manager(
     return manager
 
 
-def _skill_injection_mode(memory_config: MemoryConfig | None) -> str:
-    config = memory_config or MemoryConfig()
-    return config.skill_injection_mode
-
-
 def configure_agents_for_players(
     players: list[Player],
     *,
@@ -357,7 +343,6 @@ def configure_agents_for_players(
 
     manifest = get_active_manifest()
     role_counts = _role_counts(players)
-    skill_mode = _skill_injection_mode(memory_config)
     assigned_plan_names = assign_role_plan_names(
         players, default_plan=default_plan, plan_assignment=plan_assignment
     )
@@ -391,7 +376,6 @@ def configure_agents_for_players(
                 prompt_version=role_prompt_version,
                 player_count=len(players),
                 role_counts=role_counts,
-                skill_injection_mode=skill_mode,
             )
             if hasattr(agent, "memory_manager"):
                 agent.memory_manager = _build_memory_manager(
@@ -414,7 +398,6 @@ def configure_agents_for_players(
             plan_text=plan_text,
             prompt_version=role_prompt_version,
             role_counts=role_counts,
-            skill_injection_mode=skill_mode,
         )
         if hasattr(agent, "memory_manager"):
             agent.memory_manager = _build_memory_manager(

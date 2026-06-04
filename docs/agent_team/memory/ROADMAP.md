@@ -18,7 +18,7 @@
 | Episodic 全局查询 + AGENT_THOUGHT | ✅ Done | PostGame / Coach 消费 |
 | LLMCompressor 重试降级 | ✅ Done | 3 次退避 + 周期性 warning |
 | factory event_logger 修复 | ✅ Done | bind_prompt / configure_role |
-| 信念驱动 Skill 注入（belief 模式） | ✅ Done | signal 自动标注 + 发言前匹配注入 |
+| 信念驱动 Skill 注入 | ✅ Done | signal 自动标注 + 发言前匹配注入 |
 | 效果验证实验 | 🔄 In Progress | 记忆是否显著改变 Agent 行为 |
 | ReMe 代码彻底移除 | ✅ Done | `reme_backend.py` 已删除 |
 | Coach 写回统一入口 | 📋 Planned | 可选：提炼+写回+淘汰收成 Coach |

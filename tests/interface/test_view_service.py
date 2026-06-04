@@ -34,6 +34,9 @@ def test_build_view_cursor_and_event_mapping(tmp_path):
     assert types == ["phase", "speech", "skill", "death"]
     speech = next(e for e in view.events if e.type == "speech")
     assert speech.private_thought == "其实2号像狼"
+    # spec §5.2: events carry `round` (not `day`) — the field the frontend reads.
+    assert speech.round == 1
+    assert not hasattr(speech, "day")
     skill = next(e for e in view.events if e.type == "skill")
     assert skill.visibility == "god"
     assert skill.reveal == "on_game_end"
@@ -137,7 +140,9 @@ def test_sub_phase_eventtype_classifies_as_sub_phase() -> None:
            "message": "", "data": {"name": "werewolf_chat"}}
     ev = _map_event(4, row)
     assert ev.type == "sub_phase"
-    assert ev.sub_phase == {"name": "werewolf_chat"}
+    # spec §5.2: sub_phase name is delivered TOP-LEVEL as `name` (the field the
+    # frontend store reads), not nested under a `sub_phase` dict.
+    assert ev.name == "werewolf_chat"
     # a night-phase sub_phase is a public display hint, not god-only
     assert ev.reveal == "now"
     assert ev.visibility == "public"

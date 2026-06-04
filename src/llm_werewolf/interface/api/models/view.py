@@ -41,7 +41,10 @@ class ViewSnapshot(BaseModel):
 class ViewEvent(BaseModel):
     seq: int
     type: ViewEventType
-    day: int = 0
+    # spec §5.2: stream/view events carry `round` (the round number), consistent
+    # with /state.round. (Was historically `day`; renamed so the frontend
+    # StreamEvent — the consumer — reads the field that is actually on the wire.)
+    round: int = 0
     phase: str = ""
     text: str = ""
     speaker: dict[str, Any] | None = None
@@ -50,7 +53,10 @@ class ViewEvent(BaseModel):
     skill: dict[str, Any] | None = None
     vote: dict[str, Any] | None = None
     death: dict[str, Any] | None = None
-    sub_phase: dict[str, Any] | None = None
+    # spec §5.2: a `sub_phase`-type event carries the display-hint name at the
+    # TOP LEVEL (`name`), alongside `phase`/`round` on other event types. The
+    # frontend store reads `ev.name` for the sub-phase text.
+    name: str | None = None
     reveal: RevealMode = "now"
     visibility: Visibility = "public"
 

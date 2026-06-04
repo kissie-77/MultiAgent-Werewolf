@@ -104,7 +104,7 @@ def _map_event(seq: int, row: dict) -> ViewEvent:
     reveal, visibility = _reveal_visibility(event_type, phase)
 
     ev = ViewEvent(
-        seq=seq, type=ui, day=int(row.get("round_number", 0)), phase=phase,
+        seq=seq, type=ui, round=int(row.get("round_number", 0)), phase=phase,
         text=str(row.get("message", "")), reveal=reveal, visibility=visibility,
     )
     if ui == "speech":
@@ -119,7 +119,9 @@ def _map_event(seq: int, row: dict) -> ViewEvent:
             "result": data.get("result"),
         }
     elif ui == "sub_phase":
-        ev.sub_phase = {"name": data.get("name")}
+        # spec §5.2: sub_phase events deliver the display-hint name at top level
+        # (`name`), the field the frontend store reads (store.ts eventText).
+        ev.name = data.get("name")
     elif ui == "vote":
         ev.vote = {
             "voter": {"seat": _seat_of(data.get("voter_id") or data.get("player_id"))},

@@ -30,6 +30,10 @@ def test_sse_event_payload_uses_view_mapping() -> None:
     assert payload["seq"] == 7
     assert payload["type"] == "speech"
     assert payload["phase"] == "day_discussion"
+    # spec §5.2: the SSE wire carries `round` (renders the frontend ROUND badge),
+    # NOT the legacy `day` key.
+    assert payload["round"] == 2
+    assert "day" not in payload
     assert payload["speaker"] == {"seat": 3, "name": "P3"}
     assert payload["public_text"] == "hi"
     assert payload["private_thought"] == "hmm"
@@ -60,7 +64,9 @@ def test_sse_payload_for_sub_phase_has_type_sub_phase() -> None:
            "message": "", "data": {"name": "witch_decide"}}
     payload = sse_event_payload(10, row)
     assert payload["type"] == "sub_phase"
-    assert payload["sub_phase"] == {"name": "witch_decide"}
+    # spec §5.2: the sub_phase name is on the wire as top-level `name` (the field
+    # the frontend store reads), not nested under a `sub_phase` dict.
+    assert payload["name"] == "witch_decide"
 
 
 def test_backfill_from_disk_returns_seqs_after_cursor(tmp_path) -> None:

@@ -36,6 +36,7 @@ from llm_werewolf.interface.api.services.roster_customize import (
 )
 from llm_werewolf.interface.api.services.replay import extract_game_snapshot
 from llm_werewolf.interface.api.services.runs import get_run_detail
+from llm_werewolf.interface.api.services.seat import seat_of as _seat_of
 from llm_werewolf.interface.bootstrap import (
     create_information_hub,
     prepare_game_roster,
@@ -61,9 +62,8 @@ def _write_full_roster(engine: Any, run_dir: Path) -> None:
         role = getattr(player, "role", None)
         if role is not None and getattr(role, "camp", None) is not None:
             camp = role.camp.value
-        try:
-            seat = int(player.player_id.rsplit("_", 1)[-1])
-        except (ValueError, AttributeError):
+        seat = _seat_of(player.player_id)
+        if seat is None:
             logger.warning(
                 "Skipping roster entry with unparseable player_id: %r",
                 getattr(player, "player_id", None),
@@ -81,14 +81,6 @@ def _write_full_roster(engine: Any, run_dir: Path) -> None:
     (run_dir / "roster.json").write_text(
         json.dumps({"players": players}, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-
-
-def _seat_of(player_id: str) -> int | None:
-    """Parse the 1-based seat number out of a 'player_N' id."""
-    try:
-        return int(player_id.rsplit("_", 1)[-1])
-    except (ValueError, AttributeError):
-        return None
 
 
 def _captured_last_night(captured: dict | None) -> "LastNight | None":
@@ -320,9 +312,7 @@ class GameSessionManager:
                 session.gate.clear()
             if dwell:
                 await asyncio.sleep(dwell / max(session.speed, 1))
-        if engine.game_state and engine.game_state.winner:
-            return engine.locale.get("game_over", winner=engine.game_state.winner)
-        return engine.locale.get("game_ended", winner="unknown", reason="")
+        return engine.final_result_text()
 
     async def _run_game(self, session: GameSession) -> None:
         try:

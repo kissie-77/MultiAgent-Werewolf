@@ -290,6 +290,15 @@ class GameEngineBase:
             return False
         return self.game_state.get_phase() == GamePhase.ENDED
 
+    def final_result_text(self) -> str:
+        """最终对局结果文案：有胜者用 game_over，否则用 game_ended。
+
+        play_game() 与 step-pump 循环共用同一文案逻辑，避免重复。
+        """
+        if self.game_state and self.game_state.winner:
+            return self.locale.get("game_over", winner=self.game_state.winner)
+        return self.locale.get("game_ended", winner="unknown", reason="")
+
     def _log_vote_intention_record(self, record: object) -> None:
         """记录与发言关联的投票意向变化，供回放分析。"""
         from llm_werewolf.strategy.vote_intention import (
@@ -565,10 +574,7 @@ class GameEngineBase:
             self._on_round_end(self.game_state.round_number)
             self.game_state.next_phase()  # 进入下一 NIGHT
 
-        if self.game_state.winner:
-            return self.locale.get("game_over", winner=self.game_state.winner)
-
-        return self.locale.get("game_ended", winner="unknown", reason="")
+        return self.final_result_text()
 
     async def step(self) -> list[str]:
         """执行游戏的一步（一个阶段）。"""

@@ -8,6 +8,7 @@ from pathlib import Path
 from llm_werewolf.interface.api.models.view import (
     ViewEvent, ViewPlayer, ViewResponse, ViewSnapshot,
 )
+from llm_werewolf.interface.api.services.seat import seat_of as _seat_of
 
 # --- event_type -> UI classification ------------------------------------
 _SPEECH_TYPES = {"player_speech", "player_discussion", "sheriff_candidate_speech"}
@@ -34,15 +35,6 @@ _SKILL_KIND = {
     "guard_protected": "guard", "hunter_revenge": "hunter_shoot",
     "sheriff_badge_transferred": "badge_transfer",
 }
-
-
-def _seat_of(player_id: str | None) -> int | None:
-    if not player_id:
-        return None
-    try:
-        return int(str(player_id).rsplit("_", 1)[-1])
-    except (ValueError, IndexError):
-        return None
 
 
 def _read_jsonl(path: Path) -> list[dict]:

@@ -15,15 +15,7 @@ from llm_werewolf.interface.api.models.state import (
     StateVotes,
 )
 from llm_werewolf.interface.api.models.view import ViewResponse
-
-
-def _seat_of(player_id: str | None) -> int | None:
-    if not player_id:
-        return None
-    try:
-        return int(str(player_id).rsplit("_", 1)[-1])
-    except (ValueError, IndexError):
-        return None
+from llm_werewolf.interface.api.services.seat import seat_of as _seat_of
 
 
 def _last_night(snapshot: GameStateSnapshot) -> LastNight:

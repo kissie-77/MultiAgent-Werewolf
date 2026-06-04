@@ -65,3 +65,32 @@ def test_voting_phase_emits_phase_changed() -> None:
     asyncio.run(harness.run_voting_phase())
 
     assert GamePhase.DAY_VOTING.value in _phase_changed_phases(log_event)
+
+
+from llm_werewolf.game_runtime.engine.base import GameEngineBase
+from llm_werewolf.game_runtime.types import VictoryResult
+
+
+def test_check_victory_emits_single_ended_phase_changed() -> None:
+    captured = []
+    engine = GameEngineBase()
+    engine.game_state = GameState([Player("v1", "V1", Villager), Player("w1", "W1", Werewolf)])
+    engine.game_state.round_number = 1
+    engine.on_event = captured.append
+
+    engine.victory_checker = MagicMock()
+    engine.victory_checker.check_victory.return_value = VictoryResult(
+        has_winner=True, winner_camp="villager", winner_ids=["v1"], reason="all wolves dead"
+    )
+
+    assert engine.check_victory() is True
+
+    ended_phase_changes = [
+        e
+        for e in captured
+        if e.event_type == EventType.PHASE_CHANGED
+        and (e.data or {}).get("phase") == GamePhase.ENDED.value
+    ]
+    game_ended = [e for e in captured if e.event_type == EventType.GAME_ENDED]
+    assert len(ended_phase_changes) == 1
+    assert len(game_ended) == 1

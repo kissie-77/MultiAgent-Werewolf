@@ -271,6 +271,15 @@ class GameEngineBase:
                         memory_manager.on_game_end(player.player_id in winning_ids)
 
             self._log_event(
+                EventType.PHASE_CHANGED,
+                self.locale.get("game_ended", winner=result.winner_camp, reason=result.reason),
+                data={
+                    "phase": GamePhase.ENDED.value,
+                    "round": self.game_state.round_number if self.game_state else 0,
+                },
+            )
+
+            self._log_event(
                 EventType.GAME_ENDED,
                 self.locale.get("game_ended", winner=result.winner_camp, reason=result.reason),
                 data={

@@ -395,9 +395,22 @@ def build_game_page(
 
 
 def build_replay_page_enriched(
-    run_id: str, runs_dir: Path, eval_runs_dir: Path, *, source: str | None = None
+    run_id: str,
+    runs_dir: Path,
+    eval_runs_dir: Path,
+    *,
+    source: str | None = None,
+    view: str = "public",
+    viewer_id: str | None = None,
 ) -> ReplayPageData | None:
-    base = get_replay_page(run_id, runs_dir, eval_runs_dir, source=source)
+    base = get_replay_page(
+        run_id,
+        runs_dir,
+        eval_runs_dir,
+        source=source,
+        view=view,
+        viewer_id=viewer_id,
+    )
     if base is None:
         return None
     run_dir = Path(base.run.path)
@@ -410,6 +423,7 @@ def build_replay_page_enriched(
 
     return ReplayPageData(
         run=base.run,
+        view_scope=base.view_scope,
         timeline=base.timeline,
         phase_summary=build_phase_summary(run_dir),
         turning_points=build_turning_point_lines(run_dir),

@@ -44,7 +44,10 @@ class StartGameRequest(BaseModel):
     )
     human_seats: list[int] | None = Field(
         default=None,
-        description="1-based seat numbers for human players (CLI --human_seat)",
+        description=(
+            "1-based seat numbers for human players. CLI-only for now; "
+            "the Web API rejects human-player games until browser input is implemented."
+        ),
     )
     badge_flow: bool | None = Field(
         default=None,

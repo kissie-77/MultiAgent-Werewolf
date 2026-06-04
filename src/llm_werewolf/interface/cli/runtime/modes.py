@@ -35,6 +35,24 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
         config_path=Path("configs/llm-12p-doubao.yaml"),
         description="扩展人数 AgentScope 对局：用于角色扩展验证。",
     ),
+    ("human_mixed", "basic"): GameMode(
+        participation="human_mixed",
+        rules="basic",
+        config_path=Path("configs/xiaomi.yaml"),
+        description="基础人机混战：使用真实 LLM 配置，并将指定座位替换为人类玩家。",
+    ),
+    ("human_mixed", "badge_flow"): GameMode(
+        participation="human_mixed",
+        rules="badge_flow",
+        config_path=Path("configs/llm-12p-agentscope.yaml"),
+        description="警徽流人机混战：使用真实 LLM 配置，并将指定座位替换为人类玩家。",
+    ),
+    ("human_mixed", "extended_roles"): GameMode(
+        participation="human_mixed",
+        rules="extended_roles",
+        config_path=Path("configs/llm-12p-doubao.yaml"),
+        description="扩展角色人机混战：使用真实 LLM 配置，并将指定座位替换为人类玩家。",
+    ),
 }
 
 

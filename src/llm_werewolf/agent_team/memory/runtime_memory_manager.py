@@ -52,13 +52,21 @@ class RuntimeMemoryManager:
         """Compatibility hook for optional async resources."""
         return None
 
-    def on_game_start(self, role: str) -> None:
+    def on_game_start(self, role: str, *, role_counts: dict[str, int] | None = None) -> None:
         """Inject role skills and procedural summaries at game start."""
         self.role = role
         self._used_card_ids = []
         self._seen_event_keys = set()
         if not self._prompt_context_enabled():
             return
+        if role_counts:
+            from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+
+            self.working.upsert_persistent(
+                EngineContexts.role_pool_note(role_counts),
+                tag="role_pool",
+                priority=8,
+            )
         if self._semantic_enabled():
             self._inject_semantic_context(role)
             self._record_prompt_injected_skills(role)
@@ -82,12 +90,12 @@ class RuntimeMemoryManager:
         if self._semantic_enabled():
             self.semantic.evict_excess(self.role, self._max_cards_for_role(self.role))
 
-    def get_context_for_decision(self) -> str:
+    def get_context_for_decision(self, *, include_belief: bool = True) -> str:
         """Return memory context for private decision prompts."""
         if not self._prompt_context_enabled():
             return ""
         parts: list[str] = []
-        working_context = self.working.get_context()
+        working_context = self.working.get_context(include_belief=include_belief)
         if working_context:
             parts.append(working_context)
         return "\n\n".join(parts)

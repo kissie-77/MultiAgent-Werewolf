@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 
 from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry, load_run_context
-from llm_werewolf.evaluation.post_game.scoring.mvp import build_mvp_scores, _weights_for_role
+from llm_werewolf.evaluation.post_game.scoring.mvp import (
+    _data_quality,
+    build_mvp_scores,
+    _weights_for_role,
+)
 from llm_werewolf.evaluation.core.vote_swing_analysis import _records_from_events
 from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
 
@@ -99,3 +103,35 @@ def test_data_quality_low_without_intentions(tmp_path: Path) -> None:
     payload = build_mvp_scores(ctx, camp, intention_payload=None)
     assert payload["data_quality"]["confidence"] == "low"
     assert payload["data_quality"]["has_vote_intentions"] is False
+
+
+def test_data_quality_low_with_runtime_error_even_if_samples_exist(tmp_path: Path) -> None:
+    events = [
+        {
+            "event_type": "error",
+            "round_number": 1,
+            "phase": "day_discussion",
+            "message": "玩家6: [投票失败 - TimeoutError]",
+            "data": {"player_id": "player_6", "error_type": "TimeoutError"},
+        }
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
+    )
+    ctx = load_run_context(tmp_path)
+    intention_payload = {
+        "speeches": [
+            {"round_number": 1},
+            {"round_number": 1},
+            {"round_number": 1},
+            {"round_number": 2},
+            {"round_number": 2},
+            {"round_number": 2},
+        ]
+    }
+
+    dq = _data_quality(ctx, intention_payload, wolf_analysis={})
+
+    assert dq["confidence"] == "low"
+    assert dq["runtime_error_count"] == 1
+    assert "运行时错误" in dq["limitations"][0]

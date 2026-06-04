@@ -27,7 +27,6 @@ _PERSUASION_EVENT_TYPES = frozenset({
     "player_discussion",
     "vote_cast",
     "vote_result",
-    "vote_intention_snapshot",
     "player_eliminated",
     "player_died",
     "death_announcement",
@@ -108,7 +107,7 @@ def _read_intentions(
 
 def _is_public_event(event: dict[str, Any]) -> bool:
     visible = event.get("visible_to")
-    if visible is not None and len(visible) > 0:
+    if visible is not None:
         return False
     etype = str(event.get("event_type", ""))
     if etype not in _PERSUASION_EVENT_TYPES:
@@ -118,9 +117,6 @@ def _is_public_event(event: dict[str, Any]) -> bool:
         return False
     if phase in _DAY_PHASES or etype in {"vote_cast", "vote_result", "player_speech"}:
         return True
-    if etype == "vote_intention_snapshot":
-        data = event.get("data") or {}
-        return str(data.get("channel", "public")) == "public"
     return phase != "night"
 
 

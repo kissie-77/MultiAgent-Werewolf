@@ -177,3 +177,40 @@ def test_prompt_bad_case_checker_detects_death_shot_on_villager() -> None:
 
     assert len(results) == 1
     assert results[0].data["target_role"] == "Villager"
+
+
+def test_prompt_bad_case_checker_detects_unsupported_public_role_claim() -> None:
+    event = Event(
+        event_type=EventType.PLAYER_SPEECH,
+        round_number=1,
+        phase="day_discussion",
+        message="speech",
+        data={"player_id": "player_6", "speech": "2号跳女巫救了3号，这点很关键。"},
+    )
+
+    results = PromptBadCaseChecker().check(events=[event])
+
+    assert any("without prior public support" in result.message for result in results)
+
+
+def test_prompt_bad_case_checker_allows_claim_with_prior_public_support() -> None:
+    events = [
+        Event(
+            event_type=EventType.PLAYER_SPEECH,
+            round_number=1,
+            phase="day_discussion",
+            message="speech",
+            data={"player_id": "player_2", "speech": "我是女巫，昨晚救了3号。"},
+        ),
+        Event(
+            event_type=EventType.PLAYER_SPEECH,
+            round_number=1,
+            phase="day_discussion",
+            message="speech",
+            data={"player_id": "player_6", "speech": "2号跳女巫救了3号，我先记下。"},
+        ),
+    ]
+
+    results = PromptBadCaseChecker().check(events=events)
+
+    assert not any("without prior public support" in result.message for result in results)

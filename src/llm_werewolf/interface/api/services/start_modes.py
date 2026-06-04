@@ -12,6 +12,8 @@ from llm_werewolf.interface.cli.runtime.modes import list_modes
 def build_start_modes(configs_dir: Path) -> StartGameModesResponse:
     modes: list[StartGameModeOption] = []
     for mode in list_modes():
+        if mode.participation == "human_mixed":
+            continue
         player_count: int | None = None
         config_id = mode.config_path.stem
         candidate = configs_dir / f"{config_id}.yaml"
@@ -32,7 +34,6 @@ def build_start_modes(configs_dir: Path) -> StartGameModesResponse:
         )
 
     extras = [
-        ("human-6p-demo", "Offline human vs demo bots (no API key)"),
         ("llm-6p-doubao", "6-player Doubao LLM game"),
         ("llm-12p-doubao", "12-player Doubao LLM game"),
     ]

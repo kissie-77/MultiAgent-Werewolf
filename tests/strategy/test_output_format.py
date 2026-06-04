@@ -70,7 +70,7 @@ def test_non_speech_schema_instructions_do_not_claim_speech_schema() -> None:
         vote_intention_schema_instruction(),
         mind_state_schema_instruction(),
         seat_choice_schema_instruction(),
-        witch_night_schema_instruction(can_see_victim=True),
+        witch_night_schema_instruction(can_save=True),
     ]
 
     for text in texts:

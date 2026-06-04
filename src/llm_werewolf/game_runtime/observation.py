@@ -68,9 +68,7 @@ class ObservationBuilder:
             f"当前轮次：第 {observation.game_state.round_number} 轮",
             (
                 "存活概况："
-                f"{observation.game_state.alive_players}/{observation.game_state.total_players} 人存活，"
-                f"狼人 {observation.game_state.werewolves_alive}，"
-                f"好人 {observation.game_state.villagers_alive}"
+                f"{observation.game_state.alive_players}/{observation.game_state.total_players} 人存活"
             ),
             "",
             "场上玩家：",

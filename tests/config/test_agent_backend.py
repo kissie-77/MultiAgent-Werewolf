@@ -1,8 +1,11 @@
 """PlayersConfig 智能体后端选择的测试。"""
 
+from pathlib import Path
+
 import pytest
 
 from llm_werewolf.game_runtime.config import PlanAssignmentConfig, PlayerConfig, PlayersConfig
+from llm_werewolf.game_runtime.utils import load_config
 
 
 def _six_demo_players() -> list[PlayerConfig]:
@@ -50,6 +53,12 @@ def test_vote_intention_concurrency_accepts_parallel_value() -> None:
     cfg = PlayersConfig(
         language="zh-CN", vote_intention_concurrency=6, players=_six_demo_players()
     )
+
+    assert cfg.vote_intention_concurrency == 6
+
+
+def test_kimi_config_enables_parallel_vote_intentions() -> None:
+    cfg = load_config(Path("configs/xiaomi.yaml"))
 
     assert cfg.vote_intention_concurrency == 6
 

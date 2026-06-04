@@ -11,7 +11,6 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
     EventType.WITCH_SAVED,
     EventType.GUARD_PROTECTED,
     EventType.WITCH_POISONED,
-    EventType.VOTE_CAST,
     EventType.SHERIFF_VOTE_CAST,
     EventType.GRAVEYARD_KEEPER_CHECK,
 })
@@ -23,9 +22,17 @@ REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({
 })
 
 WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({EventType.PLAYER_DISCUSSION})
+WOLF_TEAM_MESSAGE_ACTIONS: frozenset[str] = frozenset({
+    "werewolves_wake",
+    "werewolves_vote",
+    "werewolves_sleep",
+    "werewolf_no_votes",
+})
 
-# 刀口结算：写入事件日志，但仅存活女巫在 observation 中可见。
-WITCH_ONLY_TYPES: frozenset[EventType] = frozenset({EventType.WEREWOLF_KILLED})
+# 刀口结算：狼队知道最终刀口，存活女巫也会得知刀口以决定是否用药。
+WOLF_TEAM_AND_WITCH_TYPES: frozenset[EventType] = frozenset({
+    EventType.WEREWOLF_KILLED
+})
 
 # 对话写入 Event 仅供复盘/UI——LLM 决策提示从 MsgHub 读取。
 HUB_DIALOGUE_EVENT_TYPES: frozenset[EventType] = frozenset({
@@ -45,7 +52,6 @@ ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.GUARD_PROTECTED: "player_id",
     EventType.WITCH_POISONED: "player_id",
     EventType.GRAVEYARD_KEEPER_CHECK: "player_id",
-    EventType.VOTE_CAST: "voter_id",
     EventType.SHERIFF_VOTE_CAST: "voter_id",
     EventType.ERROR: "player_id",
 }
@@ -62,18 +68,25 @@ def resolve_visible_to(
     witch_player_ids: list[str] | None = None,
 ) -> list[str] | None:
     """在事件写入日志前返回默认的 visible_to。"""
-    if event_type in WITCH_ONLY_TYPES:
-        return list(witch_player_ids) if witch_player_ids else []
+    if event_type in WOLF_TEAM_AND_WITCH_TYPES:
+        visible: list[str] = []
+        for player_id in [*(wolf_player_ids or []), *(witch_player_ids or [])]:
+            if player_id not in visible:
+                visible.append(player_id)
+        return visible
 
     if event_type in WOLF_TEAM_TYPES:
-        return list(wolf_player_ids) if wolf_player_ids else None
+        return list(wolf_player_ids) if wolf_player_ids else []
 
     if event_type == EventType.LOVERS_LINKED:
         actor_id = (data or {}).get(CUPID_ACTOR_KEY)
-        return [actor_id] if actor_id else None
+        return [actor_id] if actor_id else []
 
     if event_type == EventType.MESSAGE and (data or {}).get("visibility") == "wolf_team":
-        return list(wolf_player_ids) if wolf_player_ids else None
+        return list(wolf_player_ids) if wolf_player_ids else []
+
+    if event_type == EventType.MESSAGE and (data or {}).get("action") in WOLF_TEAM_MESSAGE_ACTIONS:
+        return list(wolf_player_ids) if wolf_player_ids else []
 
     if event_type == EventType.MESSAGE and (data or {}).get("player_id"):
         return [(data or {})["player_id"]]
@@ -81,7 +94,7 @@ def resolve_visible_to(
     if event_type in PRIVATE_ACTOR_TYPES:
         key = ACTOR_ID_KEYS.get(event_type, "player_id")
         actor_id = (data or {}).get(key) or (data or {}).get("player_id")
-        return [actor_id] if actor_id else None
+        return [actor_id] if actor_id else []
 
     if event_type in REPLAY_ONLY_TYPES:
         return []

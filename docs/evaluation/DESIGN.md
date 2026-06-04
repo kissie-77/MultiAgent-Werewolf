@@ -183,6 +183,10 @@ MVP 综合分见 `mvp_scores.json`（`mvp_scores_v2`）：persuasion / strategy 
 | Phase 2         | 仅 `benefit_total >= T` 或 `intention >= T` 进入 LLM |
 | Phase 3         | Skill 写入 strategy 版本库（JSON draft）             |
 
+### 7.4 数据质量门禁
+
+`mvp_scores.json.data_quality` 是赛后评分置信度的统一入口。除投票意向数量、完整白天轮数和有效发言外，若本局存在 `error` 事件（如 Timeout、结构化输出中断、运行时解析失败），`confidence` 必须降为 `low`，并在 `limitations` 与 `runtime_error_samples` 中记录原因。此类对局的 MVP、Prompt proposal 和 Skill 仅供排查参考，不应直接作为高置信度调优样本。
+
 ## 8. JSON 产物 Schema 要点
 
 ### 8.1 `prompt_proposals.json`
@@ -271,6 +275,8 @@ uv run python -m llm_werewolf.evaluation.leaderboard.cli compare <a.json> <b.jso
 ## 14. 离线评测 Runner
 
 `EvaluationRunner` + DemoAgent；PostGame `skip_llm=True`。Checkers：RoleSkill、InformationIsolation、Victory、AsyncFlow、PromptBadCase、DecisionConsistency、RuntimeError。
+
+`PromptBadCaseChecker` 会标记公开发言中的低质量输出、重复查验、伤害性神职目标等 bad case。新增“公开事实无支撑”检查：如果玩家在公开发言中声称“某人已跳身份 / 报救人 / 报验人”等，但此前公开发言没有对应支撑，会作为 Prompt bad case 记录，便于定位模型幻觉或过度补全。
 
 场景：`smoke_6p_basic`、`regression_default_demo`。
 

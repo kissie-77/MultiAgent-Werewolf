@@ -17,7 +17,7 @@ def test_prompt_startup_selection_human_mix_prompts_for_seat() -> None:
     with patch("builtins.input", side_effect=["2", "3", "9", "5"]):
         selection = prompt_startup_selection()
 
-    assert selection.participation == "all_agent"
+    assert selection.participation == "human_mixed"
     assert selection.rules == "extended_roles"
     assert selection.human_seat == "5"
     assert selection.players == 9

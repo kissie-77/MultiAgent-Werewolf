@@ -18,7 +18,7 @@ def event_is_visible_to(event: dict[str, Any], player_id: str) -> bool:
     if visible_to is None:
         return True
     if not isinstance(visible_to, list):
-        return True
+        return False
     return player_id in visible_to
 
 

@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 
-from llm_werewolf.game_runtime.types import Camp, EventType, GamePhase, PlayerProtocol
+from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.strategy.decisions import SpeechDecision
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
@@ -34,12 +34,25 @@ class NightPhaseMixin:
         except ValueError:
             index = 0
         roles = [
-            "你的夜聊分工：先提出一个明确刀口，并给出 1 个核心理由。",
-            "你的夜聊分工：先回应上一位队友；如果同意，补充一个不同角度的理由，不要复读原话。",
-            "你的夜聊分工：专门检查当前刀口的风险，例如女巫救人、守卫保护、刀型暴露；必要时提出备选目标。",
-            "你的夜聊分工：收束狼队共识，明确支持哪个目标，并说明明天如何解释这刀。",
+            "你的夜聊分工：先提出一个明确刀口，并给出 1 个基于当前夜间已知信息的核心理由。",
+            "你的夜聊分工：综合前面已发言队友的提案；如果同意，补充一个不同角度的首夜合理性或风险，不要复读原话。",
+            "你的夜聊分工：专门检查前面提案的风险，例如女巫救人、守卫保护、刀型暴露；必要时提出备选目标。",
+            "你的夜聊分工：收束前面所有队友的共识和分歧，明确支持哪个目标，并说明明天如何解释这刀。",
         ]
         return roles[index % len(roles)]
+
+    @staticmethod
+    def _werewolf_discussion_grounding_note(round_number: int) -> str:
+        if round_number <= 1:
+            return (
+                "【首夜信息边界】本局尚未经历白天公开发言和投票，"
+                "禁止引用任何白天发言、票型、活跃度、带队表现、站边变化等未发生信息；"
+                "只能基于座位、已知狼队友、可选目标、夜间已公开给你的信息和刀口可解释性讨论。"
+            )
+        return (
+            "【夜聊信息边界】只能引用本局已经发生且你可见的信息；"
+            "不确定的判断要说成推测，不要编造未发生的发言、票型或行动。"
+        )
 
     def _build_werewolf_discussion_context(self, werewolf: PlayerProtocol) -> str:
         """静态狼队上下文；局内狼队频道讨论使用 MsgHub 记忆。"""
@@ -53,7 +66,7 @@ class NightPhaseMixin:
             w for w in werewolves if w.player_id != werewolf.player_id
         ]
         possible_targets = [
-            p for p in self.game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
+            p for p in self.game_state.get_alive_players() if not participates_in_wolf_team(p)
         ]
         werewolf_names = [w.name for w in werewolves]
         target_names = [p.name for p in possible_targets]
@@ -78,6 +91,9 @@ class NightPhaseMixin:
             + EngineContexts.werewolf_discussion(
                 werewolf.name, self.game_state.round_number, werewolf_names, target_names, ""
             )
+        )
+        body = body + "\n\n" + self._werewolf_discussion_grounding_note(
+            self.game_state.round_number
         )
         body = body + "\n\n" + self._werewolf_discussion_role_note(werewolf, werewolves)
         if wolf_panel:
@@ -147,7 +163,7 @@ class NightPhaseMixin:
         )
 
         possible_targets = [
-            p for p in self.game_state.get_alive_players() if p.get_camp() != Camp.WEREWOLF
+            p for p in self.game_state.get_alive_players() if not participates_in_wolf_team(p)
         ]
         if not possible_targets:
             return messages
@@ -199,7 +215,11 @@ class NightPhaseMixin:
             self._log_event(
                 EventType.MESSAGE,
                 self.locale.get("werewolf_no_votes", round_number=self.game_state.round_number),
-                data={"action": "werewolf_no_votes", "round": self.game_state.round_number},
+                data={
+                    "action": "werewolf_no_votes",
+                    "round": self.game_state.round_number,
+                    "visibility": "wolf_team",
+                },
             )
             return messages
 

@@ -30,7 +30,12 @@ from llm_werewolf.strategy.vote_intention import (
 )
 from llm_werewolf.strategy.belief_state import BeliefLog, BeliefSnapshotRecord
 from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state, merge_llm_beliefs
-from llm_werewolf.strategy.belief_format import sync_all_belief_memories, sync_player_belief_memory
+from llm_werewolf.strategy.belief_format import (
+    format_belief_summary,
+    format_wolf_camp_context,
+    sync_all_belief_memories,
+    sync_player_belief_memory,
+)
 from llm_werewolf.strategy.wolf_camp_mind import WolfCampMindModel, is_wolf_player, merge_wolf_camp_delta
 from llm_werewolf.game_runtime.seat import get_player_seat
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
@@ -132,6 +137,10 @@ class InformationHub:
         if agent is None:
             return None
         return getattr(agent, "agentscope_agent", None)
+
+    @staticmethod
+    def _is_human_player(player: PlayerProtocol) -> bool:
+        return getattr(getattr(player, "agent", None), "model", "") == "human"
 
     def _resolve_audience(
         self,
@@ -337,6 +346,8 @@ class InformationHub:
         for observer in observers:
             if not observer.is_alive() or observer.agent is None:
                 continue
+            if self._is_human_player(observer):
+                continue
             possible_targets = [p for p in alive if p.player_id != observer.player_id]
             extra_parts = [context_builder(observer), EngineContexts.hub_decision_memory_notice()]
             if anchor == VoteIntentionAnchor.INITIAL:
@@ -363,6 +374,10 @@ class InformationHub:
                 ctx: str = extra,
             ) -> tuple[VoteIntentionEntry, object | None]:
                 if use_mind_state:
+                    state = ensure_agent_belief_state(obs, alive)
+                    wolf_camp_context = ""
+                    if is_wolf_player(obs) and self._wolf_camp_mind is not None:
+                        wolf_camp_context = format_wolf_camp_context(self._wolf_camp_mind)
                     entry, mind = await WerewolfAdapterBridge.request_mind_state(
                         obs.agent,
                         obs.get_role_name(),
@@ -373,10 +388,9 @@ class InformationHub:
                         last_speaker_name=last_name,
                         round_number=round_number,
                         phase=phase,
-                        belief_summary="",
-                        wolf_camp_context="",
+                        belief_summary=format_belief_summary(state),
+                        wolf_camp_context=wolf_camp_context,
                     )
-                    state = ensure_agent_belief_state(obs, alive)
                     merge_llm_beliefs(
                         state,
                         mind.first_order,
@@ -568,14 +582,24 @@ class InformationHub:
                         if msg.public_speech.strip()
                     ]
                     if prior_lines:
+                        if channel == VisibilityChannel.WOLF_TEAM:
+                            prior_title = "【本轮已听到的狼队夜聊】"
+                            prior_instruction = (
+                                "请综合前面已发言队友的具体意见：如果同意，要说明你为什么同意并推进到更明确的方案；"
+                                "如果不同意，要点名回应分歧并给出替代方案。不要只回应最后一位队友，"
+                                "也不要像没有听到前面发言一样重新自说自话。"
+                            )
+                        else:
+                            prior_title = "【本轮已听到的发言】"
+                            prior_instruction = (
+                                "请结合前面已发言玩家的具体建议：如果同意，要说明你为什么同意并推进到更明确的方案；"
+                                "如果不同意，要点名回应分歧并给出替代方案。不要像没有听到前面发言一样重新自说自话。"
+                            )
                         context = "\n\n".join([
                             context,
-                            "【本轮已听到的发言】",
+                            prior_title,
                             "\n".join(prior_lines),
-                            (
-                                "请先回应上一位发言者的具体建议：如果同意，要说明你为什么同意并推进到更明确的方案；"
-                                "如果不同意，要点名反驳并给出替代方案。不要像没有听到前面发言一样重新自说自话。"
-                            ),
+                            prior_instruction,
                         ])
                 context = "\n\n".join([
                     context,
@@ -727,6 +751,7 @@ class InformationHub:
         role_name: str,
         *,
         can_see_victim: bool,
+        can_save: bool,
         victim_line: str,
         poison_targets: list[PlayerProtocol],
         additional_context: str = "",
@@ -742,6 +767,7 @@ class InformationHub:
                 agent,
                 role_name,
                 can_see_victim=can_see_victim,
+                can_save=can_save,
                 victim_line=victim_line,
                 poison_targets=poison_targets,
                 additional_context=context,

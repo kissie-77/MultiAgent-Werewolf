@@ -9,6 +9,7 @@ from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.actions.villager import (
     SeerCheckAction,
     WitchSaveAction,
+    WitchPoisonAction,
     GuardProtectAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import WerewolfVoteAction, NightmareWolfBlockAction
@@ -67,3 +68,46 @@ def test_log_witch_save_action() -> None:
     processor._log_witch_save_action(action)
 
     processor._log_event.assert_called_once()
+
+
+def test_log_seer_action_includes_private_result() -> None:
+    seer = Player("s1", "Seer", Seer)
+    wolf = Player("w1", "Wolf", Werewolf)
+    state = GameState([seer, wolf])
+    state.round_number = 1
+    processor = _Processor(state)
+    processor.locale = Locale("zh-CN")
+
+    action = SeerCheckAction(seer, wolf, state)
+    processor._log_seer_action(action)
+
+    _, message = processor._log_event.call_args.args[:2]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert "Wolf" in message
+    assert "狼人" in message
+    assert data["result"] == "werewolf"
+
+
+def test_decision_data_prefers_action_metadata_over_agent_cache() -> None:
+    witch = Player("player_1", "Witch", Witch)
+    old_target = Player("player_2", "Old", Villager)
+    new_target = Player("player_3", "New", Villager)
+    state = GameState([witch, old_target, new_target])
+    agent = MagicMock()
+    agent._last_decision_metadata = {
+        "decision_seat": 2,
+        "resolved_target_id": "player_2",
+    }
+    witch.agent = agent
+    action = WitchPoisonAction(witch, new_target, state)
+    action._decision_metadata = {
+        "decision_seat": 3,
+        "resolved_target_id": "player_3",
+    }
+
+    assert ActionProcessorMixin._decision_data(action) == {
+        "decision": {
+            "decision_seat": 3,
+            "resolved_target_id": "player_3",
+        }
+    }

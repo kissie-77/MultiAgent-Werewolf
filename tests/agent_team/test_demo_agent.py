@@ -47,6 +47,7 @@ def test_classify_prompt_variants() -> None:
     assert classify_prompt("请只回复 [[1]] 表示是，[[0]] 表示否。") == DemoPromptKind.YES_NO
     assert classify_prompt("投票意向采集\nVoteIntentionDecision") == DemoPromptKind.VOTE_INTENTION
     assert classify_prompt("请在本回合三选一：救人(save) / 毒人(poison) / 不行动(none)。") == DemoPromptKind.WITCH
+    assert classify_prompt("请在本回合二选一：毒人(poison) / 不行动(none)。") == DemoPromptKind.WITCH
     assert classify_prompt("请选择 2 个不同目标。\nMultiSeatChoiceDecision") == DemoPromptKind.MULTI_SEAT
     assert classify_prompt(_seat_prompt(2, 3)) == DemoPromptKind.SEAT_CHOICE
     assert classify_prompt("请发表你的公开发言。") == DemoPromptKind.SPEECH

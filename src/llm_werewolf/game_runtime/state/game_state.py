@@ -305,8 +305,6 @@ class GameState:
             round_number=self.round_number,
             total_players=len(self.players),
             alive_players=len(alive),
-            werewolves_alive=self.count_alive_by_camp(Camp.WEREWOLF),
-            villagers_alive=self.count_alive_by_camp(Camp.VILLAGER),
         )
 
     def __repr__(self) -> str:

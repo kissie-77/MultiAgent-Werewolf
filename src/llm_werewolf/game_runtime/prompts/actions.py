@@ -53,7 +53,7 @@ class EngineContexts:
         parts.extend([
             "",
             "与狼队友讨论今晚要淘汰谁，简要说明理由（1-2 句）。",
-            "公开发言写入 SpeechDecision.public_speech；推理写入 private_thought。",
+            "狼队夜聊发言写入 SpeechDecision.public_speech；推理写入 private_thought。",
             "谁能听到由系统根据狼队频道分发，无需你指定听众。",
         ])
         return "\n".join(parts)
@@ -67,8 +67,37 @@ class EngineContexts:
         )
 
     @staticmethod
+    def role_pool_note(role_counts: dict[str, int]) -> str:
+        """白天发言可见的本局角色组成，避免模型引入不存在身份。"""
+        roles = ", ".join(f"{name} x{count}" for name, count in role_counts.items())
+        return "\n".join([
+            "【本局角色池】",
+            f"本局实际存在的身份类型：{roles}。",
+            "推理时只能讨论本局角色池中可能存在的身份；不要把未出现在本局角色池的角色当作可能性。",
+            "如果长期策略、经验或示例提到未出现在本局角色池的身份，本局忽略这些身份。",
+        ])
+
+    @staticmethod
+    def public_speech_information_boundary() -> str:
+        """白天公开发言的私密信息边界。"""
+        return "\n".join([
+            "【公开发言信息边界】",
+            "白天发言只能明说公开可见事实。",
+            "不要声称某玩家已经跳身份、报验人、报用药、报刀口或透露夜间行动，除非这些内容已在公开对话记忆中明确出现，或你准备主动公开自己的对应信息。",
+            "如果只是猜测，请用“我怀疑/我推测/可能”表达，不要写成已经发生或已经有人公开声明的事实。",
+            "可以在 private_thought 中利用自己的夜间私密信息制定策略；public_speech 不要无意识泄露夜间技能结果、刀口、验人、用药、守护等私密信息。",
+            "如果明确选择跳身份，可以公开相关信息，但要承担暴露风险。",
+        ])
+
+    @staticmethod
     def hub_roundtable_memory_notice(channel: str) -> str:
         """告知模型：局内对话在 MsgHub 记忆中，不在事件块里。"""
+        if channel == "wolf_team":
+            return "\n".join([
+                "【对话记忆 · MsgHub】",
+                "本轮已在狼队夜聊中出现的队友发言由系统注入你的历史（仅狼队队友可见），请综合前面已发言队友的意见接话。",
+                "下方「可见事件」仅为局面变化记录（死亡、阶段等），不含白天公开发言正文。",
+            ])
         audience = "所有存活玩家" if channel == "public" else "狼队队友"
         return "\n".join([
             "【对话记忆 · MsgHub】",

@@ -1,5 +1,6 @@
 """游戏引擎的白天阶段逻辑。"""
 
+from collections import Counter
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
@@ -15,6 +16,15 @@ def _format_runtime_error(exc: Exception) -> str:
     if message:
         return f"{type(exc).__name__}: {message}"
     return type(exc).__name__
+
+
+def _is_human_player(player: PlayerProtocol) -> bool:
+    return getattr(getattr(player, "agent", None), "model", "") == "human"
+
+
+def _role_counts(players: list[PlayerProtocol]) -> dict[str, int]:
+    counts = Counter(player.get_role_name() for player in players)
+    return dict(sorted(counts.items()))
 
 
 class DayPhaseMixin:
@@ -47,22 +57,14 @@ class DayPhaseMixin:
         context_parts.append("")
         from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 
+        context_parts.append(EngineContexts.role_pool_note(_role_counts(self.game_state.players)))
+        context_parts.append(EngineContexts.public_speech_information_boundary())
         context_parts.append(EngineContexts.day_discussion_prompt())
 
-        if self.game_state.belief_log is not None:
-            from llm_werewolf.strategy.belief_format import (
-                append_belief_context_fallback,
-                append_working_memory_context,
-            )
+        if self.game_state.belief_log is not None and not _is_human_player(player):
+            from llm_werewolf.strategy.belief_format import append_working_memory_context
 
-            append_working_memory_context(context_parts, player)
-            append_belief_context_fallback(
-                context_parts,
-                player,
-                alive=self.game_state.get_alive_players(),
-                wolf_camp_mind=self.game_state.wolf_camp_mind,
-                belief_enabled=True,
-            )
+            append_working_memory_context(context_parts, player, include_belief=True)
 
         return "\n".join(context_parts)
 
@@ -113,6 +115,11 @@ class DayPhaseMixin:
             )
         else:
             opening_announcement = self.locale.get("peaceful_night_announcement")
+            self._log_event(
+                EventType.MESSAGE,
+                self.locale.get("peaceful_night"),
+                data={"action": "night_result", "result": "peaceful_night"},
+            )
 
         messages.append(opening_announcement)
         messages.append(self.locale.get("discussion_phase_separator"))

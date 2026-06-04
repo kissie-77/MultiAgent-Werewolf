@@ -2,7 +2,7 @@
 
 > **模块**：game_runtime
 > **状态**：active
-> **最后更新**：2026-05-24
+> **最后更新**：2026-06-02
 
 ## 总览
 
@@ -38,6 +38,8 @@
 - [x] VictoryChecker 胜负判定
 - [x] 游戏配置与预设系统
 - [x] 夜间行动调度器
+- [x] Agent 决策 observation 不暴露隐藏阵营存活数量
+- [x] 警长投票使用独立 `SHERIFF_VOTE` action phase，避免串入夜间角色行动 prompt
 
 ## 进行中
 
@@ -55,6 +57,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-02 | 人机混战信息隔离：observation 隐藏阵营存活数；警长投票 prompt 阶段修正 |
 | 2026-05-24 | 初始化 game_runtime 三件套文档 |
 | 2026-05-23 | 修复 PK 发言方法名冲突（sheriff_election vs voting_phase） |
 | 2026-05-22 | 添加狼美人魅惑状态字段 |

@@ -1,5 +1,6 @@
 import React from "react";
 import { useGameStore } from "../store";
+import { GamePhase } from "../types";
 
 // Black and White high-contrast woodcut-themed SVGs for each role illustration
 function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; role: string; isExposed: boolean }) {
@@ -128,9 +129,10 @@ function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; r
 }
 
 export default function CardDeck() {
-  const snapshot = useGameStore((s) => s.snapshot);
+  const gameState = useGameStore((s) => s.gameState);
   const revealView = useGameStore((s) => s.revealView);
-  const players = snapshot?.players || [];
+  const players = gameState?.players || [];
+  const isEnded = gameState?.phase === GamePhase.ended;
 
   return (
     <div className="flex flex-col h-full w-full max-w-[280px] bg-[#050505]/75 backdrop-blur-md px-3 py-4 select-none relative z-10 shrink-0 shadow-2xl overflow-y-auto woodcut-texture">
@@ -144,7 +146,7 @@ export default function CardDeck() {
       <div className="flex flex-col gap-4">
         {players.map((p) => {
           // 上帝视角：始终亮身份；悬念模式：仅死亡或终局亮身份
-          const isExposed = revealView === "god" || !p.is_alive || !!snapshot?.winner;
+          const isExposed = revealView === "god" || !p.is_alive || isEnded;
           const roleStr = p.role || "未知";
           let roleColor = "text-zinc-400";
           if (isExposed) {

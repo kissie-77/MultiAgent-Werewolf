@@ -7,10 +7,11 @@ import TopHeader from "./components/TopHeader";
 import GameSetup from "./components/GameSetup";
 import GameOverPanel from "./components/GameOverPanel";
 import { useGameStore } from "./store";
+import { GamePhase } from "./types";
 import { motion } from "motion/react";
 
 export default function App() {
-  const snapshot = useGameStore((state) => state.snapshot);
+  const gameState = useGameStore((state) => state.gameState);
   const status = useGameStore((state) => state.status);
   const exitToSetup = useGameStore((state) => state.exitToSetup);
   const [isSpeechExpanded, setIsSpeechExpanded] = useState(true);
@@ -19,7 +20,7 @@ export default function App() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
   // 未开局（idle）显示开局配置页
-  const inSetup = status === "idle" || (!snapshot && status !== "running");
+  const inSetup = status === "idle" || (!gameState && status !== "running");
 
   if (inSetup) {
     return (
@@ -91,9 +92,9 @@ export default function App() {
       {/* 3D Render Studio Canvas Layer */}
       <ThreeCanvas />
 
-      {/* GameOver Panel Overlay */}
-      {snapshot?.winner && (
-        <GameOverPanel winner={snapshot.winner} onExit={exitToSetup} />
+      {/* GameOver Panel Overlay — single signal: phase === "ended" */}
+      {gameState?.phase === GamePhase.ended && (
+        <GameOverPanel winner={gameState.winner ?? ""} onExit={exitToSetup} />
       )}
 
       {/* 2D Overlay Interface */}

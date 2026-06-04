@@ -57,4 +57,80 @@ describe("store SSE transport", () => {
     );
     expect(useGameStore.getState().playState).toBe("paused");
   });
+
+  it("stepGame() flushes queued events to logs even though step auto-pauses", async () => {
+    // Start paused, with the stepped phase's events already buffered in the queue
+    // (the common case: SSE frames arrive before the await postControl resolves).
+    useGameStore.setState({ playState: "paused" });
+    useGameStore.getState()._openStream("r1");
+    const es = MockEventSource.latest();
+    es.emit(
+      {
+        seq: 5, type: "speech", phase: "night", sub_phase: "werewolf_chat", round: 1,
+        reveal: "now", visibility: "wolf",
+        speaker: { seat: 1, name: "A" }, public_text: "kill 2", private_thought: null,
+      },
+      { id: "5" },
+    );
+    // While paused, the SSE listener must NOT have flushed it yet.
+    expect(useGameStore.getState().logs).toHaveLength(0);
+    expect(useGameStore.getState().queue).toHaveLength(1);
+
+    // step auto-pauses (spec §5.3): POST returns play_state: "paused".
+    const resp = { run_id: "r1", play_state: "paused", speed: 1, phase: "night" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => resp }));
+    await useGameStore.getState().stepGame();
+
+    // The stepped phase's event must now be rendered into logs.
+    expect(useGameStore.getState().playState).toBe("paused");
+    expect(useGameStore.getState().logs).toHaveLength(1);
+    expect(useGameStore.getState().logs[0].text).toBe("kill 2");
+    expect(useGameStore.getState().queue).toHaveLength(0);
+  });
+
+  it("step renders events that arrive AFTER the control POST resolves (no race)", async () => {
+    useGameStore.setState({ playState: "paused" });
+    useGameStore.getState()._openStream("r1");
+    const es = MockEventSource.latest();
+
+    const resp = { run_id: "r1", play_state: "paused", speed: 1, phase: "night" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => resp }));
+    await useGameStore.getState().stepGame();
+    expect(useGameStore.getState().playState).toBe("paused");
+
+    // Now the stepped phase emits its events (arriving after the POST resolved).
+    es.emit(
+      {
+        seq: 9, type: "vote", phase: "day_voting", sub_phase: null, round: 2,
+        reveal: "now", visibility: "public",
+        vote: { voter: { seat: 3 }, target: { seat: 6 } },
+      },
+      { id: "9" },
+    );
+    const logs = useGameStore.getState().logs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].kind).toBe("vote");
+    expect(useGameStore.getState().queue).toHaveLength(0);
+  });
+
+  it("cancelGame() returns to setup (clears gameState so App.inSetup re-triggers)", async () => {
+    useGameStore.setState({
+      runId: "r1",
+      status: "running",
+      gameState: { phase: "night" } as never,
+      logs: [{ seq: 1 } as never],
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    await useGameStore.getState().cancelGame();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/games/r1/cancel",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const st = useGameStore.getState();
+    expect(st.gameState).toBeNull();
+    expect(st.runId).toBeNull();
+    expect(st.status).toBe("idle"); // App.inSetup is true on status==='idle' || !gameState
+    expect(st.logs).toHaveLength(0);
+  });
 });

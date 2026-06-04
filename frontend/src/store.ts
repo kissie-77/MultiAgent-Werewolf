@@ -38,6 +38,14 @@ let eventSource: EventSource | null = null;
 let stateTimer: ReturnType<typeof setInterval> | null = null;
 let drainTimer: ReturnType<typeof setInterval> | null = null;
 
+// Single-step auto-pauses (spec §5.3), so the stepped phase's events would
+// otherwise be stranded in `queue` (playState === 'paused' blocks _drain). While
+// this flag is set, _drain is allowed to flush the buffered phase even though we
+// are paused. It is cleared once a `phase` event is rendered — that frame marks
+// the boundary of the phase the step advanced into, so we stop before bleeding
+// into the next (still-paused) phase.
+let stepPending = false;
+
 const STATE_REFRESH_MS = 1500; // authoritative phase/round/play_state poll (cheap, no events)
 const DRAIN_MS = 220;
 
@@ -45,6 +53,7 @@ function teardown() {
   if (eventSource) { eventSource.close(); eventSource = null; }
   if (stateTimer) { clearInterval(stateTimer); stateTimer = null; }
   if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
+  stepPending = false;
 }
 
 function shouldMask(ev: StreamEvent, view: RevealView): boolean {
@@ -150,8 +159,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
           cursor: Math.max(st.cursor, ev.seq),
         }));
         // Drain immediately while playing so the render buffer keeps up; when
-        // paused the periodic drainTimer takes over once resumed.
-        if (get().playState === "playing") get()._drain();
+        // paused the periodic drainTimer takes over once resumed. While a step is
+        // pending we also drain immediately, so events that arrive AFTER the
+        // step's control POST resolved still render (avoids a render race).
+        if (get().playState === "playing" || stepPending) get()._drain();
       } catch (err) {
         console.error("bad SSE payload", err);
       }
@@ -179,10 +190,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   _drain: () => {
     const { playState, queue, speed, revealView } = get();
-    if (playState !== "playing" || queue.length === 0) return;
-    const take = Math.max(speed, 1);
+    // Normally only drain while playing. When a single-step is pending we drain
+    // the buffered phase even though step auto-paused us; the flag is cleared as
+    // soon as we render a `phase` frame (the boundary of the stepped phase) so we
+    // do not bleed into the next, still-paused, phase.
+    if (queue.length === 0) return;
+    if (playState !== "playing" && !stepPending) return;
+    const take = stepPending ? queue.length : Math.max(speed, 1);
     const batch = queue.slice(0, take);
     const rest = queue.slice(take);
+    if (stepPending && batch.some((ev) => ev.type === "phase")) stepPending = false;
     set((st) => ({
       queue: rest,
       logs: [...st.logs, ...batch.map((ev) => toRenderLog(ev, revealView))],
@@ -195,15 +212,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       try { await fetch(`${API}/games/${runId}/cancel`, { method: "POST" }); } catch { /* ignore */ }
     }
     teardown();
-    set({ status: "cancelled" });
+    // 停止 means "end this run and go back to setup": clear the in-game snapshot
+    // so App.inSetup re-triggers, instead of stranding the user on a disabled
+    // in-game screen that still requires the separate header exit button.
+    set({ runId: null, status: "idle", gameState: null, logs: [], cursor: 0, queue: [], error: null, playState: "playing" });
   },
 
   controlGame: async (action) => {
     const { runId } = get();
     if (!runId) return;
+    // A pause/resume supersedes any pending single-step window: on resume the
+    // normal playing-gated drain takes over; on pause we stop flushing.
+    stepPending = false;
     try {
       const resp = await postControl(runId, { action } as ControlRequest);
       set({ playState: resp.play_state, speed: resp.speed as Speed });
+      if (resp.play_state === "playing") get()._drain();
     } catch (err) {
       console.error("control failed", err);
     }
@@ -212,12 +236,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
   stepGame: async () => {
     const { runId } = get();
     if (!runId) return;
+    // step advances exactly one phase then auto-pauses (spec §5.3). Arm the
+    // step-drain so the stepped phase's events render even though play_state
+    // comes back 'paused'. Set BEFORE the await so SSE frames racing in during
+    // the request are flushed too; drain again after to catch already-buffered
+    // ones (and any that arrived synchronously before the flag was set).
+    stepPending = true;
     try {
       const resp = await postControl(runId, { action: "step" });
       set({ playState: resp.play_state });
     } catch (err) {
       console.error("step failed", err);
     }
+    get()._drain();
   },
 
   setSpeed: async (s) => {

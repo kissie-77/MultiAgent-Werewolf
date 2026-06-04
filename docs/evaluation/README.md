@@ -34,10 +34,12 @@
 | `evaluation/log_views/` | POV 视图 |
 | `evaluation/leaderboard/` | entry、A/B CLI |
 | `evaluation/evolution/` | `run_evolution_cycle`、manifest |
+| `evaluation/signals/` | run 产物扫描信号（供 observability / `werewolf-watch`） |
 
 ## 依赖关系
 
 - **可依赖**：`game_runtime`、`strategy`、`agent_team`
+- **不可依赖**：`observability`（质量信号由 observability 只读调用 `evaluation/signals/`）
 - **被依赖**：`interface`（finalize_run、werewolf-eval、PostGame API）
 - **可写入**：`agent_team/skills/<role>/<skill_version>/`
 

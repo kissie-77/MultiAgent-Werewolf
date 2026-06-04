@@ -34,10 +34,11 @@
 | `interface/eval_cli.py` | `werewolf-eval` |
 | `interface/evidence_cli.py` | `werewolf-evidence` |
 | `interface/vote_swing_cli.py` | `werewolf-vote-swing` |
+| `interface/watch_cli.py` | `werewolf-watch`（run 产物告警巡检） |
 
 ## 依赖关系
 
-- **可依赖**：`game_runtime`、`agent_team`、`strategy`、`evaluation`、`ui`
+- **可依赖**：`game_runtime`、`agent_team`、`strategy`、`evaluation`、`ui`、**`observability`**（装配告警 hook）
 - **被依赖**：无（装配层，不被其他业务模块依赖）
 
 ## 文档索引
@@ -73,4 +74,7 @@ uv run werewolf-evidence
 uv run werewolf-vote-swing <run_dir>
 
 # PostGame：对局结束后 finalize_run 自动触发，或 POST /api/v1/runs/{run_id}/post-game
+
+# 告警巡检（默认只写 artifacts/alerts/alerts.json）
+uv run werewolf-watch --since 24h
 ```

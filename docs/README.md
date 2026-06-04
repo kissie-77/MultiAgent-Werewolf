@@ -35,9 +35,11 @@
 
 ## 运维与验证
 
-| 脚本 | 用途 |
+| 脚本 / CLI | 用途 |
 |------|------|
 | `scripts/test_ark_connectivity.py` | 校验 `.env` 中 `ARK_API_KEY` + `ARK_EP` 是否可用（Doubao） |
 | `uv run werewolf configs/llm-12p-doubao.yaml` | 12 人标准 LLM 对局（CLI） |
-| `uv run werewolf-api` | Web API（前端对接目标，`:8000`） |
-| `uv run werewolf-watch --since 24h` | 扫描 run 产物并生成/推送告警 |
+| `uv run werewolf-api` | Web API（前端对接目标，`:8000`）；`GET /health`、`GET /ready` |
+| `uv run werewolf-watch --since 24h` | 扫描 run 产物并生成告警摘要（默认不 push Webhook） |
+
+告警与监控设计见 [observability/README.md](./observability/README.md)。

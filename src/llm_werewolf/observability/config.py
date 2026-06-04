@@ -70,6 +70,11 @@ class ObservabilityConfig:
                 threshold=3,
                 severity=AlertSeverity.ERROR,
             ),
+            "agent_fallback_per_run": RuleConfig(
+                enabled=True,
+                threshold=5,
+                severity=AlertSeverity.WARNING,
+            ),
         }
         return cls(
             webhook_url=os.environ.get("OBS_ALERT_WEBHOOK_URL") or None,

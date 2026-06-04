@@ -76,3 +76,24 @@ def test_runtime_log_handler_records_429(tmp_path: Path) -> None:
 
     events = load_provider_events(run_dir)
     assert count_provider_events(events, "provider_429") == 1
+
+
+def test_runtime_log_handler_records_fallback(tmp_path: Path) -> None:
+    from llm_werewolf.observability.runtime_log import (
+        attach_run_log_handler,
+        count_provider_events,
+        detach_run_log_handler,
+        load_provider_events,
+    )
+
+    run_dir = tmp_path / "run"
+    attach_run_log_handler(run_dir)
+    try:
+        logging.getLogger("llm_werewolf.agent_team.bridge").warning(
+            "request_speech failed agent=Player1, using fallback"
+        )
+    finally:
+        detach_run_log_handler()
+
+    events = load_provider_events(run_dir)
+    assert count_provider_events(events, "agent_fallback") == 1

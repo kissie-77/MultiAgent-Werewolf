@@ -25,5 +25,8 @@ rules:
   provider_429_burst:
     threshold: 3
     severity: error
+  agent_fallback_per_run:
+    threshold: 5
+    severity: warning
 dispatcher:
   dedupe_ttl_seconds: 300

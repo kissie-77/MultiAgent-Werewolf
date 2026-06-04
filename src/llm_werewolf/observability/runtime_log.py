@@ -11,10 +11,11 @@ from typing import Any
 _ROOT_LOGGER = "llm_werewolf"
 _PROVIDER_KIND = "provider_429"
 _STRUCTURED_KIND = "structured_invoke_gave_up"
+_FALLBACK_KIND = "agent_fallback"
 
 
 class RunObservabilityLogHandler(logging.Handler):
-    """将 429 / structured_invoke_gave_up 写入 run_dir/provider_events.jsonl。"""
+    """将 429 / structured_invoke / agent fallback 写入 run_dir/provider_events.jsonl。"""
 
     def __init__(self, run_dir: Path) -> None:
         super().__init__(level=logging.WARNING)
@@ -52,6 +53,10 @@ def _classify_message(message: str) -> str | None:
         return _STRUCTURED_KIND
     if "429" in message or "rate limit" in lowered or "ratelimit" in lowered:
         return _PROVIDER_KIND
+    if "using fallback" in lowered or "using random fallback" in lowered:
+        return _FALLBACK_KIND
+    if "fallback seat=" in lowered:
+        return _FALLBACK_KIND
     return None
 
 

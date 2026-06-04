@@ -174,6 +174,20 @@ def evaluate_run_signals(
             )
         )
 
+    fallback_count = count_provider_events(provider_events, "agent_fallback")
+    rule = _rule_enabled(config, "agent_fallback_per_run")
+    if rule and rule.threshold is not None and fallback_count > rule.threshold:
+        alerts.append(
+            AlertEvent(
+                run_id=run_id,
+                source="agent_team",
+                severity=rule.severity,
+                code="agent_fallback_per_run",
+                message=f"{fallback_count} agent fallback events (threshold {rule.threshold})",
+                context={"count": fallback_count, "threshold": rule.threshold},
+            )
+        )
+
     return alerts
 
 

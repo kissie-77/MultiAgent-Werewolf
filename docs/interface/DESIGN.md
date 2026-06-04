@@ -266,6 +266,16 @@ await finalize_run(
 
 - `persist_run_artifacts`：写入 `events.jsonl`、`vote_intentions.jsonl`、`beliefs.jsonl` 等
 - `run_post_game_pipeline`：触发 evaluation PostGame（14 步）
+- **observability hook**：PostGame 后 `emit_from_post_game`；更新 `run_meta.post_game_status`、`alert_count`
+
+### 8.4 运行时可观测挂载
+
+对局期间（CLI `entry.py`、API `game_sessions._run_game`）：
+
+1. `attach_run_log_handler(run_dir)` — 采集 429 / structured_invoke / agent fallback → `provider_events.jsonl`
+2. 对局结束 `detach_run_log_handler()`（`finally`）
+
+详见 [observability/DESIGN.md](../observability/DESIGN.md)。
 
 ## 9. 接口与扩展点
 
@@ -273,15 +283,15 @@ await finalize_run(
 |------|------|------|
 | `prepare_game_roster(players_config)` | 函数 | 准备游戏阵容 |
 | `wire_agentscope_after_setup(engine, config)` | 函数 | 装配 AgentScope |
-| `finalize_run(engine, run_dir, ...)` | 异步函数 | 持久化产物 + PostGame |
-| `create_app()` | 函数 | 创建 FastAPI 应用 |
-| `werewolf` / `werewolf-api` / `werewolf-eval` | CLI | 见 `pyproject.toml` `[project.scripts]` |
+| `finalize_run(engine, run_dir, ...)` | 异步函数 | 持久化产物 + PostGame + 告警 |
+| `create_app()` | 函数 | 创建 FastAPI 应用（含 `/health`、`/ready`） |
+| `werewolf` / `werewolf-api` / `werewolf-eval` / **`werewolf-watch`** | CLI | 见 `pyproject.toml` `[project.scripts]` |
 
 ## 10. 依赖与边界
 
 遵循工程结构整理方案：
 
-- `interface → game_runtime`、`agent_team`、`strategy`、`evaluation`、`ui`
+- `interface → game_runtime`、`agent_team`、`strategy`、`evaluation`、`ui`、**`observability`**
 - `interface` 是装配层，不被其他业务模块依赖
 - `interface` 可以写入 `evaluation` 产物目录
 

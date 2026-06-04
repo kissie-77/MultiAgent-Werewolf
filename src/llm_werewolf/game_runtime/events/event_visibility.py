@@ -32,6 +32,19 @@ WOLF_TEAM_MESSAGE_ACTIONS: frozenset[str] = frozenset({
 # 刀口结算：写入事件日志，但仅存活女巫在 observation 中可见。
 WITCH_ONLY_TYPES: frozenset[EventType] = frozenset({EventType.WEREWOLF_KILLED})
 
+# 仅狼队 observation 可见的定向技能事件。
+WOLF_TEAM_SKILL_TYPES: frozenset[EventType] = frozenset({
+    EventType.WHITE_WOLF_KILLED,
+    EventType.GUARDIAN_WOLF_PROTECTED,
+})
+
+# 仅行动者本人 observation 可见的定向技能事件。
+ACTOR_ONLY_SKILL_TYPES: frozenset[EventType] = frozenset({
+    EventType.WOLF_BEAUTY_CHARMED,
+    EventType.NIGHTMARE_BLOCKED,
+    EventType.RAVEN_MARKED,
+})
+
 # 对话写入 Event 仅供复盘/UI——LLM 决策提示从 MsgHub 读取。
 HUB_DIALOGUE_EVENT_TYPES: frozenset[EventType] = frozenset({
     EventType.PLAYER_SPEECH,
@@ -68,6 +81,13 @@ def resolve_visible_to(
     """在事件写入日志前返回默认的 visible_to。"""
     if event_type in WITCH_ONLY_TYPES:
         return list(witch_player_ids) if witch_player_ids else []
+
+    if event_type in WOLF_TEAM_SKILL_TYPES:
+        return list(wolf_player_ids) if wolf_player_ids else []
+
+    if event_type in ACTOR_ONLY_SKILL_TYPES:
+        actor_id = (data or {}).get("actor_id")
+        return [actor_id] if actor_id else None
 
     if event_type in WOLF_TEAM_TYPES:
         return list(wolf_player_ids) if wolf_player_ids else []

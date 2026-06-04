@@ -59,3 +59,29 @@ def test_wolf_team_message_without_wolves_is_not_public() -> None:
     )
 
     assert visible == []
+
+
+def test_white_wolf_and_guardian_wolf_visible_to_wolf_team() -> None:
+    wolves = ["w1", "w2"]
+    assert resolve_visible_to(
+        EventType.WHITE_WOLF_KILLED, {"target_id": "v1"}, wolf_player_ids=wolves
+    ) == ["w1", "w2"]
+    assert resolve_visible_to(
+        EventType.GUARDIAN_WOLF_PROTECTED, {"actor_id": "w2", "target_id": "w1"},
+        wolf_player_ids=wolves,
+    ) == ["w1", "w2"]
+
+
+def test_wolf_beauty_nightmare_raven_visible_to_actor_only() -> None:
+    for event_type in (
+        EventType.WOLF_BEAUTY_CHARMED,
+        EventType.NIGHTMARE_BLOCKED,
+        EventType.RAVEN_MARKED,
+    ):
+        assert resolve_visible_to(
+            event_type, {"actor_id": "a1", "target_id": "t1"}, wolf_player_ids=["a1"]
+        ) == ["a1"]
+
+
+def test_sub_phase_is_public() -> None:
+    assert resolve_visible_to(EventType.SUB_PHASE, {"name": "werewolf_chat"}) is None

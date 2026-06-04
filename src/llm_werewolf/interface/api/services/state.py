@@ -56,6 +56,8 @@ def build_state_from_snapshot(
     play_state: str = "playing",
     speed: int = 1,
     captured_last_night: LastNight | None = None,
+    sub_phase: str | None = None,
+    current_actor_seat: int | None = None,
 ) -> GameStateResponse:
     sheriff_seat = _seat_of(snapshot.sheriff_id)
     players: list[StatePlayer] = []
@@ -83,7 +85,9 @@ def build_state_from_snapshot(
         play_state=play_state,
         speed=speed,
         phase=snapshot.phase,
+        sub_phase=sub_phase,
         round=snapshot.round_number,
+        current_actor_seat=current_actor_seat,
         winner=snapshot.winner,
         sheriff_seat=sheriff_seat,
         alive_count=alive_count,

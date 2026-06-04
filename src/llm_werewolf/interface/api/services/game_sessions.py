@@ -551,6 +551,8 @@ class GameSessionManager:
                     play_state=play_state,
                     speed=session.speed,
                     captured_last_night=captured,
+                    sub_phase=session.current_sub_phase,
+                    current_actor_seat=session.current_actor_seat,
                 )
 
         if session is not None:

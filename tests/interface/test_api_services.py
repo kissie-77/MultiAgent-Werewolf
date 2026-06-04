@@ -355,3 +355,32 @@ def test_game_session_has_hub_field() -> None:
     )
     assert isinstance(session.hub, EventHub)
     assert session.status is GameSessionStatus.PENDING
+
+
+def test_fanout_tracks_sub_phase_and_actor_seat(tmp_path) -> None:
+    run_dir = tmp_path / "run2"
+    run_dir.mkdir()
+    session = GameSession(
+        run_id="r2", run_dir=run_dir,
+        config_path=tmp_path / "c.yaml", config_id="c",
+    )
+    on_event = make_fanout_on_event(IncrementalEventWriter(run_dir), session)
+
+    # defaults
+    assert session.current_sub_phase is None
+    assert session.current_actor_seat is None
+
+    sub = _StubEvent("sub_phase")
+    sub.data = {"name": "werewolf_chat"}
+    on_event(sub)
+    assert session.current_sub_phase == "werewolf_chat"
+
+    speech = _StubEvent("player_speech")
+    speech.data = {"player_id": "player_4", "player_name": "P4", "speech": "hi"}
+    on_event(speech)
+    assert session.current_actor_seat == 4
+
+    phase = _StubEvent("phase_changed")
+    phase.data = {}
+    on_event(phase)
+    assert session.current_sub_phase is None   # a new GamePhase clears the sub-phase

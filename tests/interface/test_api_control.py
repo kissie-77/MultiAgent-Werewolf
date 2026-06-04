@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import asyncio
-from pathlib import Path
 
 import pytest
 
-from llm_werewolf.agent_team.agents.base import DemoAgent
-from llm_werewolf.agent_team.communication.information_hub import InformationHub
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.config import create_game_config_from_player_count
-from llm_werewolf.game_runtime.roles.registry import create_roles
 from llm_werewolf.game_runtime.types import GamePhase
+from llm_werewolf.game_runtime.config import create_game_config_from_player_count
+from llm_werewolf.agent_team.agents.base import DemoAgent
+from llm_werewolf.game_runtime.roles.registry import create_roles
 from llm_werewolf.interface.api.services.game_sessions import GameSession
+from llm_werewolf.agent_team.communication.information_hub import InformationHub
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _session(tmp_path: Path) -> GameSession:
@@ -74,7 +77,8 @@ def test_capture_phase_snapshot_records_night_results(tmp_path: Path) -> None:
 
 def test_capture_phase_snapshot_noop_while_phase_is_night(tmp_path: Path) -> None:
     """While phase is NIGHT the resolution has not produced final deaths yet, and
-    the previous-night data has been cleared at NIGHT entry; capture is a no-op."""
+    the previous-night data has been cleared at NIGHT entry; capture is a no-op.
+    """
     session = _session(tmp_path)
     engine = _engine_in_night()
     session.engine = engine
@@ -110,6 +114,7 @@ def test_capture_phase_snapshot_survives_next_phase_clear(tmp_path: Path) -> Non
 @pytest.mark.asyncio
 async def test_run_step_pump_completes_game(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import random
+
     from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
 
     random.seed(99)
@@ -128,7 +133,8 @@ async def test_run_step_pump_completes_game(tmp_path: Path, monkeypatch: pytest.
     result = await GameSessionManager._run_step_pump(session, dwell=0.0)
 
     assert session.engine.game_state.phase == GamePhase.ENDED
-    assert isinstance(result, str) and result
+    assert isinstance(result, str)
+    assert result
     ended = [e for e in events if e.event_type.value == "game_ended"]
     assert len(ended) == 1
 
@@ -142,8 +148,10 @@ async def test_step_pump_captures_last_night_from_real_pump(
 
     Regression guard: capture_phase_snapshot must NOT require phase==NIGHT,
     because by the time the pump calls it the engine has already advanced past
-    NIGHT (NIGHT branch of step() runs next_phase() before returning)."""
+    NIGHT (NIGHT branch of step() runs next_phase() before returning).
+    """
     import random
+
     from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
 
     random.seed(99)
@@ -171,7 +179,8 @@ async def test_step_pump_captures_last_night_from_real_pump(
     # Run to completion via the real pump; final night kill must surface too.
     result = await GameSessionManager._run_step_pump(session, dwell=0.0)
     assert gs.phase == GamePhase.ENDED
-    assert isinstance(result, str) and result
+    assert isinstance(result, str)
+    assert result
     assert session.last_night["deaths"]                  # non-empty at game end
     assert all(d["seat"] is not None for d in session.last_night["deaths"])
 
@@ -224,8 +233,8 @@ async def test_step_pump_single_step_runs_one_phase(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_control_pause_resume_step_speed(tmp_path: Path) -> None:
     from llm_werewolf.interface.api.services.game_sessions import (
-        GameSessionManager,
         GameSessionStatus,
+        GameSessionManager,
     )
 
     mgr = GameSessionManager()
@@ -283,8 +292,8 @@ def test_control_endpoint_unknown_run_404(api_client) -> None:
 
 def test_control_endpoint_pause(api_client, tmp_path: Path) -> None:
     from llm_werewolf.interface.api.services.game_sessions import (
-        game_session_manager,
         GameSessionStatus,
+        game_session_manager,
     )
 
     run_dir = tmp_path / "ctrl-run"
@@ -332,8 +341,8 @@ def test_control_endpoint_rejects_bad_speed(api_client, tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_state_reports_play_state_speed_and_last_night(tmp_path: Path) -> None:
     from llm_werewolf.interface.api.services.game_sessions import (
-        GameSessionManager,
         GameSessionStatus,
+        GameSessionManager,
     )
 
     mgr = GameSessionManager()
@@ -365,3 +374,24 @@ async def test_state_reports_play_state_speed_and_last_night(tmp_path: Path) -> 
     assert [d.model_dump() for d in state.last_night.deaths] == [
         {"seat": 1, "cause": "wolf_kill"}
     ]
+
+
+@pytest.mark.asyncio
+async def test_state_surfaces_sub_phase_and_actor_seat(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.game_sessions import (
+        GameSessionManager,
+        GameSessionStatus,
+    )
+
+    mgr = GameSessionManager()
+    session = _session(tmp_path)
+    session.engine = _engine_in_night(seed=41)
+    session.status = GameSessionStatus.RUNNING
+    session.current_sub_phase = "witch_decide"
+    session.current_actor_seat = 3
+    mgr._sessions[session.run_id] = session
+
+    state = mgr.get_state(session.run_id, runs_dir=tmp_path, eval_runs_dir=tmp_path)
+    assert state is not None
+    assert state.sub_phase == "witch_decide"
+    assert state.current_actor_seat == 3

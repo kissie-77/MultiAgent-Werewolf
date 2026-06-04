@@ -320,6 +320,7 @@ class WerewolfAdapterBridge:
         response: str | None = None,
         decision: BaseModel | None = None,
         fallback: bool = False,
+        fallback_reason: str | None = None,
     ) -> None:
         if target is None:
             return
@@ -330,12 +331,27 @@ class WerewolfAdapterBridge:
             "resolved_target_name": target.name,
             "fallback": fallback,
         }
+        if fallback_reason:
+            metadata["fallback_reason"] = fallback_reason
         if response is not None:
             metadata["raw_response"] = response
         if decision is not None:
             metadata["structured_decision"] = decision.model_dump(mode="json")
 
         object.__setattr__(agent, "_last_decision_metadata", metadata)
+
+    @staticmethod
+    def _random_fallback_target(
+        agent: AgentProtocol,
+        possible_targets: list[PlayerProtocol],
+        *,
+        reason: str,
+    ) -> PlayerProtocol:
+        target = random.choice(possible_targets)  # noqa: S311
+        WerewolfAdapterBridge._store_decision_metadata(
+            agent, target, fallback=True, fallback_reason=reason
+        )
+        return target
 
     @staticmethod
     def _clear_decision_metadata(agent: AgentProtocol) -> None:
@@ -884,10 +900,10 @@ class WerewolfAdapterBridge:
                     return target
 
             if fallback_random:
-                target = random.choice(possible_targets)  # noqa: S311
-                WerewolfAdapterBridge._store_decision_metadata(agent, target, fallback=True)
-                return target
-        except Exception:
+                return WerewolfAdapterBridge._random_fallback_target(
+                    agent, possible_targets, reason="parse_failed"
+                )
+        except Exception as exc:
             logger.warning(
                 "request_seat_choice failed agent=%s, using random fallback=%s",
                 getattr(agent, "name", "?"),
@@ -895,9 +911,9 @@ class WerewolfAdapterBridge:
                 exc_info=True,
             )
             if fallback_random:
-                target = random.choice(possible_targets)  # noqa: S311
-                WerewolfAdapterBridge._store_decision_metadata(agent, target, fallback=True)
-                return target
+                return WerewolfAdapterBridge._random_fallback_target(
+                    agent, possible_targets, reason=type(exc).__name__
+                )
 
         return None
 
@@ -925,9 +941,14 @@ class WerewolfAdapterBridge:
                 return WerewolfAdapterBridge.parse_yes_no(response)
             response = await agent.get_response(prompt)
             return WerewolfAdapterBridge.parse_yes_no(response)
-        except Exception:
-            logger.warning("request_yes_no failed agent=%s, returning False", getattr(agent, "name", "?"), exc_info=True)
-            return False
+        except Exception as exc:
+            logger.warning(
+                "request_yes_no failed agent=%s",
+                getattr(agent, "name", "?"),
+                exc_info=True,
+            )
+            msg = f"yes/no decision failed for agent {getattr(agent, 'name', '?')}: {exc}"
+            raise RuntimeError(msg) from exc
 
     @staticmethod
     async def request_multi_target(

@@ -7,7 +7,10 @@ from typing import TYPE_CHECKING
 from llm_werewolf.game_runtime.types import EventType
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.registries.role_registry import get_werewolf_roles
-from llm_werewolf.game_runtime.registries.role_night_plans import dispatch_night_plan
+from llm_werewolf.game_runtime.registries.role_night_plans import (
+    dispatch_night_plan,
+    dispatch_werewolf_vote_plan,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,6 +32,9 @@ WITCH_ROLE_NAMES: frozenset[str] = frozenset({"Witch"})
 
 # 狼刀目标已知后：先女巫，再按此顺序处理其余夜间角色。
 POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = ("Seer", "Graveyard Keeper", "Raven")
+
+# 狼票阶段内额外收集的狼人特殊技能。其他特殊狼技能在预狼阶段处理。
+WOLF_PHASE_SPECIAL_ROLE_NAMES: tuple[str, ...] = ("White Wolf", "Wolf Beauty")
 
 
 class NightSkillScheduler:
@@ -64,7 +70,9 @@ class NightSkillScheduler:
 
     async def run_wolf_vote_phase(self) -> list[Action]:
         """仅收集狼队击杀投票。"""
-        return await self._collect_for_players(self._players_werewolf_voters())
+        actions = await self._collect_wolf_votes_for_players(self._players_werewolf_voters())
+        actions.extend(await self._collect_for_players(self._players_wolf_phase_special()))
+        return actions
 
     async def run_post_wolf_resolution(self) -> list[Action]:
         """女巫（在 ``werewolf_target`` 确定后），随后预言家 / 守墓人 / 乌鸦。"""
@@ -103,6 +111,14 @@ class NightSkillScheduler:
             if p.get_role_name() in WITCH_ROLE_NAMES and p.role.has_night_action(self.game_state)
         ]
 
+    def _players_wolf_phase_special(self) -> list[PlayerProtocol]:
+        return [
+            p
+            for p in self.game_state.get_alive_players()
+            if p.get_role_name() in WOLF_PHASE_SPECIAL_ROLE_NAMES
+            and p.role.has_night_action(self.game_state)
+        ]
+
     def _players_post_witch_ordered(self) -> list[PlayerProtocol]:
         players: list[PlayerProtocol] = []
         handled = set(PRE_WOLF_ROLE_NAMES) | self._wolf_role_names | WITCH_ROLE_NAMES
@@ -131,6 +147,33 @@ class NightSkillScheduler:
                 self._log_role_acting(player)
             try:
                 result = await self._plan_for_player(player, interaction)
+                if result:
+                    actions.extend(result)
+            except Exception as e:
+                self._log_event(
+                    EventType.ERROR,
+                    self.locale.get(
+                        "night_action_failed",
+                        player=player.name,
+                        role=player.get_role_name(),
+                        error=str(e),
+                    ),
+                    data={
+                        "player_id": player.player_id,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    },
+                )
+        return actions
+
+    async def _collect_wolf_votes_for_players(self, players: list[PlayerProtocol]) -> list[Action]:
+        actions: list[Action] = []
+        interaction = self.game_state.require_phase_interaction()
+        for player in players:
+            if self._log_role_acting:
+                self._log_role_acting(player)
+            try:
+                result = await dispatch_werewolf_vote_plan(player.role, self.game_state, interaction)
                 if result:
                     actions.extend(result)
             except Exception as e:

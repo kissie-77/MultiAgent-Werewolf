@@ -66,13 +66,13 @@ jobs:
       - name: Install dependencies
         run: |
           uv python pin ${{ matrix.python-version }}
-          uv sync --frozen --group test
+          uv sync --frozen --group test --group docs
 
       - name: Run pytest
         env:
-          # Coverage report is uploaded for PR comments; threshold enforced locally (80%).
-          PYTEST_ADDOPTS: --cov-fail-under=0
-        run: uv run pytest -vv | tee .coverage.txt
+          # Start CI at a non-zero coverage floor, then ratchet toward the local 80% target.
+          COVERAGE_FAIL_UNDER: "20"
+        run: uv run pytest -vv --cov-fail-under="${COVERAGE_FAIL_UNDER}" | tee .coverage.txt
 
       - name: Pytest coverage comment
         if: github.event_name == 'pull_request'

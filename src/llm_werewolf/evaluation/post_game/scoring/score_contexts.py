@@ -36,6 +36,7 @@ _PERSUASION_EVENT_TYPES = frozenset({
 _STRATEGY_EVENT_TYPES = frozenset({
     "seer_checked",
     "witch_saved",
+    "witch_poison_used",
     "witch_poisoned",
     "guard_protected",
     "werewolf_killed",

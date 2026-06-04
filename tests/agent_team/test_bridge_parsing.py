@@ -24,6 +24,18 @@ class _SeatOnlyStructuredAgent:
         raise AssertionError("text fallback should not be used")
 
 
+class _TextAgent:
+    name = "玩家4"
+
+    def __init__(self, response: str) -> None:
+        self.response = response
+        self._last_decision_metadata = None
+
+    async def get_response(self, message: str) -> str:
+        del message
+        return self.response
+
+
 def test_target_selection_uses_player_seat_not_list_position() -> None:
     targets = [
         Player("player_2", "玩家2", Villager),
@@ -120,3 +132,23 @@ async def test_formal_vote_keeps_valid_seat_when_structured_reason_missing() -> 
     assert metadata["resolved_target_id"] == "player_5"
     assert metadata["structured_decision"]["reason"]
     assert "玩家5" in metadata["structured_decision"]["reason"]
+
+
+@pytest.mark.asyncio
+async def test_random_seat_fallback_records_reason() -> None:
+    targets = [Player("player_3", "玩家3", Villager), Player("player_5", "玩家5", Werewolf)]
+    agent = _TextAgent("不是座位号")
+
+    selected = await WerewolfAdapterBridge.request_seat_choice(
+        agent,
+        "Villager",
+        "请选择目标",
+        targets,
+        allow_skip=False,
+        fallback_random=True,
+    )
+
+    assert selected in targets
+    metadata = agent._last_decision_metadata
+    assert metadata["fallback"] is True
+    assert metadata["fallback_reason"] == "parse_failed"

@@ -136,7 +136,6 @@ async def run_post_game_pipeline(
             )
             or state.ctx
         ),
-        required=True,
     )
     if loaded is None:
         _sync_stage_errors(result, steps)

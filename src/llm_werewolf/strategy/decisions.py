@@ -19,6 +19,37 @@ _SEAT_ONLY_PATTERN = re.compile(r"^\d{1,2}$")
 # 解析失败时产生的占位字符串 — 不得视为真实发言。
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 
+_INCOMPLETE_SPEECH_ENDINGS = (
+    "，",
+    "、",
+    "：",
+    "；",
+    ",",
+    ":",
+    ";",
+    "往",
+    "把",
+    "将",
+    "向",
+    "对",
+    "给",
+    "让",
+    "从",
+    "和",
+    "跟",
+    "与",
+    "但",
+    "但是",
+    "如果",
+    "所以",
+    "而且",
+    "并且",
+    "同时",
+    "比如",
+    "例如",
+    "然后",
+)
+
 
 def generate_response_instruction(
     schema_name: str,
@@ -374,6 +405,14 @@ def looks_like_seat_only(text: str) -> bool:
     return bool(len(stripped) <= 3 and stripped.isdigit())
 
 
+def looks_like_truncated_speech(text: str) -> bool:
+    """文本停在连接词、方向词或半截标点时，视为被截断的发言。"""
+    stripped = re.sub(r"\s+", "", text).strip()
+    if not stripped:
+        return True
+    return stripped.endswith(_INCOMPLETE_SPEECH_ENDINGS)
+
+
 def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> bool:
     """提取的文本是否可用作白天讨论 / 公开发言。"""
     stripped = text.strip()
@@ -382,6 +421,8 @@ def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> 
     if len(stripped) < min_chars:
         return False
     if looks_like_seat_only(stripped):
+        return False
+    if looks_like_truncated_speech(stripped):
         return False
     return not looks_like_kill_or_vote_format(stripped)
 

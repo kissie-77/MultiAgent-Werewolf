@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import ClassVar
 
 from llm_werewolf.game_runtime.types import Camp, EventType
 from llm_werewolf.game_runtime.locale import Locale
@@ -29,6 +30,19 @@ class ActionProcessorMixin:
     game_state: GameState | None
     locale: Locale
     _log_event: Callable
+    _ACTION_LOGGER_NAMES: ClassVar[tuple[tuple[type[Action], str], ...]] = (
+        (GuardProtectAction, "_log_guard_action"),
+        (WitchSaveAction, "_log_witch_save_action"),
+        (WitchPoisonAction, "_log_witch_poison_action"),
+        (SeerCheckAction, "_log_seer_action"),
+        (CupidLinkAction, "_log_cupid_action"),
+        (WhiteWolfKillAction, "_log_white_wolf_action"),
+        (WolfBeautyCharmAction, "_log_wolf_beauty_action"),
+        (NightmareWolfBlockAction, "_log_nightmare_block_action"),
+        (GuardianWolfProtectAction, "_log_guardian_wolf_action"),
+        (RavenMarkAction, "_log_raven_action"),
+        (GraveyardKeeperCheckAction, "_log_graveyard_keeper_action"),
+    )
 
     @staticmethod
     def _get_action_priority(action: Action) -> int:
@@ -103,7 +117,7 @@ class ActionProcessorMixin:
     def _log_witch_poison_action(self, action: WitchPoisonAction) -> None:
         """记录女巫毒人行动。"""
         self._log_event(
-            EventType.WITCH_POISONED,
+            EventType.WITCH_POISON_USED,
             self.locale.get("witch_uses_poison", target=action.target.name),
             data={
                 "player_id": action.actor.player_id,
@@ -181,11 +195,11 @@ class ActionProcessorMixin:
     def _log_white_wolf_action(self, action: WhiteWolfKillAction) -> None:
         """记录白狼王击杀行动。"""
         self._log_event(
-            EventType.MESSAGE,
+            EventType.WHITE_WOLF_KILLED,
             self.locale.get("white_wolf_kills", target=action.target.name),
             data={
+                "player_id": action.actor.player_id,
                 "target_id": action.target.player_id,
-                "visibility": "wolf_team",
                 **self._decision_data(action),
             },
         )
@@ -193,7 +207,7 @@ class ActionProcessorMixin:
     def _log_wolf_beauty_action(self, action: WolfBeautyCharmAction) -> None:
         """记录狼美人魅惑行动。"""
         self._log_event(
-            EventType.MESSAGE,
+            EventType.WOLF_BEAUTY_CHARMED,
             self.locale.get("wolf_beauty_charms", target=action.target.name),
             data={
                 "player_id": action.actor.player_id,
@@ -205,7 +219,7 @@ class ActionProcessorMixin:
     def _log_nightmare_block_action(self, action: NightmareWolfBlockAction) -> None:
         """记录梦魇狼封锁行动。"""
         self._log_event(
-            EventType.MESSAGE,
+            EventType.NIGHTMARE_BLOCKED,
             self.locale.get("nightmare_blocks", target=action.target.name),
             data={
                 "player_id": action.actor.player_id,
@@ -217,7 +231,7 @@ class ActionProcessorMixin:
     def _log_guardian_wolf_action(self, action: GuardianWolfProtectAction) -> None:
         """记录守墓狼保护行动。"""
         self._log_event(
-            EventType.MESSAGE,
+            EventType.GUARDIAN_WOLF_PROTECTED,
             self.locale.get("guardian_wolf_protected", target=action.target.name),
             data={
                 "player_id": action.actor.player_id,
@@ -230,7 +244,7 @@ class ActionProcessorMixin:
     def _log_raven_action(self, action: RavenMarkAction) -> None:
         """记录乌鸦标记行动。"""
         self._log_event(
-            EventType.MESSAGE,
+            EventType.RAVEN_MARKED,
             self.locale.get("raven_marks", target=action.target.name),
             data={
                 "player_id": action.actor.player_id,
@@ -264,28 +278,10 @@ class ActionProcessorMixin:
         Args:
             action: 待记录的行动。
         """
-        if isinstance(action, GuardProtectAction):
-            self._log_guard_action(action)
-        elif isinstance(action, WitchSaveAction):
-            self._log_witch_save_action(action)
-        elif isinstance(action, WitchPoisonAction):
-            self._log_witch_poison_action(action)
-        elif isinstance(action, SeerCheckAction):
-            self._log_seer_action(action)
-        elif isinstance(action, CupidLinkAction):
-            self._log_cupid_action(action)
-        elif isinstance(action, WhiteWolfKillAction):
-            self._log_white_wolf_action(action)
-        elif isinstance(action, WolfBeautyCharmAction):
-            self._log_wolf_beauty_action(action)
-        elif isinstance(action, NightmareWolfBlockAction):
-            self._log_nightmare_block_action(action)
-        elif isinstance(action, GuardianWolfProtectAction):
-            self._log_guardian_wolf_action(action)
-        elif isinstance(action, RavenMarkAction):
-            self._log_raven_action(action)
-        elif isinstance(action, GraveyardKeeperCheckAction):
-            self._log_graveyard_keeper_action(action)
+        for action_type, logger_name in self._ACTION_LOGGER_NAMES:
+            if isinstance(action, action_type):
+                getattr(self, logger_name)(action)
+                return
 
     def process_actions(self, actions: list) -> list[str]:
         """处理行动列表。

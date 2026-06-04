@@ -37,6 +37,24 @@ def test_seer_checked_still_actor_only() -> None:
     assert visible == ["seer_1"]
 
 
+def test_witch_poison_used_visible_to_actor_only() -> None:
+    visible = resolve_visible_to(
+        EventType.WITCH_POISON_USED,
+        {"player_id": "witch_1", "target_id": "player_2"},
+        witch_player_ids=["witch_1"],
+    )
+    assert visible == ["witch_1"]
+
+
+def test_witch_poison_death_is_public_death_event() -> None:
+    visible = resolve_visible_to(
+        EventType.PLAYER_DIED,
+        {"player_id": "player_2", "reason": "witch_poison", "cause": "witch_poison"},
+        witch_player_ids=["witch_1"],
+    )
+    assert visible is None
+
+
 def test_role_acting_visible_to_actor_only() -> None:
     visible = resolve_visible_to(EventType.ROLE_ACTING, {"player_id": "wolf_1"})
     assert visible == ["wolf_1"]
@@ -79,3 +97,32 @@ def test_wolf_team_message_without_wolves_is_not_public() -> None:
     )
 
     assert visible == []
+
+
+def test_typed_wolf_team_skill_events_visible_to_wolves_only() -> None:
+    for event_type in {
+        EventType.WHITE_WOLF_KILLED,
+        EventType.GUARDIAN_WOLF_PROTECTED,
+    }:
+        visible = resolve_visible_to(
+            event_type,
+            {"player_id": "wolf_1", "target_id": "wolf_2"},
+            wolf_player_ids=["wolf_1", "wolf_2"],
+        )
+
+        assert visible == ["wolf_1", "wolf_2"]
+
+
+def test_typed_private_skill_events_visible_to_actor_only() -> None:
+    for event_type in {
+        EventType.WOLF_BEAUTY_CHARMED,
+        EventType.NIGHTMARE_BLOCKED,
+        EventType.RAVEN_MARKED,
+    }:
+        visible = resolve_visible_to(
+            event_type,
+            {"player_id": "actor_1", "target_id": "player_2"},
+            wolf_player_ids=["wolf_1"],
+        )
+
+        assert visible == ["actor_1"]

@@ -23,7 +23,7 @@
 | `architecture/` | 跨模块方案；evaluation / memory 历史专题见 `architecture/evaluation/`、`architecture/memory/` |
 | `agent_team/memory/` | 记忆子模块三件套（README · DESIGN · ROADMAP） |
 | `evaluation/` | **仅** README · DESIGN · ROADMAP 三件套 |
-| `reports/` | 专项报告、排查过程稿 |
+| `reports/` | 专项报告、排查过程稿；工程质量本轮记录见 [修复记录](./reports/工程代码质量修复记录-2026-06-04.md) 与 [总体计划](./reports/工程代码质量修复总体计划.md) |
 | `archive/` | 已归档文档 |
 
 ## 写作规范
@@ -37,8 +37,10 @@
 
 | 脚本 / CLI | 用途 |
 |------|------|
-| `scripts/test_ark_connectivity.py` | 校验 `.env` 中 `ARK_API_KEY` + `ARK_EP` 是否可用（Doubao） |
-| `uv run werewolf configs/llm-12p-doubao.yaml` | 12 人标准 LLM 对局（CLI） |
+| `uv run werewolf` | 交互式正式对局入口 |
+| `uv run werewolf --participation human_mixed --rules extended_roles --players 18 --human_seat 8` | 18 人人机扩展局示例 |
+| `uv run werewolf configs/llm-12p-kimi.yaml` | 12 人 Kimi/VibeAPI LLM 对局（CLI） |
+| `scripts/test_ark_connectivity.py` | 校验 `.env` 中 `ARK_API_KEY` + `ARK_EP` 是否可用（Doubao/ARK 专用） |
 | `uv run werewolf-api` | Web API（前端对接目标，`:8000`）；`GET /health`、`GET /ready` |
 | `uv run werewolf-watch --since 24h` | 扫描 run 产物并生成告警摘要（默认不 push Webhook） |
 

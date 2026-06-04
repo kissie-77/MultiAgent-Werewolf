@@ -8,6 +8,7 @@ from llm_werewolf.strategy.decisions import (
     SpeechDecision,
     extract_public_text,
     looks_like_seat_only,
+    looks_like_truncated_speech,
     is_valid_public_speech,
     normalize_speech_decision,
     speech_schema_instruction,
@@ -88,6 +89,16 @@ def test_kill_vote_format_rejected() -> None:
     assert looks_like_kill_or_vote_format("刀7")
     assert not looks_like_kill_or_vote_format("我觉得7号发言前后矛盾需要再听一轮解释")
     assert not is_valid_public_speech("[[7]]")
+
+
+def test_truncated_public_speech_rejected() -> None:
+    truncated = "我同意刀6号，中位号确实有掩护效果，第二天我们可以把话题往"
+    complete = "我同意刀6号，中位号确实有掩护效果，第二天我们可以把话题往守卫判断上带。"
+
+    assert looks_like_truncated_speech(truncated)
+    assert not is_valid_public_speech(truncated)
+    assert not looks_like_truncated_speech(complete)
+    assert is_valid_public_speech(complete)
 
 
 def test_wrong_schema_metadata_for_speech() -> None:

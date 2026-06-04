@@ -35,7 +35,7 @@ def build_start_modes(configs_dir: Path) -> StartGameModesResponse:
 
     extras = [
         ("llm-6p-doubao", "6-player Doubao LLM game"),
-        ("llm-12p-doubao", "12-player Doubao LLM game"),
+        ("llm-12p-kimi", "12-player Kimi/VibeAPI LLM game"),
     ]
     seen = {item.config_id for item in modes}
     for config_id, description in extras:

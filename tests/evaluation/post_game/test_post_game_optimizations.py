@@ -3,18 +3,90 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from llm_werewolf.game_runtime.types.enums import Camp
 from llm_werewolf.evaluation.scoring.intention import build_intention_scores
-from llm_werewolf.evaluation.post_game.run_context import load_run_context, target_id_to_camp
+from llm_werewolf.evaluation.post_game.run_context import (
+    RunContext,
+    PlayerRosterEntry,
+    load_run_context,
+    target_id_to_camp,
+)
 from llm_werewolf.evaluation.post_game.scoring.mvp import build_mvp_scores
+from llm_werewolf.evaluation.post_game.scoring.outcome import build_outcome_scores
 from llm_werewolf.evaluation.post_game.turning_points import build_turning_points
-from llm_werewolf.evaluation.post_game.camp_persuasion import build_camp_persuasion_report
+from llm_werewolf.evaluation.post_game.camp_persuasion import (
+    CampPersuasionReport,
+    build_camp_persuasion_report,
+)
 from llm_werewolf.evaluation.post_game.scoring.wolf_night import build_wolf_night_scores
 from llm_werewolf.evaluation.post_game.game_quality_report import build_game_quality_report
 from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     evaluate_persuasion_speech,
     collect_skill_generation_candidates,
 )
+
+
+def _witch_poison_ctx(tmp_path: Path, event_type: str) -> RunContext:
+    events = [
+        {
+            "event_type": event_type,
+            "round_number": 1,
+            "phase": "night",
+            "message": "Witch poisoned TargetWolf",
+            "data": {"player_id": "player_4", "target_id": "player_9"},
+        }
+    ]
+    roster = {
+        "player_4": PlayerRosterEntry(
+            player_id="player_4",
+            player_name="Witch",
+            role_name="Witch",
+            camp=Camp.VILLAGER.value,
+        ),
+        "player_9": PlayerRosterEntry(
+            player_id="player_9",
+            player_name="TargetWolf",
+            role_name="Werewolf",
+            camp=Camp.WEREWOLF.value,
+        ),
+    }
+    return RunContext(run_dir=tmp_path, events=events, roster=roster, prompt_version="v2")
+
+
+@pytest.mark.parametrize("event_type", ["witch_poisoned", "witch_poison_used"])
+def test_turning_points_accept_witch_poison_aliases(tmp_path: Path, event_type: str) -> None:
+    ctx = _witch_poison_ctx(tmp_path, event_type)
+
+    points = build_turning_points(ctx)
+
+    assert any("TargetWolf" in point for point in points)
+
+
+@pytest.mark.parametrize("event_type", ["witch_poisoned", "witch_poison_used"])
+def test_skill_generation_accepts_witch_poison_aliases(
+    tmp_path: Path, event_type: str
+) -> None:
+    ctx = _witch_poison_ctx(tmp_path, event_type)
+    camp = CampPersuasionReport(winner_camp=ctx.winner_camp, prompt_version=ctx.prompt_version)
+
+    candidates = collect_skill_generation_candidates(ctx, camp)
+
+    assert len(candidates) == 1
+    assert candidates[0].source_kind == "night_action"
+    assert candidates[0].prompt_role_key == "witch"
+    assert candidates[0].night_event["event_type"] == event_type
+    assert candidates[0].rule.reason == "witch poisoned werewolf"
+
+
+def test_outcome_scores_do_not_treat_witch_poison_used_as_death(tmp_path: Path) -> None:
+    ctx = _witch_poison_ctx(tmp_path, "witch_poison_used")
+
+    scores = build_outcome_scores(ctx)
+
+    assert scores["player_4"]["survival"] == 6
+    assert scores["player_9"]["survival"] == 6
 
 
 def test_wolf_night_parses_player_discussion_speech() -> None:

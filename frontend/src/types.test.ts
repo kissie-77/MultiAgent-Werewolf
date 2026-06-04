@@ -38,12 +38,19 @@ describe("engine-driven contract types", () => {
       cursor: 142,
       players: [{ seat: 1, name: "A", role: "Seer", camp: "villager", is_alive: true, is_sheriff: false, model: "deepseek-chat", status_flags: ["alive"] }],
     };
+    // StreamEvent mirrors the backend ViewEvent wire shape: `round` (not `day`),
+    // no top-level `sub_phase`; a sub_phase event's text rides on `name`.
     const ev: StreamEvent = {
-      seq: 143, type: "skill", phase: GamePhase.night, sub_phase: "werewolf_chat", round: 2,
+      seq: 143, type: "skill", phase: GamePhase.night, round: 2,
       reveal: "now", visibility: "wolf",
       skill: { kind: "wolf_kill", actor: { seat: 1 }, target: { seat: 7 }, result: null },
     };
+    const subPhaseEv: StreamEvent = {
+      seq: 144, type: "sub_phase", phase: GamePhase.night, round: 2,
+      reveal: "now", visibility: "public", name: "werewolf_chat",
+    };
     expect(state.last_night?.deaths[0].seat).toBe(7);
     expect(ev.skill?.kind).toBe("wolf_kill");
+    expect(subPhaseEv.name).toBe("werewolf_chat");
   });
 });

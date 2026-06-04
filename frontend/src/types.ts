@@ -62,7 +62,8 @@ export interface StatePlayer {
 }
 
 export interface LastNight {
-  deaths: { seat: number; cause: string }[];
+  // cause is `str | None` on the backend (state.py NightDeath.cause), so it can be null.
+  deaths: { seat: number; cause: string | null }[];
   saved_seat: number | null;
   guarded_seat: number | null;
   poisoned_seat: number | null;
@@ -92,11 +93,13 @@ export interface GameStateResponse {
   players: StatePlayer[];
 }
 
+// Mirrors the backend ViewEvent wire shape (models/view.py, spec §5.2). The
+// stream carries `round` (NOT `day`); a `sub_phase`-type event delivers its
+// display-hint text at the TOP LEVEL as `name` (NOT nested under `sub_phase`).
 export interface StreamEvent {
   seq: number;
   type: StreamEventType;
   phase: GamePhase;
-  sub_phase: SubPhase | null;
   round: number;
   reveal: RevealMode;
   visibility: Visibility;
@@ -110,7 +113,7 @@ export interface StreamEvent {
   vote?: { voter?: { seat: number | null }; target?: { seat: number | null } } | null;
   // death
   death?: { seat: number | null; name?: string | null; cause?: string | null } | null;
-  // phase / sub_phase / system display hint
+  // sub_phase display-hint name (top-level per spec §5.2) / system text
   name?: string | null;
   text?: string | null;
 }

@@ -18,8 +18,11 @@ _SKILL_TYPES = {
     "werewolf_killed", "witch_saved", "witch_poisoned", "seer_checked",
     "guard_protected", "graveyard_keeper_check", "hunter_revenge",
     "sheriff_badge_transferred", "role_acting",
+    "white_wolf_killed", "wolf_beauty_charmed", "nightmare_blocked",
+    "guardian_wolf_protected", "raven_marked",
 }
 _PHASE_TYPES = {"phase_changed", "round_started"}
+_SUB_PHASE_TYPES = {"sub_phase"}
 _NIGHT_PHASES = {"night", "setup"}
 # Skills that happen publicly during the day; never god-only.
 _PUBLIC_SKILLS = {"hunter_revenge", "sheriff_badge_transferred"}
@@ -34,6 +37,11 @@ _SKILL_KIND = {
     "witch_poisoned": "witch_poison", "seer_checked": "seer_check",
     "guard_protected": "guard", "hunter_revenge": "hunter_shoot",
     "sheriff_badge_transferred": "badge_transfer",
+    "white_wolf_killed": "white_wolf_kill",
+    "wolf_beauty_charmed": "wolf_beauty_charm",
+    "nightmare_blocked": "nightmare_block",
+    "guardian_wolf_protected": "guardian_wolf_guard",
+    "raven_marked": "raven_mark",
 }
 
 
@@ -65,6 +73,8 @@ def _classify(event_type: str) -> str:
         return "skill"
     if event_type in _PHASE_TYPES:
         return "phase"
+    if event_type in _SUB_PHASE_TYPES:
+        return "sub_phase"
     if event_type == "belief_snapshot":
         return "belief"
     if event_type == "vote_intention_snapshot":
@@ -75,6 +85,8 @@ def _classify(event_type: str) -> str:
 def _reveal_visibility(event_type: str, phase: str) -> tuple[str, str]:
     ui = _classify(event_type)
     if event_type in _PUBLIC_SKILLS:
+        return "now", "public"
+    if ui == "sub_phase":
         return "now", "public"
     # night-phase speech/vote/death stay public; other night actions are god-only until game end
     if ui in {"skill", "belief", "vote_intention"} or phase in _NIGHT_PHASES:
@@ -102,10 +114,12 @@ def _map_event(seq: int, row: dict) -> ViewEvent:
     elif ui == "skill":
         ev.skill = {
             "kind": _SKILL_KIND.get(event_type, event_type),
-            "actor": {"seat": _seat_of(data.get("player_id"))},
+            "actor": {"seat": _seat_of(data.get("actor_id") or data.get("player_id"))},
             "target": {"seat": _seat_of(data.get("target_id"))},
             "result": data.get("result"),
         }
+    elif ui == "sub_phase":
+        ev.sub_phase = {"name": data.get("name")}
     elif ui == "vote":
         ev.vote = {
             "voter": {"seat": _seat_of(data.get("voter_id") or data.get("player_id"))},

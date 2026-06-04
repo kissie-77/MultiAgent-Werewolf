@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 RevealMode = Literal["now", "on_death", "on_game_end"]
 Visibility = Literal["public", "wolf", "god"]
 ViewEventType = Literal[
-    "speech", "skill", "vote", "death", "phase", "system", "belief", "vote_intention"
+    "speech", "skill", "vote", "death", "phase", "sub_phase",
+    "system", "belief", "vote_intention",
 ]
 
 
@@ -49,6 +50,7 @@ class ViewEvent(BaseModel):
     skill: dict[str, Any] | None = None
     vote: dict[str, Any] | None = None
     death: dict[str, Any] | None = None
+    sub_phase: dict[str, Any] | None = None
     reveal: RevealMode = "now"
     visibility: Visibility = "public"
 

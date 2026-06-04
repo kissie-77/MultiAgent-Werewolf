@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from llm_werewolf.interface.api.services.view import _reveal_visibility, build_view
+from llm_werewolf.interface.api.services.view import build_view, _reveal_visibility
 
 
 def _seed_run(tmp_path: Path) -> Path:
@@ -101,5 +101,43 @@ def test_build_view_hunter_revenge_event_is_public(tmp_path):
     )
     view = build_view(run_dir, since=0, status="running")
     ev = next(e for e in view.events if e.type == "skill")
+    assert ev.reveal == "now"
+    assert ev.visibility == "public"
+
+
+from llm_werewolf.interface.api.services.view import _classify, _map_event
+
+
+def test_new_skill_eventtypes_classify_as_skill_with_spec_kind() -> None:
+    cases = {
+        "white_wolf_killed": "white_wolf_kill",
+        "wolf_beauty_charmed": "wolf_beauty_charm",
+        "nightmare_blocked": "nightmare_block",
+        "guardian_wolf_protected": "guardian_wolf_guard",
+        "raven_marked": "raven_mark",
+    }
+    for event_type, expected_kind in cases.items():
+        assert _classify(event_type) == "skill", event_type
+        row = {
+            "event_type": event_type, "round_number": 1, "phase": "night",
+            "message": "", "data": {"actor_id": "player_2", "target_id": "player_5",
+                                    "result": "ok"},
+        }
+        ev = _map_event(3, row)
+        assert ev.type == "skill"
+        assert ev.skill["kind"] == expected_kind
+        assert ev.skill["actor"] == {"seat": 2}
+        assert ev.skill["target"] == {"seat": 5}
+        assert ev.skill["result"] == "ok"
+
+
+def test_sub_phase_eventtype_classifies_as_sub_phase() -> None:
+    assert _classify("sub_phase") == "sub_phase"
+    row = {"event_type": "sub_phase", "round_number": 1, "phase": "night",
+           "message": "", "data": {"name": "werewolf_chat"}}
+    ev = _map_event(4, row)
+    assert ev.type == "sub_phase"
+    assert ev.sub_phase == {"name": "werewolf_chat"}
+    # a night-phase sub_phase is a public display hint, not god-only
     assert ev.reveal == "now"
     assert ev.visibility == "public"

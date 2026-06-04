@@ -37,3 +37,31 @@ def test_sheriff_election_emits_phase_changed() -> None:
     asyncio.run(harness.execute_sheriff_election())
 
     assert GamePhase.SHERIFF_ELECTION.value in _phase_changed_phases(log_event)
+
+
+from llm_werewolf.game_runtime.engine.voting_phase import VotingPhaseMixin
+
+
+class _VotingHarness(VotingPhaseMixin):
+    def __init__(self, game_state: GameState, log_event: MagicMock) -> None:
+        self.game_state = game_state
+        self.locale = Locale("en-US")
+        self._log_event = log_event
+
+    async def _handle_knight_duel(self):  # noqa: ANN202
+        return []
+
+    async def _handle_death_abilities(self):  # noqa: ANN202
+        return []
+
+
+def test_voting_phase_emits_phase_changed() -> None:
+    log_event = MagicMock()
+    state = GameState([Player("v1", "V1", Villager), Player("w1", "W1", Werewolf)])
+    state.set_phase(GamePhase.DAY_DISCUSSION)
+    state.round_number = 1
+    harness = _VotingHarness(state, log_event)
+
+    asyncio.run(harness.run_voting_phase())
+
+    assert GamePhase.DAY_VOTING.value in _phase_changed_phases(log_event)

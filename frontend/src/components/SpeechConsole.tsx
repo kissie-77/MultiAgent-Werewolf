@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
-import { MessageSquare, Scroll, Brain } from "lucide-react";
+import { MessageSquare, Scroll, Brain, Activity } from "lucide-react";
 import { useGameStore } from "../store";
-import { RenderLog } from "../types";
+import { RenderLog, SUB_PHASE_LABELS, PHASE_LABELS, GamePhase } from "../types";
 
 interface SpeechConsoleProps {
   isExpanded?: boolean;
@@ -9,13 +9,13 @@ interface SpeechConsoleProps {
 }
 
 function EventRow({ log }: { log: RenderLog }) {
-  // 非发言事件：居中系统行
+  // 非发言事件（skill / vote / death / phase / system）：居中系统行
   if (log.kind !== "speech") {
     const tone =
       log.kind === "death" ? "text-red-400 border-red-900/60"
       : log.kind === "vote" ? "text-yellow-400 border-yellow-900/50"
       : log.kind === "skill" ? "text-fuchsia-300 border-fuchsia-900/50"
-      : log.kind === "phase" ? "text-zinc-300 border-zinc-700"
+      : log.kind === "phase" || log.kind === "sub_phase" ? "text-zinc-300 border-zinc-700"
       : "text-zinc-400 border-zinc-800";
     return (
       <div className="flex justify-center my-2">
@@ -35,7 +35,7 @@ function EventRow({ log }: { log: RenderLog }) {
       <div className="relative px-7 py-4 rounded-lg border-2 shadow-2xl parchment font-serif max-w-lg rounded-tl-none">
         <div className="flex items-center justify-between gap-6 border-b border-black/20 pb-1.5 mb-2 font-mono text-[9px] font-black uppercase tracking-wider text-black">
           <span className="text-blue-900">{log.speakerName || `玩家 ${log.speakerSeat}`}</span>
-          <span className="text-zinc-700 tracking-widest">DAY {log.day}</span>
+          <span className="text-zinc-700 tracking-widest">ROUND {log.round}</span>
         </div>
         <p className="text-[12.5px] leading-relaxed font-sans font-extrabold whitespace-pre-wrap text-[#1a1a1a]">
           {log.text}
@@ -55,14 +55,16 @@ function EventRow({ log }: { log: RenderLog }) {
 
 export default function SpeechConsole({ isExpanded = true, onToggle }: SpeechConsoleProps) {
   const logs = useGameStore((s) => s.logs);
-  const snapshot = useGameStore((s) => s.snapshot);
+  const gameState = useGameStore((s) => s.gameState);
   const listEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isExpanded) listEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs, isExpanded]);
 
-  const narration = snapshot?.phase_label || "幽暗城堡的丧钟敲响，AI 们各就各位...";
+  const phase = gameState?.phase ?? GamePhase.setup;
+  const subPhaseLabel = gameState?.sub_phase ? SUB_PHASE_LABELS[gameState.sub_phase] ?? gameState.sub_phase : null;
+  const narration = subPhaseLabel ?? PHASE_LABELS[phase] ?? "幽暗城堡的丧钟敲响，AI 们各就各位...";
 
   return (
     <div className="flex flex-col flex-grow bg-transparent overflow-hidden relative z-10">
@@ -84,8 +86,11 @@ export default function SpeechConsole({ isExpanded = true, onToggle }: SpeechCon
         </div>
       </div>
 
+      {/* Sub-phase highlight banner (狼人夜聊中 / 女巫决策中 / 预言家查验中) */}
       <div className="bg-transparent p-3 border-b border-zinc-900/30 flex gap-3 items-start">
-        <div className="w-8 h-8 rounded shrink-0 bg-red-950/40 border border-red-800/60 flex items-center justify-center text-red-500 font-serif font-black text-sm animate-pulse">☠</div>
+        <div className="w-8 h-8 rounded shrink-0 bg-red-950/40 border border-red-800/60 flex items-center justify-center text-red-500 font-serif font-black text-sm animate-pulse">
+          {subPhaseLabel ? <Activity className="w-4 h-4 text-fuchsia-400" /> : "☠"}
+        </div>
         <p className="font-sans text-xs text-[#e0e0e0] leading-relaxed font-black font-serif">{narration}</p>
       </div>
 

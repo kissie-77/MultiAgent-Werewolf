@@ -15,6 +15,7 @@ from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder impor
     build_belief_when_clause,
     build_persuasion_skill_card,
     build_night_action_skill_card,
+    generalize_seat_references,
 )
 from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     SkillGenerationCandidate,
@@ -87,7 +88,7 @@ def _skill_from_persuasion(
     speech = candidate.speech
     assert speech is not None
     role_key = candidate.prompt_role_key
-    skill_id = _slug(f"{role_key}_r{speech.round_number}_{speech.speaker_id}_{rank}")
+    skill_id = _slug(f"{role_key}_r{speech.round_number}_persuasion_{rank}")
     belief_summary = _resolve_belief_summary(candidate, belief_index=belief_index)
     card = build_persuasion_skill_card(
         role_key=role_key,
@@ -119,8 +120,8 @@ def _skill_from_persuasion(
         },
         "skill_card": {
             "title_zh": card.title_zh,
-            "when_to_use": card.when_to_use,
-            "public_behavior": card.public_behavior,
+            "when_to_use": generalize_seat_references(card.when_to_use),
+            "public_behavior": generalize_seat_references(card.public_behavior),
             "avoid": card.avoid,
         },
         "evidence": {
@@ -154,7 +155,7 @@ def _skill_from_night_action(
     etype = str(event.get("event_type", "night_action"))
     rnd = int(event.get("round_number", 0))
     role_key = candidate.prompt_role_key
-    skill_id = _slug(f"{role_key}_night_r{rnd}_{candidate.player_id}_{rank}")
+    skill_id = _slug(f"{role_key}_night_r{rnd}_{etype}_{rank}")
     belief_summary = _resolve_belief_summary(candidate, belief_index=belief_index)
     card = build_night_action_skill_card(
         role_key=role_key,
@@ -187,8 +188,8 @@ def _skill_from_night_action(
         },
         "skill_card": {
             "title_zh": card.title_zh,
-            "when_to_use": card.when_to_use,
-            "public_behavior": card.public_behavior,
+            "when_to_use": generalize_seat_references(card.when_to_use),
+            "public_behavior": generalize_seat_references(card.public_behavior),
             "avoid": card.avoid,
         },
         "evidence": {
@@ -203,7 +204,7 @@ def _skill_from_night_action(
         },
         "rationale": (
             f"[生成规则: {candidate.rule.rule_id}] "
-            f"第{rnd}轮 {etype}，目标 {data.get('target_id', '?')}"
+            f"第{rnd}轮 {etype}，目标已选定"
             + (f"，结果 {check_result}。" if check_result else "。")
         ),
     }

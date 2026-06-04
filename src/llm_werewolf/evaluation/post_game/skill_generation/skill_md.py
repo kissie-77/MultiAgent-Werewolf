@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Any
 from datetime import datetime, timezone
 
-from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import _result_zh
+from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
+    _result_zh,
+    abstract_evidence_target_label,
+    generalize_seat_references,
+)
 
 
 def render_skill_markdown(skill: dict[str, Any]) -> str:
@@ -15,7 +19,7 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     quality = skill.get("quality_gate") or {}
 
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    when_to_use = card.get("when_to_use", "")
+    when_to_use = generalize_seat_references(str(card.get("when_to_use", "")))
     frontmatter = {
         "skill_id": skill.get("skill_id", ""),
         "prompt_role_key": skill.get("prompt_role_key", ""),
@@ -49,7 +53,7 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
 
     if card.get("public_behavior"):
         lines.append("## 公开行为")
-        lines.append(str(card["public_behavior"]))
+        lines.append(generalize_seat_references(str(card["public_behavior"])))
         lines.append("")
 
     if card.get("avoid"):
@@ -60,7 +64,7 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     belief_context = evidence.get("belief_context")
     if isinstance(belief_context, dict) and belief_context.get("when_clause"):
         lines.append("## 信念分布依据")
-        lines.append(str(belief_context["when_clause"]))
+        lines.append(generalize_seat_references(str(belief_context["when_clause"])))
         if belief_context.get("pattern"):
             lines.append(f"- 分布模式：{belief_context['pattern']}")
         lines.append("")
@@ -68,13 +72,13 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     excerpt = evidence.get("public_speech_excerpt")
     if excerpt:
         lines.append("## 本局发言摘录")
-        lines.append(f"> {excerpt}")
+        lines.append(f"> {generalize_seat_references(str(excerpt))}")
         lines.append("")
 
     if evidence.get("target_id") or evidence.get("check_result"):
         lines.append("## 本局决策")
         if evidence.get("target_id"):
-            lines.append(f"- 目标：{evidence['target_id']}")
+            lines.append(f"- 目标：{abstract_evidence_target_label(evidence['target_id'])}")
         if evidence.get("check_result") is not None:
             lines.append(f"- 查验/结果：{_result_zh(evidence['check_result'])}")
         if evidence.get("event_type"):

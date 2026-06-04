@@ -5,10 +5,76 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from dataclasses import dataclass, field
 import json
+import re
 
 if TYPE_CHECKING:
     from llm_werewolf.evaluation.post_game.run_context import RunContext
     from llm_werewolf.evaluation.post_game.camp_persuasion import CampSpeechInfluence
+
+_SEAT_NUMBER_RE = re.compile(r"(?:[零一二三四五六七八九十百千两]+|\d+)\s*号")
+_PLAYER_ID_RE = re.compile(r"player_\d+", re.IGNORECASE)
+
+
+def generalize_seat_references(text: str) -> str:
+    """将「N号」、player_N 等具体座位引用替换为抽象表述。"""
+    if not text:
+        return text
+    normalized = _SEAT_NUMBER_RE.sub("该目标", text)
+    return _PLAYER_ID_RE.sub("某玩家", normalized)
+
+
+def format_belief_prob_summary(probs: list[float], *, limit: int = 3) -> str:
+    if not probs:
+        return "-"
+    return "/".join(f"{prob:.2f}" for prob in probs[:limit])
+
+
+def abstract_skill_target_label(
+    ctx: "RunContext",
+    target_id: str | None,
+    *,
+    action: str = "generic",
+    check_result: str | None = None,
+) -> str:
+    """按角色/行动类型生成不含座位号的抽象目标描述。"""
+    if not target_id:
+        return "待选目标"
+
+    entry = ctx.roster.get(target_id)
+    role_name = entry.role_name if entry else None
+
+    if action == "check":
+        if check_result in {"狼人", "werewolf", "wolf"}:
+            if role_name in {"AlphaWolf", "WolfKing", "Werewolf"}:
+                return "验出狼的高价值目标"
+            return "验出狼的摇摆位"
+        if role_name == "Seer":
+            return "疑似神职位"
+        return "高信息收益位"
+
+    if action == "protect":
+        if role_name == "Seer":
+            return "疑似预言家位"
+        if role_name == "Witch":
+            return "疑似女巫位"
+        return "高刀口价值位"
+
+    if action == "kill":
+        if role_name == "Seer":
+            return "疑似预言家位"
+        if role_name == "Witch":
+            return "疑似女巫位"
+        if role_name in {"Hunter", "Guard"}:
+            return "存活神职位"
+        return "高威胁好人位"
+
+    return "阵营收益目标"
+
+
+def abstract_evidence_target_label(target_id: Any) -> str:
+    if not target_id:
+        return ""
+    return "本局选定的阵营收益目标（具体座位见 role_skills.json）"
 
 # 策略要点提炼自 strategy/prompts/v2/roles/*.yaml 与常见网规狼人杀思路
 _ROLE_DAY_PERSUASION: dict[str, dict[str, str]] = {
@@ -163,15 +229,6 @@ class SkillCardContent:
     avoid: str
 
 
-def _player_label(ctx: RunContext, player_id: str | None) -> str:
-    if not player_id:
-        return "未知目标"
-    entry = ctx.roster.get(player_id)
-    if entry and entry.player_name and entry.player_name != player_id:
-        return f"{entry.player_name}（{player_id}）"
-    return player_id
-
-
 def _result_zh(raw: Any) -> str:
     if raw is None:
         return "未知"
@@ -216,8 +273,12 @@ def _guard_target_motivation(ctx: RunContext, *, target_id: str, round_number: i
 def build_wolf_night_coordination_card(
     *, round_number: int, speeches: list[str], kill_target_id: str | None, ctx: RunContext
 ) -> SkillCardContent:
-    kill_label = _player_label(ctx, kill_target_id) if kill_target_id else "待对齐刀口"
-    excerpt = "；".join(s.strip() for s in speeches if s.strip())[:120]
+    kill_label = (
+        abstract_skill_target_label(ctx, kill_target_id, action="kill")
+        if kill_target_id
+        else "待对齐刀口"
+    )
+    excerpt = generalize_seat_references("；".join(s.strip() for s in speeches if s.strip())[:120])
     return SkillCardContent(
         title_zh=f"第{round_number}轮狼队夜间刀口协商",
         when_to_use=(
@@ -256,7 +317,7 @@ def build_persuasion_skill_card(
         when += f"；本局发言后产生 {speech.camp_aligned_swings} 次同阵营意向摇摆"
 
     behavior = base["behavior"]
-    excerpt = (speech.public_speech or "").strip()
+    excerpt = generalize_seat_references((speech.public_speech or "").strip())
     if excerpt and len(excerpt) >= 12:
         behavior += f" ④ 表述上可先点出具体矛盾，再收束到单一归票（如摘录：「{excerpt[:80]}…」）。"
 
@@ -279,8 +340,13 @@ def build_night_action_skill_card(
     data = event.get("data") or {}
     rnd = int(event.get("round_number", 0))
     target_id = str(data.get("target_id") or "")
-    target_label = _player_label(ctx, target_id or None)
     check_result = _result_zh(data.get("result"))
+    target_label = abstract_skill_target_label(
+        ctx,
+        target_id or None,
+        action="check" if etype == "seer_checked" else "protect" if etype == "guard_protected" else "generic",
+        check_result=check_result if etype == "seer_checked" else None,
+    )
 
     strat = _NIGHT_EVENT_STRATEGY.get(etype)
     if strat is None:
@@ -553,16 +619,16 @@ def _belief_detect_pattern(
     return "mixed"
 
 
-def _belief_format_b1(b1_top: list[tuple[int, float]], *, limit: int = 3) -> str:
+def _belief_format_b1_probs(b1_top: list[tuple[int, float]], *, limit: int = 3) -> str:
     if not b1_top:
         return "-"
-    return ", ".join(f"{seat}:{prob:.2f}" for seat, prob in b1_top[:limit])
+    return format_belief_prob_summary([prob for _, prob in b1_top], limit=limit)
 
 
-def _belief_format_b2(b2_high: list[tuple[int, float]], *, limit: int = 2) -> str:
+def _belief_format_b2_probs(b2_high: list[tuple[int, float]], *, limit: int = 2) -> str:
     if not b2_high:
         return ""
-    return ", ".join(f"{seat}:{prob:.2f}" for seat, prob in b2_high[:limit])
+    return format_belief_prob_summary([prob for _, prob in b2_high], limit=limit)
 
 
 def build_belief_when_clause(snapshot: dict[str, Any] | None) -> BeliefDistributionSummary | None:
@@ -582,28 +648,28 @@ def build_belief_when_clause(snapshot: dict[str, Any] | None) -> BeliefDistribut
     parts: list[str] = [f"信念分布（第{round_number}轮·{anchor}）"]
 
     if pattern == "dispersed":
-        parts.append(f"场上狼信分散（B1 top {_belief_format_b1(b1_top)}）")
+        parts.append(f"场上狼信分散（Top狼信 {_belief_format_b1_probs(b1_top)}）")
     elif pattern == "split_focus":
-        parts.append(f"怀疑焦点分散在 {_belief_format_b1(b1_top, limit=2)}")
+        parts.append(f"怀疑焦点分散（Top狼信 {_belief_format_b1_probs(b1_top, limit=2)}）")
     elif pattern == "concentrated" and b1_top:
-        seat, prob = b1_top[0]
-        parts.append(f"高信{seat}号为狼（{prob:.2f}）")
+        _, prob = b1_top[0]
+        parts.append(f"对单一目标狼信极高（{prob:.2f}）")
     elif pattern == "converging" and b1_top:
-        seat, prob = b1_top[0]
-        parts.append(f"怀疑收敛于{seat}号（狼信{prob:.2f}）")
+        _, prob = b1_top[0]
+        parts.append(f"怀疑收敛于单一目标（狼信{prob:.2f}）")
     elif pattern == "undecided":
-        parts.append(f"信息不足、狼信未收敛（B1 top {_belief_format_b1(b1_top)}）")
+        parts.append(f"信息不足、狼信未收敛（Top狼信 {_belief_format_b1_probs(b1_top)}）")
     elif b1_top:
-        parts.append(f"B1 top {_belief_format_b1(b1_top)}")
+        parts.append(f"Top狼信 {_belief_format_b1_probs(b1_top)}")
 
     if vote_seat > 0:
-        parts.append(f"意向已指向{vote_seat}号")
+        parts.append("投票意向已收敛到单一目标")
     else:
         parts.append("意向仍观望")
 
-    b2_text = _belief_format_b2(b2_high)
+    b2_text = _belief_format_b2_probs(b2_high)
     if b2_text:
-        parts.append(f"自身被高怀疑（B2 {b2_text}）")
+        parts.append(f"自身被他人高怀疑（B2强度 {b2_text}）")
 
     usage_hints = {
         "dispersed": "适合主动带节奏、收束票型",

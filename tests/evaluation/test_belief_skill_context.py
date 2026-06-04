@@ -5,11 +5,14 @@ from pathlib import Path
 
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
     BeliefRunIndex,
+    abstract_skill_target_label,
     build_belief_when_clause,
+    build_night_action_skill_card,
     build_persuasion_skill_card,
+    generalize_seat_references,
 )
 from llm_werewolf.evaluation.post_game.camp_persuasion import CampSpeechInfluence
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+from llm_werewolf.evaluation.post_game.run_context import PlayerRosterEntry, RunContext
 
 
 def _belief_row(
@@ -50,8 +53,9 @@ def test_build_belief_when_clause_concentrated() -> None:
     summary = build_belief_when_clause(snapshot)
     assert summary is not None
     assert summary.pattern == "concentrated"
-    assert "高信6号为狼" in summary.when_clause
-    assert "意向已指向6号" in summary.when_clause
+    assert "对单一目标狼信极高" in summary.when_clause
+    assert "投票意向已收敛到单一目标" in summary.when_clause
+    assert "6号" not in summary.when_clause
 
 
 def test_build_belief_when_clause_dispersed() -> None:
@@ -134,4 +138,46 @@ def test_persuasion_skill_card_includes_belief_when(tmp_path: Path) -> None:
         belief_summary=summary,
     )
     assert "信念分布" in card.when_to_use
-    assert "高信6号为狼" in card.when_to_use
+    assert "对单一目标狼信极高" in card.when_to_use
+    assert "6号" not in card.when_to_use
+    assert "6号" not in card.public_behavior
+
+
+def test_generalize_seat_references() -> None:
+    assert generalize_seat_references("六号是查杀，今天全票出六号") == "该目标是查杀，今天全票出该目标"
+    assert generalize_seat_references("target player_3") == "target 某玩家"
+
+
+def test_night_action_skill_card_uses_abstract_target() -> None:
+    ctx = RunContext(run_dir=Path("."))
+    ctx.roster["player_5"] = PlayerRosterEntry(
+        player_id="player_5",
+        player_name="五号",
+        role_name="Werewolf",
+        camp="werewolf",
+    )
+    card = build_night_action_skill_card(
+        role_key="prophet",
+        event={
+            "event_type": "seer_checked",
+            "round_number": 1,
+            "data": {"target_id": "player_5", "result": "werewolf"},
+        },
+        ctx=ctx,
+    )
+    assert "player_5" not in card.public_behavior
+    assert "五号" not in card.public_behavior
+    assert "验出狼" in card.public_behavior
+
+
+def test_abstract_skill_target_label_by_role() -> None:
+    ctx = RunContext(run_dir=Path("."))
+    ctx.roster["player_6"] = PlayerRosterEntry(
+        player_id="player_6",
+        player_name="六号",
+        role_name="Seer",
+        camp="villager",
+    )
+    label = abstract_skill_target_label(ctx, "player_6", action="protect")
+    assert label == "疑似预言家位"
+    assert "6" not in label

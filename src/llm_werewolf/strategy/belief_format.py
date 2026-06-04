@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from llm_werewolf.strategy.belief_state import BeliefState, BeliefSnapshotRecord
@@ -252,3 +253,264 @@ def format_belief_batch_log(
         b2 = _top_second_order_summary(record.second_order)
         lines.append(f"  {record.observer_seat}号 {name} | {vote} | B1[{b1}] | B2[{b2}]")
     return "\n".join(lines)
+
+
+@dataclass
+class BeliefPatternSummary:
+    pattern: str = ""
+    when_clause: str = ""
+    vote_seat: int = 0
+    b1_top: list[tuple[int, float]] = field(default_factory=list)
+    b2_high: list[tuple[int, float]] = field(default_factory=list)
+    signals: frozenset[str] = field(default_factory=frozenset)
+    signal_descriptions: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class BeliefSignalSnapshot:
+    signals: frozenset[str]
+    descriptions: tuple[str, ...]
+
+
+def _count_b1_above(entries: list[tuple[int, float]], threshold: float) -> int:
+    return sum(1 for _, prob in entries if prob > threshold)
+
+
+def _any_b1_at_least(entries: list[tuple[int, float]], threshold: float) -> bool:
+    return any(prob >= threshold for _, prob in entries)
+
+
+def build_belief_signal_snapshot(
+    *,
+    observer_seat: int,
+    vote_seat: int,
+    b1_non_self: list[tuple[int, float]],
+    b2_entries: list[tuple[int, float]],
+    b1_self_prob: float | None = None,
+) -> BeliefSignalSnapshot:
+    """Rule-based belief triggers shared by runtime injection and PostGame skill generation."""
+    b1_sorted = sorted(b1_non_self, key=lambda item: (-item[1], item[0]))
+    b2_sorted = sorted(b2_entries, key=lambda item: (-item[1], item[0]))
+    active: list[str] = []
+    descriptions: list[str] = []
+
+    def _add(signal_id: str, description: str) -> None:
+        active.append(signal_id)
+        descriptions.append(description)
+
+    if _any_b1_at_least(b1_sorted, 0.999):
+        _add("b1_target_certain", "存在目标狼信=1.0")
+    if _count_b1_above(b1_sorted, 0.8) >= 2:
+        _add("b1_two_above_0_8", "至少两个目标狼信>0.8")
+    if _count_b1_above(b1_sorted, 0.5) >= 2:
+        _add("b1_multi_above_0_5", "至少两个目标狼信>0.5")
+    if b1_sorted and b1_sorted[0][1] >= 0.7:
+        _add("b1_top_above_0_7", f"最高目标狼信≥0.7（{b1_sorted[0][1]:.2f}）")
+    if b1_self_prob is not None and b1_self_prob >= 0.999:
+        _add("b1_self_wolf_certain", "自问狼信=1.0")
+    if _any_b1_at_least(b2_sorted, 0.999):
+        _add("b2_observer_certain_on_me", "存在他人对你判狼=1.0")
+    if _count_b1_above(b2_sorted, 0.5) >= 2:
+        _add("b2_multi_above_0_5_on_me", "不止一人对你狼信>0.5")
+    if b2_sorted and b2_sorted[0][1] > 0.8:
+        _add("b2_top_above_0_8_on_me", f"最高他人疑狼>0.8（{b2_sorted[0][1]:.2f}）")
+    if vote_seat > 0:
+        _add("vote_intention_set", "投票意向已锁定到单一座位")
+    elif b1_sorted and b1_sorted[0][1] < 0.4:
+        _add("vote_watching", "意向观望且狼信未收敛")
+
+    return BeliefSignalSnapshot(signals=frozenset(active), descriptions=tuple(descriptions))
+
+
+def detect_belief_signals(state: BeliefState) -> BeliefSignalSnapshot:
+    b1_all = [(entry.target_seat, entry.wolf_probability) for entry in state.first_order.values()]
+    b1_non_self = [(seat, prob) for seat, prob in b1_all if seat != state.observer_seat]
+    b1_self_prob = next((prob for seat, prob in b1_all if seat == state.observer_seat), None)
+    b2_entries = [
+        (entry.observer_seat, entry.suspects_me_as_wolf) for entry in state.second_order.values()
+    ]
+    vote_seat = state.last_vote_seat if state.last_vote_seat is not None else 0
+    return build_belief_signal_snapshot(
+        observer_seat=state.observer_seat,
+        vote_seat=vote_seat,
+        b1_non_self=b1_non_self,
+        b2_entries=b2_entries,
+        b1_self_prob=b1_self_prob,
+    )
+
+
+def detect_belief_signals_from_snapshot(snapshot: dict[str, object]) -> BeliefSignalSnapshot:
+    observer_seat = int(snapshot.get("observer_seat", 0) or 0)
+    vote_info = snapshot.get("vote_intention") or {}
+    vote_seat = 0
+    if isinstance(vote_info, dict):
+        try:
+            vote_seat = int(vote_info.get("seat", 0) or 0)
+        except (TypeError, ValueError):
+            vote_seat = 0
+
+    b1_all: list[tuple[int, float]] = []
+    for row in snapshot.get("first_order") or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            seat = int(row.get("target_seat", 0) or 0)
+            prob = float(row.get("wolf_probability", 0.0))
+        except (TypeError, ValueError):
+            continue
+        if seat > 0:
+            b1_all.append((seat, prob))
+
+    b1_non_self = [(seat, prob) for seat, prob in b1_all if seat != observer_seat]
+    b1_self_prob = next((prob for seat, prob in b1_all if seat == observer_seat), None)
+    b2_entries: list[tuple[int, float]] = []
+    for row in snapshot.get("second_order") or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            seat = int(row.get("observer_seat", 0) or 0)
+            prob = float(row.get("suspects_me_as_wolf", 0.0))
+        except (TypeError, ValueError):
+            continue
+        if seat > 0:
+            b2_entries.append((seat, prob))
+
+    return build_belief_signal_snapshot(
+        observer_seat=observer_seat,
+        vote_seat=vote_seat,
+        b1_non_self=b1_non_self,
+        b2_entries=b2_entries,
+        b1_self_prob=b1_self_prob,
+    )
+
+
+def refresh_player_belief_skills(
+    player: PlayerProtocol,
+    *,
+    alive: list[PlayerProtocol],
+    wolf_camp_mind: WolfCampMindModel | None = None,
+) -> None:
+    """Refresh belief-matched skills immediately before a speech/decision turn."""
+    from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state
+
+    agent = player.agent
+    if agent is None:
+        return
+    memory_manager = getattr(agent, "memory_manager", None)
+    if memory_manager is None:
+        return
+    if getattr(memory_manager.config, "skill_injection_mode", "static") != "belief":
+        return
+    state = ensure_agent_belief_state(player, alive)
+    memory_manager.refresh_belief_skills(state)
+
+
+def _belief_prob_summary(probs: list[float], *, limit: int = 3) -> str:
+    if not probs:
+        return "-"
+    return ", ".join(f"{prob:.2f}" for prob in probs[:limit])
+
+
+def detect_belief_pattern(
+    b1_top: list[tuple[int, float]],
+    b2_high: list[tuple[int, float]],
+    vote_seat: int,
+) -> str:
+    if not b1_top:
+        return "unknown"
+
+    top_prob = b1_top[0][1]
+    second_prob = b1_top[1][1] if len(b1_top) > 1 else 0.0
+
+    if len(b1_top) >= 2 and top_prob >= 0.45 and abs(top_prob - second_prob) <= 0.12:
+        return "split_focus"
+    if top_prob >= 0.7:
+        return "concentrated"
+    if top_prob >= 0.45 and (top_prob - second_prob) >= 0.12:
+        return "converging"
+    if len(b1_top) >= 3 and top_prob < 0.45:
+        spread = top_prob - b1_top[2][1]
+        if spread <= 0.12:
+            return "dispersed"
+    if vote_seat <= 0 and top_prob < 0.4:
+        return "undecided"
+    if b2_high and b2_high[0][1] >= 0.5:
+        return "self_exposed"
+    return "mixed"
+
+
+def _b1_entries_from_state(state: BeliefState) -> list[tuple[int, float]]:
+    entries = [
+        (entry.target_seat, entry.wolf_probability)
+        for entry in state.first_order.values()
+        if entry.target_seat != state.observer_seat
+    ]
+    entries.sort(key=lambda item: (-item[1], item[0]))
+    return entries
+
+
+def _b2_entries_from_state(state: BeliefState, *, min_prob: float = 0.25) -> list[tuple[int, float]]:
+    entries: list[tuple[int, float]] = []
+    for entry in state.second_order.values():
+        if entry.suspects_me_as_wolf < min_prob:
+            continue
+        entries.append((entry.observer_seat, entry.suspects_me_as_wolf))
+    entries.sort(key=lambda item: (-item[1], item[0]))
+    return entries
+
+
+def summarize_belief_pattern(state: BeliefState | None) -> BeliefPatternSummary | None:
+    if state is None or not state.first_order:
+        return None
+
+    vote_seat = state.last_vote_seat if state.last_vote_seat is not None else 0
+    b1_top = _b1_entries_from_state(state)
+    b2_high = _b2_entries_from_state(state)
+    pattern = detect_belief_pattern(b1_top, b2_high, vote_seat)
+    signal_snapshot = detect_belief_signals(state)
+
+    parts: list[str] = ["信念分布（运行时）"]
+    if pattern == "dispersed":
+        parts.append(f"场上狼信分散（Top狼信 {_belief_prob_summary([p for _, p in b1_top])}）")
+    elif pattern == "split_focus":
+        parts.append(f"怀疑焦点分散（Top狼信 {_belief_prob_summary([p for _, p in b1_top[:2]])}）")
+    elif pattern == "concentrated" and b1_top:
+        parts.append(f"对单一目标狼信极高（{b1_top[0][1]:.2f}）")
+    elif pattern == "converging" and b1_top:
+        parts.append(f"怀疑收敛于单一目标（狼信{b1_top[0][1]:.2f}）")
+    elif pattern == "undecided":
+        parts.append(f"信息不足、狼信未收敛（Top狼信 {_belief_prob_summary([p for _, p in b1_top])}）")
+    elif b1_top:
+        parts.append(f"Top狼信 {_belief_prob_summary([p for _, p in b1_top])}")
+
+    if vote_seat > 0:
+        parts.append("投票意向已收敛到单一目标")
+    else:
+        parts.append("意向仍观望")
+
+    b2_text = _belief_prob_summary([p for _, p in b2_high], limit=2)
+    if b2_text != "-":
+        parts.append(f"自身被他人高怀疑（B2强度 {b2_text}）")
+
+    usage_hints = {
+        "dispersed": "适合主动带节奏、收束票型",
+        "split_focus": "适合在双怀疑位中择一归票或拆局",
+        "concentrated": "适合顺势推动既有怀疑链",
+        "converging": "适合强化归票理由、避免分票",
+        "undecided": "适合先整理公开矛盾再定目标",
+        "self_exposed": "适合先洗清自身嫌疑再带票",
+        "mixed": "适合结合公开信息与票型缺口发言",
+    }
+    parts.append(usage_hints.get(pattern, usage_hints["mixed"]))
+    if signal_snapshot.descriptions:
+        parts.append("触发信号：" + "；".join(signal_snapshot.descriptions))
+
+    return BeliefPatternSummary(
+        pattern=pattern,
+        when_clause="；".join(parts),
+        vote_seat=vote_seat,
+        b1_top=b1_top,
+        b2_high=b2_high,
+        signals=signal_snapshot.signals,
+        signal_descriptions=signal_snapshot.descriptions,
+    )

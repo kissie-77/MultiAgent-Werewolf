@@ -2,7 +2,7 @@
 
 > **模块**：agent_team / memory
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-05-23
 > **关联代码**：`src/llm_werewolf/agent_team/memory/`
 > **关联测试**：`tests/agent_team/test_*memory*`、`tests/game_runtime/test_memory_*`
 
@@ -18,6 +18,7 @@
 | Episodic 全局查询 + AGENT_THOUGHT | ✅ Done | PostGame / Coach 消费 |
 | LLMCompressor 重试降级 | ✅ Done | 3 次退避 + 周期性 warning |
 | factory event_logger 修复 | ✅ Done | bind_prompt / configure_role |
+| 信念驱动 Skill 注入（belief 模式） | ✅ Done | signal 自动标注 + 发言前匹配注入 |
 | 效果验证实验 | 🔄 In Progress | 记忆是否显著改变 Agent 行为 |
 | ReMe 代码彻底移除 | ✅ Done | `reme_backend.py` 已删除 |
 | Coach 写回统一入口 | 📋 Planned | 可选：提炼+写回+淘汰收成 Coach |
@@ -43,12 +44,13 @@
 
 - [ ] 更高质量 LLM 提炼（非纯规则候选）
 - [ ] Coach 统一写回入口（add_or_merge + evict）
-- [ ] 信念矩阵与 working memory 深度集成（见 architecture 信念矩阵设计）
+- [ ] 信念矩阵与 working memory 深度集成（B1/B2 快照已在 decision context；Skill 信念匹配 ✅ 2026-05-23）
 
 ## 变更记录
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-05-23 | belief 模式 Skill 注入：signal 自动标注、发言前匹配；见 memory/DESIGN §6.1 |
 | 2026-06-02 | ReMe 代码已移除；文档对齐 |
 | 2026-05-26 | 文档三件套；ReMe 下线；Skill 语义；Episodic 全局化；Coach 占位对接 |
 | 2026-05-26 | LLMCompressor 重试与降级日志 |

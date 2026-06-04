@@ -55,6 +55,7 @@ def test_build_belief_when_clause_concentrated() -> None:
     assert summary.pattern == "concentrated"
     assert "对单一目标狼信极高" in summary.when_clause
     assert "投票意向已收敛到单一目标" in summary.when_clause
+    assert "b1_target_certain" in summary.signals
     assert "6号" not in summary.when_clause
 
 

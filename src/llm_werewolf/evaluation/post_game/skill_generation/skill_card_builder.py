@@ -439,6 +439,8 @@ class BeliefDistributionSummary:
     b2_high: list[tuple[int, float]] = field(default_factory=list)
     pattern: str = ""
     when_clause: str = ""
+    signals: tuple[str, ...] = field(default_factory=tuple)
+    signal_descriptions: tuple[str, ...] = field(default_factory=tuple)
 
     def to_evidence(self) -> dict[str, Any]:
         return {
@@ -451,6 +453,8 @@ class BeliefDistributionSummary:
             "b2_high": [{"seat": s, "suspects_me_as_wolf": p} for s, p in self.b2_high[:3]],
             "pattern": self.pattern,
             "when_clause": self.when_clause,
+            "signals": list(self.signals),
+            "signal_descriptions": list(self.signal_descriptions),
         }
 
 
@@ -682,6 +686,12 @@ def build_belief_when_clause(snapshot: dict[str, Any] | None) -> BeliefDistribut
     }
     parts.append(usage_hints.get(pattern, usage_hints["mixed"]))
 
+    from llm_werewolf.strategy.belief_format import detect_belief_signals_from_snapshot
+
+    signal_snapshot = detect_belief_signals_from_snapshot(snapshot)
+    if signal_snapshot.descriptions:
+        parts.append("触发信号：" + "；".join(signal_snapshot.descriptions))
+
     return BeliefDistributionSummary(
         round_number=round_number,
         phase=phase,
@@ -692,4 +702,6 @@ def build_belief_when_clause(snapshot: dict[str, Any] | None) -> BeliefDistribut
         b2_high=b2_high,
         pattern=pattern,
         when_clause="；".join(parts),
+        signals=tuple(sorted(signal_snapshot.signals)),
+        signal_descriptions=signal_snapshot.descriptions,
     )

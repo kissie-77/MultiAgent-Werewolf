@@ -36,6 +36,13 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
     }
     if when_to_use:
         frontmatter["when_to_use"] = when_to_use
+    belief_context = evidence.get("belief_context")
+    if isinstance(belief_context, dict) and belief_context.get("pattern"):
+        frontmatter["belief_pattern"] = belief_context["pattern"]
+    if isinstance(belief_context, dict) and belief_context.get("signals"):
+        signals = belief_context.get("signals")
+        if isinstance(signals, list):
+            frontmatter["belief_signals"] = ",".join(str(item) for item in signals if item)
     lines = ["---"]
     for key, value in frontmatter.items():
         if value is not None and value != "":
@@ -67,6 +74,13 @@ def render_skill_markdown(skill: dict[str, Any]) -> str:
         lines.append(generalize_seat_references(str(belief_context["when_clause"])))
         if belief_context.get("pattern"):
             lines.append(f"- 分布模式：{belief_context['pattern']}")
+        signal_descriptions = belief_context.get("signal_descriptions")
+        if isinstance(signal_descriptions, list) and signal_descriptions:
+            lines.append("- 触发信号：")
+            for item in signal_descriptions:
+                lines.append(f"  - {generalize_seat_references(str(item))}")
+        elif belief_context.get("signals"):
+            lines.append(f"- 触发信号ID：{', '.join(str(s) for s in belief_context['signals'])}")
         lines.append("")
 
     excerpt = evidence.get("public_speech_excerpt")

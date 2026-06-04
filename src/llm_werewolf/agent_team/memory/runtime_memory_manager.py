@@ -45,6 +45,8 @@ class RuntimeMemoryManager:
         self.semantic = SemanticMemory(backend=semantic_backend, compressor=compressor)
         self.coach = None
         self._used_card_ids: list[str] = []
+        self._belief_skill_context: str = ""
+        self._belief_matched_skill_ids: list[str] = []
         self._seen_event_keys: set[tuple[object, ...]] = set()
         self._belief_rules_initialized = False
 
@@ -82,6 +84,9 @@ class RuntimeMemoryManager:
 
     def on_game_end(self, won: bool) -> None:
         """Update used skills and let Coach own experience extraction."""
+        for skill_id in self._belief_matched_skill_ids:
+            if skill_id and skill_id not in self._used_card_ids:
+                self._used_card_ids.append(skill_id)
         if self._semantic_enabled() and self._used_card_ids:
             self.semantic.update_after_game(self.role, won, self._used_card_ids)
         if self._semantic_enabled() and self.config.extract_semantic_on_game_end:
@@ -98,7 +103,15 @@ class RuntimeMemoryManager:
         working_context = self.working.get_context(include_belief=include_belief)
         if working_context:
             parts.append(working_context)
+        skill_context = self.format_belief_skill_context()
+        if skill_context:
+            parts.append(skill_context)
         return "\n\n".join(parts)
+
+    def format_belief_skill_context(self) -> str:
+        if self.config.skill_injection_mode != "belief":
+            return ""
+        return self._belief_skill_context
 
     def sync_belief_context(self, state: object, *, wolf_camp_text: str = "") -> None:
         """Mirror belief matrix / vote intention into protected WorkingMemory slots."""
@@ -136,6 +149,37 @@ class RuntimeMemoryManager:
             )
         else:
             self.working.remove_persistent("wolf_camp")
+
+        if self.config.skill_injection_mode == "belief":
+            self.refresh_belief_skills(state)
+
+    def refresh_belief_skills(self, state: object) -> None:
+        """Match role skills to the current belief matrix for decision/speech injection."""
+        from llm_werewolf.agent_team.skill_support.skill_loader import refresh_belief_skill_context
+        from llm_werewolf.strategy.belief_state import BeliefState
+        from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+
+        if self.config.skill_injection_mode != "belief":
+            return
+        if not isinstance(state, BeliefState) or not state.first_order:
+            self._belief_skill_context = ""
+            self._belief_matched_skill_ids = []
+            return
+
+        manifest = get_active_manifest()
+        skill_version = manifest.skill_version_for(self.role)
+        context, skill_ids = refresh_belief_skill_context(
+            self.role,
+            state,
+            skill_version=skill_version,
+            pool_size=self.config.skill_belief_pool_size,
+            top_k=self.config.skill_belief_top_k,
+        )
+        self._belief_skill_context = context
+        self._belief_matched_skill_ids = skill_ids
+        for skill_id in skill_ids:
+            if skill_id and skill_id not in self._used_card_ids:
+                self._used_card_ids.append(skill_id)
 
     def add_public_speech(self, speaker_name: str, speech: str, round_number: int) -> None:
         """Record public speech into working memory."""
@@ -210,6 +254,8 @@ class RuntimeMemoryManager:
     def _record_prompt_injected_skills(self, role: str) -> None:
         """Track active sys_prompt skills so post-game weight updates can still apply."""
         if self.semantic._backend is not None:
+            return
+        if self.config.skill_injection_mode == "belief":
             return
         from llm_werewolf.agent_team.skill_support import skill_loader
 

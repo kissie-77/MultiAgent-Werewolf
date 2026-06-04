@@ -170,6 +170,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         prompt_version: str | None = None,
         player_count: int | None = None,
         role_counts: dict[str, int] | None = None,
+        skill_injection_mode: str = "static",
     ) -> None:
         """引擎分配角色后应用角色专属系统 prompt。"""
         from llm_werewolf.agent_team.agents.factory import (
@@ -188,13 +189,20 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.game_role_name = game_role_name
         self.role = GAME_ROLE_TO_PROMPT_KEY.get(game_role_name, "villager")
         self.plan = plan_text
+        self._skill_injection_mode = skill_injection_mode
 
         sys_prompt = build_system_prompt(
-            seat_number, game_role_name, plan_text, role_counts=self.role_counts
+            seat_number,
+            game_role_name,
+            plan_text,
+            role_counts=self.role_counts,
+            skill_injection_mode=skill_injection_mode,
         )
         if self.player_config is not None:
             self.agentscope_agent = create_react_agent(
-                self.player_config, agent_name=self.name, sys_prompt=sys_prompt
+                self.player_config,
+                agent_name=self.name,
+                sys_prompt=sys_prompt,
             )
 
         self.decision_history = []
@@ -210,6 +218,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
         prompt_version: str | None = None,
         player_count: int | None = None,
         role_counts: dict[str, int] | None = None,
+        skill_injection_mode: str = "static",
     ) -> None:
         """协作者 API：在 ``setup_game`` 之后绑定引擎分配的角色。"""
         plan_text = plan if plan is not None else self.plan
@@ -220,6 +229,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
             prompt_version=prompt_version or self.prompt_version,
             player_count=player_count,
             role_counts=role_counts,
+            skill_injection_mode=skill_injection_mode,
         )
 
     def _init_system_prompt(self) -> None:
@@ -232,6 +242,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 self.game_role_name,
                 self.plan,
                 role_counts=self.role_counts,
+                skill_injection_mode=getattr(self, "_skill_injection_mode", "static"),
             )
         else:
             sys_prompt = PromptManager.build_prompt_key_strategy_prompt(

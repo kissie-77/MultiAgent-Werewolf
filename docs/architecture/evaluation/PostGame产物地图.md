@@ -202,6 +202,7 @@
 - 证据
 - 质量门结果
 - `skill_card`（含 `when_to_use`）
+- `evidence.belief_context`（含 `pattern`、`signals`、`signal_descriptions`；PostGame 从 beliefs.jsonl 自动推导）
 - `apply_policy` / `merge_policy`（场景合并 + 稀疏 bump）
 - `library_action`（`merged` | `created`）、`merged_into_skill_id`（合并时）
 

@@ -33,6 +33,7 @@ from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state, merg
 from llm_werewolf.strategy.belief_format import (
     format_belief_summary,
     format_wolf_camp_context,
+    refresh_player_belief_skills,
     sync_all_belief_memories,
     sync_player_belief_memory,
 )
@@ -574,6 +575,11 @@ class InformationHub:
                 if not speaker.is_alive() or speaker.agent is None:
                     continue
 
+                refresh_player_belief_skills(
+                    speaker,
+                    alive=self._get_alive_players(),
+                    wolf_camp_mind=self._wolf_camp_mind,
+                )
                 context = context_builder(speaker)
                 if routed_messages:
                     prior_lines = [
@@ -850,6 +856,11 @@ class InformationHub:
 
         from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
 
+        refresh_player_belief_skills(
+            speaker,
+            alive=self._get_alive_players(),
+            wolf_camp_mind=self._wolf_camp_mind,
+        )
         rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
         decision = await WerewolfAdapterBridge.request_speech(
             speaker.agent, context, instruction, roundtable_phase=rt_phase

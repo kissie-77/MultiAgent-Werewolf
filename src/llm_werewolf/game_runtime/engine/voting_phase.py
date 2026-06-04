@@ -110,6 +110,17 @@ class VotingPhaseMixin:
             if not possible_targets or not player.agent:
                 return None
 
+            def _vote_from_intention() -> Action | None:
+                fallback_target = _fallback_target_from_vote_intention(player, possible_targets)
+                if fallback_target is None:
+                    return None
+                player.agent.add_decision(
+                    "Round "
+                    f"{self.game_state.round_number}: Voted for "
+                    f"{fallback_target.name} (fallback from vote intention)"
+                )
+                return VoteAction(player, fallback_target, self.game_state)
+
             try:
                 context = self._build_voting_context(player)
                 interaction = self.game_state.require_phase_interaction()
@@ -121,7 +132,7 @@ class VotingPhaseMixin:
                     possible_targets,
                     allow_skip=True,
                     additional_context=context,
-                    fallback_random=True,
+                    fallback_random=False,
                     round_number=self.game_state.round_number,
                     phase="Voting",
                     action_phase=ActionPhase.DAY_VOTE,
@@ -132,15 +143,13 @@ class VotingPhaseMixin:
                         f"Round {self.game_state.round_number}: Voted for {target_player.name}"
                     )
                     return VoteAction(player, target_player, self.game_state)
+                fallback_vote = _vote_from_intention()
+                if fallback_vote is not None:
+                    return fallback_vote
             except Exception as e:
-                fallback_target = _fallback_target_from_vote_intention(player, possible_targets)
-                if fallback_target is not None:
-                    player.agent.add_decision(
-                        "Round "
-                        f"{self.game_state.round_number}: Voted for "
-                        f"{fallback_target.name} (fallback from vote intention)"
-                    )
-                    return VoteAction(player, fallback_target, self.game_state)
+                fallback_vote = _vote_from_intention()
+                if fallback_vote is not None:
+                    return fallback_vote
 
                 error_text = _format_runtime_error(e)
                 self._log_event(

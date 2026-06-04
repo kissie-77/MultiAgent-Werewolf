@@ -23,6 +23,7 @@ MIN_PUBLIC_SPEECH_LEN = 8
 NIGHT_ACTION_EVENT_TYPES = frozenset({
     "seer_checked",
     "witch_saved",
+    "witch_poison_used",
     "witch_poisoned",
     "guard_protected",
 })
@@ -160,7 +161,7 @@ def evaluate_night_action_event(
             passed=False, rule_id="night_action", reason="seer check did not find werewolf"
         )
 
-    if etype == "witch_poisoned":
+    if etype in {"witch_poison_used", "witch_poisoned"}:
         if target_camp == Camp.WEREWOLF.value:
             return GenerationRuleResult(
                 passed=True, rule_id="night_action", reason="witch poisoned werewolf"
@@ -199,7 +200,7 @@ def _speech_rank_score(speech: CampSpeechInfluence) -> int:
 def _night_rank_score(event: dict[str, Any]) -> int:
     etype = str(event.get("event_type", ""))
     data = event.get("data") or {}
-    if etype == "witch_poisoned":
+    if etype in {"witch_poison_used", "witch_poisoned"}:
         base = 14
     elif etype == "seer_checked":
         base = 12

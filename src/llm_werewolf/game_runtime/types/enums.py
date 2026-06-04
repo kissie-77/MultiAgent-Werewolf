@@ -108,10 +108,16 @@ class EventType(str, Enum):
 
     WEREWOLF_KILLED = "werewolf_killed"
     WITCH_SAVED = "witch_saved"
+    WITCH_POISON_USED = "witch_poison_used"
     WITCH_POISONED = "witch_poisoned"
     SEER_CHECKED = "seer_checked"
     GUARD_PROTECTED = "guard_protected"
     GRAVEYARD_KEEPER_CHECK = "graveyard_keeper_check"
+    WHITE_WOLF_KILLED = "white_wolf_killed"
+    WOLF_BEAUTY_CHARMED = "wolf_beauty_charmed"
+    NIGHTMARE_BLOCKED = "nightmare_blocked"
+    GUARDIAN_WOLF_PROTECTED = "guardian_wolf_protected"
+    RAVEN_MARKED = "raven_marked"
 
     VOTE_CAST = "vote_cast"
     VOTE_INTENTION_SNAPSHOT = "vote_intention_snapshot"

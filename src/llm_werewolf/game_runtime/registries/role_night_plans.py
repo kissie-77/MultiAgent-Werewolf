@@ -95,6 +95,7 @@ async def _plan_werewolf_pack_vote(
         possible_targets=targets,
         allow_skip=False,
         additional_context=_werewolf_context(role, game_state),
+        fallback_random=False,
         round_number=game_state.round_number,
         phase="Night",
         action_phase=ActionPhase.NIGHT_KILL_VOTE,
@@ -110,6 +111,18 @@ async def plan_werewolf_vote(
     return await _plan_werewolf_pack_vote(role, game_state, interaction, role_name="Werewolf")
 
 
+async def dispatch_werewolf_vote_plan(
+    role: Role, game_state: GameStateProtocol, interaction: PhaseInteraction
+) -> list[ActionProtocol]:
+    """收集狼队刀票；所有参与狼队的角色在狼票阶段都走这里。"""
+    return await _plan_werewolf_pack_vote(
+        role,
+        game_state,
+        interaction,
+        role_name=role.name,
+    )
+
+
 async def plan_alpha_wolf_vote(role, game_state, interaction):
     return await _plan_werewolf_pack_vote(role, game_state, interaction, role_name="Alpha Wolf")
 
@@ -121,7 +134,7 @@ async def plan_hidden_wolf_vote(role, game_state, interaction):
 async def plan_white_wolf(
     role: WhiteWolf, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
-    actions = await _plan_werewolf_pack_vote(role, game_state, interaction, role_name="White Wolf")
+    actions: list[ActionProtocol] = []
     if game_state.round_number % 2 == 1 and role.player.agent:
         wolf_targets = [
             p
@@ -151,9 +164,7 @@ async def plan_white_wolf(
 async def plan_wolf_beauty(
     role: WolfBeauty, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
-    actions = await _plan_werewolf_pack_vote(
-        role, game_state, interaction, role_name="Wolf Beauty"
-    )
+    actions: list[ActionProtocol] = []
     if not role.charmed_player and role.player.agent:
         targets = game_state.get_alive_players()
         if targets:
@@ -165,6 +176,7 @@ async def plan_wolf_beauty(
                 possible_targets=targets,
                 allow_skip=False,
                 additional_context="你死亡时魅惑对象殉情；整局只能魅惑一次。",
+                fallback_random=False,
                 round_number=game_state.round_number,
                 phase="Night",
             )
@@ -368,6 +380,7 @@ async def plan_guard_protect(
         possible_targets=possible_targets,
         allow_skip=False,
         additional_context=context,
+        fallback_random=False,
         round_number=game_state.round_number,
         phase="Night",
         action_phase=ActionPhase.NIGHT_SKILL_TARGET,
@@ -403,6 +416,7 @@ async def plan_seer_check(
         possible_targets=possible_targets,
         allow_skip=False,
         additional_context=context,
+        fallback_random=False,
         round_number=game_state.round_number,
         phase="Night",
         action_phase=ActionPhase.NIGHT_SKILL_TARGET,
@@ -452,6 +466,7 @@ async def plan_raven_mark(
         possible_targets=possible_targets,
         allow_skip=False,
         additional_context="被标记者在次日投票阶段会额外获得一票。",
+        fallback_random=False,
         round_number=game_state.round_number,
         phase="Night",
     )

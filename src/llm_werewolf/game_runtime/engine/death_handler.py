@@ -1,6 +1,5 @@
 """游戏引擎的死亡处理逻辑。"""
 
-import random
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
@@ -235,7 +234,8 @@ class DeathHandlerMixin:
             data={"player_id": player.player_id, "role": role_name},
         )
 
-        # 从 agent 获取目标，或随机选择
+        # 从 agent 获取目标；失败时不替玩家随机选择，避免系统静默改变胜负结果。
+        target = None
         if player.agent:
             interaction = self.game_state.require_phase_interaction()
             target = await interaction.request_seat_choice(
@@ -246,10 +246,8 @@ class DeathHandlerMixin:
                 possible_targets,
                 allow_skip=False,
                 additional_context=self.locale.get("death_skill_context", player=player.name),
-                fallback_random=True,
+                fallback_random=False,
             )
-        else:
-            target = random.choice(possible_targets)  # noqa: S311
 
         if target and target.is_alive():
             self._execute_death_shot(player, target, role_name, messages)
@@ -352,9 +350,13 @@ class DeathHandlerMixin:
         self.game_state.death_causes[target.player_id] = "witch_poison"
 
         self._log_event(
-            EventType.WITCH_POISONED,
+            EventType.PLAYER_DIED,
             self.locale.get("witch_poisoned_target", target=target.name),
-            data={"player_id": target.player_id},
+            data={
+                "player_id": target.player_id,
+                "reason": "witch_poison",
+                "cause": "witch_poison",
+            },
         )
 
         # 处理情侣死亡

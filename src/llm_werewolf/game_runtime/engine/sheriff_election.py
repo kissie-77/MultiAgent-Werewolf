@@ -35,6 +35,10 @@ class SheriffElectionMixin:
             return
 
         if len(candidates) == 1:
+            self._log_event(
+                EventType.MESSAGE,
+                self.locale.get("sheriff_single_candidate", player=candidates[0].name),
+            )
             self._elect_sheriff(candidates[0])
             self.game_state.sheriff_election_done = True
             return

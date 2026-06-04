@@ -49,7 +49,7 @@ def build_turning_points(ctx: RunContext) -> list[str]:
             target = str(data.get("target_id", ""))
             if target:
                 saves[rnd] = target
-        elif etype == "witch_poisoned":
+        elif etype in {"witch_poison_used", "witch_poisoned"}:
             target = str(data.get("target_id", ""))
             if target:
                 poisons[rnd] = target

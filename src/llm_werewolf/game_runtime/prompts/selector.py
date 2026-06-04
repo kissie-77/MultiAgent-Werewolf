@@ -174,9 +174,10 @@ class ActionSelector:
         try:
             response = await agent.get_response(prompt)
             return PromptManager.parse_yes_no(response)
-        except Exception:
-            logger.warning("ask_yes_no failed agent=%s, returning False", getattr(agent, "name", "?"), exc_info=True)
-            return False
+        except Exception as exc:
+            logger.warning("ask_yes_no failed agent=%s", getattr(agent, "name", "?"), exc_info=True)
+            msg = f"yes/no decision failed for agent {getattr(agent, 'name', '?')}: {exc}"
+            raise RuntimeError(msg) from exc
 
     @staticmethod
     async def select_target(

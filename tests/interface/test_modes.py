@@ -25,8 +25,19 @@ def test_human_mixed_basic_uses_llm_config_not_demo() -> None:
     )
 
 
+def test_builtin_mode_config_paths_exist() -> None:
+    for mode in list_modes():
+        assert mode.config_path.is_file(), mode
+
+
+def test_human_mixed_extended_uses_current_kimi_vibe_config() -> None:
+    assert resolve_config_path(participation="human_mixed", rules="extended_roles") == Path(
+        "configs/llm-12p-kimi.yaml"
+    )
+
+
 def test_real_llm_modes_use_current_kimi_vibe_config() -> None:
-    for rules in ("badge_flow", "extended_roles"):
+    for rules in ("basic", "badge_flow", "extended_roles"):
         cfg = load_config(resolve_config_path(participation="all_agent", rules=rules))
 
         assert {player.model for player in cfg.players} == {"kimi-k2.5"}

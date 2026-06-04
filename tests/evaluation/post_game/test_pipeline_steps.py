@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+from llm_werewolf.evaluation.post_game import pipeline as pipeline_module
 from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
 from llm_werewolf.evaluation.post_game.pipeline_steps import run_step
 
@@ -64,3 +65,22 @@ def test_pipeline_writes_steps_and_quality_report(tmp_path: Path) -> None:
 
     benefit = json.loads((tmp_path / "benefit_scores.json").read_text(encoding="utf-8"))
     assert benefit["schema"] == "benefit_scores_v2"
+
+
+def test_pipeline_records_load_context_failure(tmp_path: Path, monkeypatch) -> None:
+    def fail_load_context(*args, **kwargs):
+        msg = "bad context"
+        raise ValueError(msg)
+
+    monkeypatch.setattr(pipeline_module, "load_run_context", fail_load_context)
+
+    result = pipeline_module.run_post_game_pipeline_sync(tmp_path, skip_llm=True)
+
+    assert not result.ok
+    assert result.error == "load_context failed"
+    assert result.stage_errors["load_context"].startswith("ValueError: bad context")
+    steps_path = tmp_path / "post_game_steps.json"
+    assert steps_path.is_file()
+    steps_payload = json.loads(steps_path.read_text(encoding="utf-8"))
+    assert steps_payload["summary"]["failed"] == 1
+    assert steps_payload["steps"][0]["step_id"] == "load_context"

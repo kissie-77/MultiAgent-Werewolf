@@ -2,17 +2,37 @@
 
 from unittest.mock import MagicMock
 
-from llm_werewolf.game_runtime.roles import Seer, Guard, Witch, Villager, Werewolf, NightmareWolf
-from llm_werewolf.game_runtime.types import ActionPriority
+import pytest
+
+from llm_werewolf.game_runtime.roles import (
+    Seer,
+    Guard,
+    Witch,
+    Raven,
+    Villager,
+    Werewolf,
+    WhiteWolf,
+    WolfBeauty,
+    GuardianWolf,
+    NightmareWolf,
+)
+from llm_werewolf.game_runtime.types import ActionPriority, EventType
 from llm_werewolf.game_runtime.locale import Locale
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.actions.villager import (
+    RavenMarkAction,
     SeerCheckAction,
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
 )
-from llm_werewolf.game_runtime.actions.werewolf import WerewolfVoteAction, NightmareWolfBlockAction
+from llm_werewolf.game_runtime.actions.werewolf import (
+    WhiteWolfKillAction,
+    WerewolfVoteAction,
+    WolfBeautyCharmAction,
+    GuardianWolfProtectAction,
+    NightmareWolfBlockAction,
+)
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.engine.action_processor import ActionProcessorMixin
 
@@ -68,6 +88,87 @@ def test_log_witch_save_action() -> None:
     processor._log_witch_save_action(action)
 
     processor._log_event.assert_called_once()
+
+
+def test_log_witch_poison_action_uses_action_event() -> None:
+    witch = Player("w1", "Witch", Witch)
+    target = Player("v1", "Villager", Villager)
+    state = GameState([witch, target])
+    state.round_number = 1
+    processor = _Processor(state)
+
+    action = WitchPoisonAction(witch, target, state)
+    processor._log_witch_poison_action(action)
+
+    event_type = processor._log_event.call_args.args[0]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == EventType.WITCH_POISON_USED
+    assert data["player_id"] == "w1"
+    assert data["target_id"] == "v1"
+
+
+def test_log_action_event_uses_registered_logger() -> None:
+    witch = Player("w1", "Witch", Witch)
+    target = Player("v1", "Villager", Villager)
+    state = GameState([witch, target])
+    processor = _Processor(state)
+
+    processor._log_action_event(WitchPoisonAction(witch, target, state))
+
+    event_type = processor._log_event.call_args.args[0]
+    assert event_type == EventType.WITCH_POISON_USED
+
+
+@pytest.mark.parametrize(
+    ("action_factory", "expected_event_type"),
+    [
+        (
+            lambda actor, target, state: WhiteWolfKillAction(actor, target, state),
+            EventType.WHITE_WOLF_KILLED,
+        ),
+        (
+            lambda actor, target, state: WolfBeautyCharmAction(actor, target, state),
+            EventType.WOLF_BEAUTY_CHARMED,
+        ),
+        (
+            lambda actor, target, state: GuardianWolfProtectAction(actor, target, state),
+            EventType.GUARDIAN_WOLF_PROTECTED,
+        ),
+        (
+            lambda actor, target, state: NightmareWolfBlockAction(actor, target, state),
+            EventType.NIGHTMARE_BLOCKED,
+        ),
+        (
+            lambda actor, target, state: RavenMarkAction(actor, target, state),
+            EventType.RAVEN_MARKED,
+        ),
+    ],
+)
+def test_extended_night_actions_use_typed_events(action_factory, expected_event_type) -> None:
+    role_by_event = {
+        EventType.WHITE_WOLF_KILLED: WhiteWolf,
+        EventType.WOLF_BEAUTY_CHARMED: WolfBeauty,
+        EventType.GUARDIAN_WOLF_PROTECTED: GuardianWolf,
+        EventType.NIGHTMARE_BLOCKED: NightmareWolf,
+        EventType.RAVEN_MARKED: Raven,
+    }
+    target_role = Werewolf if expected_event_type in {
+        EventType.WHITE_WOLF_KILLED,
+        EventType.GUARDIAN_WOLF_PROTECTED,
+    } else Villager
+    actor = Player("actor", "Actor", role_by_event[expected_event_type])
+    target = Player("target", "Target", target_role)
+    state = GameState([actor, target])
+    state.round_number = 1
+    processor = _Processor(state)
+
+    processor._log_action_event(action_factory(actor, target, state))
+
+    event_type = processor._log_event.call_args.args[0]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == expected_event_type
+    assert data["player_id"] == "actor"
+    assert data["target_id"] == "target"
 
 
 def test_log_seer_action_includes_private_result() -> None:

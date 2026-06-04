@@ -171,6 +171,12 @@ def _bad_case_patch_for_message(
             "phase_strategies.vote_closing",
             "update_rule",
         )
+    if "referenced public-day evidence before any public context existed" in lowered:
+        return (
+            "night_strategy",
+            "phase_strategies.opening",
+            "update_rule",
+        )
     return (
         "global_constraints",
         "global_constraints",
@@ -229,6 +235,8 @@ def _bad_case_rule_text(message: str, role_key: str, target_field: str) -> str:
         if target_field.startswith("phase_strategies."):
             return "临死开枪前先比较三件事：目标狼面强度、击杀后能否清出新的狼位、以及误带好人的轮次损失；满足前两项再开枪。"
         return "禁止带人技能在没有强狼证据时打向好人高概率位；开枪前先核对票型、站边冲突和收益归属。"
+    if "referenced public-day evidence before any public context existed" in lowered:
+        return "首夜或尚无公开发言前，夜聊只能依据座位、角色池、狼队信息和刀口收益，不得编造白天发言、票型、活跃度或站边依据；需要推动落刀时给出目标收益和备选目标。"
     return "避免重复出现已知坏例，行动前先核对可见信息边界与当前角色职责。"
 
 
@@ -298,7 +306,7 @@ def _proposal_from_bad_case(check: Any, ctx: RunContext, *, idx: int) -> dict[st
         "WARNING": 0.08,
         "CRITICAL": 0.18,
     }.get(severity_name, 0.05)
-    confidence = _clamp_confidence(0.62 + severity_bonus)
+    confidence = _clamp_confidence(data.get("confidence_score") or (0.62 + severity_bonus))
     return {
         "proposal_id": f"bad_case_{idx}",
         "prompt_role_key": role_key,

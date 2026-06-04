@@ -15,7 +15,7 @@
 | 控制台展示 | ✅ Done | CLI 挂载 `ui.ConsolePresenter`（TUI 已移除） |
 | 人机对战 | ✅ Done | `--human_seat` 混合座位 |
 | API 回放功能 | 🔄 In Progress | replay / runs 页面 API |
-| CLI 12 人 LLM 对局验证 | ✅ Done | `llm-12p-doubao.yaml` + ARK 连通脚本 |
+| CLI 12 人 LLM 对局验证 | ✅ Done | `llm-12p-kimi.yaml` + VibeAPI/Kimi 配置 |
 | Web 前端对接 | 📋 Planned | 与 frontend 模块对接 |
 
 ## 已完成

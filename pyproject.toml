@@ -114,6 +114,7 @@ dev = [
     "notebook",
     "poethepoet",
     "pre-commit",
+    "ruff",
     "ty",
 ]
 test = [

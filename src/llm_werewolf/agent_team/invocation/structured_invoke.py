@@ -196,7 +196,7 @@ async def invoke_structured(
             last_error,
         )
     else:
-        logger.warning(
+        logger.debug(
             "structured_invoke_returned_none agent=%s model=%s attempts=%s",
             getattr(agent, "name", "?"),
             model.__name__,

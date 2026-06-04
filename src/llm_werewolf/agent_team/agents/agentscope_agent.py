@@ -374,11 +374,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
         async def handle_interrupted_text(text: str) -> bool:
             if not _is_agentscope_interrupt_text(text):
                 return False
-            logger.warning(
-                "structured_response_interrupted agent=%s model=%s",
-                self.name,
-                structured_model.__name__,
-            )
+                logger.debug(
+                    "structured_response_interrupted agent=%s model=%s",
+                    self.name,
+                    structured_model.__name__,
+                )
             object.__setattr__(self, "_last_structured_source", "interrupted")
             await self._cleanup_agentscope_interrupt_memory()
             return True
@@ -451,7 +451,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 except Exception as memory_exc:
                     memory_tail.append(f"<memory read failed: {memory_exc}>")
 
-            logger.warning(
+            logger.debug(
                 "structured_response_diagnostic agent=%s model=%s stage=%s "
                 "content_types=%s metadata=%s text_preview=%s error=%s memory_tail=%s",
                 self.name,
@@ -723,8 +723,21 @@ class AgentScopeWerewolfAgent(BaseAgent):
             return self._werewolf_team_fallback_speech(message)
 
         # 白天讨论发言：按角色生成有博弈性的推理发言
-        role_key = self.role
-        return self._generate_role_specific_fallback(role_key, message)
+        # Public fallback must not use the real role, otherwise a failed model call
+        # can accidentally leak private identity or skill state into day speech.
+        return self._generate_public_safe_fallback()
+
+    def _generate_public_safe_fallback(self) -> str:
+        """Generate a neutral public fallback speech without role or private facts."""
+        import random
+
+        speeches = [
+            "我先保持谨慎观察，目前信息还不够完整，会重点听大家的逻辑是否前后一致。",
+            "现在我不急着定死某个位置，先看发言里的矛盾点和投票倾向再判断。",
+            "我会关注谁在回避关键问题，也会看后续投票有没有明显的跟风或突然转向。",
+            "目前更适合把信息摊开盘清楚，不要只凭感觉冲票，先听完这一轮再归纳。",
+        ]
+        return random.choice(speeches)
 
     def _generate_role_specific_fallback(self, role_key: str, message: str) -> str:
         """按角色生成有博弈性的白天讨论兜底发言。"""

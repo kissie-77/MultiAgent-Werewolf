@@ -48,3 +48,36 @@ def test_ring_buffer_evicts_oldest() -> None:
     assert [seq for seq, _ in missed] == [2, 3, 4]
     # The minimum seq still buffered is exposed for the disk-fallback gap check.
     assert hub.min_buffered_seq == 2
+
+
+from llm_werewolf.interface.api.services.event_hub import _CLOSED
+
+
+async def test_two_subscribers_each_get_full_live_stream() -> None:
+    hub = EventHub()
+    q1 = hub.subscribe()
+    q2 = hub.subscribe()
+    hub.publish({"event_type": "a"})  # seq 0
+    hub.publish({"event_type": "b"})  # seq 1
+    got1 = [await q1.get(), await q1.get()]
+    got2 = [await q2.get(), await q2.get()]
+    assert [seq for seq, _ in got1] == [0, 1]
+    assert [seq for seq, _ in got2] == [0, 1]
+    assert [row["event_type"] for _, row in got1] == ["a", "b"]
+
+
+async def test_close_pushes_sentinel_to_subscribers() -> None:
+    hub = EventHub()
+    q = hub.subscribe()
+    hub.publish({"event_type": "a"})  # seq 0
+    hub.close()
+    assert (await q.get())[1]["event_type"] == "a"
+    assert await q.get() is _CLOSED
+    assert hub.closed is True
+
+
+async def test_subscribe_after_close_gets_sentinel_immediately() -> None:
+    hub = EventHub()
+    hub.close()
+    q = hub.subscribe()
+    assert await q.get() is _CLOSED

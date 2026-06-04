@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from llm_werewolf.interface.api.deps import get_configs_dir, get_eval_runs_dir, get_runs_dir
 from llm_werewolf.interface.api.models import ApiResponse
@@ -24,6 +25,8 @@ from llm_werewolf.interface.api.models.actions import (
 from llm_werewolf.interface.api.models.state import GameStateResponse
 from llm_werewolf.interface.api.services.config import compare_models
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+from llm_werewolf.interface.api.services.runs import get_run_detail
+from llm_werewolf.interface.api.services.sse_stream import stream_game
 from llm_werewolf.interface.api.services.start_modes import build_start_modes
 
 router = APIRouter(tags=["actions"])
@@ -181,6 +184,44 @@ def game_view(
     if data is None:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
     return ApiResponse(data=data)
+
+
+@router.get("/games/{run_id}/stream")
+def game_stream(
+    run_id: str,
+    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
+    runs_dir=Depends(get_runs_dir),
+    eval_runs_dir=Depends(get_eval_runs_dir),
+) -> StreamingResponse:
+    # 0-based seqs: a fresh connection (no Last-Event-ID) uses after_seq=-1 so
+    # the very first event (seq 0) is included; Last-Event-ID=N resumes after N.
+    try:
+        after_seq = int(last_event_id) if last_event_id else -1
+    except ValueError:
+        after_seq = -1
+
+    from pathlib import Path
+
+    session = game_session_manager.get_session(run_id)
+    if session is not None:
+        run_dir = session.run_dir
+    else:
+        detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
+        if detail is None:
+            raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+        run_dir = Path(detail.path)
+
+    generator = stream_game(session=session, run_dir=run_dir, last_event_id=after_seq)
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/games/{run_id}/state")

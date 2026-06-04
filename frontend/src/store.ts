@@ -23,7 +23,7 @@ interface GameStore {
 
   startGame: (seats: SeatConfig[], opts?: { language?: string; enableSheriff?: boolean }) => Promise<void>;
   cancelGame: () => Promise<void>;
-  controlGame: (action: "pause" | "resume" | "step") => Promise<void>;
+  controlGame: (action: "pause" | "resume") => Promise<void>;
   stepGame: () => Promise<void>;
   setSpeed: (s: Speed) => Promise<void>;
   setRevealView: (v: RevealView) => void;
@@ -139,7 +139,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   _openStream: (runId) => {
     if (eventSource) eventSource.close();
     const es = new EventSource(streamUrl(runId));
-    es.onmessage = (msg: MessageEvent) => {
+    // The backend frames every event as a NAMED `event: game` SSE frame
+    // (sse_stream.format_sse, spec §5.2). Named events are delivered ONLY to
+    // listeners added via addEventListener; `onmessage` never fires for them.
+    es.addEventListener("game", (msg: MessageEvent) => {
       try {
         const ev = JSON.parse(msg.data) as StreamEvent;
         set((st) => ({
@@ -152,7 +155,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       } catch (err) {
         console.error("bad SSE payload", err);
       }
-    };
+    });
     es.onerror = () => { /* browser auto-reconnects with Last-Event-ID; nothing to do */ };
     eventSource = es;
   },
@@ -166,6 +169,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ gameState: state, status: state.status, playState: state.play_state, speed: state.speed, error: state.error });
       if (state.phase === GamePhase.ended || state.status === "cancelled" || state.status === "error") {
         if (stateTimer) { clearInterval(stateTimer); stateTimer = null; }
+        if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
         if (eventSource) { eventSource.close(); eventSource = null; }
       }
     } catch (err) {

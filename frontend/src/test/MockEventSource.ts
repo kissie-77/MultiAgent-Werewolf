@@ -29,14 +29,20 @@ export class MockEventSource {
   }
 
   // ---- test helpers ----
-  emit(data: unknown, opts: { id?: string } = {}) {
+  // The real backend frames every event as a NAMED `event: game` SSE frame
+  // (see sse_stream.format_sse). Per the EventSource/HTML spec, named events
+  // are delivered ONLY to listeners registered via addEventListener(name, …);
+  // `onmessage` fires only for default (unnamed) `message` frames. Model that
+  // here so a store that subscribes via `onmessage` receives nothing.
+  emit(data: unknown, opts: { id?: string; event?: string } = {}) {
     if (opts.id) this.lastEventId = opts.id;
-    const ev = new MessageEvent("message", {
+    const eventName = opts.event ?? "game";
+    const ev = new MessageEvent(eventName, {
       data: typeof data === "string" ? data : JSON.stringify(data),
       lastEventId: opts.id ?? this.lastEventId,
     });
-    this.onmessage?.(ev);
-    (this.listeners["message"] || []).forEach((l) => l(ev));
+    if (eventName === "message") this.onmessage?.(ev);
+    (this.listeners[eventName] || []).forEach((l) => l(ev));
   }
   emitError() {
     const ev = new Event("error");

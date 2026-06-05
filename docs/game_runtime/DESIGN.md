@@ -2,7 +2,7 @@
 
 > **模块**：game_runtime
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-05
 > **关联代码**：`src/llm_werewolf/game_runtime/`
 
 ## 1. 目标
@@ -93,7 +93,44 @@ GameEngine 通过多个 Mixin 组织职责：
 | Hunter（猎人） | 好人 | 同上，死亡可带走一人 |
 | Guard（守卫） | 好人 | 同上，可守护一人 |
 
-### 6.2 角色实现
+### 6.2 夜间死亡结算（女巫 / 守卫）
+
+夜间狼刀结算由 `DeathHandlerMixin.resolve_deaths()` 统一处理，顺序为：
+
+1. 狼人刀口（`_handle_werewolf_kill`）
+2. 女巫毒药（`_resolve_witch_poison_death`）
+3. 狼美人魅惑连带（`_resolve_wolf_beauty_charm_deaths`）
+4. 死亡技能（猎人 / 狼王 / 警徽移交等）
+
+**刀口存活判定**（`_handle_werewolf_kill`）：
+
+| 场景 | 结果 | `death_causes` |
+|------|------|----------------|
+| 仅守卫保护刀口 | 存活 | — |
+| 仅女巫解药救刀口 | 存活 | — |
+| 守卫与女巫同夜同救刀口（毒奶） | **死亡** | `guard_witch_conflict` |
+| 无保护 | 死亡 | `werewolf` |
+
+**女巫规则**：
+
+- 解药只能救当夜狼刀目标（`werewolf_target`），整局一瓶
+- 毒药可毒任意存活玩家，整局一瓶
+- 被毒杀玩家记入 `death_causes = witch_poison`，**不能发动死亡技能**（猎人开枪等）
+
+**守卫规则**：
+
+- 不能连续两夜保护同一人（`last_protected` 校验）
+- 保护目标写入 `guard_protected`，与女巫解药在结算时合并判定
+
+**死亡链传播**：
+
+- 情侣一方死亡 → 伴侣殉情（加入 `night_deaths` / `day_deaths`）
+- 狼美人死亡 → 被魅惑者殉情；若被魅惑者也是情侣，继续传播
+- 殉情后加入死亡集合，供 `_handle_death_abilities` 触发后续技能
+
+测试：`tests/game_runtime/test_witch_guard_logic.py`、`tests/game_runtime/test_death_chain.py`
+
+### 6.3 角色实现
 
 - 基础角色类在 `roles/base.py`
 - 狼人系角色在 `roles/werewolf.py`

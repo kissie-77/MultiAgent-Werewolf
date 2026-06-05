@@ -101,11 +101,23 @@ class DeathHandlerMixin:
             return []
 
         messages: list[str] = []
+        target_id = target.player_id
+        guard_id = self.game_state.guard_protected
+        witch_save_id = self.game_state.witch_saved_target
 
-        if target.player_id in (
-            self.game_state.witch_saved_target,
-            self.game_state.guard_protected,
-        ):
+        # 毒奶：守卫与女巫同夜同时作用于刀口，目标仍会死亡
+        if guard_id == target_id and witch_save_id == target_id:
+            target.kill()
+            self.game_state.night_deaths.add(target_id)
+            self.game_state.death_causes[target_id] = "guard_witch_conflict"
+            self._log_event(
+                EventType.PLAYER_DIED,
+                self.locale.get("killed_by_guard_witch_conflict", player=target.name),
+                data={"player_id": target_id, "reason": "guard_witch_conflict"},
+            )
+            if target.is_lover() and target.lover_partner_id:
+                self._handle_lover_death(target)
+        elif target_id in (witch_save_id, guard_id):
             pass
         elif hasattr(target.role, "lives") and target.role.lives > 1:
             target.role.lives -= 1

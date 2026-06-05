@@ -27,6 +27,10 @@ class Locale:
             # 死亡
             "player_died": "{player} died",
             "killed_by_werewolves": "{player} was killed by werewolves",
+            "killed_by_guard_witch_conflict": (
+                "{player} was killed by werewolves "
+                "(guard and witch both acted on the same target)"
+            ),
             "voted_out": "{player} was voted out",
             "player_eliminated": "{player} was eliminated by vote. They were a {role}.",
             "player_eliminated_hidden": "{player} was eliminated by vote.",
@@ -167,6 +171,7 @@ class Locale:
             # 死亡
             "player_died": "{player} 死亡",
             "killed_by_werewolves": "{player} 被狼人殺害",
+            "killed_by_guard_witch_conflict": "{player} 被狼人殺害（守衛與女巫同夜同救，毒奶）",
             "voted_out": "{player} 被投票淘汰",
             "player_eliminated": "{player} 被投票淘汰，身分是 {role}。",
             "player_eliminated_hidden": "{player} 被投票淘汰。",
@@ -307,6 +312,7 @@ class Locale:
             # 死亡
             "player_died": "{player} 死亡",
             "killed_by_werewolves": "{player} 被狼人杀害",
+            "killed_by_guard_witch_conflict": "{player} 被狼人杀害（守卫与女巫同夜同救，毒奶）",
             "voted_out": "{player} 被投票淘汰",
             "player_eliminated": "{player} 被投票淘汰，身份是 {role}。",
             "player_eliminated_hidden": "{player} 被投票淘汰。",

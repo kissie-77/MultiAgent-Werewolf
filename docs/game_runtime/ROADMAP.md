@@ -2,7 +2,7 @@
 
 > **模块**：game_runtime
 > **状态**：active
-> **最后更新**：2026-06-05
+> **最后更新**：2026-06-05（毒奶规则 + 女巫守卫测试）
 
 ## 总览
 
@@ -44,6 +44,8 @@
 - [x] `wolf_beauty_charmed` 跨轮状态清空（DAY_VOTING→NIGHT 重置）
 - [x] 死亡链递归传播：魅惑死亡 → 情侣殉情；情侣殉情加入 `night_deaths` 使 `_handle_death_abilities` 正常触发
 - [x] 6 项死亡链回归测试（`tests/game_runtime/test_death_chain.py`）
+- [x] 女巫 / 守卫毒奶规则：同夜同救刀口仍死亡（`guard_witch_conflict`）
+- [x] 11 项女巫守卫专项测试（`tests/game_runtime/test_witch_guard_logic.py`）
 
 ## 进行中
 
@@ -60,6 +62,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-05 | 毒奶规则（守卫+女巫同救仍死亡）；女巫/守卫 11 项专项测试 |
 | 2026-06-05 | 修复 wolf_beauty_charmed 跨轮状态泄漏；死亡链递归传播（魅惑→情侣）；6 项回归测试 |
 | 2026-06-02 | 白狼白天自爆进黑夜；setup_game hub fail-fast；文档与 agent_team/strategy 批次对齐 |
 | 2026-06-02 | 人机混战信息隔离：observation 隐藏阵营存活数；警长投票 prompt 阶段修正 |

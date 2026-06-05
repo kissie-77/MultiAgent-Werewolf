@@ -116,11 +116,7 @@ class VotingPhaseMixin:
                     return None
                 from llm_werewolf.game_runtime.support.fallback_log import mark_agent_fallback
 
-                mark_agent_fallback(
-                    player.agent,
-                    kind="vote",
-                    reason="vote_intention",
-                )
+                mark_agent_fallback(player.agent, kind="vote", reason="vote_intention")
                 player.agent.add_decision(
                     "Round "
                     f"{self.game_state.round_number}: Voted for "

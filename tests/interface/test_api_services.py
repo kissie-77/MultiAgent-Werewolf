@@ -281,4 +281,3 @@ def test_aggregate_model_usage_reads_mvp_scores(api_dirs: dict[str, Path]) -> No
     stats = aggregate_model_usage(api_dirs["runs_dir"], api_dirs["eval_runs_dir"])
     demo = next(item for item in stats if item.model_id == "demo")
     assert demo.avg_mvp == pytest.approx(8.25)
-

@@ -6,8 +6,8 @@ WORKDIR /build
 # 安装 uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# 只复制依赖声明文件，利用 Docker 层缓存
-COPY pyproject.toml uv.lock* ./
+# 依赖声明 + README（hatchling 构建 llm-werewolf 时需要 readme 字段）
+COPY pyproject.toml uv.lock* README.md ./
 
 # 安装运行时依赖到固定路径（不含 dev/test/docs 组）
 RUN uv sync --frozen --no-dev --no-group test --no-group docs \

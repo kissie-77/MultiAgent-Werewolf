@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from pydantic import Field, BaseModel, field_validator
 
-if TYPE_CHECKING:
-    from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
+# Runtime import required (not TYPE_CHECKING): GameStatusResponse and
+# ModelCompareResponse use these as pydantic field types; with
+# `from __future__ import annotations` they must be resolvable at model-build
+# time or instantiation raises PydanticUserError ("not fully defined").
+from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
 
 
 class PlayerRosterDefaults(BaseModel):

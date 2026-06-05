@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import Field, BaseModel
 
-if TYPE_CHECKING:
-    from llm_werewolf.interface.api.models.common import (
-        NavLink,
-        RunDetail,
-        RunSummary,
-        ArtifactRef,
-        PlayerBrief,
-        PaginatedList,
-    )
+# NOTE: these MUST be runtime imports (not under TYPE_CHECKING). With
+# `from __future__ import annotations`, pydantic resolves field annotations
+# against the module namespace at model-build time; hiding them under
+# TYPE_CHECKING leaves models like RunListPageData "not fully defined" and
+# raises PydanticUserError when they are instantiated.
+from llm_werewolf.interface.api.models.common import (
+    NavLink,
+    RunDetail,
+    RunSummary,
+    ArtifactRef,
+    PlayerBrief,
+    PaginatedList,
+)
 
 # --- Shared UI blocks ---
 

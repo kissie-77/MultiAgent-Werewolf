@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from llm_werewolf.game_runtime.roles.catalog import get_catalog
+from llm_werewolf.interface.api.models.common import NavLink
 from llm_werewolf.interface.api.models.pages import (
-    NavLink,
     StrategyTip,
     ContentSection,
     NightPhaseStep,

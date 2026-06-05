@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from llm_werewolf.game_runtime.config import PlanAssignmentConfig, PlayerConfig, PlayersConfig
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 
 
 def _six_demo_players() -> list[PlayerConfig]:

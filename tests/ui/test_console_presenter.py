@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.types import Event, EventType, GamePhase
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 

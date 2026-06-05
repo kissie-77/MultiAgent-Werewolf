@@ -14,7 +14,7 @@ from typing import Any
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.config.player_config import PlayersConfig
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.models.actions import (
     CancelGameResponse,
     GameStatusResponse,
@@ -37,8 +37,8 @@ from llm_werewolf.interface.cli.runtime.bootstrap import (
 )
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
-from llm_werewolf.observability.dispatcher import get_dispatcher, update_run_meta_alerts
-from llm_werewolf.observability.runtime_log import attach_run_log_handler, detach_run_log_handler
+from llm_werewolf.observability.core.dispatcher import get_dispatcher, update_run_meta_alerts
+from llm_werewolf.observability.core.runtime_log import attach_run_log_handler, detach_run_log_handler
 
 logger = logging.getLogger(__name__)
 

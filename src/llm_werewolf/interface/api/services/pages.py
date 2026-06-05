@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from llm_werewolf.game_runtime.roles.catalog import get_catalog, get_definition
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.models.pages import (
     AboutPageData,
     BoardPreset,

@@ -19,9 +19,9 @@ from llm_werewolf.game_runtime.actions.villager import (
     WitchPoisonAction,
     WitchSaveAction,
 )
-from llm_werewolf.game_runtime.death_abilities import DEATH_ABILITY_ROLE_NAMES
+from llm_werewolf.game_runtime.rules.death_abilities import DEATH_ABILITY_ROLE_NAMES
 from llm_werewolf.game_runtime.engine.death_handler import DeathHandlerMixin
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles import Guard, Hunter, Villager, Werewolf, Witch
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.state.player import Player

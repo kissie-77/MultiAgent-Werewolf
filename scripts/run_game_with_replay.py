@@ -20,14 +20,14 @@ _src_path = _project_root / "src"
 if str(_src_path) not in sys.path:
     sys.path.insert(0, str(_src_path))
 
-from llm_werewolf.game_runtime.env import load_project_dotenv
+from llm_werewolf.game_runtime.support.env import load_project_dotenv
 
 load_project_dotenv()
 
 from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.utils import load_config
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.support.utils import load_config
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.interface.cli.runtime.bootstrap import (
     prepare_game_roster,
     create_information_hub,

@@ -10,8 +10,8 @@ from typing import Any
 
 from llm_werewolf.evaluation.post_game.pipeline import PostGameResult
 from llm_werewolf.observability.collectors.run_artifact_collector import RunArtifactCollector
-from llm_werewolf.observability.config import ObservabilityConfig, load_config
-from llm_werewolf.observability.models import AlertEvent, AlertSeverity
+from llm_werewolf.observability.core.config import ObservabilityConfig, load_config
+from llm_werewolf.observability.core.models import AlertEvent, AlertSeverity
 from llm_werewolf.observability.notifiers.base import AlertNotifier
 from llm_werewolf.observability.notifiers.webhook import WebhookNotifier
 

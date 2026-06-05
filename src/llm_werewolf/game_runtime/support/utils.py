@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from llm_werewolf.game_runtime.env import load_project_dotenv
+from llm_werewolf.game_runtime.support.env import load_project_dotenv
 from llm_werewolf.game_runtime.config import PlayersConfig
 
 

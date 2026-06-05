@@ -11,7 +11,7 @@ from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_
 from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
-from llm_werewolf.observability.dispatcher import get_dispatcher, update_run_meta_alerts
+from llm_werewolf.observability.core.dispatcher import get_dispatcher, update_run_meta_alerts
 
 logger = logging.getLogger(__name__)
 

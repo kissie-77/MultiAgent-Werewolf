@@ -17,7 +17,7 @@ from llm_werewolf.game_runtime.roles import (
     NightmareWolf,
 )
 from llm_werewolf.game_runtime.types import ActionPriority, EventType
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.actions.villager import (
     RavenMarkAction,

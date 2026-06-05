@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from llm_werewolf.interface.cli.runtime.modes import list_modes, resolve_config_path
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 
 
 def test_explicit_config_overrides_mode() -> None:

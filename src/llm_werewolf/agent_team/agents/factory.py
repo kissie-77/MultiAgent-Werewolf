@@ -7,7 +7,7 @@ from collections import Counter
 from random import Random
 from types import MethodType
 
-from llm_werewolf.game_runtime.env import load_project_dotenv
+from llm_werewolf.game_runtime.support.env import load_project_dotenv
 
 load_project_dotenv()
 from typing import TYPE_CHECKING, Any
@@ -19,7 +19,7 @@ from agentscope.formatter import OpenAIChatFormatter
 
 from llm_werewolf.agent_team.memory import RuntimeMemoryManager
 from llm_werewolf.game_runtime.config import MemoryConfig, PlanAssignmentConfig, PlayerConfig
-from llm_werewolf.agent_team.fast_react_agent import FastReActAgent
+from llm_werewolf.agent_team.agents.fast_react_agent import FastReActAgent
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 if TYPE_CHECKING:

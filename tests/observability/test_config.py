@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from llm_werewolf.observability.config import load_config
+from llm_werewolf.observability.core.config import load_config
 
 
 def test_yaml_webhook_placeholder_falls_back_to_env(tmp_path: Path, monkeypatch) -> None:

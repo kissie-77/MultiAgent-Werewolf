@@ -11,7 +11,7 @@ from rich.console import Console
 from llm_werewolf.game_runtime.types import Event, EventType
 
 if TYPE_CHECKING:
-    from llm_werewolf.game_runtime.locale import Locale
+    from llm_werewolf.game_runtime.i18n.locale import Locale
 
 console = Console()
 

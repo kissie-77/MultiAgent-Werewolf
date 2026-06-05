@@ -66,6 +66,7 @@
 
 | 日期       | 摘要                                               |
 | ---------- | -------------------------------------------------- |
+| 2026-06-05 | 目录重组：`evidence_pack.py` / `time_analysis.py` 移入 `core/` |
 | 2026-06-02 | `scan_run_dir` 固定跑 PromptBadCaseChecker；后端文档批次对齐 |
 | 2026-06-04 | Skill 写库：when_to_use 相似合并 +0.15、稀疏 bump；DESIGN §8.2 / §10 |
 | 2026-06-02 | PostGame 质量门控 + review-dashboard；DESIGN §5.2–§5.3 |

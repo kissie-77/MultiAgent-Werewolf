@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from llm_werewolf.observability.health import check_readiness
+from llm_werewolf.observability.core.health import check_readiness
 from llm_werewolf.paths import ARTIFACTS_DIR
 from llm_werewolf.interface.api.routes import (
     actions_router,

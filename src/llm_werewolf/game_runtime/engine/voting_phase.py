@@ -5,12 +5,12 @@ from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
 from llm_werewolf.strategy.contracts.decisions import SpeechDecision
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.actions import VoteAction
 from llm_werewolf.strategy.registry.role_prompts import GamePrompts
 from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase, action_phase_instruction
 from llm_werewolf.game_runtime.roles.names import RoleNames
-from llm_werewolf.game_runtime.seat import get_player_seat
+from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.game_runtime.actions.base import Action
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts

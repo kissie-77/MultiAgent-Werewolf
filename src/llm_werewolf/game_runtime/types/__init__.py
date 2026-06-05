@@ -18,7 +18,7 @@ from llm_werewolf.game_runtime.types.models import (
     VictoryResult,
 )
 
-from llm_werewolf.game_runtime.observation import PlayerObservation
+from llm_werewolf.game_runtime.support.observation import PlayerObservation
 
 PlayerObservation.model_rebuild()
 

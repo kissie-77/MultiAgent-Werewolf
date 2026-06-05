@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from conftest_evolution import build_evolution_fixtures
-from llm_werewolf.evaluation.evidence_pack import (
+from llm_werewolf.evaluation.core.evidence_pack import (
     build_evidence_pack,
     summarize_evolution,
     summarize_information_isolation,

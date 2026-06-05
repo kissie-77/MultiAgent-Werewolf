@@ -1,6 +1,6 @@
 """PhaseInteraction timeout routing tests."""
 
-from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
 
 
 class _Hub:

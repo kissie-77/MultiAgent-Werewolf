@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from llm_werewolf.game_runtime.types import Camp, Event, GamePhase, GameStateInfo, PlayerProtocol
 
 if TYPE_CHECKING:
-    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
 
 
 class GameState:

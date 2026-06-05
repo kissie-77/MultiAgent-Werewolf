@@ -3,9 +3,9 @@
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import RoleNames
-from llm_werewolf.game_runtime.death_abilities import DEATH_ABILITY_ROLE_NAMES
+from llm_werewolf.game_runtime.rules.death_abilities import DEATH_ABILITY_ROLE_NAMES
 from llm_werewolf.game_runtime.state.game_state import GameState
 
 

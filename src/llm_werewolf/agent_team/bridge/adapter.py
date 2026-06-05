@@ -11,7 +11,7 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
+from llm_werewolf.game_runtime.support.seat import get_player_seat, resolve_player_by_seat
 
 from llm_werewolf.strategy.contracts.decisions import (
     YesNoDecision,
@@ -37,13 +37,13 @@ from llm_werewolf.agent_team.invocation.structured_invoke import (
     invoke_structured,
     agent_uses_structured_output,
 )
-from llm_werewolf.agent_team.bridge_parsing import (
+from llm_werewolf.agent_team.bridge.parsing import (
     parse_speech as _parse_speech,
     parse_yes_no as _parse_yes_no,
     parse_target_selection as _parse_target_selection,
     parse_multi_target_selection as _parse_multi_target_selection,
 )
-from llm_werewolf.agent_team.bridge_prompts import (
+from llm_werewolf.agent_team.bridge.prompts import (
     build_speech_prompt as _build_speech_prompt,
     build_yes_no_prompt as _build_yes_no_prompt,
     build_mind_state_prompt as _build_mind_state_prompt,

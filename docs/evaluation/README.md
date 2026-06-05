@@ -2,7 +2,7 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-06-04
+> **最后更新**：2026-06-05
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
@@ -16,6 +16,23 @@
 - **leaderboard/** — 实验 entry 聚合与 A/B
 - **evolution/** — manifest 继承、prompt_evolver
 
+## 模块目录结构
+
+```
+evaluation/
+├── __init__.py
+├── core/                    # 评测核心（runner、checkers、evidence_pack、time_analysis）
+├── post_game/               # PostGame 14 步流水线
+│   ├── coach/
+│   ├── scoring/
+│   └── skill_generation/
+├── scoring/                 # 独立评分模块（intention、benefit、belief_calibration）
+├── log_views/               # POV 复盘视图
+├── leaderboard/             # 实验 entry 聚合与 A/B
+├── evolution/               # prompt 自进化 runner
+└── signals/                 # run 扫描信号（供 observability 消费）
+```
+
 ## 不负责
 
 - 对局规则与阶段推进（`game_runtime`）
@@ -27,7 +44,7 @@
 
 | 代码路径 | 内容 |
 |----------|------|
-| `evaluation/core/` | runner、checkers、scenarios |
+| `evaluation/core/` | runner、checkers、scenarios、evidence_pack、time_analysis |
 | `evaluation/post_game/` | pipeline、Coach、eval_agent |
 | `evaluation/post_game/skill_generation/` | Skill 提取、场景合并（+0.15）、稀疏 bump 写回 `skills/<role>/<version>/` |
 | `evaluation/scoring/` | intention、benefit、belief_calibration |

@@ -6,7 +6,7 @@ import fire
 import logfire
 from rich.console import Console
 
-from llm_werewolf.game_runtime.env import load_project_dotenv
+from llm_werewolf.game_runtime.support.env import load_project_dotenv
 
 load_project_dotenv()
 
@@ -19,8 +19,8 @@ if hasattr(sys.stderr, "reconfigure"):
 from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.interface.cli.runtime.modes import resolve_config_path
-from llm_werewolf.game_runtime.utils import load_config
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.support.utils import load_config
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.interface.cli.runtime.bootstrap import (
     prepare_game_roster,
     create_information_hub,
@@ -147,8 +147,8 @@ async def main(
 
     from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run
     from llm_werewolf.interface.cli.runtime.finalize_run import persist_run_artifacts
-    from llm_werewolf.observability.dispatcher import get_dispatcher, record_run_failure
-    from llm_werewolf.observability.runtime_log import attach_run_log_handler, detach_run_log_handler
+    from llm_werewolf.observability.core.dispatcher import get_dispatcher, record_run_failure
+    from llm_werewolf.observability.core.runtime_log import attach_run_log_handler, detach_run_log_handler
 
     attach_run_log_handler(run_dir)
     try:

@@ -38,7 +38,7 @@ from llm_werewolf.strategy.belief.format import (
     sync_player_belief_memory,
 )
 from llm_werewolf.strategy.wolf.camp_mind import WolfCampMindModel, is_wolf_player, merge_wolf_camp_delta
-from llm_werewolf.game_runtime.seat import get_player_seat
+from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.events.visibility import RoutedMessage, VisibilityChannel
 from llm_werewolf.agent_team.invocation.serial_calls import allow_parallel_agent_calls

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from llm_werewolf.game_runtime.seat import get_player_seat
+from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.strategy.contracts.decisions import (
     generate_response_instruction,
     mind_state_schema_instruction,

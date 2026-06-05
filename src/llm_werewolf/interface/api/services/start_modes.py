@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.models.actions import StartGameModeOption, StartGameModesResponse
 from llm_werewolf.interface.cli.runtime.modes import list_modes
 

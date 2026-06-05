@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from llm_werewolf.observability.models import AlertEvent
+from llm_werewolf.observability.core.models import AlertEvent
 
 
 class AlertNotifier(ABC):

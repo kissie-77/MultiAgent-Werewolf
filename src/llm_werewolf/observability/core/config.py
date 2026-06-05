@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from llm_werewolf.observability.models import AlertSeverity
+from llm_werewolf.observability.core.models import AlertSeverity
 
 
 def _parse_severity(raw: str | None, default: AlertSeverity) -> AlertSeverity:

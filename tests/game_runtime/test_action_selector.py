@@ -7,7 +7,7 @@ import pytest
 from llm_werewolf.game_runtime.roles import Villager
 from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.action_selector import ActionSelector
+from llm_werewolf.game_runtime.support.action_selector import ActionSelector
 
 
 @pytest.fixture

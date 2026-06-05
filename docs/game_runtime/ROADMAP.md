@@ -21,6 +21,7 @@
 | 信念矩阵 | 🔄 In Progress | B1/B2/狼队 W 面板运行时接入 |
 | 扩展角色规则完善 | ✅ Done | 狼美人魅惑跨轮状态修复；白狼**白天自爆** |
 | 更多中立角色 | 📋 Planned | 乌鸦、吹笛者等 |
+| 目录重组 | ✅ Done | `rules/` `interaction/` `scheduling/` `i18n/` `support/` 子包 |
 
 ## 已完成
 
@@ -46,6 +47,7 @@
 - [x] 6 项死亡链回归测试（`tests/game_runtime/test_death_chain.py`）
 - [x] 女巫 / 守卫毒奶规则：同夜同救刀口仍死亡（`guard_witch_conflict`）
 - [x] 11 项女巫守卫专项测试（`tests/game_runtime/test_witch_guard_logic.py`）
+- [x] 目录重组：10 个根目录 `.py` 归入 5 个子包；`support/__init__` 惰性导出防循环依赖
 
 ## 进行中
 
@@ -62,6 +64,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-05 | 目录重组：rules/interaction/scheduling/i18n/support 子包；README 目录结构图 |
 | 2026-06-05 | 毒奶规则（守卫+女巫同救仍死亡）；女巫/守卫 11 项专项测试 |
 | 2026-06-05 | 修复 wolf_beauty_charmed 跨轮状态泄漏；死亡链递归传播（魅惑→情侣）；6 项回归测试 |
 | 2026-06-02 | 白狼白天自爆进黑夜；setup_game hub fail-fast；文档与 agent_team/strategy 批次对齐 |

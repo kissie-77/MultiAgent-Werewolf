@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from collections.abc import Callable, Awaitable
 
-from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
+from llm_werewolf.game_runtime.support.seat import get_player_seat, resolve_player_by_seat
 from llm_werewolf.game_runtime.types import Camp
 from llm_werewolf.strategy.registry.role_prompts import GamePrompts
 from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
         NightmareWolf,
         BloodMoonApostle,
     )
-    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
 
 NightPlanner = Callable[
     ["Role", "GameStateProtocol", "PhaseInteraction"], Awaitable[list["ActionProtocol"]]

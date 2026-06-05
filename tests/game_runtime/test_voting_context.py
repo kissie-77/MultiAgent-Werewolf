@@ -1,7 +1,7 @@
 """Voting context regression tests."""
 
 from llm_werewolf.game_runtime.engine.voting_phase import VotingPhaseMixin
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 
 
 class _DummyVotingEngine(VotingPhaseMixin):

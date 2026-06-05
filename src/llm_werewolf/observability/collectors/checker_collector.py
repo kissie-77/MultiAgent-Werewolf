@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from llm_werewolf.evaluation.core.models import CheckResult, CheckSeverity
-from llm_werewolf.observability.config import ObservabilityConfig
-from llm_werewolf.observability.models import AlertEvent, AlertSeverity
+from llm_werewolf.observability.core.config import ObservabilityConfig
+from llm_werewolf.observability.core.models import AlertEvent, AlertSeverity
 
 
 def collect_checker_alerts(

@@ -21,6 +21,7 @@
 - [x] 文档三件套 + `configs/observability.yaml`
 - [x] `WebhookNotifier.notify` 改用 `asyncio.to_thread` 避免阻塞事件循环
 - [x] Webhook E2E 测试（`tests/observability/test_webhook_notifier.py`）：payload 验证、空事件跳过、服务端 500 容错、Dispatcher 链路集成
+- [x] 目录重组：根目录 5 个 `.py` 归入 `core/` 子包（config/dispatcher/health/models/runtime_log）
 
 ## Phase 2 — 质量门禁 + 指标
 

@@ -15,7 +15,7 @@ from llm_werewolf.game_runtime.roles import (
     NightmareWolf,
 )
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.game_runtime.night_scheduler import NightSkillScheduler
+from llm_werewolf.game_runtime.scheduling.night_scheduler import NightSkillScheduler
 from llm_werewolf.game_runtime.state.game_state import GameState
 
 
@@ -29,19 +29,19 @@ async def test_witch_collected_after_wolf_phase_not_in_pre_wolf() -> None:
     game_state = GameState([witch, wolf, seer, villager])
     game_state.round_number = 2
 
-    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
     from llm_werewolf.agent_team.communication.information_hub import InformationHub
 
     game_state.phase_interaction = PhaseInteraction(InformationHub())
 
     with (
         patch(
-            "llm_werewolf.game_runtime.night_scheduler.dispatch_night_plan",
+            "llm_werewolf.game_runtime.scheduling.night_scheduler.dispatch_night_plan",
             new_callable=AsyncMock,
             return_value=[],
         ) as dispatch_plan,
         patch(
-            "llm_werewolf.game_runtime.night_scheduler.dispatch_werewolf_vote_plan",
+            "llm_werewolf.game_runtime.scheduling.night_scheduler.dispatch_werewolf_vote_plan",
             new_callable=AsyncMock,
             return_value=[],
         ) as dispatch_vote,
@@ -79,18 +79,18 @@ async def test_special_wolves_use_pack_vote_planner_in_wolf_vote_phase() -> None
     game_state = GameState([guardian, nightmare, villager])
 
     from llm_werewolf.agent_team.communication.information_hub import InformationHub
-    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
 
     game_state.phase_interaction = PhaseInteraction(InformationHub())
 
     with (
         patch(
-            "llm_werewolf.game_runtime.night_scheduler.dispatch_werewolf_vote_plan",
+            "llm_werewolf.game_runtime.scheduling.night_scheduler.dispatch_werewolf_vote_plan",
             new_callable=AsyncMock,
             return_value=[],
         ) as dispatch_vote,
         patch(
-            "llm_werewolf.game_runtime.night_scheduler.dispatch_night_plan",
+            "llm_werewolf.game_runtime.scheduling.night_scheduler.dispatch_night_plan",
             new_callable=AsyncMock,
             return_value=[],
         ) as dispatch_special,
@@ -120,18 +120,18 @@ async def test_wolf_phase_special_roles_keep_extra_skill_after_pack_vote() -> No
     game_state = GameState([white_wolf, wolf_beauty, villager])
 
     from llm_werewolf.agent_team.communication.information_hub import InformationHub
-    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
 
     game_state.phase_interaction = PhaseInteraction(InformationHub())
 
     with (
         patch(
-            "llm_werewolf.game_runtime.night_scheduler.dispatch_werewolf_vote_plan",
+            "llm_werewolf.game_runtime.scheduling.night_scheduler.dispatch_werewolf_vote_plan",
             new_callable=AsyncMock,
             return_value=[],
         ) as dispatch_vote,
         patch(
-            "llm_werewolf.game_runtime.night_scheduler.dispatch_night_plan",
+            "llm_werewolf.game_runtime.scheduling.night_scheduler.dispatch_night_plan",
             new_callable=AsyncMock,
             return_value=[],
         ) as dispatch_special,

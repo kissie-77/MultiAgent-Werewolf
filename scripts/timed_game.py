@@ -221,7 +221,7 @@ async def run_timed_game(
     """
     # 延迟导入：游戏代码由 PYTHONPATH 决定（before=main/src，after=worktree/src）。
     from llm_werewolf.game_runtime import GameEngine
-    from llm_werewolf.game_runtime.utils import load_config
+    from llm_werewolf.game_runtime.support.utils import load_config
     from llm_werewolf.interface.cli.runtime.bootstrap import prepare_game_roster, wire_agentscope_after_setup
 
     if seed is not None:

@@ -13,14 +13,14 @@ from llm_werewolf.game_runtime.types import (
     PlayerProtocol,
 )
 from llm_werewolf.game_runtime.config import GameConfig
-from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.victory import VictoryChecker
-from llm_werewolf.game_runtime.observation import ObservationBuilder
+from llm_werewolf.game_runtime.i18n.locale import Locale
+from llm_werewolf.game_runtime.rules.victory import VictoryChecker
+from llm_werewolf.game_runtime.support.observation import ObservationBuilder
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction, PhaseInteractionHub
+from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction, PhaseInteractionHub
 from llm_werewolf.game_runtime.state.serialization import (
     load_game_state,
     save_game_state,
@@ -359,7 +359,7 @@ class GameEngineBase:
         """公开身份出局后，所有 Agent 信念矩阵塌缩该列。"""
         if not self.game_state or self.game_state.belief_log is None:
             return
-        from llm_werewolf.game_runtime.seat import get_player_seat
+        from llm_werewolf.game_runtime.support.seat import get_player_seat
         from llm_werewolf.strategy.belief.updater import apply_public_elimination_to_all_agents
 
         seat = get_player_seat(player)
@@ -493,7 +493,7 @@ class GameEngineBase:
             shared_events = [
                 event for event in shared_events if event.event_type not in merged_exclude
             ]
-        from llm_werewolf.game_runtime.observation import flatten_private_notes
+        from llm_werewolf.game_runtime.support.observation import flatten_private_notes
 
         private_notes = flatten_private_notes(list(additional_notes or []))
         observation = self.observation_builder.build(

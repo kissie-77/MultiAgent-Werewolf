@@ -42,7 +42,7 @@
 
 ```python
 from llm_werewolf.ui.console_presenter import ConsolePresenter
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 
 presenter = ConsolePresenter(Locale("zh-CN"))
 presenter.present_event(event)

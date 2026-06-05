@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 
 
 def test_load_config(tmp_path: Path) -> None:

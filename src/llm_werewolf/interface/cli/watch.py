@@ -9,9 +9,9 @@ from pathlib import Path
 
 import fire
 
-from llm_werewolf.observability.config import load_config
-from llm_werewolf.observability.dispatcher import AlertDispatcher, get_dispatcher
-from llm_werewolf.observability.models import AlertEvent, AlertSeverity
+from llm_werewolf.observability.core.config import load_config
+from llm_werewolf.observability.core.dispatcher import AlertDispatcher, get_dispatcher
+from llm_werewolf.observability.core.models import AlertEvent, AlertSeverity
 from llm_werewolf.paths import EVAL_RUNS_DIR, RUNS_DIR
 
 

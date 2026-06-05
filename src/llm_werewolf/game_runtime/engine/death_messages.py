@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import PlayerProtocol
-    from llm_werewolf.game_runtime.locale import Locale
+    from llm_werewolf.game_runtime.i18n.locale import Locale
 
 
 def elimination_announcement(

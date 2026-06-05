@@ -8,7 +8,7 @@ import logging
 from typing import Any
 from urllib import error, request
 
-from llm_werewolf.observability.models import AlertEvent
+from llm_werewolf.observability.core.models import AlertEvent
 from llm_werewolf.observability.notifiers.base import AlertNotifier
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ import pytest
 
 from llm_werewolf.game_runtime.engine.day_phase import DayPhaseMixin
 from llm_werewolf.game_runtime.engine.voting_phase import VotingPhaseMixin
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.strategy.voting.intention import VoteIntentionEntry
 
 

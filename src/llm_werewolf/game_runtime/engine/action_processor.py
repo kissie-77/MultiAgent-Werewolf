@@ -2,7 +2,7 @@ from collections.abc import Callable
 from typing import ClassVar
 
 from llm_werewolf.game_runtime.types import Camp, EventType
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import seer_apparent_camp
 from llm_werewolf.game_runtime.actions.base import Action
 from llm_werewolf.game_runtime.actions.villager import (
@@ -154,7 +154,7 @@ class ActionProcessorMixin:
                 f"result: {apparent.value}"
             )
         if self.game_state and getattr(self.game_state, "belief_log", None) is not None:
-            from llm_werewolf.game_runtime.seat import get_player_seat
+            from llm_werewolf.game_runtime.support.seat import get_player_seat
             from llm_werewolf.strategy.belief.updater import apply_seer_check, ensure_agent_belief_state
 
             alive = self.game_state.get_alive_players()

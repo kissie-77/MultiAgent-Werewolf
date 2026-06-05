@@ -10,9 +10,14 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
     EventType.SEER_CHECKED,
     EventType.WITCH_SAVED,
     EventType.GUARD_PROTECTED,
+    EventType.WITCH_POISON_USED,
     EventType.WITCH_POISONED,
     EventType.SHERIFF_VOTE_CAST,
     EventType.GRAVEYARD_KEEPER_CHECK,
+    EventType.WOLF_BEAUTY_CHARMED,
+    EventType.NIGHTMARE_BLOCKED,
+    EventType.MAGICIAN_SWAPPED,
+    EventType.RAVEN_MARKED,
 })
 
 # 仅写入复盘/评测日志，不向任何玩家 observation 暴露。
@@ -21,7 +26,11 @@ REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({
     EventType.BELIEF_SNAPSHOT,
 })
 
-WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({EventType.PLAYER_DISCUSSION})
+WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({
+    EventType.PLAYER_DISCUSSION,
+    EventType.WHITE_WOLF_KILLED,
+    EventType.GUARDIAN_WOLF_PROTECTED,
+})
 WOLF_TEAM_MESSAGE_ACTIONS: frozenset[str] = frozenset({
     "werewolves_wake",
     "werewolves_vote",
@@ -63,8 +72,13 @@ ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.SEER_CHECKED: "player_id",
     EventType.WITCH_SAVED: "player_id",
     EventType.GUARD_PROTECTED: "player_id",
+    EventType.WITCH_POISON_USED: "player_id",
     EventType.WITCH_POISONED: "player_id",
     EventType.GRAVEYARD_KEEPER_CHECK: "player_id",
+    EventType.WOLF_BEAUTY_CHARMED: "player_id",
+    EventType.NIGHTMARE_BLOCKED: "player_id",
+    EventType.MAGICIAN_SWAPPED: "player_id",
+    EventType.RAVEN_MARKED: "player_id",
     EventType.SHERIFF_VOTE_CAST: "voter_id",
     EventType.ERROR: "player_id",
 }

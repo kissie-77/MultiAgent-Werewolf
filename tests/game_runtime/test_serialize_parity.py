@@ -8,6 +8,7 @@ import random
 import pytest
 
 from llm_werewolf.agent_team.agents.base import DemoAgent
+from llm_werewolf.agent_team.communication.information_hub import InformationHub
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 from llm_werewolf.game_runtime.roles.registry import create_roles
@@ -24,7 +25,8 @@ from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 def _build_engine(seed: int) -> GameEngine:
     random.seed(seed)
     config = create_game_config_from_player_count(6)
-    engine = GameEngine(config)
+    # main 给 setup_game 加了 information_hub fail-fast；注入与生产装配一致。
+    engine = GameEngine(config, information_hub=InformationHub())
     engine.on_event = lambda _event: None
     players = [DemoAgent(name=f"P{i}", model="demo", seed=seed) for i in range(config.num_players)]
     roles = create_roles(role_names=config.role_names)

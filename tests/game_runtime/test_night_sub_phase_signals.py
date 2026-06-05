@@ -7,7 +7,7 @@ from llm_werewolf.game_runtime.roles import Villager, Werewolf
 from llm_werewolf.game_runtime.types import EventType
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.night_scheduler import NightSkillScheduler
+from llm_werewolf.game_runtime.scheduling.night_scheduler import NightSkillScheduler
 
 
 def _sub_phase_names(log_event: MagicMock) -> list[str]:
@@ -19,10 +19,15 @@ def _sub_phase_names(log_event: MagicMock) -> list[str]:
 
 
 def _scheduler(log_event: MagicMock) -> NightSkillScheduler:
+    from llm_werewolf.agent_team.communication.information_hub import InformationHub
+    from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
+
     wolf = Player("w1", "Wolf", Werewolf)
     villager = Player("v1", "Villager", Villager)
     state = GameState([wolf, villager])
     state.round_number = 1
+    # 狼队投票收集走 phase_interaction（main 重构后的协调投票路径）。
+    state.phase_interaction = PhaseInteraction(InformationHub())
     return NightSkillScheduler(
         state,
         log_event=log_event,
@@ -55,7 +60,7 @@ def test_run_post_wolf_resolution_emits_witch_then_seer_sub_phases() -> None:
 
 
 from llm_werewolf.game_runtime.engine.night_phase import NightPhaseMixin
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 
 
 class _NightHarness(NightPhaseMixin):

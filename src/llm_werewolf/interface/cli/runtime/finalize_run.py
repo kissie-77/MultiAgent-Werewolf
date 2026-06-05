@@ -11,7 +11,7 @@ from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_
 from llm_werewolf.evaluation.post_game import PostGameResult, run_post_game_pipeline
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
-from llm_werewolf.observability.dispatcher import get_dispatcher, update_run_meta_alerts
+from llm_werewolf.observability.core.dispatcher import get_dispatcher, update_run_meta_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def persist_run_artifacts(engine: Any, run_dir: Path) -> None:
     if state is not None and state.wolf_camp_mind is not None:
         wolf_path = run_dir / "wolf_camp_mind.jsonl"
         if not wolf_path.is_file() and state.wolf_camp_mind.history:
-            from llm_werewolf.strategy.wolf_camp_mind import save_wolf_camp_history
+            from llm_werewolf.strategy.wolf.camp_mind import save_wolf_camp_history
 
             save_wolf_camp_history(state.wolf_camp_mind, wolf_path)
 

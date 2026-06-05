@@ -241,7 +241,7 @@ class SemanticMemory:
 
     @staticmethod
     def _skill_path(card: StrategyCard) -> Path:
-        from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+        from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
         safe_id = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", card.id).strip("_") or "skill"
         version = get_active_manifest().skill_version_for(card.role)

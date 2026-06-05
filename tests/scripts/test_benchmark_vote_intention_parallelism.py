@@ -1,7 +1,7 @@
 from pathlib import Path
 from importlib.util import module_from_spec, spec_from_file_location
 
-from llm_werewolf.strategy.vote_intention import VoteIntentionEntry
+from llm_werewolf.strategy.voting.intention import VoteIntentionEntry
 
 
 def _load_script_module():

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from llm_werewolf.game_runtime.types import Camp, Event, GamePhase, GameStateInfo, PlayerProtocol
 
 if TYPE_CHECKING:
-    from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction
+    from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction
 
 
 class GameState:
@@ -66,6 +66,8 @@ class GameState:
         self.vote_timeout: int | None = None
         self.allow_revote = False
         self.show_role_on_death = True
+
+        self.skip_day_voting = False
 
     def get_alive_witch_player_ids(self) -> list[str]:
         """返回存活女巫的玩家 ID 列表（用于刀口等仅女巫可见的事件）。"""
@@ -137,6 +139,7 @@ class GameState:
             self.guardian_wolf_protected = None
             self.nightmare_blocked = None
             self.raven_marked = None
+            self.wolf_beauty_charmed = None
 
         return self.phase
 

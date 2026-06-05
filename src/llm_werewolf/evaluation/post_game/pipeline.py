@@ -23,8 +23,13 @@ from llm_werewolf.evaluation.post_game.pipeline_steps import (
     StepRecord,
     run_step,
     skip_step,
+    skip_steps,
     run_step_async,
     write_pipeline_steps,
+)
+from llm_werewolf.evaluation.post_game.pipeline_registry import (
+    required_step_ids,
+    step_artifacts,
 )
 from llm_werewolf.evaluation.post_game.camp_persuasion import (
     CampPersuasionReport,
@@ -34,6 +39,7 @@ from llm_werewolf.evaluation.post_game.episodic_bridge import write_episodic_art
 from llm_werewolf.evaluation.post_game.prompt_proposal import write_prompt_proposals
 from llm_werewolf.evaluation.post_game.game_quality_report import write_game_quality_report
 from llm_werewolf.evaluation.post_game.counterfactual import write_counterfactual_artifacts
+from llm_werewolf.evaluation.post_game.bad_case_report import write_bad_case_artifacts
 from llm_werewolf.evaluation.post_game.scoring.score_contexts import write_score_contexts
 from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     write_role_skills_artifacts,
@@ -41,7 +47,7 @@ from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
 
 logger = logging.getLogger(__name__)
 
-_REQUIRED_STEPS = frozenset({"load_context"})
+_REQUIRED_STEPS = required_step_ids()
 
 
 @dataclass
@@ -100,6 +106,28 @@ def _on_step_done(
     return value
 
 
+def _run_registered_step(
+    steps: list[StepRecord],
+    step_id: str,
+    fn: Any,
+) -> Any:
+    return run_step(steps, step_id, fn, artifacts=step_artifacts(step_id))
+
+
+async def _run_registered_step_async(
+    steps: list[StepRecord],
+    step_id: str,
+    fn: Any,
+) -> Any:
+    return await run_step_async(steps, step_id, fn, artifacts=step_artifacts(step_id))
+
+
+def _on_registered_step_done(
+    result: PostGameResult, steps: list[StepRecord], step_id: str, value: Any
+) -> Any:
+    return _on_step_done(result, steps, step_id, value, step_artifacts(step_id))
+
+
 async def run_post_game_pipeline(
     run_dir: str | Path,
     *,
@@ -120,7 +148,7 @@ async def run_post_game_pipeline(
             raise RuntimeError(msg)
         return state.ctx
 
-    loaded = run_step(
+    loaded = _run_registered_step(
         steps,
         "load_context",
         lambda: (
@@ -136,7 +164,6 @@ async def run_post_game_pipeline(
             )
             or state.ctx
         ),
-        required=True,
     )
     if loaded is None:
         _sync_stage_errors(result, steps)
@@ -145,56 +172,49 @@ async def run_post_game_pipeline(
         result.error = "load_context failed"
         return result
 
-    _on_step_done(result, steps, "load_context", loaded, [])
+    _on_registered_step_done(result, steps, "load_context", loaded)
 
-    _on_step_done(
+    _on_registered_step_done(
         result,
         steps,
         "episodic",
-        run_step(
+        _run_registered_step(
             steps,
             "episodic",
             lambda: write_episodic_artifacts(_ctx(), engine=engine),
-            artifacts=["episodic_reports.json"],
         ),
-        ["episodic_reports.json"],
     )
 
-    _on_step_done(
+    _on_registered_step_done(
         result,
         steps,
         "vote_swing",
-        run_step(
+        _run_registered_step(
             steps,
             "vote_swing",
             lambda: write_persuasion_artifacts(_ctx().run_dir),
-            artifacts=["vote_swing_report.md", "vote_swing_summary.json"],
         ),
-        ["vote_swing_report.md", "vote_swing_summary.json"],
     )
 
-    camp = run_step(
+    camp = _run_registered_step(
         steps,
         "camp_persuasion",
         lambda: write_camp_persuasion_artifacts(_ctx()),
-        artifacts=["camp_persuasion_report.md", "camp_persuasion_summary.json"],
     )
     if camp is not None:
         state.camp_report = camp
-        _merge_artifacts(result, ["camp_persuasion_report.md", "camp_persuasion_summary.json"])
+        _merge_artifacts(result, step_artifacts("camp_persuasion"))
 
     if state.camp_report is not None:
-        _on_step_done(
+        _on_registered_step_done(
             result,
             steps,
             "log_views",
-            run_step(
+            _run_registered_step(
                 steps,
                 "log_views",
                 lambda: write_log_views(_ctx(), state.camp_report),
-                artifacts=["views/", "views_manifest.json"],
             ),
-            ["views/", "views_manifest.json"],
         )
     else:
         skip_step(steps, "log_views", "camp_persuasion 未成功")
@@ -202,29 +222,25 @@ async def run_post_game_pipeline(
     if state.camp_report is not None:
         cr = state.camp_report
 
-        intention = run_step(
+        intention = _run_registered_step(
             steps,
             "intention_scores",
             lambda: (write_intention_scores(_ctx(), cr), build_intention_scores(_ctx(), cr))[1],
-            artifacts=["intention_scores.json"],
         )
         if intention is not None:
             state.intention_payload = intention
-            _merge_artifacts(result, ["intention_scores.json"])
+            _merge_artifacts(result, step_artifacts("intention_scores"))
 
-        manifest = run_step(
+        manifest = _run_registered_step(
             steps,
             "score_contexts",
             lambda: write_score_contexts(_ctx()),
-            artifacts=["views/score_contexts/", "views/score_contexts/manifest.json"],
         )
         if manifest is not None:
             state.score_ctx_manifest = manifest
-            _merge_artifacts(
-                result, ["views/score_contexts/", "views/score_contexts/manifest.json"]
-            )
+            _merge_artifacts(result, step_artifacts("score_contexts"))
 
-        mvp = run_step(
+        mvp = _run_registered_step(
             steps,
             "mvp_scores",
             lambda: json.loads(
@@ -235,18 +251,17 @@ async def run_post_game_pipeline(
                     score_context_manifest=state.score_ctx_manifest,
                 ).read_text(encoding="utf-8")
             ),
-            artifacts=["mvp_scores.json"],
         )
         if mvp is not None:
             state.mvp_payload = mvp
-            _merge_artifacts(result, ["mvp_scores.json"])
+            _merge_artifacts(result, step_artifacts("mvp_scores"))
 
         if state.mvp_payload is not None:
-            _on_step_done(
+            _on_registered_step_done(
                 result,
                 steps,
                 "benefit_scores",
-                run_step(
+                _run_registered_step(
                     steps,
                     "benefit_scores",
                     lambda: write_benefit_scores(
@@ -255,15 +270,16 @@ async def run_post_game_pipeline(
                         intention_by_player=(state.intention_payload or {}).get("by_player"),
                         mvp_payload=state.mvp_payload,
                     ),
-                    artifacts=["benefit_scores.json"],
                 ),
-                ["benefit_scores.json"],
             )
         else:
             skip_step(steps, "benefit_scores", "mvp_scores 未成功")
     else:
-        for sid in ("intention_scores", "score_contexts", "mvp_scores", "benefit_scores"):
-            skip_step(steps, sid, "camp_persuasion 未成功")
+        skip_steps(
+            steps,
+            ("intention_scores", "score_contexts", "mvp_scores", "benefit_scores"),
+            "camp_persuasion 未成功",
+        )
 
     llm_notes: str | None = None
     if skip_llm:
@@ -281,14 +297,12 @@ async def run_post_game_pipeline(
                 dimension_context_paths=state.mvp_payload.get("dimension_context_paths"),
             )
 
-        analysis = await run_step_async(
-            steps, "llm_replay", _llm, artifacts=["post_game_analysis.json", "post_game_report.md"]
-        )
+        analysis = await _run_registered_step_async(steps, "llm_replay", _llm)
         if analysis is not None:
             state.llm_analysis = analysis
             write_post_game_analysis(_ctx(), analysis)
             result.skipped_llm = analysis.get("mode") == "skipped"
-            _merge_artifacts(result, ["post_game_analysis.json", "post_game_report.md"])
+            _merge_artifacts(result, step_artifacts("llm_replay"))
             if analysis.get("mode") == "llm":
                 suggestions = analysis.get("prompt_suggestions") or []
                 llm_notes = "; ".join(suggestions) if suggestions else analysis.get("summary_zh")
@@ -297,11 +311,11 @@ async def run_post_game_pipeline(
     else:
         skip_step(steps, "llm_replay", "mvp_scores 未成功")
 
-    _on_step_done(
+    _on_registered_step_done(
         result,
         steps,
         "game_quality_report",
-        run_step(
+        _run_registered_step(
             steps,
             "game_quality_report",
             lambda: write_game_quality_report(
@@ -310,26 +324,33 @@ async def run_post_game_pipeline(
                 steps=[s.to_dict() for s in steps],
                 llm_analysis=state.llm_analysis,
             ),
-            artifacts=["game_quality_report.md", "game_quality_report.json"],
         ),
-        ["game_quality_report.md", "game_quality_report.json"],
     )
 
-    _on_step_done(
+    _on_registered_step_done(
         result,
         steps,
         "counterfactual",
-        run_step(
+        _run_registered_step(
             steps,
             "counterfactual",
             lambda: write_counterfactual_artifacts(_ctx()),
-            artifacts=["counterfactual_report.json", "counterfactual_report.md"],
         ),
-        ["counterfactual_report.json", "counterfactual_report.md"],
+    )
+
+    _on_registered_step_done(
+        result,
+        steps,
+        "bad_case",
+        _run_registered_step(
+            steps,
+            "bad_case",
+            lambda: write_bad_case_artifacts(_ctx()),
+        ),
     )
 
     if state.camp_report is not None:
-        name = run_step(
+        name = _run_registered_step(
             steps,
             "prompt_proposals",
             lambda: (
@@ -337,22 +358,19 @@ async def run_post_game_pipeline(
                     _ctx(), state.camp_report, llm_notes=llm_notes, mvp_payload=state.mvp_payload
                 ).name
             ),
-            artifacts=["prompt_proposals.json"],
         )
         if name:
             _merge_artifacts(result, [name])
 
-        _on_step_done(
+        _on_registered_step_done(
             result,
             steps,
             "role_skills",
-            run_step(
+            _run_registered_step(
                 steps,
                 "role_skills",
                 lambda: write_role_skills_artifacts(_ctx(), state.camp_report),
-                artifacts=["role_skills.json", "skills/"],
             ),
-            ["role_skills.json", "skills/"],
         )
 
         def _coach() -> None:
@@ -369,17 +387,18 @@ async def run_post_game_pipeline(
                 _ctx(), state.camp_report, skills_payload, engine=engine, coach_result=coach_result
             )
 
-        _on_step_done(
+        _on_registered_step_done(
             result,
             steps,
             "coach",
-            run_step(steps, "coach", _coach, artifacts=["coach_summary.json"]),
-            ["coach_summary.json"],
+            _run_registered_step(steps, "coach", _coach),
         )
     else:
-        skip_step(steps, "prompt_proposals", "camp_persuasion 未成功")
-        skip_step(steps, "role_skills", "camp_persuasion 未成功")
-        skip_step(steps, "coach", "camp_persuasion 未成功")
+        skip_steps(
+            steps,
+            ("prompt_proposals", "role_skills", "coach"),
+            "camp_persuasion 未成功",
+        )
 
     from llm_werewolf.agent_team.skill_support import skill_loader
 

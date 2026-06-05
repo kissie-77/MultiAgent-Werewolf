@@ -36,7 +36,7 @@ def build_experiment_meta(
     previous_skill_snapshot_path: str | None = None,
     role_version_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+    from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
     manifest = get_active_manifest()
     return {

@@ -28,8 +28,18 @@ class MemoryConfig(BaseModel):
     working_max_persistent_chars: int = Field(
         default=4000, ge=100, description="Maximum total characters in persistent memory zone."
     )
+    skill_belief_top_k: int = Field(
+        default=3,
+        ge=0,
+        description="Max belief-matched skill cards injected per decision.",
+    )
+    skill_belief_pool_size: int = Field(
+        default=12,
+        ge=1,
+        description="Max active skills considered when matching against belief matrix.",
+    )
     semantic_top_k: int = Field(
-        default=3, ge=0, description="Number of role skill cards injected at game start."
+        default=3, ge=0, description="Top-k for semantic backend cards and coach extraction."
     )
     semantic_max_cards_good: int = Field(
         default=8, ge=1, description="Maximum semantic cards retained for non-werewolf roles."

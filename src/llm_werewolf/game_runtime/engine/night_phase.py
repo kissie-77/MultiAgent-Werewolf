@@ -3,11 +3,11 @@
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
-from llm_werewolf.strategy.decisions import SpeechDecision
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.roles.werewolf import BloodMoonApostle
-from llm_werewolf.game_runtime.night_scheduler import NightSkillScheduler
+from llm_werewolf.game_runtime.scheduling.night_scheduler import NightSkillScheduler
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
@@ -82,7 +82,7 @@ class NightPhaseMixin:
         wolf_panel = ""
         wolf_camp_mind = getattr(self.game_state, "wolf_camp_mind", None)
         if wolf_camp_mind is not None:
-            from llm_werewolf.strategy.belief_format import format_wolf_camp_context
+            from llm_werewolf.strategy.belief.format import format_wolf_camp_context
 
             wolf_panel = format_wolf_camp_context(wolf_camp_mind)
         body = (
@@ -277,8 +277,8 @@ class NightPhaseMixin:
         breaker = wolves[0] if wolves else None
         if breaker and breaker.agent:
             interaction = self.game_state.require_phase_interaction()
-            from llm_werewolf.strategy.role_prompts import GamePrompts
-            from llm_werewolf.strategy.phase_outputs import ActionPhase
+            from llm_werewolf.strategy.registry.role_prompts import GamePrompts
+            from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 
             chosen = await interaction.request_seat_choice(
                 breaker,

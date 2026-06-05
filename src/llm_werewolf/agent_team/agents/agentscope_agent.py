@@ -18,7 +18,7 @@ from pydantic import Field, BaseModel, ValidationError
 # 使用AgentScope原生的Msg类
 from agentscope.message import Msg as AgentScopeMsg
 
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     SpeechDecision,
     extract_public_text,
     is_valid_public_speech,
@@ -190,11 +190,16 @@ class AgentScopeWerewolfAgent(BaseAgent):
         self.plan = plan_text
 
         sys_prompt = build_system_prompt(
-            seat_number, game_role_name, plan_text, role_counts=self.role_counts
+            seat_number,
+            game_role_name,
+            plan_text,
+            role_counts=self.role_counts,
         )
         if self.player_config is not None:
             self.agentscope_agent = create_react_agent(
-                self.player_config, agent_name=self.name, sys_prompt=sys_prompt
+                self.player_config,
+                agent_name=self.name,
+                sys_prompt=sys_prompt,
             )
 
         self.decision_history = []
@@ -237,16 +242,10 @@ class AgentScopeWerewolfAgent(BaseAgent):
             sys_prompt = PromptManager.build_prompt_key_strategy_prompt(
                 self.number, self.role, self.plan, prompt_version=self.prompt_version
             )
-            from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
-            from llm_werewolf.strategy.role_version_manifest import get_active_manifest
-
-            manifest = get_active_manifest()
-            skills = load_role_skills_text(
-                self.role,
-                skill_version=manifest.skill_version_for(self.role),
+            sys_prompt = (
+                f"{sys_prompt}\n\n"
+                "【对局经验 Skill】将根据当前信念矩阵（B1/B2/投票意向）动态注入决策上下文。"
             )
-            if skills:
-                sys_prompt = f"{sys_prompt}\n\n{skills}"
             if self.role_counts:
                 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 
@@ -374,11 +373,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
         async def handle_interrupted_text(text: str) -> bool:
             if not _is_agentscope_interrupt_text(text):
                 return False
-            logger.warning(
-                "structured_response_interrupted agent=%s model=%s",
-                self.name,
-                structured_model.__name__,
-            )
+                logger.debug(
+                    "structured_response_interrupted agent=%s model=%s",
+                    self.name,
+                    structured_model.__name__,
+                )
             object.__setattr__(self, "_last_structured_source", "interrupted")
             await self._cleanup_agentscope_interrupt_memory()
             return True
@@ -451,7 +450,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 except Exception as memory_exc:
                     memory_tail.append(f"<memory read failed: {memory_exc}>")
 
-            logger.warning(
+            logger.debug(
                 "structured_response_diagnostic agent=%s model=%s stage=%s "
                 "content_types=%s metadata=%s text_preview=%s error=%s memory_tail=%s",
                 self.name,
@@ -483,7 +482,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                         structured_source = "tool_use_input"
                 if metadata:
                     if structured_model is SpeechDecision:
-                        from llm_werewolf.strategy.decisions import (
+                        from llm_werewolf.strategy.contracts.decisions import (
                             metadata_looks_like_wrong_schema_for_speech,
                         )
 
@@ -509,7 +508,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                             )
                             decision = None
                         if structured_model is SpeechDecision:
-                            from llm_werewolf.strategy.decisions import normalize_speech_decision
+                            from llm_werewolf.strategy.contracts.decisions import normalize_speech_decision
 
                             if decision is not None:
                                 decision = normalize_speech_decision(
@@ -723,8 +722,21 @@ class AgentScopeWerewolfAgent(BaseAgent):
             return self._werewolf_team_fallback_speech(message)
 
         # 白天讨论发言：按角色生成有博弈性的推理发言
-        role_key = self.role
-        return self._generate_role_specific_fallback(role_key, message)
+        # Public fallback must not use the real role, otherwise a failed model call
+        # can accidentally leak private identity or skill state into day speech.
+        return self._generate_public_safe_fallback()
+
+    def _generate_public_safe_fallback(self) -> str:
+        """Generate a neutral public fallback speech without role or private facts."""
+        import random
+
+        speeches = [
+            "我先保持谨慎观察，目前信息还不够完整，会重点听大家的逻辑是否前后一致。",
+            "现在我不急着定死某个位置，先看发言里的矛盾点和投票倾向再判断。",
+            "我会关注谁在回避关键问题，也会看后续投票有没有明显的跟风或突然转向。",
+            "目前更适合把信息摊开盘清楚，不要只凭感觉冲票，先听完这一轮再归纳。",
+        ]
+        return random.choice(speeches)
 
     def _generate_role_specific_fallback(self, role_key: str, message: str) -> str:
         """按角色生成有博弈性的白天讨论兜底发言。"""
@@ -886,7 +898,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     @staticmethod
     def _message_expects_seat_only(message: str) -> bool:
         """Prompt 要求座位号/投票而非发言时返回 True。"""
-        from llm_werewolf.strategy.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
+        from llm_werewolf.strategy.contracts.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
 
         if ROUNDTABLE_SPEECH_ONLY_MARKER in message:
             return False

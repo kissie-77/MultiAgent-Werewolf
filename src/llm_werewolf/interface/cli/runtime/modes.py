@@ -20,8 +20,8 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
     ("all_agent", "basic"): GameMode(
         participation="all_agent",
         rules="basic",
-        config_path=Path("configs/demo-6.yaml"),
-        description="基础全自动对局（不带警徽流）：6 人 Demo 对局。",
+        config_path=Path("configs/llm-12p-kimi.yaml"),
+        description="基础全自动对局（不带警徽流）：使用 Kimi/VibeAPI 真实 LLM 配置。",
     ),
     ("all_agent", "badge_flow"): GameMode(
         participation="all_agent",
@@ -32,13 +32,13 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
     ("all_agent", "extended_roles"): GameMode(
         participation="all_agent",
         rules="extended_roles",
-        config_path=Path("configs/llm-12p-doubao.yaml"),
-        description="扩展人数 AgentScope 对局：用于角色扩展验证。",
+        config_path=Path("configs/llm-12p-kimi.yaml"),
+        description="扩展人数 Kimi/VibeAPI AgentScope 对局：用于角色扩展验证。",
     ),
     ("human_mixed", "basic"): GameMode(
         participation="human_mixed",
         rules="basic",
-        config_path=Path("configs/xiaomi.yaml"),
+        config_path=Path("configs/llm-12p-kimi.yaml"),
         description="基础人机混战：使用真实 LLM 配置，并将指定座位替换为人类玩家。",
     ),
     ("human_mixed", "badge_flow"): GameMode(
@@ -50,8 +50,8 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
     ("human_mixed", "extended_roles"): GameMode(
         participation="human_mixed",
         rules="extended_roles",
-        config_path=Path("configs/llm-12p-doubao.yaml"),
-        description="扩展角色人机混战：使用真实 LLM 配置，并将指定座位替换为人类玩家。",
+        config_path=Path("configs/llm-12p-kimi.yaml"),
+        description="扩展角色人机混战：使用 Kimi/VibeAPI 配置，并将指定座位替换为人类玩家。",
     ),
 }
 

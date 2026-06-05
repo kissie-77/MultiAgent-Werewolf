@@ -60,7 +60,7 @@ def test_derive_post_game_status() -> None:
 
 
 def test_runtime_log_handler_records_429(tmp_path: Path) -> None:
-    from llm_werewolf.observability.runtime_log import (
+    from llm_werewolf.observability.core.runtime_log import (
         attach_run_log_handler,
         count_provider_events,
         detach_run_log_handler,
@@ -79,7 +79,7 @@ def test_runtime_log_handler_records_429(tmp_path: Path) -> None:
 
 
 def test_runtime_log_handler_records_fallback(tmp_path: Path) -> None:
-    from llm_werewolf.observability.runtime_log import (
+    from llm_werewolf.observability.core.runtime_log import (
         attach_run_log_handler,
         count_provider_events,
         detach_run_log_handler,

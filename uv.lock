@@ -2050,6 +2050,7 @@ dev = [
     { name = "notebook" },
     { name = "poethepoet" },
     { name = "pre-commit" },
+    { name = "ruff" },
     { name = "ty" },
 ]
 docs = [
@@ -2095,6 +2096,7 @@ dev = [
     { name = "notebook" },
     { name = "poethepoet" },
     { name = "pre-commit" },
+    { name = "ruff" },
     { name = "ty" },
 ]
 docs = [

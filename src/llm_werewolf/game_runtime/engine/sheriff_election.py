@@ -3,9 +3,9 @@
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
-from llm_werewolf.strategy.decisions import SpeechDecision
-from llm_werewolf.strategy.phase_outputs import ActionPhase
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
+from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
 
@@ -44,6 +44,10 @@ class SheriffElectionMixin:
             return
 
         if len(candidates) == 1:
+            self._log_event(
+                EventType.MESSAGE,
+                self.locale.get("sheriff_single_candidate", player=candidates[0].name),
+            )
             self._elect_sheriff(candidates[0])
             self.game_state.sheriff_election_done = True
             return

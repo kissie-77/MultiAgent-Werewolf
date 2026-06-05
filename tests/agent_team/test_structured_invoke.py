@@ -1,8 +1,10 @@
 """generate_response 元数据解包与结构化检测的测试。"""
 
+import logging
+
 import pytest
 
-from llm_werewolf.strategy.decisions import SeatChoiceDecision, WitchNightDecision
+from llm_werewolf.strategy.contracts.decisions import SeatChoiceDecision, WitchNightDecision
 from llm_werewolf.agent_team.invocation.structured_invoke import (
     invoke_structured,
     parse_structured_from_text,
@@ -94,3 +96,20 @@ async def test_invoke_structured_appends_schema_specific_instruction() -> None:
     assert "SeatChoiceDecision Schema" in agent.seen_message
     assert "SpeechDecision Schema" not in agent.seen_message
     assert "public_speech / private_thought" not in agent.seen_message
+
+
+@pytest.mark.asyncio
+async def test_invoke_structured_none_result_does_not_emit_warning(caplog) -> None:
+    class NoneAgent:
+        name = "P1"
+        agentscope_agent = object()
+
+        async def get_structured_response(self, _message, _model) -> None:
+            return None
+
+    caplog.set_level(logging.WARNING)
+
+    result = await invoke_structured(NoneAgent(), "请选择夜晚目标", SeatChoiceDecision, retries=1)
+
+    assert result is None
+    assert "structured_invoke_returned_none" not in caplog.text

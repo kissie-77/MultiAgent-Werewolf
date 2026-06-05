@@ -52,13 +52,16 @@
 ## 快速入口
 
 ```powershell
-# 控制台 LLM 对局（首参为 YAML 路径，无 play 子命令）
-uv run werewolf configs/llm-12p-doubao.yaml
+# 交互式正式对局：按菜单选择参与方式、规则模式、人数和人类座位
+uv run werewolf
 
-# 9 人人机混合（示例：1 号位为人类）
-uv run werewolf configs/llm-9p-doubao.yaml --human_seat 1
+# 18 人人机扩展局（示例：8 号位为人类）
+uv run werewolf --participation human_mixed --rules extended_roles --players 18 --human_seat 8
 
-# 校验火山方舟 API Key（改 .env 后先跑这个）
+# 12 人 Kimi/VibeAPI LLM 对局（首参为 YAML 路径，无 play 子命令）
+uv run werewolf configs/llm-12p-kimi.yaml
+
+# Doubao 历史配置仍可用；改 ARK_API_KEY / ARK_EP 后可先跑这个
 uv run python scripts/test_ark_connectivity.py
 
 # 启动 Web API（默认 127.0.0.1:8000）

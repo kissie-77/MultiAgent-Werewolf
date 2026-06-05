@@ -20,24 +20,25 @@ from agentscope.message import Msg as AgentScopeMsg
 from agentscope.pipeline import MsgHub
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.strategy.decisions import SpeechDecision
-from llm_werewolf.strategy.vote_intention import (
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
+from llm_werewolf.strategy.voting.intention import (
     VoteIntentionEntry,
     VoteIntentionAnchor,
     VoteIntentionTracker,
     VoteIntentionSnapshot,
     SpeechVoteIntentionRecord,
 )
-from llm_werewolf.strategy.belief_state import BeliefLog, BeliefSnapshotRecord
-from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state, merge_llm_beliefs
-from llm_werewolf.strategy.belief_format import (
+from llm_werewolf.strategy.belief.state import BeliefLog, BeliefSnapshotRecord
+from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state, merge_llm_beliefs
+from llm_werewolf.strategy.belief.format import (
     format_belief_summary,
     format_wolf_camp_context,
+    refresh_player_belief_skills,
     sync_all_belief_memories,
     sync_player_belief_memory,
 )
-from llm_werewolf.strategy.wolf_camp_mind import WolfCampMindModel, is_wolf_player, merge_wolf_camp_delta
-from llm_werewolf.game_runtime.seat import get_player_seat
+from llm_werewolf.strategy.wolf.camp_mind import WolfCampMindModel, is_wolf_player, merge_wolf_camp_delta
+from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 from llm_werewolf.game_runtime.events.visibility import RoutedMessage, VisibilityChannel
 from llm_werewolf.agent_team.invocation.serial_calls import allow_parallel_agent_calls
@@ -47,7 +48,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
-    from llm_werewolf.strategy.phase_outputs import ActionPhase
+    from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +159,18 @@ class InformationHub:
         )
         return [p for p in routed if self._react_agent(p) is not None]
 
+    def _refresh_actor_belief_skills(self, actor: PlayerProtocol) -> None:
+        """Match belief skills immediately before a private LLM decision."""
+        if self._get_alive_players is None:
+            return
+        refresh_player_belief_skills(
+            actor,
+            alive=self._get_alive_players(),
+            wolf_camp_mind=self._wolf_camp_mind,
+        )
+
     def _merge_private_context(self, actor: PlayerProtocol, additional_context: str) -> str:
+        self._refresh_actor_belief_skills(actor)
         parts: list[str] = []
         if self._build_observation:
             observation = self._build_observation(actor)
@@ -294,7 +306,7 @@ class InformationHub:
     ) -> BeliefSnapshotRecord | None:
         if self._belief_log is None:
             return None
-        from llm_werewolf.strategy.belief_state import MindStateResult
+        from llm_werewolf.strategy.belief.state import MindStateResult
 
         if not isinstance(mind_result, MindStateResult):
             return None
@@ -348,6 +360,7 @@ class InformationHub:
                 continue
             if self._is_human_player(observer):
                 continue
+            self._refresh_actor_belief_skills(observer)
             possible_targets = [p for p in alive if p.player_id != observer.player_id]
             extra_parts = [context_builder(observer), EngineContexts.hub_decision_memory_notice()]
             if anchor == VoteIntentionAnchor.INITIAL:
@@ -554,7 +567,7 @@ class InformationHub:
                     )
                 )
                 if on_vote_intention_record:
-                    from llm_werewolf.strategy.vote_intention import SpeechVoteIntentionRecord
+                    from llm_werewolf.strategy.voting.intention import SpeechVoteIntentionRecord
 
                     on_vote_intention_record(
                         SpeechVoteIntentionRecord(
@@ -574,6 +587,7 @@ class InformationHub:
                 if not speaker.is_alive() or speaker.agent is None:
                     continue
 
+                self._refresh_actor_belief_skills(speaker)
                 context = context_builder(speaker)
                 if routed_messages:
                     prior_lines = [
@@ -605,7 +619,7 @@ class InformationHub:
                     context,
                     EngineContexts.hub_roundtable_memory_notice(channel.value),
                 ])
-                from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
+                from llm_werewolf.strategy.contracts.phase_outputs import resolve_roundtable_phase
 
                 rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
                 decision = await self._await_step(
@@ -642,6 +656,14 @@ class InformationHub:
 
                 if on_speech:
                     on_speech(speaker, decision, routed)
+
+                if (
+                    getattr(decision, "self_explode", False)
+                    and channel == VisibilityChannel.PUBLIC
+                    and phase.strip().lower() == "day_discussion"
+                    and speaker.get_role_name() == "White Wolf"
+                ):
+                    break
 
                 if vote_intention_tracker is not None:
                     speech_text = decision.public_speech.strip()
@@ -758,7 +780,7 @@ class InformationHub:
         round_number: int | None = None,
         phase: str | None = None,
     ):
-        from llm_werewolf.strategy.decisions import WitchNightDecision
+        from llm_werewolf.strategy.contracts.decisions import WitchNightDecision
 
         context = self._merge_private_context(actor, additional_context)
 
@@ -848,8 +870,9 @@ class InformationHub:
         if speaker.agent is None:
             return SpeechDecision(public_speech="（无公开发言）", private_thought=None)
 
-        from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
+        from llm_werewolf.strategy.contracts.phase_outputs import resolve_roundtable_phase
 
+        self._refresh_actor_belief_skills(speaker)
         rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
         decision = await WerewolfAdapterBridge.request_speech(
             speaker.agent, context, instruction, roundtable_phase=rt_phase

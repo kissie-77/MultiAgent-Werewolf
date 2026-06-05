@@ -14,7 +14,7 @@ from llm_werewolf.agent_team.agents.factory import create_react_agent
 from llm_werewolf.agent_team.agents.agentscope_agent import (
     _extract_structured_payload_from_content,
 )
-from llm_werewolf.strategy.evaluation_outputs import ReplayAnalysisDecision
+from llm_werewolf.strategy.contracts.evaluation_outputs import ReplayAnalysisDecision
 from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
 from llm_werewolf.agent_team.invocation.structured_invoke import (
     generate_response_instruction,
@@ -41,7 +41,7 @@ def _load_analyst_config(config_path: Path | None) -> PlayerConfig | None:
     if config_path is None or not config_path.is_file():
         return None
     try:
-        from llm_werewolf.game_runtime.utils import load_config
+        from llm_werewolf.game_runtime.support.utils import load_config
 
         players_config = load_config(config_path=config_path)
         if not players_config.players:

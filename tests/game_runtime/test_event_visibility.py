@@ -37,6 +37,24 @@ def test_seer_checked_still_actor_only() -> None:
     assert visible == ["seer_1"]
 
 
+def test_witch_poison_used_visible_to_actor_only() -> None:
+    visible = resolve_visible_to(
+        EventType.WITCH_POISON_USED,
+        {"player_id": "witch_1", "target_id": "player_2"},
+        witch_player_ids=["witch_1"],
+    )
+    assert visible == ["witch_1"]
+
+
+def test_witch_poison_death_is_public_death_event() -> None:
+    visible = resolve_visible_to(
+        EventType.PLAYER_DIED,
+        {"player_id": "player_2", "reason": "witch_poison", "cause": "witch_poison"},
+        witch_player_ids=["witch_1"],
+    )
+    assert visible is None
+
+
 def test_role_acting_visible_to_actor_only() -> None:
     visible = resolve_visible_to(EventType.ROLE_ACTING, {"player_id": "wolf_1"})
     assert visible == ["wolf_1"]
@@ -101,6 +119,15 @@ def test_wolf_beauty_nightmare_raven_visible_to_actor_only() -> None:
         assert resolve_visible_to(
             event_type, {"actor_id": "a1", "target_id": "t1"}, wolf_player_ids=["a1"]
         ) == ["a1"]
+
+
+def test_magician_swap_visible_to_actor_only() -> None:
+    # Magician 走 PRIVATE_ACTOR_TYPES（player_id），不在 actor_id 系的 ACTOR_ONLY_SKILL_TYPES。
+    assert resolve_visible_to(
+        EventType.MAGICIAN_SWAPPED,
+        {"player_id": "actor_1", "target1_id": "t1", "target2_id": "t2"},
+        wolf_player_ids=["wolf_1"],
+    ) == ["actor_1"]
 
 
 def test_sub_phase_is_public() -> None:

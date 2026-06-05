@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.types import Event, EventType, GamePhase
 from llm_werewolf.ui.console_presenter import ConsolePresenter
 
@@ -235,6 +235,21 @@ def test_present_phase_changes_flush_buffers(presenter: ConsolePresenter, mock_p
     assert "第 1 輪 - 黑夜" not in rendered
 
 
+def test_sheriff_election_phase_has_own_header(
+    presenter: ConsolePresenter, mock_print
+) -> None:
+    presenter.present_event(
+        _event(
+            EventType.PHASE_CHANGED,
+            phase=GamePhase.SHERIFF_ELECTION,
+            data={"phase": "sheriff_election", "round": 1},
+        )
+    )
+
+    rendered = "\n".join(str(call.args[0]) for call in mock_print.call_args_list if call.args)
+    assert "第 1 轮 - 警长竞选" in rendered
+
+
 def test_present_narrator_messages(presenter: ConsolePresenter, mock_print) -> None:
     for action in (
         "night_falls",
@@ -259,7 +274,7 @@ def test_present_night_actions_and_flush(presenter: ConsolePresenter, mock_print
     for etype in (
         EventType.GUARD_PROTECTED,
         EventType.WITCH_SAVED,
-        EventType.WITCH_POISONED,
+        EventType.WITCH_POISON_USED,
         EventType.SEER_CHECKED,
         EventType.WEREWOLF_KILLED,
         EventType.LOVERS_LINKED,
@@ -342,6 +357,52 @@ def test_present_vote_table_and_discussion_flush(presenter: ConsolePresenter, mo
     assert tables
     headers = [column.header for column in tables[-1].columns]
     assert headers == ["排名", "候选人", "票数", "投票者"]
+
+
+def test_belief_snapshot_flushes_buffered_speech_first(
+    presenter: ConsolePresenter, mock_print
+) -> None:
+    presenter.present_event(
+        _event(
+            EventType.PLAYER_SPEECH,
+            data={"player_name": "玩家1", "speech": "我是预言家，昨晚验了4号是好人。"},
+        )
+    )
+    presenter.present_event(
+        _event(EventType.BELIEF_SNAPSHOT, message="【信念矩阵 · 听完 玩家1 发言后】")
+    )
+
+    calls = [call.args[0] for call in mock_print.call_args_list if call.args]
+    speech_index = next(
+        index for index, value in enumerate(calls) if "玩家1: 我是预言家" in str(value)
+    )
+    panel_index = next(
+        index for index, value in enumerate(calls) if value.__class__.__name__ == "Panel"
+    )
+    assert speech_index < panel_index
+
+
+def test_vote_intention_flushes_buffered_speech_first(
+    presenter: ConsolePresenter, mock_print
+) -> None:
+    presenter.present_event(
+        _event(
+            EventType.PLAYER_SPEECH,
+            data={"player_name": "玩家2", "speech": "我先支持警长安排，再听后置位发言。"},
+        )
+    )
+    presenter.present_event(
+        _event(EventType.VOTE_INTENTION_SNAPSHOT, message="【意向变化】玩家3→玩家2")
+    )
+
+    calls = [call.args[0] for call in mock_print.call_args_list if call.args]
+    speech_index = next(
+        index for index, value in enumerate(calls) if "玩家2: 我先支持警长" in str(value)
+    )
+    intention_index = next(
+        index for index, value in enumerate(calls) if "【意向变化】" in str(value)
+    )
+    assert speech_index < intention_index
 
 
 def test_human_viewer_vote_table_includes_public_votes(

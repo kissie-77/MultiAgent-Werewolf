@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.models.actions import StartGameModeOption, StartGameModesResponse
 from llm_werewolf.interface.cli.runtime.modes import list_modes
 
@@ -35,7 +35,7 @@ def build_start_modes(configs_dir: Path) -> StartGameModesResponse:
 
     extras = [
         ("llm-6p-doubao", "6-player Doubao LLM game"),
-        ("llm-12p-doubao", "12-player Doubao LLM game"),
+        ("llm-12p-kimi", "12-player Kimi/VibeAPI LLM game"),
     ]
     seen = {item.config_id for item in modes}
     for config_id, description in extras:

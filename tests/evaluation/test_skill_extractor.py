@@ -626,9 +626,10 @@ def test_build_system_prompt_includes_active_skills(tmp_path: Path, monkeypatch)
     skill_loader.list_role_skill_files.cache_clear()
 
     prompt = build_system_prompt(3, "Werewolf", "default")
+    # Skills are now injected dynamically at decision time via RuntimeMemoryManager.refresh_belief_skills,
+    # not embedded statically in build_system_prompt. The prompt only contains a placeholder.
     assert "对局经验 Skill" in prompt
-    assert "wolf_demo" in prompt
-    assert "首夜统一刀口" in prompt
+    assert "动态注入" in prompt
 
 
 # ── skill 状态流转测试 ──────────────────────────────────────────────
@@ -776,7 +777,7 @@ def test_full_lifecycle_draft_active_deprecated(
 def test_deprecated_skill_not_in_prompt(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """deprecated skill 不会出现在系统 prompt 中。"""
+    """deprecated skill 不会出现在系统 prompt 中（active skill 也不再静态嵌入，改为运行时动态注入）。"""
     from llm_werewolf.agent_team.agents.factory import build_system_prompt
     from llm_werewolf.agent_team.skill_support import skill_loader
 
@@ -794,5 +795,129 @@ def test_deprecated_skill_not_in_prompt(
     skill_loader.list_role_skill_files.cache_clear()
 
     prompt = build_system_prompt(3, "Werewolf", "default")
-    assert "good" in prompt
+    # Skills are now injected dynamically at decision time (belief-matched), not statically in the system prompt.
+    # Verify neither active nor deprecated skill IDs appear as embedded content.
+    assert "Old Skill" not in prompt
     assert "old" not in prompt
+
+
+def test_find_matching_library_skill_by_when_to_use() -> None:
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
+        find_matching_library_skill,
+    )
+
+    candidate = {"skill_card": {"when_to_use": "白天讨论时先归票可疑位"}}
+    existing = [
+        {
+            "skill_id": "wolf_existing",
+            "when_to_use": "白天讨论时先归票可疑位",
+            "path": Path("wolf_existing.md"),
+        }
+    ]
+    assert find_matching_library_skill(candidate, existing) is not None
+    assert find_matching_library_skill(
+        {"skill_card": {"when_to_use": "完全无关的场景"}},
+        existing,
+    ) is None
+
+
+def test_merge_matching_when_to_use_updates_weight_without_version_bump(tmp_path: Path) -> None:
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
+        write_skill_markdown_files,
+    )
+
+    agent_root = tmp_path / "library"
+    wolf_dir = _role_skill_dir(agent_root, "wolf")
+    existing_path = wolf_dir / "wolf_existing.md"
+    existing_path.write_text(
+        """---
+skill_id: wolf_existing
+prompt_role_key: wolf
+status: active
+weight: 1.0
+when_to_use: 白天讨论时先归票可疑位
+use_count: 0
+---
+# Existing
+
+## 公开行为
+旧行为
+""",
+        encoding="utf-8",
+    )
+
+    candidate = {
+        "skill_id": "wolf_new_candidate",
+        "prompt_role_key": "wolf",
+        "status": "active",
+        "source_run": "runs/demo-game",
+        "quality_gate": {"passed": True},
+        "weight": 1.1,
+        "skill_card": {
+            "title_zh": "新候选",
+            "when_to_use": "白天讨论时先归票可疑位",
+            "public_behavior": "补充新证据",
+            "avoid": "",
+        },
+        "rationale": "本局验证",
+    }
+
+    write_skill_markdown_files(
+        [candidate],
+        run_skills_dir=tmp_path / "run_skills",
+        agent_skills_root=agent_root,
+    )
+
+    assert candidate["library_action"] == "merged"
+    assert candidate["merged_into_skill_id"] == "wolf_existing"
+    assert not (agent_root / "wolf" / "v2").exists()
+    updated = existing_path.read_text(encoding="utf-8")
+    assert "weight: 1.15" in updated
+    assert "补充新证据" in updated
+    assert "旧行为" in updated
+
+
+def test_new_when_to_use_creates_next_version(tmp_path: Path) -> None:
+    from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
+        write_skill_markdown_files,
+    )
+
+    agent_root = tmp_path / "library"
+    wolf_dir = _role_skill_dir(agent_root, "wolf")
+    (wolf_dir / "wolf_existing.md").write_text(
+        """---
+skill_id: wolf_existing
+prompt_role_key: wolf
+status: active
+weight: 1.0
+when_to_use: 已有场景
+---
+# Existing
+""",
+        encoding="utf-8",
+    )
+
+    candidate = {
+        "skill_id": "wolf_brand_new",
+        "prompt_role_key": "wolf",
+        "status": "active",
+        "source_run": "runs/demo-game",
+        "quality_gate": {"passed": True},
+        "weight": 1.1,
+        "skill_card": {
+            "title_zh": "全新 Skill",
+            "when_to_use": "完全不同的使用场景",
+            "public_behavior": "新策略",
+            "avoid": "",
+        },
+    }
+
+    write_skill_markdown_files(
+        [candidate],
+        run_skills_dir=tmp_path / "run_skills",
+        agent_skills_root=agent_root,
+    )
+
+    assert candidate["library_action"] == "created"
+    assert (agent_root / "wolf" / "v2" / "wolf_brand_new.md").is_file()
+    assert (agent_root / "wolf" / "v2" / "wolf_existing.md").is_file()

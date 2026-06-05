@@ -7,7 +7,7 @@ from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
 from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
-from llm_werewolf.strategy.role_version_manifest import (
+from llm_werewolf.strategy.registry.role_version_manifest import (
     DEFAULT_PROMPT_VERSION,
     DEFAULT_SKILL_VERSION,
     RoleVersionManifest,

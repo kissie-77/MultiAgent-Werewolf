@@ -1,7 +1,7 @@
 def test_log_public_speech_includes_private_thought():
     from types import SimpleNamespace
     from llm_werewolf.game_runtime.engine.day_phase import DayPhaseMixin
-    from llm_werewolf.strategy.decisions import SpeechDecision
+    from llm_werewolf.strategy.contracts.decisions import SpeechDecision
 
     captured = {}
 

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_werewolf.interface.modes import list_modes, resolve_config_path
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.interface.cli.runtime.modes import list_modes, resolve_config_path
+from llm_werewolf.game_runtime.support.utils import load_config
 
 
 def test_explicit_config_overrides_mode() -> None:
@@ -21,12 +21,23 @@ def test_list_modes_contains_basic_badge_and_extended() -> None:
 
 def test_human_mixed_basic_uses_llm_config_not_demo() -> None:
     assert resolve_config_path(participation="human_mixed", rules="basic") == Path(
-        "configs/xiaomi.yaml"
+        "configs/llm-12p-kimi.yaml"
+    )
+
+
+def test_builtin_mode_config_paths_exist() -> None:
+    for mode in list_modes():
+        assert mode.config_path.is_file(), mode
+
+
+def test_human_mixed_extended_uses_current_kimi_vibe_config() -> None:
+    assert resolve_config_path(participation="human_mixed", rules="extended_roles") == Path(
+        "configs/llm-12p-kimi.yaml"
     )
 
 
 def test_real_llm_modes_use_current_kimi_vibe_config() -> None:
-    for rules in ("badge_flow", "extended_roles"):
+    for rules in ("basic", "badge_flow", "extended_roles"):
         cfg = load_config(resolve_config_path(participation="all_agent", rules=rules))
 
         assert {player.model for player in cfg.players} == {"kimi-k2.5"}

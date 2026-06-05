@@ -2,7 +2,7 @@
 
 > **模块**：observability
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-05
 > **关联代码**：`src/llm_werewolf/observability/`
 
 ---
@@ -19,6 +19,9 @@
 - [x] 运行时日志采集：`provider_events.jsonl`（429、structured_invoke、**agent fallback**）
 - [x] CLI / API 对局挂载 `attach_run_log_handler`
 - [x] 文档三件套 + `configs/observability.yaml`
+- [x] `WebhookNotifier.notify` 改用 `asyncio.to_thread` 避免阻塞事件循环
+- [x] Webhook E2E 测试（`tests/observability/test_webhook_notifier.py`）：payload 验证、空事件跳过、服务端 500 容错、Dispatcher 链路集成
+- [x] 目录重组：根目录 5 个 `.py` 归入 `core/` 子包（config/dispatcher/health/models/runtime_log）
 
 ## Phase 2 — 质量门禁 + 指标
 

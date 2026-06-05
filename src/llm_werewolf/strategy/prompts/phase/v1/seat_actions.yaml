@@ -1,0 +1,34 @@
+schema: seat_actions_v1
+catalog_actions:
+  Seer: PROPHET_ACTION
+  Witch: WITCH_POISON_TARGET
+  Guard: GUARD_ACTION
+  Werewolf: WOLF_OPEN
+  AlphaWolf: WOLF_OPEN
+  WhiteWolf: WOLF_OPEN
+  WolfBeauty: WOLF_OPEN
+  GuardianWolf: WOLF_OPEN
+  HiddenWolf: WOLF_OPEN
+  NightmareWolf: WOLF_OPEN
+  BloodMoonApostle: WOLF_OPEN
+  Hunter: HUNTER_DEATH
+  GraveyardKeeper: 守墓人请睁眼，选择一名已死亡玩家查验身份（SeatChoiceDecision.seat）。
+  Raven: 乌鸦请睁眼，选择一名玩家施加诅咒（SeatChoiceDecision.seat）。
+  Cupid: 丘比特请睁眼，选择两名玩家结为情侣（MultiSeatChoiceDecision.seats，共 2 人）。
+
+catalog_to_runtime:
+  Seer: Seer
+  Witch: Witch
+  Guard: Guard
+  Werewolf: Werewolf
+  AlphaWolf: Alpha Wolf
+  WhiteWolf: White Wolf
+  WolfBeauty: Wolf Beauty
+  GuardianWolf: Guardian Wolf
+  HiddenWolf: Hidden Wolf
+  NightmareWolf: Nightmare Wolf
+  BloodMoonApostle: Blood Moon Apostle
+  Hunter: Hunter
+  GraveyardKeeper: Graveyard Keeper
+  Raven: Raven
+  Cupid: Cupid

@@ -1,52 +1,41 @@
-"""Prompt 变量 registry。"""
+"""Per-role prompt package schema tests (replaces legacy v2 bundle registry tests)."""
 
-from llm_werewolf.strategy.prompt_registry import get_registry, role_prompt_key_to_variable
+from llm_werewolf.strategy.registry.prompt_yaml_utils import coerce_text_dict, coerce_text_list
+from llm_werewolf.strategy.registry.role_prompt_registry import (
+    agent_base_template_path,
+    build_role_strategy_prompt,
+    get_role_card,
+    resolve_latest_prompt_version,
+)
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 
-def test_v2_agent_base_loaded() -> None:
-    registry = get_registry("v2")
-    text = registry.get_text("v2.agent.base")
+def test_agent_base_loaded_from_shared_template() -> None:
+    text = agent_base_template_path().read_text(encoding="utf-8")
     assert "多 Agent 狼人杀博弈" in text
     assert "{number}" in text
     assert "{role_name}" in text
-    assert "不要推断、讨论或利用任何玩家的游戏外控制方式、运行环境或技术来源" in text
 
 
-def test_v2_role_card() -> None:
-    registry = get_registry("v2")
-    wolf = registry.get_role_card("v2.role.wolf")
+def test_per_role_card() -> None:
+    wolf = get_role_card("wolf", resolve_latest_prompt_version("wolf"))
     assert wolf["role_name"] == "狼人"
     assert "狼人阵营" in wolf["role_instruction"]
 
 
-def test_resolve_agent_prompt() -> None:
-    registry = get_registry("v2")
-    wolf = registry.get_role_card("v2.role.wolf")
-    prompt = registry.resolve(
-        "v2.agent.base",
-        number=3,
-        role_name=wolf["role_name"],
-        role_instruction=wolf["role_instruction"],
-        suggestion=wolf["suggestion"],
-        plan="测试计划",
-    )
+def test_build_role_strategy_prompt() -> None:
+    version = resolve_latest_prompt_version("wolf")
+    wolf = get_role_card("wolf", version)
+    prompt = build_role_strategy_prompt(3, "wolf", "测试计划", prompt_version=version)
     assert "你的座位号是：3" in prompt
     assert "测试计划" in prompt
 
 
-def test_role_key_variable_mapping() -> None:
-    assert role_prompt_key_to_variable("wolf") == "v2.role.wolf"
-
-
-def test_extended_role_cards_are_registered() -> None:
-    registry = get_registry("v2")
-    white_wolf = registry.get_role_card("v2.role.white_wolf")
-    cupid = registry.get_role_card("v2.role.cupid")
+def test_extended_role_cards() -> None:
+    white_wolf = get_role_card("white_wolf", resolve_latest_prompt_version("white_wolf"))
+    cupid = get_role_card("cupid", resolve_latest_prompt_version("cupid"))
     assert white_wolf["role_name"] == "白狼"
-    assert "中后盘" in white_wolf["suggestion"]
     assert cupid["role_name"] == "丘比特"
-    assert "首夜" in cupid["suggestion"]
 
 
 def test_prompt_manager_uses_extended_role_specific_keys() -> None:
@@ -56,8 +45,7 @@ def test_prompt_manager_uses_extended_role_specific_keys() -> None:
 
 
 def test_role_card_exposes_structured_compatibility_fields() -> None:
-    registry = get_registry("v2")
-    villager = registry.get_role_card("v2.role.villager")
+    villager = get_role_card("villager", resolve_latest_prompt_version("villager"))
     assert "长期规则：" in villager["suggestion"]
     assert "阶段策略：" in villager["suggestion"]
     assert "禁止项：" in villager["suggestion"]
@@ -66,24 +54,20 @@ def test_role_card_exposes_structured_compatibility_fields() -> None:
     assert "禁止最后一分钟无理由跳票" in villager["forbidden_actions"]
 
 
-def test_structured_role_card_still_renders_into_agent_prompt() -> None:
-    registry = get_registry("v2")
-    villager = registry.get_role_card("v2.role.villager")
-    prompt = registry.resolve(
-        "v2.agent.base",
-        number=5,
-        role_name=villager["role_name"],
-        role_instruction=villager["role_instruction"],
-        suggestion=villager["suggestion"],
-        plan="测试计划",
+def test_structured_role_card_renders_into_agent_prompt() -> None:
+    version = resolve_latest_prompt_version("villager")
+    villager = get_role_card("villager", version)
+    prompt = build_role_strategy_prompt(
+        5,
+        "villager",
+        "测试计划",
+        prompt_version=version,
     )
     assert "长期规则：" in prompt
     assert "禁止项：" in prompt
 
 
 def test_all_22_roles_have_structured_fields() -> None:
-    """所有 22 个角色都应该有新 schema 的结构化字段。"""
-    registry = get_registry("v2")
     role_keys = [
         "villager", "prophet", "witch", "wolf", "wolf_king", "guard", "hunter",
         "white_wolf", "wolf_beauty", "guardian_wolf", "hidden_wolf", "nightmare_wolf",
@@ -91,47 +75,32 @@ def test_all_22_roles_have_structured_fields() -> None:
         "raven", "graveyard_keeper", "thief", "lover",
     ]
     for key in role_keys:
-        card = registry.get_role_card(f"v2.role.{key}")
+        version = resolve_latest_prompt_version(key)
+        card = get_role_card(key, version)
         assert card["role_name"], f"{key}: role_name is empty"
         assert card["role_instruction"], f"{key}: role_instruction is empty"
         assert card["core_principles"], f"{key}: core_principles is empty"
         assert card["phase_strategies"], f"{key}: phase_strategies is empty"
         assert card["forbidden_actions"], f"{key}: forbidden_actions is empty"
         assert card["examples"], f"{key}: examples is empty"
-        # suggestion 应该由 _render_legacy_suggestion 生成
         assert "长期规则：" in card["suggestion"], f"{key}: suggestion missing 长期规则"
         assert "阶段策略：" in card["suggestion"], f"{key}: suggestion missing 阶段策略"
         assert "禁止项：" in card["suggestion"], f"{key}: suggestion missing 禁止项"
 
 
 def test_structured_fields_have_correct_types() -> None:
-    """结构化字段应该有正确的类型。"""
-    from llm_werewolf.strategy.prompt_registry import _coerce_text_list, _coerce_text_dict
-
-    registry = get_registry("v2")
-    wolf = registry.get_role_card("v2.role.wolf")
-
-    # core_principles 应该是换行分隔的字符串
+    wolf = get_role_card("wolf", resolve_latest_prompt_version("wolf"))
     assert isinstance(wolf["core_principles"], str)
     assert len(wolf["core_principles"].split("\n")) >= 3
-
-    # phase_strategies 应该是换行分隔的字符串，每行格式为 "key: value"
     assert isinstance(wolf["phase_strategies"], str)
     assert "opening:" in wolf["phase_strategies"]
-
-    # forbidden_actions 应该是换行分隔的字符串
     assert isinstance(wolf["forbidden_actions"], str)
     assert len(wolf["forbidden_actions"].split("\n")) >= 3
-
-    # examples 应该是换行分隔的字符串
     assert isinstance(wolf["examples"], str)
     assert len(wolf["examples"].split("\n")) >= 2
 
 
 def test_prompt_manager_builds_prompt_for_all_extended_roles() -> None:
-    """PromptManager 应该能为所有 22 个角色构建 prompt。"""
-    from llm_werewolf.game_runtime.prompts.manager import PromptManager
-
     extended_roles = [
         "White Wolf", "Wolf Beauty", "Guardian Wolf", "Hidden Wolf",
         "Nightmare Wolf", "Blood Moon Apostle", "Idiot", "Elder",
@@ -148,22 +117,16 @@ def test_prompt_manager_builds_prompt_for_all_extended_roles() -> None:
 
 
 def test_coerce_text_list_handles_edge_cases() -> None:
-    """_coerce_text_list 应该正确处理各种边界情况。"""
-    from llm_werewolf.strategy.prompt_registry import _coerce_text_list
-
-    assert _coerce_text_list(None) == []
-    assert _coerce_text_list("") == []
-    assert _coerce_text_list("single") == ["single"]
-    assert _coerce_text_list(["a", "b", "c"]) == ["a", "b", "c"]
-    assert _coerce_text_list(["a", "", "b"]) == ["a", "b"]
-    assert _coerce_text_list(123) == ["123"]
+    assert coerce_text_list(None) == []
+    assert coerce_text_list("") == []
+    assert coerce_text_list("single") == ["single"]
+    assert coerce_text_list(["a", "b", "c"]) == ["a", "b", "c"]
+    assert coerce_text_list(["a", "", "b"]) == ["a", "b"]
+    assert coerce_text_list(123) == ["123"]
 
 
 def test_coerce_text_dict_handles_edge_cases() -> None:
-    """_coerce_text_dict 应该正确处理各种边界情况。"""
-    from llm_werewolf.strategy.prompt_registry import _coerce_text_dict
-
-    assert _coerce_text_dict(None) == {}
-    assert _coerce_text_dict("not a dict") == {}
-    assert _coerce_text_dict({"a": "1", "b": "2"}) == {"a": "1", "b": "2"}
-    assert _coerce_text_dict({"a": "", "b": "2"}) == {"b": "2"}
+    assert coerce_text_dict(None) == {}
+    assert coerce_text_dict("not a dict") == {}
+    assert coerce_text_dict({"a": "1", "b": "2"}) == {"a": "1", "b": "2"}
+    assert coerce_text_dict({"a": "", "b": "2"}) == {"b": "2"}

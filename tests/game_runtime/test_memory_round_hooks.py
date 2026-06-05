@@ -8,6 +8,7 @@ from llm_werewolf.game_runtime.types import GamePhase
 from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 from llm_werewolf.agent_team.agents.base import BaseAgent
 from llm_werewolf.game_runtime.roles.registry import create_roles
+from llm_werewolf.interface.cli.runtime.bootstrap import create_information_hub
 
 
 class MemoryAwareDemoAgent(BaseAgent):
@@ -22,7 +23,7 @@ class MemoryAwareDemoAgent(BaseAgent):
 @pytest.mark.asyncio
 async def test_step_day_voting_triggers_memory_round_end() -> None:
     config = create_game_config_from_player_count(6)
-    engine = GameEngine(config)
+    engine = GameEngine(config, information_hub=create_information_hub())
     players = [
         MemoryAwareDemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)
     ]

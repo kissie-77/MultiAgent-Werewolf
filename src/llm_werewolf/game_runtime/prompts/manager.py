@@ -54,8 +54,8 @@ class PromptManager:
         prompt_role_key: str, prompt_version: str | None = None
     ) -> dict[str, str]:
         """返回角色策略 prompt 配置（per-role 小包）。"""
-        from llm_werewolf.strategy.role_prompt_registry import get_role_card
-        from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+        from llm_werewolf.strategy.registry.role_prompt_registry import get_role_card
+        from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
         version = prompt_version or get_active_manifest().prompt_version_for(prompt_role_key)
         return get_role_card(prompt_role_key, version)
@@ -72,7 +72,7 @@ class PromptManager:
     @staticmethod
     def resolve_plan_text(plan_name: str, prompt_role_key: str) -> str:
         """将策略计划名称解析为当前角色的 plan 文本。"""
-        from llm_werewolf.strategy.role_prompts import PlanStrategies
+        from llm_werewolf.strategy.registry.role_prompts import PlanStrategies
 
         plan = PlanStrategies.get_plan_by_name(plan_name)
         return plan.get(prompt_role_key, plan.get("villager", "自由发挥"))
@@ -82,8 +82,8 @@ class PromptManager:
         seat_number: int, prompt_role_key: str, plan_text: str, prompt_version: str | None = None
     ) -> str:
         """根据角色策略键构建 AgentScope 系统 prompt。"""
-        from llm_werewolf.strategy.role_prompt_registry import build_role_strategy_prompt
-        from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+        from llm_werewolf.strategy.registry.role_prompt_registry import build_role_strategy_prompt
+        from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
         version = prompt_version or get_active_manifest().prompt_version_for(prompt_role_key)
         return build_role_strategy_prompt(

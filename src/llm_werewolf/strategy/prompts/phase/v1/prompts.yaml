@@ -1,0 +1,57 @@
+schema: phase_prompts_v1
+prompts:
+  NIGHT_BEGIN: 天黑请闭眼
+
+  GUARD_ACTION: 守卫请睁眼，选择今晚要守护的玩家（SeatChoiceDecision.seat；不守护 seat=0）。
+  GUARD_CLOSE: 守卫请闭眼
+
+  WOLF_OPEN: 狼人请睁眼，选择今晚刀口目标（SeatChoiceDecision.seat）。
+  WOLF_TEAMMATES: 你的另外三个队友的代号：{teammates}
+  WOLF_RECHOOSE: 队友已选 {targets} 号，请确认最终刀口（SeatChoiceDecision.seat；可与队友一致）。
+  WOLF_RESULT: 狼人最终选择刀 {target} 号玩家
+  WOLF_CLOSE: 狼人请闭眼
+
+  WITCH_OPEN: 女巫请睁眼
+  WITCH_NO_POTION: 你没有药了
+  WITCH_ANTIDOTE: 今晚 {target} 被刀。是否使用解药？（YesNoDecision：true=救，false=不救）
+  WITCH_POISON: 是否使用毒药？（YesNoDecision：true=用毒，false=不用）
+  WITCH_POISON_TARGET: 选择毒杀目标（SeatChoiceDecision.seat）。
+  WITCH_CLOSE: 女巫请闭眼
+
+  PROPHET_ACTION: 预言家请睁眼，选择要查验的玩家（SeatChoiceDecision.seat）。
+  PROPHET_RESULT_GOOD: 他是个好人，预言家请闭眼
+  PROPHET_RESULT_BAD: 他是个坏人，预言家请闭眼
+
+  DAY_BEGIN: 天亮了
+  PEACEFUL_NIGHT: 今晚是个平安夜
+  DEATH_ANNOUNCE_ONE: 今晚 {player} 号玩家死了
+  DEATH_ANNOUNCE_TWO: 今晚 {player1} 号玩家和 {player2} 号玩家死了
+
+  LAST_WORDS: 你死了，请发表遗言
+  LAST_WORDS_ANNOUNCE: "{player} 号玩家的遗言是：{words}"
+  FIRST_NIGHT_NO_WORDS: 第一晚没有遗言
+
+  SPEECH_BEGIN: 发言阶段，请玩家轮流发言，每天顺序交替，第一次 1-12，第二次 12-1，以此类推
+  SPEECH_PROMPT: >-
+    请完成本轮公开发言任务：仅通过 generate_response 提交 SpeechDecision，
+    勿用 [[...]] 或 {...} 自由格式代替 Schema 字段。
+  SPEECH_ANNOUNCE: "{player} 号玩家的发言：{speech}"
+  PLAYER_DEAD_SKIP: "{player} 号玩家已死亡，跳过发言。"
+
+  VOTE_BEGIN: 请各位玩家投票放逐一名玩家（SeatChoiceDecision.seat；弃票 seat=0）。
+  VOTE_ANNOUNCE: "{player} 号玩家投给了 {target} 号"
+  VOTE_ABSTAIN: "{player} 号玩家弃票"
+  VOTE_DEAD_SKIP: "{player} 号玩家已死亡，跳过投票"
+  VOTE_TIE: 平票，无人出局
+  VOTE_RESULT: 公投结果：{player} 号玩家出局
+  VOTE_ALL_ABSTAIN: 全体玩家弃票
+
+  WOLF_KING_DEATH: 你被投票出局，可发动狼王技能带走一名存活玩家（SeatChoiceDecision.seat；放弃 seat=0）。仅提交 seat，不要长段发言。
+  WOLF_KING_KILL: 有人发动了技能，把 {target} 号玩家杀死了
+
+  HUNTER_DEATH: 你被击杀，可发动猎人技能带走一名存活玩家（SeatChoiceDecision.seat；放弃 seat=0）。仅提交 seat，不要长段发言。
+  HUNTER_KILL: 有人发动了技能，把 {target} 号玩家杀死了
+  HUNTER_POISON_DEATH: 你被女巫毒死了，无法发动猎人技能
+
+  GOOD_WIN: 好人阵营胜利
+  BAD_WIN: 狼人阵营胜利

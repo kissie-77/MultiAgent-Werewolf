@@ -1,7 +1,7 @@
 """Per-role prompt package tests."""
 
-from llm_werewolf.strategy.role_prompt_registry import build_role_strategy_prompt, get_role_card
-from llm_werewolf.strategy.role_version_manifest import RoleVersionManifest, set_active_manifest
+from llm_werewolf.strategy.registry.role_prompt_registry import build_role_strategy_prompt, get_role_card
+from llm_werewolf.strategy.registry.role_version_manifest import RoleVersionManifest, set_active_manifest
 
 
 def test_v1_wolf_role_package() -> None:

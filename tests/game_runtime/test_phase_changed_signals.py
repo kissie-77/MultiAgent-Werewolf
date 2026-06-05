@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 from llm_werewolf.game_runtime.roles import Villager, Werewolf
 from llm_werewolf.game_runtime.types import EventType, GamePhase
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.engine.sheriff_election import SheriffElectionMixin

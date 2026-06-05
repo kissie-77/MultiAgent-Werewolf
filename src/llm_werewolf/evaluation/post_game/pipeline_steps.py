@@ -106,3 +106,8 @@ def skip_step(
             step_id=step_id, status="skipped", error=reason, artifacts=list(artifacts or [])
         )
     )
+
+
+def skip_steps(steps: list[StepRecord], step_ids: tuple[str, ...], reason: str) -> None:
+    for step_id in step_ids:
+        skip_step(steps, step_id, reason)

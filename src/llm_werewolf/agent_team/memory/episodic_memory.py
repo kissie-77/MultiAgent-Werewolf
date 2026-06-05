@@ -13,6 +13,7 @@ KEY_EVENT_TYPES = {
     EventType.PLAYER_DIED,
     EventType.PLAYER_ELIMINATED,
     EventType.WEREWOLF_KILLED,
+    EventType.WITCH_POISON_USED,
     EventType.WITCH_POISONED,
     EventType.WITCH_SAVED,
     EventType.SEER_CHECKED,

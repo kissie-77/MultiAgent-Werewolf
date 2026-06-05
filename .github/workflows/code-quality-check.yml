@@ -48,7 +48,7 @@ jobs:
 
       - name: Pre-commit on changed code files
         env:
-          # ruff/mypy debt is enforced locally; CI runs hygiene hooks on code paths only.
+          # Ruff/mypy debt is ratcheted separately; keep general hygiene hooks on changed files.
           SKIP: mypy,ruff-check,ruff-format
         run: |
           set -euo pipefail
@@ -76,3 +76,28 @@ jobs:
             exit 0
           fi
           uv run pre-commit run --files "${FILES[@]}" --show-diff-on-failure
+
+      - name: Ruff critical checks on changed Python files
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}"
+            FROM="origin/${{ github.base_ref }}"
+            TO="HEAD"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            FROM="${{ github.event.before }}"
+            TO="${{ github.sha }}"
+          else
+            FROM=""
+            TO=""
+          fi
+          if [ -n "${FROM}" ]; then
+            mapfile -t PY_FILES < <(git diff --name-only --diff-filter=ACMR "${FROM}" "${TO}" | grep -E '\.py$' || true)
+          else
+            mapfile -t PY_FILES < <(git ls-files '*.py' || true)
+          fi
+          if [ "${#PY_FILES[@]}" -eq 0 ]; then
+            echo "No Python files changed; skipping ruff critical checks."
+            exit 0
+          fi
+          uv run ruff check --select E9,F821 -- "${PY_FILES[@]}"

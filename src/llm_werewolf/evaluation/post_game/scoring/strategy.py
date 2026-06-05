@@ -48,7 +48,7 @@ def build_strategy_scores(
                 scores[actor]["total"] += 20
                 scores[actor]["details"].append("witch_save_good")
 
-        elif etype == "witch_poisoned":
+        elif etype in {"witch_poison_used", "witch_poisoned"}:
             target_id = str(data.get("target_id", ""))
             target_camp = target_id_to_camp(target_id, ctx.roster)
             if target_camp == Camp.WEREWOLF.value:

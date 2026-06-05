@@ -2,7 +2,7 @@
 
 > **模块**：agent_team / memory
 > **状态**：active
-> **最后更新**：2026-05-26
+> **最后更新**：2026-06-02
 > **关联代码**：`src/llm_werewolf/agent_team/memory/`
 > **关联测试**：`tests/agent_team/test_*memory*`、`tests/game_runtime/test_memory_*`
 
@@ -56,16 +56,23 @@ SemanticMemory         ProceduralMemory
 |----|-----|----------|----------|
 | 工作 | `WorkingMemory` | 发言、事件、决策 | 压缩摘要、persistent 条 |
 | 情景 | `EpisodicMemory` | `event_logger` | `get_all_events()` 等 |
-| 语义 | `SemanticMemory` | `skill_loader`、卡片 JSON | 注入 prompt 的 Skill 描述 |
+| 语义 | `SemanticMemory` | `skill_loader`、卡片 JSON | 信念匹配后的 Skill 注入块 |
 | 程序 | `ProceduralMemory` | `plan_name`、角色 | `[程序记忆]` 摘要 |
 
 ## 4. 生命周期
 
 ```text
 on_game_start(role)
-  → 注入 SemanticMemory（load_role_skills，按 weight 降序 top_k）
-  → 记录本局 prompt 注入的 skill
-  → ProceduralMemory.build_plan_summary → working.add_persistent
+  → 角色池说明、ProceduralMemory.build_plan_summary → working.add_persistent
+  → （可选）SemanticMemory 后端卡片 → working persistent
+
+发言/私密 LLM 决策前
+  → InformationHub._refresh_actor_belief_skills
+  → refresh_player_belief_skills → 按信念矩阵匹配 Skill → _belief_skill_context
+  → get_context_for_decision 注入 decision context
+
+信念矩阵文本更新（与 Skill 匹配独立、可同帧发生）
+  → sync_player_belief_memory → sync_belief_context（写 WorkingMemory + 顺带 refresh）
 
 每轮 on_round_end(round)
   → working.end_round()（可选 LLMCompressor 压缩）
@@ -120,7 +127,22 @@ on_game_end(won)
 - `factory.py` 删除 `REME_*` 环境变量
 - `reme_backend.py` 已删除；**保留** `LLMCompressor`（纯 LLM，无向量，位于 memory 压缩模块）
 
-**运行时语义来源**：`SemanticMemory` → `skill_loader.load_role_skills()` → `skills/<role>/<version>/*.md`，frontmatter `weight` 降序，取 top_k 注入 prompt。
+**运行时语义来源**：`SemanticMemory` → `skill_loader.load_role_skills()` → `skills/<role>/<version>/*.md`。Skill 按信念矩阵匹配后注入 decision context（不在开局灌 sys_prompt 全文）。
+
+## 6.1 信念驱动 Skill 注入（2026-05-23）
+
+| 组件 | 职责 |
+|------|------|
+| `strategy/belief_format.py` | `refresh_player_belief_skills` / `sync_player_belief_memory`；signal 检测 |
+| `skill_loader.select_skills_for_belief` | signal 子集匹配 + pattern fallback |
+| `RuntimeMemoryManager.refresh_belief_skills` | 写入 `_belief_skill_context`、记录 `_belief_matched_skill_ids` |
+| `RuntimeMemoryManager.sync_belief_context` | 信念矩阵 → WorkingMemory persistent；末尾调用 refresh |
+| `InformationHub._refresh_actor_belief_skills` | 所有私密 LLM 决策前统一 refresh（发言、选座、女巫、投票意向等） |
+| PostGame `skill_md.py` | 写 frontmatter `belief_signals` |
+
+配置：`MemoryConfig.skill_belief_top_k`、`skill_belief_pool_size`。
+
+**方案 A 验证**（对局 `12p-doubao-20260531-203127`）：4 条 skill 在生成时刻回匹配 **4/4**；自动 signal 主要为 `vote_intention_set` / `vote_watching`。自动化：`tests/agent_team/test_skill_markdown.py::test_auto_gen_belief_skills_from_real_run`。
 
 ## 7. Skill MD 格式约定
 

@@ -14,7 +14,7 @@ from agentscope.model import ChatResponse
 from agentscope.message import Msg
 from agentscope.formatter import OpenAIChatFormatter
 
-from llm_werewolf.strategy.decisions import SeatChoiceDecision
+from llm_werewolf.strategy.contracts.decisions import SeatChoiceDecision
 from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.agent_team.agents.factory import create_react_agent
 

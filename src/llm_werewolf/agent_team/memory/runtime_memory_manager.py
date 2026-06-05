@@ -43,8 +43,9 @@ class RuntimeMemoryManager:
         self.episodic = EpisodicMemory(event_logger)
         self.procedural = ProceduralMemory()
         self.semantic = SemanticMemory(backend=semantic_backend, compressor=compressor)
-        self.coach = None
         self._used_card_ids: list[str] = []
+        self._belief_skill_context: str = ""
+        self._belief_matched_skill_ids: list[str] = []
         self._seen_event_keys: set[tuple[object, ...]] = set()
         self._belief_rules_initialized = False
 
@@ -69,7 +70,6 @@ class RuntimeMemoryManager:
             )
         if self._semantic_enabled():
             self._inject_semantic_context(role)
-            self._record_prompt_injected_skills(role)
         plan_summary = self.procedural.build_plan_summary(self.plan_name, role)
         self.working.add_persistent(f"[程序记忆] {plan_summary}", tag="procedural")
 
@@ -82,6 +82,9 @@ class RuntimeMemoryManager:
 
     def on_game_end(self, won: bool) -> None:
         """Update used skills and let Coach own experience extraction."""
+        for skill_id in self._belief_matched_skill_ids:
+            if skill_id and skill_id not in self._used_card_ids:
+                self._used_card_ids.append(skill_id)
         if self._semantic_enabled() and self._used_card_ids:
             self.semantic.update_after_game(self.role, won, self._used_card_ids)
         if self._semantic_enabled() and self.config.extract_semantic_on_game_end:
@@ -98,7 +101,13 @@ class RuntimeMemoryManager:
         working_context = self.working.get_context(include_belief=include_belief)
         if working_context:
             parts.append(working_context)
+        skill_context = self.format_belief_skill_context()
+        if skill_context:
+            parts.append(skill_context)
         return "\n\n".join(parts)
+
+    def format_belief_skill_context(self) -> str:
+        return self._belief_skill_context
 
     def sync_belief_context(self, state: object, *, wolf_camp_text: str = "") -> None:
         """Mirror belief matrix / vote intention into protected WorkingMemory slots."""
@@ -108,7 +117,7 @@ class RuntimeMemoryManager:
             BELIEF_PERSISTENT_PRIORITY,
             _BELIEF_RULES_TEXT,
         )
-        from llm_werewolf.strategy.belief_format import format_belief_context
+        from llm_werewolf.strategy.belief.format import format_belief_context
 
         if not self._belief_rules_initialized:
             self.working.upsert_persistent(
@@ -136,6 +145,34 @@ class RuntimeMemoryManager:
             )
         else:
             self.working.remove_persistent("wolf_camp")
+
+        self.refresh_belief_skills(state)
+
+    def refresh_belief_skills(self, state: object) -> None:
+        """Match role skills to the current belief matrix for decision/speech injection."""
+        from llm_werewolf.agent_team.skill_support.skill_loader import refresh_belief_skill_context
+        from llm_werewolf.strategy.belief.state import BeliefState
+        from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
+
+        if not isinstance(state, BeliefState) or not state.first_order:
+            self._belief_skill_context = ""
+            self._belief_matched_skill_ids = []
+            return
+
+        manifest = get_active_manifest()
+        skill_version = manifest.skill_version_for(self.role)
+        context, skill_ids = refresh_belief_skill_context(
+            self.role,
+            state,
+            skill_version=skill_version,
+            pool_size=self.config.skill_belief_pool_size,
+            top_k=self.config.skill_belief_top_k,
+        )
+        self._belief_skill_context = context
+        self._belief_matched_skill_ids = skill_ids
+        for skill_id in skill_ids:
+            if skill_id and skill_id not in self._used_card_ids:
+                self._used_card_ids.append(skill_id)
 
     def add_public_speech(self, speaker_name: str, speech: str, round_number: int) -> None:
         """Record public speech into working memory."""
@@ -176,11 +213,13 @@ class RuntimeMemoryManager:
             )
 
     def extract_semantic_candidates(self, won: bool) -> list[str]:
-        """Delegate runtime semantic extraction to Coach."""
+        """Extract runtime semantic candidates without importing evaluation."""
         if not self.player_id or not self._episodic_enabled():
             return []
+        from llm_werewolf.agent_team.memory.semantic_extraction import extract_semantic_candidates
+
         report = self.episodic.export_episode_report(self.player_id)
-        return self._coach().extract_semantic_candidates(
+        return extract_semantic_candidates(
             report,
             won=won,
             semantic=self.semantic,
@@ -199,24 +238,13 @@ class RuntimeMemoryManager:
         return self.config.enabled and self.config.enable_episodic_memory
 
     def _inject_semantic_context(self, role: str) -> None:
-        # Shared Skill markdown is injected via sys_prompt; only backend cards enter working memory here.
+        # Skill MD is injected via belief matching; only backend cards enter working memory here.
         if self.semantic._backend is None:
             return
         for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
             description = card.description or extract_description(card.content)
             self.working.add_persistent(f"[经验] {description}", tag="semantic")
             self._used_card_ids.append(card.id)
-
-    def _record_prompt_injected_skills(self, role: str) -> None:
-        """Track active sys_prompt skills so post-game weight updates can still apply."""
-        if self.semantic._backend is not None:
-            return
-        from llm_werewolf.agent_team.skill_support import skill_loader
-
-        for skill in skill_loader.load_role_skills(role, max_skills=5):
-            skill_id = str(skill.get("skill_id", ""))
-            if skill_id and skill_id not in self._used_card_ids:
-                self._used_card_ids.append(skill_id)
 
     def _semantic_llm(self):
         if self._llm_compressor is not None:
@@ -229,13 +257,6 @@ class RuntimeMemoryManager:
             model=self.config.working_compression_model,
             timeout=self.config.working_compression_timeout,
         )
-
-    def _coach(self):
-        if self.coach is None:
-            from llm_werewolf.evaluation.post_game.coach.coach import Coach
-
-            self.coach = Coach()
-        return self.coach
 
     def _max_cards_for_role(self, role: str) -> int:
         if role in get_werewolf_roles() or role in {"wolf", "werewolf", "wolf_king"}:

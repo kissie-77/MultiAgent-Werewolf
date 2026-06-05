@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta
 
-from llm_werewolf.evaluation.time_analysis import (
+from llm_werewolf.evaluation.core.time_analysis import (
     estimate_roundtable_time,
     compare_event_log_durations,
     compare_roundtable_parallelism,

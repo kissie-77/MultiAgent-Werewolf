@@ -16,11 +16,12 @@ export default defineConfig(() => {
       port: 5173,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
+        // SSE-aware proxy for the engine-driven spectate stream — must come
+        // before the generic '/api' rule so '/api/v1/.../stream' matches here.
         "/api/v1": {
-          target: "http://127.0.0.1:8000",
+          target: process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:8000",
           changeOrigin: true,
           // SSE: keep the upstream stream open and unbuffered.
           configure: (proxy) => {
@@ -37,6 +38,18 @@ export default defineConfig(() => {
               }
             });
           },
+        },
+        '/api': {
+          target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
+          changeOrigin: true,
+        },
+        '/ready': {
+          target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
+          changeOrigin: true,
+        },
+        '/health': {
+          target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
+          changeOrigin: true,
         },
       },
     },

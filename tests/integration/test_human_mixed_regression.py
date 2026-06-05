@@ -10,7 +10,7 @@ import pytest
 
 from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.cli.runtime.bootstrap import (
     create_information_hub,
     prepare_game_roster,

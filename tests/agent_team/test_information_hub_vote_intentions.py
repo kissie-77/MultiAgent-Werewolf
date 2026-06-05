@@ -6,9 +6,9 @@ import pytest
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
 from llm_werewolf.game_runtime.types import Camp
-from llm_werewolf.strategy.belief_state import BeliefLog, MindStateResult
-from llm_werewolf.strategy.decisions import SpeechDecision
-from llm_werewolf.strategy.vote_intention import VoteIntentionEntry, VoteIntentionAnchor
+from llm_werewolf.strategy.belief.state import BeliefLog, MindStateResult
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
+from llm_werewolf.strategy.voting.intention import VoteIntentionEntry, VoteIntentionAnchor
 from llm_werewolf.agent_team.communication.information_hub import InformationHub
 
 

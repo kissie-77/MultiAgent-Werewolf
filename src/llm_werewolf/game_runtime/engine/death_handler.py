@@ -1,12 +1,11 @@
 """游戏引擎的死亡处理逻辑。"""
 
-import random
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import Camp, EventType, PlayerProtocol
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import RoleNames
-from llm_werewolf.game_runtime.death_abilities import DEATH_ABILITY_ROLE_NAMES
+from llm_werewolf.game_runtime.rules.death_abilities import DEATH_ABILITY_ROLE_NAMES
 from llm_werewolf.game_runtime.state.game_state import GameState
 
 
@@ -19,6 +18,9 @@ class DeathHandlerMixin:
 
     def _handle_lover_death(self, dead_player: PlayerProtocol) -> None:
         """处理玩家死亡时情侣伴侣的连带死亡。
+
+        情侣死亡不再递归触发新的情侣链（防止循环），但会将伴侣加入死亡集合，
+        使 _handle_death_abilities 能在后续统一处理其死亡能力（猎人/白狼王）。
 
         Args:
             dead_player: 已死亡的玩家。
@@ -38,6 +40,8 @@ class DeathHandlerMixin:
                 self.locale.get("died_of_heartbreak", player=partner.name),
                 data={"player_id": partner.player_id},
             )
+            # 情侣伴侣本身若也是恋人（三角恋边缘情况）不再递归，避免死循环。
+            # 但若伴侣也是某人的情侣且对方存活，仍需处理——在下一次 _handle_lover_death 调用时处理。
 
     def _handle_wolf_beauty_charm_death(self, wolf_beauty: PlayerProtocol) -> None:
         """处理狼美人死亡时被魅惑玩家的连带死亡。
@@ -97,11 +101,23 @@ class DeathHandlerMixin:
             return []
 
         messages: list[str] = []
+        target_id = target.player_id
+        guard_id = self.game_state.guard_protected
+        witch_save_id = self.game_state.witch_saved_target
 
-        if target.player_id in (
-            self.game_state.witch_saved_target,
-            self.game_state.guard_protected,
-        ):
+        # 毒奶：守卫与女巫同夜同时作用于刀口，目标仍会死亡
+        if guard_id == target_id and witch_save_id == target_id:
+            target.kill()
+            self.game_state.night_deaths.add(target_id)
+            self.game_state.death_causes[target_id] = "guard_witch_conflict"
+            self._log_event(
+                EventType.PLAYER_DIED,
+                self.locale.get("killed_by_guard_witch_conflict", player=target.name),
+                data={"player_id": target_id, "reason": "guard_witch_conflict"},
+            )
+            if target.is_lover() and target.lover_partner_id:
+                self._handle_lover_death(target)
+        elif target_id in (witch_save_id, guard_id):
             pass
         elif hasattr(target.role, "lives") and target.role.lives > 1:
             target.role.lives -= 1
@@ -235,7 +251,8 @@ class DeathHandlerMixin:
             data={"player_id": player.player_id, "role": role_name},
         )
 
-        # 从 agent 获取目标，或随机选择
+        # 从 agent 获取目标；失败时不替玩家随机选择，避免系统静默改变胜负结果。
+        target = None
         if player.agent:
             interaction = self.game_state.require_phase_interaction()
             target = await interaction.request_seat_choice(
@@ -246,10 +263,8 @@ class DeathHandlerMixin:
                 possible_targets,
                 allow_skip=False,
                 additional_context=self.locale.get("death_skill_context", player=player.name),
-                fallback_random=True,
+                fallback_random=False,
             )
-        else:
-            target = random.choice(possible_targets)  # noqa: S311
 
         if target and target.is_alive():
             self._execute_death_shot(player, target, role_name, messages)
@@ -281,6 +296,8 @@ class DeathHandlerMixin:
             self.locale.get("hunter_shoots", hunter=shooter.name, target=target.name)
             if shooter.role.name == RoleNames.HUNTER
             else self.locale.get("alpha_wolf_shoots", alpha=shooter.name, target=target.name)
+            if shooter.role.name == RoleNames.ALPHA_WOLF
+            else self.locale.get("white_wolf_shoots", white_wolf=shooter.name, target=target.name)
         )
 
         self._log_event(
@@ -352,9 +369,13 @@ class DeathHandlerMixin:
         self.game_state.death_causes[target.player_id] = "witch_poison"
 
         self._log_event(
-            EventType.WITCH_POISONED,
+            EventType.PLAYER_DIED,
             self.locale.get("witch_poisoned_target", target=target.name),
-            data={"player_id": target.player_id},
+            data={
+                "player_id": target.player_id,
+                "reason": "witch_poison",
+                "cause": "witch_poison",
+            },
         )
 
         # 处理情侣死亡
@@ -372,17 +393,17 @@ class DeathHandlerMixin:
 
         # 检查是否有狼美人已死亡
         all_deaths = self.game_state.night_deaths | self.game_state.day_deaths
-        wolf_beauty_dead = False
+        wolf_beauty_player = None
         for player in self.game_state.players:
             if (
                 hasattr(player.role, "charmed_player")
                 and not player.is_alive()
                 and player.player_id in all_deaths
             ):
-                wolf_beauty_dead = True
+                wolf_beauty_player = player
                 break
 
-        if not wolf_beauty_dead:
+        if wolf_beauty_player is None:
             return
 
         charmed = self.game_state.get_player(charmed_id)
@@ -391,9 +412,14 @@ class DeathHandlerMixin:
             self.game_state.night_deaths.add(charmed.player_id)
             self._log_event(
                 EventType.PLAYER_DIED,
-                self.locale.get("died_from_charm", player=charmed.name, wolf_beauty=charmed.name),
+                self.locale.get(
+                    "died_from_charm", player=charmed.name, wolf_beauty=wolf_beauty_player.name
+                ),
                 data={"player_id": charmed.player_id, "reason": "wolf_beauty_charm"},
             )
+            # 被魅惑者若是情侣，其伴侣也随之死亡（死亡链传播）
+            if charmed.is_lover() and charmed.lover_partner_id:
+                self._handle_lover_death(charmed)
 
     async def resolve_deaths(self) -> list[str]:
         """根据夜间行动结算所有死亡。

@@ -2,7 +2,7 @@
 
 import pytest
 
-from llm_werewolf.strategy.decisions import WitchNightDecision
+from llm_werewolf.strategy.contracts.decisions import WitchNightDecision
 from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
 

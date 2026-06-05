@@ -1,6 +1,6 @@
 """投票意向追踪辅助函数。"""
 
-from llm_werewolf.strategy.vote_intention import (
+from llm_werewolf.strategy.voting.intention import (
     VoteIntentionEntry,
     VoteIntentionTracker,
     compute_vote_swings,

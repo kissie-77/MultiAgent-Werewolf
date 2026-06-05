@@ -1,7 +1,8 @@
+from typing import ClassVar
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import Camp, EventType
-from llm_werewolf.game_runtime.locale import Locale
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import seer_apparent_camp
 from llm_werewolf.game_runtime.actions.base import Action
 from llm_werewolf.game_runtime.actions.villager import (
@@ -11,6 +12,7 @@ from llm_werewolf.game_runtime.actions.villager import (
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
+    MagicianSwapAction,
     GraveyardKeeperCheckAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import (
@@ -29,6 +31,20 @@ class ActionProcessorMixin:
     game_state: GameState | None
     locale: Locale
     _log_event: Callable
+    _ACTION_LOGGER_NAMES: ClassVar[tuple[tuple[type[Action], str], ...]] = (
+        (GuardProtectAction, "_log_guard_action"),
+        (WitchSaveAction, "_log_witch_save_action"),
+        (WitchPoisonAction, "_log_witch_poison_action"),
+        (SeerCheckAction, "_log_seer_action"),
+        (CupidLinkAction, "_log_cupid_action"),
+        (WhiteWolfKillAction, "_log_white_wolf_action"),
+        (WolfBeautyCharmAction, "_log_wolf_beauty_action"),
+        (NightmareWolfBlockAction, "_log_nightmare_block_action"),
+        (GuardianWolfProtectAction, "_log_guardian_wolf_action"),
+        (MagicianSwapAction, "_log_magician_swap_action"),
+        (RavenMarkAction, "_log_raven_action"),
+        (GraveyardKeeperCheckAction, "_log_graveyard_keeper_action"),
+    )
 
     @staticmethod
     def _get_action_priority(action: Action) -> int:
@@ -103,7 +119,7 @@ class ActionProcessorMixin:
     def _log_witch_poison_action(self, action: WitchPoisonAction) -> None:
         """记录女巫毒人行动。"""
         self._log_event(
-            EventType.WITCH_POISONED,
+            EventType.WITCH_POISON_USED,
             self.locale.get("witch_uses_poison", target=action.target.name),
             data={
                 "player_id": action.actor.player_id,
@@ -140,8 +156,8 @@ class ActionProcessorMixin:
                 f"result: {apparent.value}"
             )
         if self.game_state and getattr(self.game_state, "belief_log", None) is not None:
-            from llm_werewolf.game_runtime.seat import get_player_seat
-            from llm_werewolf.strategy.belief_updater import apply_seer_check, ensure_agent_belief_state
+            from llm_werewolf.game_runtime.support.seat import get_player_seat
+            from llm_werewolf.strategy.belief.updater import apply_seer_check, ensure_agent_belief_state
 
             alive = self.game_state.get_alive_players()
             state = ensure_agent_belief_state(action.actor, alive)
@@ -152,7 +168,7 @@ class ActionProcessorMixin:
                     target_seat=target_seat,
                     is_werewolf=action.target.get_camp() == Camp.WEREWOLF,
                 )
-            from llm_werewolf.strategy.belief_format import sync_player_belief_memory
+            from llm_werewolf.strategy.belief.format import sync_player_belief_memory
 
             sync_player_belief_memory(
                 action.actor,
@@ -245,6 +261,23 @@ class ActionProcessorMixin:
             },
         )
 
+    def _log_magician_swap_action(self, action: MagicianSwapAction) -> None:
+        """记录魔术师换牌行动（仅魔术师可见）。"""
+        self._log_event(
+            EventType.MAGICIAN_SWAPPED,
+            self.locale.get(
+                "magician_swapped",
+                target1=action.target1.name,
+                target2=action.target2.name,
+            ),
+            data={
+                "player_id": action.actor.player_id,
+                "target1_id": action.target1.player_id,
+                "target2_id": action.target2.player_id,
+                **self._decision_data(action),
+            },
+        )
+
     def _log_graveyard_keeper_action(self, action: GraveyardKeeperCheckAction) -> None:
         """记录守墓人查验行动（仅守墓人可见，不泄露真实身份）。"""
         self._log_event(
@@ -270,28 +303,10 @@ class ActionProcessorMixin:
         Args:
             action: 待记录的行动。
         """
-        if isinstance(action, GuardProtectAction):
-            self._log_guard_action(action)
-        elif isinstance(action, WitchSaveAction):
-            self._log_witch_save_action(action)
-        elif isinstance(action, WitchPoisonAction):
-            self._log_witch_poison_action(action)
-        elif isinstance(action, SeerCheckAction):
-            self._log_seer_action(action)
-        elif isinstance(action, CupidLinkAction):
-            self._log_cupid_action(action)
-        elif isinstance(action, WhiteWolfKillAction):
-            self._log_white_wolf_action(action)
-        elif isinstance(action, WolfBeautyCharmAction):
-            self._log_wolf_beauty_action(action)
-        elif isinstance(action, NightmareWolfBlockAction):
-            self._log_nightmare_block_action(action)
-        elif isinstance(action, GuardianWolfProtectAction):
-            self._log_guardian_wolf_action(action)
-        elif isinstance(action, RavenMarkAction):
-            self._log_raven_action(action)
-        elif isinstance(action, GraveyardKeeperCheckAction):
-            self._log_graveyard_keeper_action(action)
+        for action_type, logger_name in self._ACTION_LOGGER_NAMES:
+            if isinstance(action, action_type):
+                getattr(self, logger_name)(action)
+                return
 
     def process_actions(self, actions: list) -> list[str]:
         """处理行动列表。

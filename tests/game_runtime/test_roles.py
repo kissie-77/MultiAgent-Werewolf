@@ -1,11 +1,12 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from llm_werewolf.game_runtime.roles import Camp, Seer, Guard, Witch, Villager, Werewolf
+from llm_werewolf.game_runtime.roles import Camp, Seer, Guard, Witch, Magician, Villager, Werewolf
 from llm_werewolf.game_runtime.actions import (
     SeerCheckAction,
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
+    MagicianSwapAction,
     WerewolfVoteAction,
 )
 from llm_werewolf.agent_team.agents.base import DemoAgent
@@ -58,6 +59,25 @@ def test_role_string_representation() -> None:
     villager = player.role
     assert str(villager) == "Villager"
     assert "Villager" in repr(villager)
+
+
+def test_magician_swap_action_swaps_roles_once() -> None:
+    """魔术师应能交换两名玩家身份，且整局只可使用一次。"""
+    magician = Player("m1", "Magician", Magician)
+    seer = Player("s1", "Seer", Seer)
+    villager = Player("v1", "Villager", Villager)
+    state = GameState([magician, seer, villager])
+
+    action = MagicianSwapAction(magician, seer, villager, state)
+
+    assert action.validate() is True
+    assert action.execute() == ["Magician swaps roles of Seer and Villager"]
+    assert magician.role.has_swapped is True
+    assert seer.get_role_name() == "Villager"
+    assert villager.get_role_name() == "Seer"
+    assert seer.role.player is seer
+    assert villager.role.player is villager
+    assert action.validate() is False
 
 
 async def test_werewolf_get_night_actions() -> None:

@@ -90,6 +90,20 @@ def extract_when_to_use(content: str) -> str:
     return ""
 
 
+def extract_markdown_section(body: str, heading: str) -> str:
+    """提取 ``## {heading}`` 段落正文（到下一 ``##`` 或文件末尾）。"""
+    if not body.strip():
+        return ""
+    marker = f"## {heading}"
+    if marker not in body:
+        return ""
+    idx = body.index(marker)
+    after = body[idx + len(marker) :].lstrip("\n")
+    next_idx = after.find("\n## ")
+    section = after[:next_idx] if next_idx != -1 else after
+    return section.strip()
+
+
 def ensure_description_format(text: str) -> str:
     normalized = " ".join(text.strip().split())
     if not normalized:

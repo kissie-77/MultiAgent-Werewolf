@@ -15,8 +15,9 @@ def test_prompt_manager_builds_role_strategy_prompt() -> None:
 
 def test_agent_team_factory_uses_prompt_manager_contract() -> None:
     prompt = build_system_prompt(8, "Alpha Wolf", "悍跳并制造对立")
+    base_prompt = PromptManager.build_role_strategy_prompt(8, "Alpha Wolf", "悍跳并制造对立")
 
-    assert prompt == PromptManager.build_role_strategy_prompt(8, "Alpha Wolf", "悍跳并制造对立")
+    assert base_prompt in prompt
     assert "你的身份是：狼王" in prompt
 
 

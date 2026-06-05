@@ -101,10 +101,10 @@ Repository = "https://github.com/kissie-77/MultiAgent-Werewolf"
 [project.scripts]
 llm-werewolf = "llm_werewolf.interface.cli.entry:entry"
 werewolf = "llm_werewolf.interface.cli.entry:entry"
-werewolf-eval = "llm_werewolf.interface.eval_cli:entry"
-werewolf-evidence = "llm_werewolf.interface.evidence_cli:entry"
-werewolf-vote-swing = "llm_werewolf.interface.vote_swing_cli:entry"
-werewolf-watch = "llm_werewolf.interface.watch_cli:entry"
+werewolf-eval = "llm_werewolf.interface.cli.eval:entry"
+werewolf-evidence = "llm_werewolf.interface.cli.evidence:entry"
+werewolf-vote-swing = "llm_werewolf.interface.cli.vote_swing:entry"
+werewolf-watch = "llm_werewolf.interface.cli.watch:entry"
 werewolf-api = "llm_werewolf.interface.api.app:main"
 
 [dependency-groups]
@@ -114,6 +114,7 @@ dev = [
     "notebook",
     "poethepoet",
     "pre-commit",
+    "ruff",
     "ty",
 ]
 test = [
@@ -189,9 +190,28 @@ exclude = [
 ]
 
 [tool.poe.tasks]
-# Run game in console mode (auto-play)
-cli = "python -m llm_werewolf.interface.cli"
+# ── 游戏入口 ──────────────────────────────────────────────────────────────
+cli  = "python -m llm_werewolf.interface.cli"
 main = "python -m llm_werewolf.interface.cli"
+demo = { shell = "python -m llm_werewolf.interface.cli --config configs/demo-6.yaml" }
+api  = { shell = "python -m llm_werewolf.interface.api.app" }
+
+# ── 测试 ──────────────────────────────────────────────────────────────────
+# 完整测试（含覆盖率，与 CI 保持一致）
+test = { shell = "pytest" }
+# 快速测试（不计覆盖率，适合本地迭代）
+test-fast = { shell = "pytest --override-ini='addopts=' --ignore=tests/scripts -q -n auto --tb=short" }
+
+# ── 代码质量 ──────────────────────────────────────────────────────────────
+lint  = { shell = "ruff check src/ tests/" }
+fmt   = { shell = "ruff format src/ tests/ && ruff check --fix src/ tests/" }
+check = { sequence = ["lint", "test-fast"] }
+
+# ── 环境初始化 ────────────────────────────────────────────────────────────
+# 仅安装开发 + 测试依赖（不含 docs），等价于 make install
+install = { shell = "uv sync --group dev --group test" }
+# 安装所有依赖组
+install-all = { shell = "uv sync --all-groups" }
 
 # https://docs.astral.sh/uv/reference/settings
 [tool.uv]

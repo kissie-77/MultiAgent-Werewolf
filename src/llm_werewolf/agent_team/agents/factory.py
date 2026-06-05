@@ -7,7 +7,7 @@ from collections import Counter
 from random import Random
 from types import MethodType
 
-from llm_werewolf.game_runtime.env import load_project_dotenv
+from llm_werewolf.game_runtime.support.env import load_project_dotenv
 
 load_project_dotenv()
 from typing import TYPE_CHECKING, Any
@@ -19,7 +19,7 @@ from agentscope.formatter import OpenAIChatFormatter
 
 from llm_werewolf.agent_team.memory import RuntimeMemoryManager
 from llm_werewolf.game_runtime.config import MemoryConfig, PlanAssignmentConfig, PlayerConfig
-from llm_werewolf.agent_team.fast_react_agent import FastReActAgent
+from llm_werewolf.agent_team.agents.fast_react_agent import FastReActAgent
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 if TYPE_CHECKING:
@@ -152,7 +152,7 @@ def _role_plan_names(prompt_role_key: str, plan_assignment: PlanAssignmentConfig
     if explicit:
         return [name for name in explicit if name]
 
-    from llm_werewolf.strategy.role_prompts import PlanStrategies
+    from llm_werewolf.strategy.registry.role_prompts import PlanStrategies
 
     return PlanStrategies.default_role_style_plan_names(prompt_role_key)
 
@@ -208,7 +208,7 @@ def build_system_prompt(
     role_counts: dict[str, int] | None = None,
 ) -> str:
     """为已知角色的就座玩家构建系统 prompt。"""
-    from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+    from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
     prompt_key = PromptManager.get_prompt_role_key(game_role_name)
     manifest = get_active_manifest()
@@ -223,22 +223,22 @@ def build_system_prompt(
         from llm_werewolf.game_runtime.prompts.actions import EngineContexts
 
         role_pool_text = EngineContexts.role_pool_note(role_counts)
-    if not include_role_skills:
-        return f"{base}\n\n{role_pool_text}" if role_pool_text else base
-    from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills_text
-
-    skills = load_role_skills_text(
-        prompt_key,
-        skill_version=manifest.skill_version_for(prompt_key),
-    )
-    if skills:
-        base = f"{base}\n\n{skills}"
+    if include_role_skills:
+        base = (
+            f"{base}\n\n"
+            "【对局经验 Skill】将根据当前信念矩阵（B1/B2/投票意向）动态注入决策上下文。"
+        )
     if role_pool_text:
         base = f"{base}\n\n{role_pool_text}"
     return base
 
 
-def create_react_agent(config: PlayerConfig, *, agent_name: str, sys_prompt: str) -> ReActAgent:
+def create_react_agent(
+    config: PlayerConfig,
+    *,
+    agent_name: str,
+    sys_prompt: str,
+) -> ReActAgent:
     """创建接入 OpenAI 兼容端点的 AgentScope ReActAgent。"""
     api_key = config.api_key or (
         os.getenv(config.api_key_env) if config.api_key_env else None
@@ -343,7 +343,7 @@ def configure_agents_for_players(
     event_logger=None,
 ) -> None:
     """角色分配后，为每个 AgentScope Agent 配置系统 prompt。"""
-    from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+    from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
     manifest = get_active_manifest()
     role_counts = _role_counts(players)

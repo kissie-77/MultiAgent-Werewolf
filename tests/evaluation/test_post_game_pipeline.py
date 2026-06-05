@@ -159,3 +159,52 @@ def test_bad_case_proposal_uses_role_stage_target_when_player_is_known(tmp_path:
         and p["suggested_patch"]["target_field"].startswith("phase_strategies.")
         for p in bad_cases
     )
+    assert any(p["confidence_score"] == 0.9 for p in bad_cases)
+
+
+def test_bad_case_proposal_targets_night_strategy_for_pre_public_hallucination(
+    tmp_path: Path,
+) -> None:
+    events = [
+        {
+            "event_type": "role_acting",
+            "round_number": 1,
+            "phase": "night",
+            "data": {"player_id": "player_2", "role": "Werewolf", "player_name": "B"},
+        },
+        {
+            "event_type": "player_discussion",
+            "round_number": 1,
+            "phase": "night",
+            "data": {
+                "player_id": "player_2",
+                "player_name": "B",
+                "role": "Werewolf",
+                "speech": "我建议刀5号，5号在白天发言时感觉比较活跃，容易带队。",
+            },
+        },
+        {
+            "event_type": "game_ended",
+            "round_number": 1,
+            "phase": "ended",
+            "data": {"winner_camp": "werewolf", "winner_ids": ["player_2"]},
+        },
+    ]
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events),
+        encoding="utf-8",
+    )
+    (tmp_path / "vote_intentions.jsonl").write_text("", encoding="utf-8")
+
+    ctx = load_run_context(tmp_path)
+    camp = build_camp_persuasion_report(ctx)
+    proposals = build_prompt_proposals(ctx, camp)
+
+    bad_cases = [p for p in proposals["proposals"] if p["kind"] == "bad_case_rule"]
+    assert any(
+        p["suggested_patch"]["section"] == "night_strategy"
+        and p["suggested_patch"]["target_field"] == "phase_strategies.opening"
+        and "不得编造白天发言" in p["suggested_patch"]["text_zh"]
+        and p["confidence_score"] == 0.88
+        for p in bad_cases
+    )

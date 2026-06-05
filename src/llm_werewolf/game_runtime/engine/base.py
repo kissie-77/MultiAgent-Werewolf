@@ -13,14 +13,14 @@ from llm_werewolf.game_runtime.types import (
     PlayerProtocol,
 )
 from llm_werewolf.game_runtime.config import GameConfig
-from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.game_runtime.victory import VictoryChecker
-from llm_werewolf.game_runtime.observation import ObservationBuilder
+from llm_werewolf.game_runtime.i18n.locale import Locale
+from llm_werewolf.game_runtime.rules.victory import VictoryChecker
+from llm_werewolf.game_runtime.support.observation import ObservationBuilder
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.state.game_state import GameState
-from llm_werewolf.game_runtime.phase_interaction import PhaseInteraction, PhaseInteractionHub
+from llm_werewolf.game_runtime.interaction.phase_interaction import PhaseInteraction, PhaseInteractionHub
 from llm_werewolf.game_runtime.state.serialization import (
     load_game_state,
     save_game_state,
@@ -117,14 +117,14 @@ class GameEngineBase:
             self.game_state.track_vote_intentions
             and self.game_state.vote_intention_tracker is None
         ):
-            from llm_werewolf.strategy.vote_intention import VoteIntentionTracker
+            from llm_werewolf.strategy.voting.intention import VoteIntentionTracker
 
             self.game_state.vote_intention_tracker = VoteIntentionTracker()
 
         if self.game_state.track_vote_intentions and self.game_state.belief_log is None:
-            from llm_werewolf.strategy.belief_state import BeliefLog
-            from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state
-            from llm_werewolf.strategy.wolf_camp_mind import init_wolf_camp_mind
+            from llm_werewolf.strategy.belief.state import BeliefLog
+            from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
+            from llm_werewolf.strategy.wolf.camp_mind import init_wolf_camp_mind
 
             self.game_state.belief_log = BeliefLog()
             wolves = [p for p in self.game_state.players if participates_in_wolf_team(p)]
@@ -133,7 +133,7 @@ class GameEngineBase:
             for player in alive:
                 if player.agent is not None:
                     ensure_agent_belief_state(player, alive)
-            from llm_werewolf.strategy.belief_format import sync_all_belief_memories
+            from llm_werewolf.strategy.belief.format import sync_all_belief_memories
 
             sync_all_belief_memories(
                 alive,
@@ -195,6 +195,13 @@ class GameEngineBase:
             players: 具有 name 和 model 属性的 agent 实例列表。
             roles: 要分配的角色实例列表。
         """
+        if self.information_hub is None:
+            msg = (
+                "information_hub must be injected before setup_game; "
+                "use create_information_hub() in the assembly layer"
+            )
+            raise RuntimeError(msg)
+
         if len(players) != len(roles):
             msg = f"Number of players ({len(players)}) must match number of roles ({len(roles)})"
             raise ValueError(msg)
@@ -310,7 +317,7 @@ class GameEngineBase:
 
     def _log_vote_intention_record(self, record: object) -> None:
         """记录与发言关联的投票意向变化，供回放分析。"""
-        from llm_werewolf.strategy.vote_intention import (
+        from llm_werewolf.strategy.voting.intention import (
             SpeechVoteIntentionRecord,
             format_intentions_line,
         )
@@ -338,10 +345,10 @@ class GameEngineBase:
         speaker: PlayerProtocol | None,
     ) -> None:
         """记录一批心智状态快照，供控制台 / game_log 展示信念矩阵。"""
-        from llm_werewolf.strategy.belief_format import format_belief_batch_log
-        from llm_werewolf.strategy.belief_state import BeliefSnapshotRecord
+        from llm_werewolf.strategy.belief.format import format_belief_batch_log
+        from llm_werewolf.strategy.belief.state import BeliefSnapshotRecord
 
-        from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor
+        from llm_werewolf.strategy.voting.intention import VoteIntentionAnchor
 
         if not isinstance(anchor, VoteIntentionAnchor):
             return
@@ -376,8 +383,8 @@ class GameEngineBase:
         """公开身份出局后，所有 Agent 信念矩阵塌缩该列。"""
         if not self.game_state or self.game_state.belief_log is None:
             return
-        from llm_werewolf.game_runtime.seat import get_player_seat
-        from llm_werewolf.strategy.belief_updater import apply_public_elimination_to_all_agents
+        from llm_werewolf.game_runtime.support.seat import get_player_seat
+        from llm_werewolf.strategy.belief.updater import apply_public_elimination_to_all_agents
 
         seat = get_player_seat(player)
         if seat is None:
@@ -387,7 +394,7 @@ class GameEngineBase:
             eliminated_seat=seat,
             is_werewolf=participates_in_wolf_team(player),
         )
-        from llm_werewolf.strategy.belief_format import sync_all_belief_memories
+        from llm_werewolf.strategy.belief.format import sync_all_belief_memories
 
         sync_all_belief_memories(
             self.game_state.players,
@@ -510,7 +517,7 @@ class GameEngineBase:
             shared_events = [
                 event for event in shared_events if event.event_type not in merged_exclude
             ]
-        from llm_werewolf.game_runtime.observation import flatten_private_notes
+        from llm_werewolf.game_runtime.support.observation import flatten_private_notes
 
         private_notes = flatten_private_notes(list(additional_notes or []))
         observation = self.observation_builder.build(
@@ -574,6 +581,15 @@ class GameEngineBase:
             self.game_state.next_phase()  # 进入 DAY_DISCUSSION
             await self.run_day_phase()
 
+            if self.game_state.skip_day_voting:
+                self.game_state.skip_day_voting = False
+                if self.check_victory():
+                    break
+                self._on_round_end(self.game_state.round_number)
+                self.game_state.next_phase()  # DAY_VOTING
+                self.game_state.next_phase()  # NIGHT
+                continue
+
             self.game_state.next_phase()  # 进入 DAY_VOTING
             await self.run_voting_phase()
 
@@ -613,7 +629,14 @@ class GameEngineBase:
             phase_messages = []
         elif current_phase == GamePhase.DAY_DISCUSSION:
             phase_messages = await self.run_day_phase()
-            self.game_state.next_phase()
+            if self.game_state.skip_day_voting:
+                self.game_state.skip_day_voting = False
+                self.game_state.next_phase()
+                if not self.check_victory():
+                    self._on_round_end(self.game_state.round_number)
+                    self.game_state.next_phase()
+            else:
+                self.game_state.next_phase()
         elif current_phase == GamePhase.DAY_VOTING:
             phase_messages = await self.run_voting_phase()
             if not self.check_victory():

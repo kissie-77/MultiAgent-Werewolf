@@ -2,14 +2,14 @@
 
 > **模块**：agent_team
 > **状态**：active
-> **最后更新**：2026-05-26
+> **最后更新**：2026-06-05
 > **关联代码**：`src/llm_werewolf/agent_team/`
 > **关联测试**：`tests/agent_team/`
 > **Agent Skill**：`.agents/skills/generated/agent-team/`
 
 ## 职责
 
-Agent 执行层：AgentScope 接入、消息路由、信息隔离、记忆管理、Skill 读取、结构化决策调用。负责将游戏引擎的阶段指令转化为 Agent 的发言和决策。
+Agent 执行层：AgentScope 接入、消息路由、信息隔离、记忆管理、**信念匹配 Skill 注入**（私密决策前 refresh）、结构化决策调用。
 
 ## 不负责
 
@@ -18,18 +18,40 @@ Agent 执行层：AgentScope 接入、消息路由、信息隔离、记忆管理
 - 赛后评测与 Skill 生成（见 `evaluation`）
 - CLI/TUI 入口与装配（见 `interface`）
 
+## 模块目录结构
+
+```
+agent_team/
+├── __init__.py
+├── agents/                  # Agent 实现与工厂
+│   ├── agentscope_agent.py
+│   ├── base.py
+│   ├── demo_policy.py
+│   ├── factory.py
+│   ├── fast_react_agent.py
+│   ├── human_interactive_agent.py
+│   └── mixin.py
+├── bridge/                  # LLM 输出 ↔ 引擎适配层
+│   ├── adapter.py           # WerewolfAdapterBridge（原 bridge.py）
+│   ├── parsing.py
+│   └── prompts.py
+├── communication/           # 消息路由与 InformationHub
+├── invocation/              # 结构化 LLM 调用
+├── memory/                  # 四层记忆 + RuntimeMemoryManager
+└── skill_support/           # Skill MD 加载
+```
+
 ## 目录映射
 
 | 代码路径 | 内容 |
 |----------|------|
-| `agent_team/agents/` | Agent 实现：AgentScopeWerewolfAgent、BaseAgent、DemoAgent、PromptAgentMixin、工厂函数 |
-| `agent_team/communication/` | 通信系统：InformationHub、MessageRouter、Message 定义 |
-| `agent_team/invocation/` | 结构化调用：serial_calls、structured_invoke |
-| `agent_team/memory/` | 四层记忆：`RuntimeMemoryManager`、Working/Episodic/Semantic/Procedural、`LLMCompressor` |
-| `agent_team/skill_support/` | Skill 读取：`skill_loader`（`skills/<role>/<version>/`） |
+| `agent_team/agents/` | AgentScopeWerewolfAgent、BaseAgent、DemoAgent、工厂函数 |
+| `agent_team/bridge/` | 统一适配层：结构化输出解析、座位决策、Agent 调用 |
+| `agent_team/communication/` | InformationHub、MessageRouter、Message 定义 |
+| `agent_team/invocation/` | serial_calls、structured_invoke |
+| `agent_team/memory/` | RuntimeMemoryManager、Working/Episodic/Semantic/Procedural |
+| `agent_team/skill_support/` | skill_loader（`skills/<role>/<version>/`） |
 | `agent_team/skills/` | Skill 库：按角色 + 版本分目录的 MD 卡片 |
-| `agent_team/bridge.py` | 统一适配层：LLM 输出解析、Agent 调用、决策转换 |
-| `agent_team/fast_react_agent.py` | 快速 ReAct Agent 实现 |
 
 ## 依赖关系
 
@@ -53,4 +75,6 @@ from llm_werewolf.agent_team import (
     create_react_agent,
     configure_agents_for_players,
 )
+from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
+from llm_werewolf.agent_team.communication.information_hub import InformationHub
 ```

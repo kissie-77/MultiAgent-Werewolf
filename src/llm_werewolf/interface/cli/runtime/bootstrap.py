@@ -9,7 +9,7 @@ from llm_werewolf.agent_team.agents.base import create_agent
 from llm_werewolf.agent_team.agents.factory import configure_agents_for_players
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.agent_team.communication.information_hub import InformationHub
-from llm_werewolf.strategy.role_version_manifest import RoleVersionManifest, set_active_manifest
+from llm_werewolf.strategy.registry.role_version_manifest import RoleVersionManifest, set_active_manifest
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime import GameEngine

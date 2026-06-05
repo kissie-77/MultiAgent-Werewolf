@@ -2,7 +2,7 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-04
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
@@ -201,6 +201,18 @@ Schema `role_skills_v1`：`skills[]` 含 `skill_id`、`prompt_role_key`、`statu
 
 **质量门（Phase 1）**：该身份有 ≥1 条有效发言或夜间决策 → 进入提取；全程空发言 → `skipped`。
 
+**写库策略（2026-06-04）** — `apply_policy: merge_when_to_use_then_sparse_bump`：
+
+| 字段 | 说明 |
+|------|------|
+| `merge_policy.match_field` | `when_to_use`（frontmatter 或正文「何时使用」） |
+| `merge_policy.similarity_threshold` | `0.78` |
+| `merge_policy.weight_delta_on_merge` | `0.15` |
+| `library_action` | `merged`（合并进已有 card）或 `created`（新建） |
+| `merged_into_skill_id` | 合并目标（仅 `merged`） |
+
+实现：`skill_extractor.find_matching_library_skill` / `merge_candidate_into_existing_skill` / `write_skill_markdown_files`。
+
 ## 9. PostGame 产物详表
 
 | 产物                                  | 生成器            | 消费方                       |
@@ -236,13 +248,40 @@ events.jsonl → PostGame → scores / views / role_skills / proposals / coach
 | status       | 运行时默认加载                               |
 | ------------ | -------------------------------------------- |
 | `active`     | 是                                           |
-| `draft`      | 否（PostGame 写库默认 draft，审核后 active） |
+| `draft`      | 否（PostGame 写库默认 draft，胜方新 skill 常因 weight≥1.05 升为 active） |
 | `deprecated` | 否                                           |
 | `skipped`    | 不写 MD                                      |
 
-写库：`next_skill_version()` → 复制旧版 → 追加新 MD → 更新 manifest。权重 `>= 1.05` 可升 active；`<= 0.95` 可降 deprecated。
+### 10.1 稀疏版本 bump
+
+不是每局都新建 `skill_version` 目录。仅当某 `prompt_role_key` 本局有**使用场景不匹配**的新 Skill 时：
+
+1. `next_skill_version()` → copy `vN/*` → `vN+1/`
+2. 写入新 `{skill_id}.md`
+3. `set_active_manifest` 将该 role 指向 `vN+1`
+
+同局若既有合并又有新建，只 bump 一次，合并与新建均落在同一 `vN+1`。
+
+### 10.2 场景合并（写库前）
+
+候选 Skill 与当前版本库内 MD 按 `when_to_use` 相似度 ≥ 0.78 匹配时：
+
+- **不**生成新 library 文件
+- 合并 `## 公开行为` / `## 避免` / `## 提取依据`
+- **weight += 0.15**（`clamp_weight`，上限 5.0），`use_count += 1`
+- 在当前版本目录**原地**更新 MD（不 bump）
+
+本局归档仍写 `runs/<id>/skills/*.md`；`role_skills.json` 记录 `library_action`。
+
+### 10.3 权重与 status
+
+- 本局候选：胜方阵营 weight +0.10 → 常 `active`；败方 -0.05
+- 局内 `RuntimeMemoryManager.on_game_end`：对本局 prompt 注入过的 skill id 再 ±0.10 / -0.05（与 PostGame 合并增量独立）
+- weight `>= 1.05` 可升 `active`；active 且 `<= 0.95` 可降 `deprecated`
 
 **仍待证明**：下局 prompt 中 Skill 使用痕迹、写回前后 A/B 胜率（见 ROADMAP）。
+
+**关联测试**：`tests/evaluation/test_skill_extractor.py`（`test_find_matching_library_skill_by_when_to_use`、`test_merge_matching_when_to_use_updates_weight_without_version_bump`、`test_new_when_to_use_creates_next_version`）。
 
 ## 11. Leaderboard 与 A/B
 

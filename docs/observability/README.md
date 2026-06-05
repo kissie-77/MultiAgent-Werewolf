@@ -2,7 +2,7 @@
 
 > **模块**：observability
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-05
 > **关联代码**：`src/llm_werewolf/observability/`
 > **关联测试**：`tests/observability/`、`tests/evaluation/signals/`
 
@@ -19,6 +19,22 @@
 | `interface` | 挂载 hook（对局结束、API 会话、CLI、watch） |
 
 **适用场景**：比赛/离线跑局后的产物巡检；**不依赖** Prometheus、飞书、Sentry 等线上设施。
+
+## 模块目录结构
+
+```
+observability/
+├── __init__.py
+├── core/                    # 配置、模型、分发、健康检查、运行时日志
+│   ├── config.py
+│   ├── dispatcher.py
+│   ├── health.py
+│   ├── models.py
+│   └── runtime_log.py
+├── collectors/              # run 产物与 checker 采集
+├── notifiers/               # Webhook 等通知器
+└── rules/                   # 告警规则引擎
+```
 
 ## 监控什么（9 项规则）
 
@@ -48,6 +64,7 @@ uv run werewolf-watch --since 24h --push=True
 
 # API 就绪探测（本地）
 curl http://127.0.0.1:8000/ready
+# 200 + status=ready；缺 LLM key 或 artifacts 不可写时 503，body 含 checks 明细
 ```
 
 ## 单场 run 关键产物

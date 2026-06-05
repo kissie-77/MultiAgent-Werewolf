@@ -1,0 +1,97 @@
+schema: plan_strategies_v1
+style_order:
+  - conservative
+  - aggressive
+  - skeptical
+  - coordinator
+
+role_labels:
+  villager: 村民
+  prophet: 预言家
+  witch: 女巫
+  wolf: 狼人
+  wolf_king: 狼王
+  guard: 守卫
+  hunter: 猎人
+  white_wolf: 白狼
+  wolf_beauty: 狼美人
+  guardian_wolf: 守墓狼
+  hidden_wolf: 隐狼
+  nightmare_wolf: 噩梦狼
+  blood_moon_apostle: 血月使徒
+  idiot: 白痴
+  elder: 长老
+  knight: 骑士
+  magician: 魔术师
+  cupid: 丘比特
+  raven: 乌鸦
+  graveyard_keeper: 守墓人
+  thief: 盗贼
+  lover: 恋人
+
+style_templates:
+  conservative: 你本局采用{role}保守派打法：优先保证信息边界和身份收益，先观察发言、票型和死亡信息，再给出判断；不要过早站死边或暴露关键意图。
+  aggressive: 你本局采用{role}激进派打法：主动制造讨论焦点，敢于提出明确怀疑和投票方向；发言要推动局势前进，但所有进攻都必须基于你可见的信息。
+  skeptical: 你本局采用{role}质疑派打法：重点拆解他人的逻辑、票型和前后矛盾；多追问理由，少直接跟风，用质疑帮助阵营发现隐藏风险。
+  coordinator: 你本局采用{role}协调派打法：整理多名玩家的发言和投票关系，尝试收束分散讨论，提出可执行的下一步验证或归票方案。
+
+plans:
+  default:
+    name: default
+    villager: 自由发挥
+    prophet: 自由发挥
+    witch: 自由发挥
+    wolf: 自由发挥
+    wolf_king: 自由发挥
+    guard: 自由发挥
+    hunter: 自由发挥
+
+  complicated:
+    name: complicated
+    villager: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，必须深度思考，输出思考内容
+    prophet: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，晚上运用技能找到潜在狼人，白天保持谨慎，必须深度思考，输出思考内容
+    witch: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，发挥技能解药救人，觉得是狼人之后使用毒药毒死玩家，必须深度思考，输出思考内容
+    wolf: 使用诡计，第一晚自刀骗药，与队友配合欺骗平民，杀死和票出关键玩家，混淆视听，必须深度思考，输出思考内容
+    wolf_king: 使用诡计，第一晚最好配合刀队友一号骗药，与队友配合欺骗平民，杀死和票出关键玩家，被投票处决时杀死关键玩家，必须深度思考，输出思考内容
+    guard: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，守护关键玩家，白天保持谨慎，必须深度思考，输出思考内容
+    hunter: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，保护好自己，当被击杀时选择一个认为是狼人的玩家带走，必须深度思考，输出思考内容
+
+  simple:
+    name: simple
+    villager: 自由发挥，尽量简化发言和思考
+    prophet: 自由发挥，尽量简化发言和思考
+    witch: 自由发挥，尽量简化发言和思考
+    wolf: 自由发挥，尽量简化发言和思考
+    wolf_king: 自由发挥，尽量简化发言和思考
+    guard: 自由发挥，尽量简化发言和思考
+    hunter: 自由发挥，尽量简化发言和思考
+
+  cautious:
+    name: cautious
+    villager: 谨慎发言
+    prophet: 谨慎发言
+    witch: 谨慎发言
+    wolf: 谨慎发言
+    wolf_king: 谨慎发言
+    guard: 谨慎发言
+    hunter: 谨慎发言
+
+  bold:
+    name: bold
+    villager: 大胆发言
+    prophet: 大胆发言
+    witch: 大胆发言
+    wolf: 大胆发言
+    wolf_king: 大胆发言
+    guard: 大胆发言
+    hunter: 大胆发言
+
+  crazy:
+    name: crazy
+    villager: 混淆视听，伪装成女巫，防止狼人把女巫刀掉
+    prophet: 混淆视听，伪装成平民，防止被狼人刀掉
+    witch: 混淆视听，伪装成预言家，防止被狼人刀掉
+    wolf: 混淆视听，伪装成女巫，防止被好人阵营识破并票出局
+    wolf_king: 混淆视听，伪装成守卫，防止被好人阵营识破并票出局
+    guard: 混淆视听，伪装成平民，防止被狼人刀掉
+    hunter: 混淆视听，伪装成村民，防止被狼人刀掉

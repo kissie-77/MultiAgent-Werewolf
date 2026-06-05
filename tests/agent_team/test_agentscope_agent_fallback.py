@@ -42,6 +42,29 @@ class TestPublicFallback:
             assert "我是" not in text
             assert villager_agent.role_name not in text
 
+    def test_public_fallback_ignores_private_role(self) -> None:
+        prompt = "Share your thoughts.\nProvide a brief statement for discussion."
+        risky_terms = {
+            "Seer",
+            "Prophet",
+            "Witch",
+            "Guard",
+            "Hunter",
+            "Werewolf",
+            "验",
+            "查验",
+            "药",
+            "守",
+            "开枪",
+            "刀",
+        }
+        for role in ["prophet", "witch", "guard", "hunter", "wolf"]:
+            agent = AgentScopeWerewolfAgent(name="P1", role=role, number=1)
+            for _ in range(20):
+                text = agent._generate_fallback_response(prompt, "err")
+                assert agent.role_name not in text
+                assert all(term not in text for term in risky_terms)
+
 
 class TestStructuredFallback:
     def test_yes_no(self, wolf_agent: AgentScopeWerewolfAgent) -> None:

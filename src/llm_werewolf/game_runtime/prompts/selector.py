@@ -1,9 +1,9 @@
 import logging
 import re
-import random
 
 from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.game_runtime.prompts.decision_fallback import select_target_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -145,13 +145,19 @@ class ActionSelector:
             if target is not None or allow_skip:
                 return target
 
-            if fallback_random:
-                return random.choice(possible_targets)  # noqa: S311
+            fallback = select_target_fallback(
+                possible_targets, allow_random=fallback_random, reason="parse_failed"
+            )
+            if fallback.target is not None:
+                return fallback.target
 
         except Exception:
             logger.warning("get_target_from_agent failed agent=%s", getattr(agent, "name", "?"), exc_info=True)
-            if fallback_random:
-                return random.choice(possible_targets)  # noqa: S311
+            fallback = select_target_fallback(
+                possible_targets, allow_random=fallback_random, reason="agent_error"
+            )
+            if fallback.target is not None:
+                return fallback.target
 
         return None
 
@@ -174,9 +180,10 @@ class ActionSelector:
         try:
             response = await agent.get_response(prompt)
             return PromptManager.parse_yes_no(response)
-        except Exception:
-            logger.warning("ask_yes_no failed agent=%s, returning False", getattr(agent, "name", "?"), exc_info=True)
-            return False
+        except Exception as exc:
+            logger.warning("ask_yes_no failed agent=%s", getattr(agent, "name", "?"), exc_info=True)
+            msg = f"yes/no decision failed for agent {getattr(agent, 'name', '?')}: {exc}"
+            raise RuntimeError(msg) from exc
 
     @staticmethod
     async def select_target(

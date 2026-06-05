@@ -100,12 +100,12 @@ class WhiteWolf(Role):
             camp=Camp.WEREWOLF,
             description=(
                 "你是白狼王。每晚与其他狼人一起击杀好人。"
+                "白天发言轮可发动自爆（SpeechDecision.self_explode=true），跳过投票直接进入黑夜，并带走一名玩家。"
                 "此外，每隔一晚你可以独自醒来并选择击杀另一名狼人。"
-                "你的最终目标可能是成为最后存活的狼人。"
             ),
             priority=ActionPriority.WHITE_WOLF,
             can_act_night=True,
-            can_act_day=False,
+            can_act_day=True,
         )
 
 

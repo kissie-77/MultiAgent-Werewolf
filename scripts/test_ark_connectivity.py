@@ -9,7 +9,7 @@ import time
 import urllib.error
 import urllib.request
 
-from llm_werewolf.game_runtime.env import load_project_dotenv
+from llm_werewolf.game_runtime.support.env import load_project_dotenv
 
 
 def main() -> int:

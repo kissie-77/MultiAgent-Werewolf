@@ -1,7 +1,7 @@
 """game_runtime/victory.py 模块的测试。"""
 
 from llm_werewolf.game_runtime.roles import Seer, Witch, Villager, Werewolf
-from llm_werewolf.game_runtime.victory import VictoryChecker
+from llm_werewolf.game_runtime.rules.victory import VictoryChecker
 from llm_werewolf.game_runtime.state.player import Player
 from llm_werewolf.game_runtime.state.game_state import GameState
 

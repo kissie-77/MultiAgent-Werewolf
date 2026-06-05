@@ -2,7 +2,7 @@ import itertools
 import re
 
 from llm_werewolf.game_runtime.types import Camp, Event, EventType
-from llm_werewolf.strategy.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
+from llm_werewolf.strategy.contracts.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
 
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 
@@ -45,6 +45,11 @@ class PromptBadCaseChecker:
         "金水",
         "查杀",
     )
+    _prior_public_info_patterns = (
+        re.compile(r"(?:白天|今天|刚才|上一轮|上轮).{0,12}发言"),
+        re.compile(r"发言.{0,12}(?:活跃|带队|站边|划水|可疑|做好|做坏|狼面|好人面)"),
+        re.compile(r"(?:票型|归票|冲票|分票|投票记录|警上|警下)"),
+    )
 
     def check(
         self,
@@ -60,6 +65,7 @@ class PromptBadCaseChecker:
         results.extend(self._check_repeated_seer_checks(events))
         results.extend(self._check_harmful_power_targets(events, player_roles, player_camps))
         results.extend(self._check_unsupported_public_fact_claims(events))
+        results.extend(self._check_night_claims_before_public_context(events))
         return results
 
     def _bad_case(
@@ -68,11 +74,17 @@ class PromptBadCaseChecker:
         event: Event,
         data: dict | None = None,
         severity: CheckSeverity = CheckSeverity.WARNING,
+        bad_case_kind: str = "strategy_mistake",
+        confidence: str = "medium",
+        confidence_score: float = 0.7,
     ) -> CheckResult:
         payload = {
             "round_number": event.round_number,
             "phase": event.phase.value if hasattr(event.phase, "value") else str(event.phase),
             "event_type": event.event_type.value,
+            "bad_case_kind": bad_case_kind,
+            "confidence": confidence,
+            "confidence_score": round(max(0.0, min(1.0, confidence_score)), 3),
         }
         payload.update(data or {})
         return CheckResult(
@@ -109,6 +121,9 @@ class PromptBadCaseChecker:
                         event,
                         data={"player_id": event.data.get("player_id")},
                         severity=CheckSeverity.INFO,
+                        bad_case_kind="format_error",
+                        confidence="high",
+                        confidence_score=0.95,
                     )
                 )
                 continue
@@ -119,6 +134,9 @@ class PromptBadCaseChecker:
                         event,
                         data={"player_id": event.data.get("player_id"), "speech": speech[:120]},
                         severity=CheckSeverity.INFO,
+                        bad_case_kind="format_error",
+                        confidence="high",
+                        confidence_score=0.9,
                     )
                 )
         return results
@@ -136,6 +154,7 @@ class PromptBadCaseChecker:
             is_too_short = len(speech) < SPEECH_PUBLIC_MIN_CHARS
             is_generic = any(marker in speech for marker in self._generic_speech_markers)
             if is_too_short or (is_generic and not has_player_reference):
+                kind = "format_error" if is_too_short else "low_information"
                 results.append(
                     self._bad_case(
                         "speech was too generic to support role-specific reasoning",
@@ -145,6 +164,9 @@ class PromptBadCaseChecker:
                             "speech": raw_speech[:120],
                         },
                         severity=CheckSeverity.INFO,
+                        bad_case_kind=kind,
+                        confidence="high" if is_too_short else "medium",
+                        confidence_score=0.85 if is_too_short else 0.68,
                     )
                 )
         return results
@@ -164,6 +186,9 @@ class PromptBadCaseChecker:
                         "seer checked the same target more than once",
                         event,
                         data={"target_id": target_id},
+                        bad_case_kind="strategy_mistake",
+                        confidence="high",
+                        confidence_score=0.9,
                     )
                 )
             checked_targets.add(target_id)
@@ -186,9 +211,12 @@ class PromptBadCaseChecker:
                                 "target_id": target_id,
                                 "target_role": player_roles.get(target_id),
                             },
+                            bad_case_kind="strategy_mistake",
+                            confidence="medium",
+                            confidence_score=0.72,
                         )
                     )
-            elif event.event_type == EventType.WITCH_POISONED:
+            elif event.event_type in {EventType.WITCH_POISON_USED, EventType.WITCH_POISONED}:
                 target_id = event.data.get("target_id")
                 if target_id and player_camps.get(target_id) == Camp.VILLAGER:
                     results.append(
@@ -199,6 +227,9 @@ class PromptBadCaseChecker:
                                 "target_id": target_id,
                                 "target_role": player_roles.get(target_id),
                             },
+                            bad_case_kind="strategy_mistake",
+                            confidence="medium",
+                            confidence_score=0.72,
                         )
                     )
         return results
@@ -231,10 +262,58 @@ class PromptBadCaseChecker:
                             "speech": speech[:120],
                         },
                         severity=CheckSeverity.WARNING,
+                        bad_case_kind="hallucination",
+                        confidence="high",
+                        confidence_score=0.86,
                     )
                 )
 
             previous_public_speech += "\n" + speech
+
+        return results
+
+    def _check_night_claims_before_public_context(
+        self, events: list[Event]
+    ) -> list[CheckResult]:
+        """标记首个公开阶段前，夜聊凭空引用白天发言/票型等事实。"""
+        results: list[CheckResult] = []
+        has_prior_public_context = False
+
+        for event in events:
+            if event.event_type in self._public_speech_events or event.event_type in {
+                EventType.VOTE_CAST,
+                EventType.VOTE_RESULT,
+                EventType.PLAYER_ELIMINATED,
+            }:
+                has_prior_public_context = True
+
+            if event.event_type != EventType.PLAYER_DISCUSSION:
+                continue
+
+            phase = event.phase.value if hasattr(event.phase, "value") else str(event.phase)
+            if phase != "night" or has_prior_public_context:
+                continue
+
+            raw_speech = str(event.data.get("speech", event.message))
+            speech = self._extract_speech_text(raw_speech)
+            if not speech:
+                continue
+
+            if any(pattern.search(speech) for pattern in self._prior_public_info_patterns):
+                results.append(
+                    self._bad_case(
+                        "night speech referenced public-day evidence before any public context existed",
+                        event,
+                        data={
+                            "player_id": event.data.get("player_id"),
+                            "speech": speech[:120],
+                        },
+                        severity=CheckSeverity.WARNING,
+                        bad_case_kind="hallucination",
+                        confidence="high",
+                        confidence_score=0.88,
+                    )
+                )
 
         return results
 
@@ -398,9 +477,15 @@ class RoleSkillChecker:
     _required_fields = {
         EventType.WEREWOLF_KILLED: {"target_id"},
         EventType.WITCH_SAVED: {"target_id"},
+        EventType.WITCH_POISON_USED: {"target_id"},
         EventType.WITCH_POISONED: {"target_id"},
         EventType.SEER_CHECKED: {"target_id", "result"},
         EventType.GUARD_PROTECTED: {"target_id"},
+        EventType.WHITE_WOLF_KILLED: {"actor_id", "target_id"},
+        EventType.WOLF_BEAUTY_CHARMED: {"actor_id", "target_id"},
+        EventType.NIGHTMARE_BLOCKED: {"actor_id", "target_id"},
+        EventType.GUARDIAN_WOLF_PROTECTED: {"actor_id", "target_id"},
+        EventType.RAVEN_MARKED: {"actor_id", "target_id"},
         EventType.HUNTER_REVENGE: {"shooter_id", "target_id", "role"},
         EventType.VOTE_CAST: {"voter_id", "target_id"},
     }
@@ -442,8 +527,14 @@ class DecisionConsistencyChecker:
     _target_events = {
         EventType.GUARD_PROTECTED,
         EventType.WITCH_SAVED,
+        EventType.WITCH_POISON_USED,
         EventType.WITCH_POISONED,
         EventType.SEER_CHECKED,
+        EventType.WHITE_WOLF_KILLED,
+        EventType.WOLF_BEAUTY_CHARMED,
+        EventType.NIGHTMARE_BLOCKED,
+        EventType.GUARDIAN_WOLF_PROTECTED,
+        EventType.RAVEN_MARKED,
         EventType.VOTE_CAST,
     }
 

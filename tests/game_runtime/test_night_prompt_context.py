@@ -15,7 +15,7 @@ from llm_werewolf.game_runtime.roles import Guard, Seer, Witch, Villager, Werewo
 from llm_werewolf.game_runtime.roles.werewolf import build_werewolf_team_context
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.strategy.decisions import WitchNightDecision
+from llm_werewolf.strategy.contracts.decisions import WitchNightDecision
 
 
 class _CaptureInteraction:

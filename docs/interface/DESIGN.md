@@ -91,7 +91,7 @@ FastAPI 启动（werewolf-api）
 | 模式 | 说明 | 入口 |
 |------|------|------|
 | 纯 Agent 对局 | 全部 Agent 自动对局 | `werewolf <config.yaml>` |
-| 人机混合 | 指定座位为人类玩家 | `werewolf <config.yaml> --human_seat 1` 或 `--human_seat 1,3` |
+| 人机混合 | 指定座位为人类玩家 | `werewolf --participation human_mixed --rules extended_roles --players 18 --human_seat 8` |
 | 人数/规则覆盖 | 调整座位数或警长流 | `--players N`、`--badge_flow`、`--participation`、`--rules` |
 | 离线评测 | 批量 DemoAgent 场景 | `werewolf-eval` |
 | 证据包 / 投票摇摆 | PostGame 产物分析 | `werewolf-evidence`、`werewolf-vote-swing` |
@@ -162,17 +162,18 @@ vote_intention_concurrency: 4
 
 | 变量 | 用途 |
 |------|------|
-| `ARK_API_KEY` | 火山方舟 API Key（Doubao） |
-| `ARK_EP` | 推理接入点 ID（如 `ep-20260514115354-xxx`） |
+| `VIBE_API_KEY` | VibeAPI API Key（当前 12 人 Kimi 配置使用） |
+| `ARK_API_KEY` | 火山方舟 API Key（Doubao 历史/备用配置使用） |
+| `ARK_EP` | 火山方舟推理接入点 ID（如 `ep-20260514115354-xxx`） |
 | `AGENT_SERIAL_DELAY_SECONDS` | AgentScope 串行调用间隔，减轻 429 |
 
-常用配置：`configs/llm-6p-doubao.yaml`、`configs/llm-12p-doubao.yaml`、`configs/demo-6.yaml`。
+常用配置：`configs/llm-12p-kimi.yaml`（当前 12 人 Kimi/VibeAPI 正式局）、`configs/llm-6p-doubao.yaml`、`configs/llm-9p-doubao.yaml`、`configs/demo-6.yaml`。
 
 改 `.env` 后先验证：
 
 ```bash
-uv run python scripts/test_ark_connectivity.py   # 期望 STATUS: OK
-uv run werewolf configs/llm-12p-doubao.yaml      # 12 人 CLI 对局
+uv run werewolf configs/llm-12p-kimi.yaml        # 当前 12 人 Kimi/VibeAPI CLI 对局
+uv run python scripts/test_ark_connectivity.py   # 仅用于 Doubao/ARK 配置连通性，期望 STATUS: OK
 ```
 
 产物目录：`artifacts/runs/<YYYYMMDD-HHMMSS>/`；对局结束自动触发 PostGame（见 [evaluation/DESIGN.md](../evaluation/DESIGN.md)）。
@@ -335,4 +336,5 @@ await finalize_run(
 - 进度：[ROADMAP.md](./ROADMAP.md)
 - 工程结构方案：[../architecture/工程结构整理方案.md](../architecture/工程结构整理方案.md)
 - 人机对战说明：[../reports/人机对战与命令行模式.md](../reports/人机对战与命令行模式.md)
-- ARK 连通测试：`scripts/test_ark_connectivity.py`
+- Kimi/VibeAPI 正式局配置：`configs/llm-12p-kimi.yaml`
+- ARK 连通测试：`scripts/test_ark_connectivity.py`（仅用于 Doubao/ARK 配置）

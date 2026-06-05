@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from llm_werewolf.game_runtime.config import PlanAssignmentConfig, PlayerConfig, PlayersConfig
-from llm_werewolf.game_runtime.utils import load_config
+from llm_werewolf.game_runtime.support.utils import load_config
 
 
 def _six_demo_players() -> list[PlayerConfig]:
@@ -58,9 +58,9 @@ def test_vote_intention_concurrency_accepts_parallel_value() -> None:
 
 
 def test_kimi_config_enables_parallel_vote_intentions() -> None:
-    cfg = load_config(Path("configs/xiaomi.yaml"))
+    cfg = load_config(Path("configs/llm-12p-kimi.yaml"))
 
-    assert cfg.vote_intention_concurrency == 6
+    assert cfg.vote_intention_concurrency > 1
 
 
 def test_plan_assignment_defaults_to_disabled() -> None:

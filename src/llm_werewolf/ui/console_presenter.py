@@ -11,7 +11,7 @@ from rich.console import Console
 from llm_werewolf.game_runtime.types import Event, EventType
 
 if TYPE_CHECKING:
-    from llm_werewolf.game_runtime.locale import Locale
+    from llm_werewolf.game_runtime.i18n.locale import Locale
 
 console = Console()
 
@@ -50,10 +50,16 @@ class ConsolePresenter:
         return event_type in {
             EventType.GUARD_PROTECTED,
             EventType.WITCH_SAVED,
+            EventType.WITCH_POISON_USED,
             EventType.WITCH_POISONED,
             EventType.SEER_CHECKED,
             EventType.WEREWOLF_KILLED,
             EventType.LOVERS_LINKED,
+            EventType.WHITE_WOLF_KILLED,
+            EventType.WOLF_BEAUTY_CHARMED,
+            EventType.NIGHTMARE_BLOCKED,
+            EventType.GUARDIAN_WOLF_PROTECTED,
+            EventType.RAVEN_MARKED,
         }
 
     def _is_sheriff_event(self, event_type: EventType) -> bool:
@@ -255,6 +261,22 @@ class ConsolePresenter:
             )
             console.print("═" * 70, style="yellow")
             console.print()
+        elif phase_value == "sheriff_election":
+            # 首夜后先结清夜间公开信息，再进入独立警长竞选阶段。
+            self._flush_night_actions()
+            self._flush_delayed_night_public_events()
+
+            round_num = event.data.get("round", 0)
+            round_label = "輪" if tw else "轮"
+            title = "警長競選" if tw else "警长竞选"
+            console.print()
+            console.print("═" * 70, style="gold1")
+            console.print(
+                f"                    🎖️  第 {round_num} {round_label} - {title} 🎖️",
+                style="bold gold1",
+            )
+            console.print("═" * 70, style="gold1")
+            console.print()
 
     def _handle_narrator_message(self, event: Event) -> None:
         """处理旁白类事件。"""
@@ -294,7 +316,7 @@ class ConsolePresenter:
         """缓冲夜间行动以便分组展示。"""
         # 提取干净文案（若已有 emoji 则去掉）
         message = event.message
-        for emoji in ["🛡️", "💊", "☠️", "🔮", "🐺", "💕", "🐺💋"]:
+        for emoji in ["🛡️", "💊", "☠️", "🔮", "🐺", "💕", "🐺💋", "🐺⚪", "🐺🛡️", "🐦‍⬛"]:
             message = message.replace(emoji, "").strip()
 
         # 为行动配上 emoji
@@ -302,7 +324,7 @@ class ConsolePresenter:
             icon = "🛡️"
         elif event.event_type == EventType.WITCH_SAVED:
             icon = "💊"
-        elif event.event_type == EventType.WITCH_POISONED:
+        elif event.event_type in {EventType.WITCH_POISON_USED, EventType.WITCH_POISONED}:
             icon = "☠️"
         elif event.event_type == EventType.SEER_CHECKED:
             icon = "🔮"
@@ -310,6 +332,16 @@ class ConsolePresenter:
             icon = "🐺"
         elif event.event_type == EventType.LOVERS_LINKED:
             icon = "💕"
+        elif event.event_type == EventType.WHITE_WOLF_KILLED:
+            icon = "🐺⚪"
+        elif event.event_type == EventType.WOLF_BEAUTY_CHARMED:
+            icon = "🐺💋"
+        elif event.event_type == EventType.NIGHTMARE_BLOCKED:
+            icon = "🌑"
+        elif event.event_type == EventType.GUARDIAN_WOLF_PROTECTED:
+            icon = "🐺🛡️"
+        elif event.event_type == EventType.RAVEN_MARKED:
+            icon = "🐦‍⬛"
         else:
             icon = "  "
 
@@ -495,10 +527,12 @@ class ConsolePresenter:
 
     def _present_vote_intention(self, event: Event) -> None:
         """展示投票意向变化（上帝视角）。"""
+        self._flush_discussion()
         console.print(f"📊 {event.message}", style="dim cyan")
 
     def _present_belief_snapshot(self, event: Event) -> None:
         """展示信念矩阵快照（上帝视角）。"""
+        self._flush_discussion()
         console.print()
         panel = Panel(
             event.message,

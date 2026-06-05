@@ -10,61 +10,62 @@
 
 ## 快速开始
 
-### 环境要求
+### 前提
 
-- Python 3.10+
-- uv 包管理器
+| 工具 | 版本 | 安装 |
+|------|------|------|
+| [uv](https://docs.astral.sh/uv/) | ≥ 0.4 | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Python | 3.10+ | 由 uv 自动管理（无需手动安装） |
 
-### 安装
+### 一键初始化（推荐）
 
 ```bash
 git clone https://github.com/kissie-77/MultiAgent-Werewolf.git
 cd MultiAgent-Werewolf
 
-# 安装依赖
-uv sync
+make setup          # 安装依赖 + 创建 .env + 配置 pre-commit
 ```
+
+`make setup` 会自动完成：安装 `dev` + `test` 依赖组、复制 `.env.example → .env`、安装 pre-commit hooks。
+
+> **不喜欢 Makefile？** 等价命令：
+> ```bash
+> uv sync --group dev --group test   # 安装依赖
+> cp .env.example .env               # 创建配置文件
+> ```
 
 ### 配置 API
 
-1. 复制环境变量模板并填入密钥：
-
-```bash
-cp .env.example .env
-```
-
-1. 复制对局配置：
+编辑 `.env` 填入密钥，再复制/编辑对局配置：
 
 ```bash
 cp configs/example.yaml configs/my_game.yaml
+# 编辑 configs/my_game.yaml 与 .env
 ```
 
-1. 编辑 `configs/my_game.yaml` 与 `.env`（YAML 里用 `api_key_env` / `model_env` 引用环境变量名，密钥与接入点 ID 只写进 `.env`）：
+YAML 里用 `api_key_env` / `model_env` 引用环境变量名，密钥只写进 `.env`：
 
 ```yaml
 language: en-US
 
 players:
   - name: Player1
-    model: your-model-name        # 或直接写 model_env: ARK_EP（Doubao）
+    model: your-model-name        # 或 model_env: ARK_EP（Doubao）
     base_url: https://your-api-url/v1
-    api_key_env: OPENAI_API_KEY     # 对应 .env 中的变量名
+    api_key_env: OPENAI_API_KEY   # 对应 .env 中的变量名
   # ... 6-20 个玩家
 ```
 
-支持任何兼容 OpenAI Chat Completions 格式的 API（DeepSeek、SiliconFlow、小米、通义千问等）。
+支持任何兼容 OpenAI Chat Completions 格式的 API（DeepSeek、SiliconFlow、通义千问等）。
 
 ### 运行游戏
 
 ```bash
-# 控制台模式（纯文本日志，推荐开发测试用）
-uv run python -m llm_werewolf.interface.cli --config configs/my_game.yaml
+make demo                         # Demo 模式（无需 API Key，6 人随机 Agent）
+make demo9                        # Demo 模式（9 人 + 警徽流）
 
-# TUI 模式（交互式终端界面）
-uv run werewolf-tui configs/my_game.yaml
-
-# Demo 模式（不需要 API，用随机 Agent 测试）
-uv run werewolf configs/demo.yaml
+uv run werewolf configs/my_game.yaml          # 使用自定义配置
+uv run llm-werewolf --config configs/llm-6p-deepseek.yaml  # LLM 对战
 ```
 
 ### 对局模式（命令行参数）
@@ -94,6 +95,55 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
 > API Key 仅 LLM 玩家需要（写入 `.env`）；`human` / `demo` 座位无需 Key。详见
 > [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)。
 
+## 生产部署（Docker Compose）
+
+```
+[浏览器] → nginx:80 → /api/* → uvicorn:8000 (FastAPI)
+                     → /*    → React SPA 静态文件
+```
+
+```bash
+cp .env.example .env        # 填入 API Key 和 OBS_ALERT_WEBHOOK_URL
+make docker-up              # 构建镜像并后台启动
+# 等待健康检查通过后访问 http://localhost
+make docker-logs            # 查看日志
+make docker-down            # 停止
+```
+
+**关键环境变量**（写入 `.env`）：
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `OPENAI_API_KEY` / `ARK_API_KEY` | LLM 接入密钥 | `sk-...` |
+| `OBS_ALERT_WEBHOOK_URL` | 告警推送地址（可选） | `https://open.feishu.cn/...` |
+| `OBS_ALERT_MIN_SEVERITY` | 最低告警级别 | `warning`（默认） |
+| `WEB_PORT` | 前端监听端口 | `80`（默认） |
+
+> 告警链路：游戏异常 → `AlertDispatcher` → `WebhookNotifier` → Webhook URL（飞书/钉钉/Slack 均可）
+
+## 开发工作流
+
+```bash
+# 测试
+make test            # 完整测试（含覆盖率，与 CI 保持一致）
+make test-fast       # 快速测试（无覆盖率，并行加速，适合本地迭代）
+make test-file f=tests/game_runtime/test_voting_context.py   # 单文件测试
+
+# 代码质量
+make lint            # ruff 检查
+make fmt             # ruff 格式化 + 自动修复
+make check           # lint + test-fast（提交前检查）
+
+# 其他
+make help            # 查看所有可用命令
+```
+
+> **使用 `poe`**（`poethepoet` 已内置在 dev 依赖中）：
+> ```bash
+> uv run poe test-fast     # 等价于 make test-fast
+> uv run poe lint          # 等价于 make lint
+> ```
+
 ## 项目架构
 
 ```
@@ -101,8 +151,8 @@ src/llm_werewolf/
 ├── game_runtime/          # 狼人杀规则、角色、动作、状态、引擎与配置
 ├── agent_team/            # AgentScope Agent、消息路由、信息隔离、LLM 调用封装
 ├── strategy/              # 角色 Prompt、结构化决策、阶段输出契约、投票意向
-├── interface/             # CLI / TUI / 评测入口与模式选择
-├── ui/                    # TUI 界面与展示组件
+├── interface/             # CLI 入口（cli/）+ FastAPI（api/）
+├── ui/                    # 控制台 Rich 展示（ConsolePresenter）
 └── evaluation/            # 对局评测、日志记录、复盘分析
 ```
 
@@ -119,6 +169,7 @@ src/llm_werewolf/
 - [ ] 结构化日志（JSON 事件流）
 - [ ] Web 前端观战 UI
 - [x] 评测与复盘（vote intention / swing 分析）
+- [x] 女巫 / 守卫毒奶规则与死亡链（915 项自动化测试）
 
 ## 团队分工
 

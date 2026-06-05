@@ -1,4 +1,4 @@
-from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
+from llm_werewolf.game_runtime.support.seat import get_player_seat, resolve_player_by_seat
 from llm_werewolf.game_runtime.roles import Villager, Werewolf
 from llm_werewolf.game_runtime.state.player import Player
 

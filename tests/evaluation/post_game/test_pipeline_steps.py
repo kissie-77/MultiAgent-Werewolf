@@ -5,7 +5,12 @@ from pathlib import Path
 
 from llm_werewolf.evaluation.post_game import pipeline as pipeline_module
 from llm_werewolf.evaluation.post_game.pipeline import run_post_game_pipeline_sync
-from llm_werewolf.evaluation.post_game.pipeline_steps import run_step
+from llm_werewolf.evaluation.post_game.pipeline_steps import run_step, skip_steps
+from llm_werewolf.evaluation.post_game.pipeline_registry import (
+    POST_GAME_STEP_REGISTRY,
+    required_step_ids,
+    step_artifacts,
+)
 
 
 def test_run_step_captures_failure_without_raise() -> None:
@@ -24,6 +29,27 @@ def test_run_step_captures_failure_without_raise() -> None:
     assert steps[0].status == "ok"
     assert steps[1].status == "failed"
     assert "boom" in (steps[1].error or "")
+
+
+def test_skip_steps_records_each_step() -> None:
+    steps = []
+
+    skip_steps(steps, ("a", "b"), "dependency failed")
+
+    assert [step.step_id for step in steps] == ["a", "b"]
+    assert all(step.status == "skipped" for step in steps)
+    assert all(step.error == "dependency failed" for step in steps)
+
+
+def test_post_game_step_registry_declares_required_dependencies_and_artifacts() -> None:
+    assert required_step_ids() == frozenset({"load_context"})
+    assert POST_GAME_STEP_REGISTRY["mvp_scores"].depends_on == (
+        "camp_persuasion",
+        "intention_scores",
+        "score_contexts",
+    )
+    assert step_artifacts("prompt_proposals") == ["prompt_proposals.json"]
+    assert step_artifacts("role_skills") == ["role_skills.json", "skills/"]
 
 
 def test_pipeline_writes_steps_and_quality_report(tmp_path: Path) -> None:

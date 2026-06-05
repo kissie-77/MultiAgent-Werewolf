@@ -1,9 +1,9 @@
 import logging
 import re
-import random
 
 from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.game_runtime.prompts.decision_fallback import select_target_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -145,13 +145,19 @@ class ActionSelector:
             if target is not None or allow_skip:
                 return target
 
-            if fallback_random:
-                return random.choice(possible_targets)  # noqa: S311
+            fallback = select_target_fallback(
+                possible_targets, allow_random=fallback_random, reason="parse_failed"
+            )
+            if fallback.target is not None:
+                return fallback.target
 
         except Exception:
             logger.warning("get_target_from_agent failed agent=%s", getattr(agent, "name", "?"), exc_info=True)
-            if fallback_random:
-                return random.choice(possible_targets)  # noqa: S311
+            fallback = select_target_fallback(
+                possible_targets, allow_random=fallback_random, reason="agent_error"
+            )
+            if fallback.target is not None:
+                return fallback.target
 
         return None
 

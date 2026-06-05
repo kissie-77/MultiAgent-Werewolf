@@ -38,7 +38,7 @@ def test_start_game_default_mode(api_client: TestClient) -> None:
         resp = api_client.post("/api/v1/games/start", json={})
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["config_id"] == "demo-6"
+    assert data["config_id"] == "llm-12p-kimi"
     assert data["rules"] == "basic"
 
 

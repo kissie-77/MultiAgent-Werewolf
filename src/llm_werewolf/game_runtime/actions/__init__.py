@@ -9,6 +9,7 @@ from llm_werewolf.game_runtime.actions.villager import (
     WitchPoisonAction,
     GuardProtectAction,
     GraveyardKeeperCheckAction,
+    MagicianSwapAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import (
     WerewolfKillAction,
@@ -27,6 +28,7 @@ __all__ = [
     "GuardianWolfProtectAction",
     "HunterShootAction",
     "KnightDuelAction",
+    "MagicianSwapAction",
     "NightmareWolfBlockAction",
     "RavenMarkAction",
     "SeerCheckAction",

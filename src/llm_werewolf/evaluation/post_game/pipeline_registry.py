@@ -68,6 +68,11 @@ POST_GAME_STEP_SPECS: tuple[PostGameStepSpec, ...] = (
         depends_on=("load_context",),
     ),
     PostGameStepSpec(
+        "bad_case",
+        artifacts=("bad_case_report.json", "bad_case_report.md"),
+        depends_on=("load_context",),
+    ),
+    PostGameStepSpec(
         "prompt_proposals",
         artifacts=("prompt_proposals.json",),
         depends_on=("camp_persuasion",),

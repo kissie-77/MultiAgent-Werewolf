@@ -7,8 +7,9 @@ import pytest
 from llm_werewolf.game_runtime.roles import (
     Seer,
     Guard,
-    Witch,
     Raven,
+    Witch,
+    Magician,
     Villager,
     Werewolf,
     WhiteWolf,
@@ -25,13 +26,14 @@ from llm_werewolf.game_runtime.actions.villager import (
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
+    MagicianSwapAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import (
-    WhiteWolfKillAction,
     WerewolfVoteAction,
+    WhiteWolfKillAction,
     WolfBeautyCharmAction,
-    GuardianWolfProtectAction,
     NightmareWolfBlockAction,
+    GuardianWolfProtectAction,
 )
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.engine.action_processor import ActionProcessorMixin
@@ -119,27 +121,44 @@ def test_log_action_event_uses_registered_logger() -> None:
     assert event_type == EventType.WITCH_POISON_USED
 
 
+def test_log_magician_swap_action_uses_private_event() -> None:
+    magician = Player("m1", "Magician", Magician)
+    seer = Player("s1", "Seer", Seer)
+    villager = Player("v1", "Villager", Villager)
+    state = GameState([magician, seer, villager])
+    processor = _Processor(state)
+
+    processor._log_action_event(MagicianSwapAction(magician, seer, villager, state))
+
+    event_type = processor._log_event.call_args.args[0]
+    data = processor._log_event.call_args.kwargs["data"]
+    assert event_type == EventType.MAGICIAN_SWAPPED
+    assert data["player_id"] == "m1"
+    assert data["target1_id"] == "s1"
+    assert data["target2_id"] == "v1"
+
+
 @pytest.mark.parametrize(
     ("action_factory", "expected_event_type"),
     [
         (
-            lambda actor, target, state: WhiteWolfKillAction(actor, target, state),
+            WhiteWolfKillAction,
             EventType.WHITE_WOLF_KILLED,
         ),
         (
-            lambda actor, target, state: WolfBeautyCharmAction(actor, target, state),
+            WolfBeautyCharmAction,
             EventType.WOLF_BEAUTY_CHARMED,
         ),
         (
-            lambda actor, target, state: GuardianWolfProtectAction(actor, target, state),
+            GuardianWolfProtectAction,
             EventType.GUARDIAN_WOLF_PROTECTED,
         ),
         (
-            lambda actor, target, state: NightmareWolfBlockAction(actor, target, state),
+            NightmareWolfBlockAction,
             EventType.NIGHTMARE_BLOCKED,
         ),
         (
-            lambda actor, target, state: RavenMarkAction(actor, target, state),
+            RavenMarkAction,
             EventType.RAVEN_MARKED,
         ),
     ],

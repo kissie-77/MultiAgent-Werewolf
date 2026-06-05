@@ -29,6 +29,7 @@ class EventFormatter:
         EventType.WHITE_WOLF_KILLED: "red",
         EventType.WOLF_BEAUTY_CHARMED: "magenta",
         EventType.NIGHTMARE_BLOCKED: "yellow",
+        EventType.MAGICIAN_SWAPPED: "magenta",
         EventType.GUARDIAN_WOLF_PROTECTED: "green",
         EventType.RAVEN_MARKED: "yellow",
         EventType.LOVERS_LINKED: "magenta",

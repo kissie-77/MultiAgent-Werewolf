@@ -117,6 +117,7 @@ def test_typed_private_skill_events_visible_to_actor_only() -> None:
     for event_type in {
         EventType.WOLF_BEAUTY_CHARMED,
         EventType.NIGHTMARE_BLOCKED,
+        EventType.MAGICIAN_SWAPPED,
         EventType.RAVEN_MARKED,
     }:
         visible = resolve_visible_to(

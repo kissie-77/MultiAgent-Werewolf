@@ -30,7 +30,7 @@ if str(SRC_PATH) not in sys.path:
 
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
-from llm_werewolf.interface.bootstrap import (
+from llm_werewolf.interface.cli.runtime.bootstrap import (
     prepare_game_roster,
     create_information_hub,
     wire_agentscope_after_setup,

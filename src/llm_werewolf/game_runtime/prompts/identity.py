@@ -22,7 +22,7 @@ IDENTITY_PROMPTS: dict[str, dict[str, str]] = {
         "suggestion": "过早暴露风险大，可在关键轮次发动技能。",
     },
     "WhiteWolf": {
-        "instruction": "你是白狼。参与狼刀；奇数夜晚可额外击杀一名狼人（可跳过）。",
+        "instruction": "你是白狼。参与狼刀；奇数夜晚可额外击杀一名狼人（可跳过）。白天发言轮可自爆（self_explode），跳过投票直入黑夜并开枪带走一人。",
         "suggestion": "独狼阶段可刀狼加快局势，注意守卫狼的守护。",
     },
     "WolfBeauty": {

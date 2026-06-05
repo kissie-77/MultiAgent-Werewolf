@@ -9,7 +9,11 @@ from typing import Any
 
 import yaml
 
-from llm_werewolf.strategy.prompt_registry import _coerce_text_dict, _coerce_text_list, _render_legacy_suggestion
+from llm_werewolf.strategy.prompt_yaml_utils import (
+    coerce_text_dict as _coerce_text_dict,
+    coerce_text_list as _coerce_text_list,
+    render_legacy_suggestion as _render_legacy_suggestion,
+)
 
 _ROLE_PROMPTS_ROOT = Path(__file__).resolve().parent / "prompts" / "roles"
 _SHARED_AGENT_BASE = Path(__file__).resolve().parent / "prompts" / "shared" / "agent_base.md"

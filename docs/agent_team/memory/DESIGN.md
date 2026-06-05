@@ -2,7 +2,7 @@
 
 > **模块**：agent_team / memory
 > **状态**：active
-> **最后更新**：2026-05-23
+> **最后更新**：2026-06-02
 > **关联代码**：`src/llm_werewolf/agent_team/memory/`
 > **关联测试**：`tests/agent_team/test_*memory*`、`tests/game_runtime/test_memory_*`
 
@@ -66,8 +66,13 @@ on_game_start(role)
   → 角色池说明、ProceduralMemory.build_plan_summary → working.add_persistent
   → （可选）SemanticMemory 后端卡片 → working persistent
 
-发言/决策前
-  → refresh_player_belief_skills → 按信念矩阵匹配 Skill → decision context
+发言/私密 LLM 决策前
+  → InformationHub._refresh_actor_belief_skills
+  → refresh_player_belief_skills → 按信念矩阵匹配 Skill → _belief_skill_context
+  → get_context_for_decision 注入 decision context
+
+信念矩阵文本更新（与 Skill 匹配独立、可同帧发生）
+  → sync_player_belief_memory → sync_belief_context（写 WorkingMemory + 顺带 refresh）
 
 每轮 on_round_end(round)
   → working.end_round()（可选 LLMCompressor 压缩）
@@ -128,10 +133,11 @@ on_game_end(won)
 
 | 组件 | 职责 |
 |------|------|
-| `strategy/belief_format.py` | 从 `BeliefState` / beliefs 快照检测 signal；发言前 refresh |
+| `strategy/belief_format.py` | `refresh_player_belief_skills` / `sync_player_belief_memory`；signal 检测 |
 | `skill_loader.select_skills_for_belief` | signal 子集匹配 + pattern fallback |
-| `RuntimeMemoryManager.sync_belief_context` | 写入 `_belief_skill_context` |
-| `InformationHub` | 圆桌/发言前先 refresh 再 `context_builder` |
+| `RuntimeMemoryManager.refresh_belief_skills` | 写入 `_belief_skill_context`、记录 `_belief_matched_skill_ids` |
+| `RuntimeMemoryManager.sync_belief_context` | 信念矩阵 → WorkingMemory persistent；末尾调用 refresh |
+| `InformationHub._refresh_actor_belief_skills` | 所有私密 LLM 决策前统一 refresh（发言、选座、女巫、投票意向等） |
 | PostGame `skill_md.py` | 写 frontmatter `belief_signals` |
 
 配置：`MemoryConfig.skill_belief_top_k`、`skill_belief_pool_size`。

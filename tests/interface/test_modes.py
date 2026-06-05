@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_werewolf.interface.modes import list_modes, resolve_config_path
+from llm_werewolf.interface.cli.runtime.modes import list_modes, resolve_config_path
 from llm_werewolf.game_runtime.utils import load_config
 
 
@@ -21,7 +21,7 @@ def test_list_modes_contains_basic_badge_and_extended() -> None:
 
 def test_human_mixed_basic_uses_llm_config_not_demo() -> None:
     assert resolve_config_path(participation="human_mixed", rules="basic") == Path(
-        "configs/xiaomi.yaml"
+        "configs/llm-12p-kimi.yaml"
     )
 
 

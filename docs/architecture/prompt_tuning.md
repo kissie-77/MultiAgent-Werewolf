@@ -2,7 +2,7 @@
 
 > **模块**：architecture
 > **状态**：active
-> **最后更新**：2026-06-03
+> **最后更新**：2026-06-02
 > **关联代码**：`src/llm_werewolf/strategy/`
 > **关联测试**：`tests/strategy/`
 > **Agent Skill**：`.agents/skills/generated/strategy/`
@@ -24,12 +24,13 @@
 | v2_role_strategy    | 2026-05-23 | 改写村民、预言家、女巫、狼人、狼王、守卫、猎人 7 个核心角色 Prompt | 评分标准与本项目角色目标 | 完成初始策略化改写，提升角色策略、信息边界意识、发言质量、投票逻辑和技能使用决策 | 已实现，待对局验证 |
 | v2_strategy_module  | 2026-05-24 | `src/llm_werewolf/strategy/role_prompts.py`                        | 工程架构重构计划         | 将角色策略 Prompt 收口到 strategy 策略层，作为角色 Prompt 的唯一主实现           | 已实现             |
 | v2_prompt_manager   | 2026-05-24 | `PromptManager` 统一构建                                           | 工程架构重构计划         | 已实现                                                                           |                    |
-| v2_prompt_variables | 2026-05-25 | `strategy/prompts/v2/` + `prompt_registry.py`                      | 提示词版本与变量设计     | Legacy 整包（测试/迁移）                                                        | 已 superseded      |
+| v2_prompt_variables | 2026-05-25 | ~~`strategy/prompts/v2/` + `prompt_registry.py`~~                      | 提示词版本与变量设计     | Legacy 整包                                                                       | **已删除 2026-06-02** |
 | v3_per_role_packages | 2026-05-26 | `prompts/roles/<role>/<version>/` + `role_version_manifest.py`     | Per-role 版本控制        | 22 身份分包；默认 latest；进化按身份 bump                                        | **当前主路径**     |
-| v2_role_card_schema | 2026-06-01 | `strategy/prompts/v2/roles/*.yaml` + `prompt_registry.py`          | 角色卡 Schema 迁移报告   | 将角色卡从自由文本 `suggestion` 升级为结构化字段，并扩展到 22 个角色             | 已实现             |
+| v2_role_card_schema | 2026-06-01 | 已迁入 `prompts/roles/*/v1/role.yaml`（原 v2/roles）               | 角色卡 Schema 迁移报告   | 结构化字段替代自由文本 `suggestion`                                              | 已并入 per-role    |
 | v2_20260601_172033_prompt | 2026-06-01 | `artifacts/prompt_versions/v2_20260601_172033_prompt/`             | 自进化 Prompt 快照       | 记录 6.1 迭代后的生成版 Prompt，父版本为 `v2`                                    | generated          |
 | v2_role_style_plans | 2026-06-02 | `PlanStrategies` + `PlayersConfig.plan_assignment`                 | 同模型同角色发言同质化问题 | 用角色专属风格 plan 做保守/激进/质疑/协调分流，支持手写与开局随机分配           | 已实现             |
 | v2_public_fact_boundary | 2026-06-02 | `EngineContexts.public_speech_information_boundary` + `PromptBadCaseChecker` | 人机混战公开发言幻觉 | 禁止把未公开出现的跳身份、救人、验人、刀口写成事实；赛后标记无支撑公开事实 claim | 已实现             |
+| v3_phase_plans_external | 2026-06-02 | `prompts/phase/`、`prompts/plans/` + `phase_prompt_registry.py`   | GamePrompts/PlanStrategies 外置 | 流程文案 Schema 化；删除 v2 整包                                                | **当前主路径**     |
 | v3_role_pool_boundary | 2026-06-03 | `factory.build_system_prompt` + `RuntimeMemoryManager` + per-role 角色卡 | 6 人局把不存在的守卫当成可能性 | 将本局真实角色池注入系统 prompt 与工作记忆，收紧“守卫/守护线”泛化话术 | 已实现 |
 
 ## v3 Per-role 版本控制（2026-05-26）
@@ -38,17 +39,12 @@
 - Prompt 路径：`strategy/prompts/roles/<role>/<version>/role.yaml` + `prompts/shared/agent_base.md`
 - Skill 路径：`agent_team/skills/<role>/<skill_version>/*.md`
 - 运行时通过 `RoleVersionManifest` 解析版本；**未 pin 则自动用最新 `vN`**
-- 改 Prompt 优先改 per-role 小包；**不要**再改 legacy `prompts/v2/` 整包（除非迁移脚本）
+- 改 Prompt 优先改 per-role 小包（`prompts/roles/<role>/<version>/`）与 phase/plans 外置 YAML；**legacy `prompts/v2/` 整包已于 2026-06-02 删除**，历史条目仅作迁移记录
 - Bootstrap：`scripts/bootstrap_role_prompt_packages.py`
 
-## v2 变量化外置（2026-05-25，Legacy）
+## v2 变量化外置（2026-05-25，**已移除 2026-06-02**）
 
-- 设计文档：[吕祎晗-提示词版本与变量设计.md](./%E5%90%95%E7%A5%8E%E6%99%97-%E6%8F%90%E7%A4%BA%E8%AF%8D%E7%89%88%E6%9C%AC%E4%B8%8E%E5%8F%98%E9%87%8F%E8%AE%BE%E8%AE%A1.md)
-- 变量 id 示例：`v2.agent.base`、`v2.role.wolf`
-- 正文路径：`src/llm_werewolf/strategy/prompts/v2/text/`、`roles/*.yaml`
-- 代码只通过 `PromptRegistry` / `PromptManager(prompt_version="v2")` 引用，**改 Prompt 优先改外置文件**
-- YAML 可选 `prompt_version: v2`（`PlayersConfig`），贯通运行时与 PostGame
-- `GamePrompts` / `PlanStrategies` 仍暂留 `role_prompts.py`（Phase 2 迁为 `v2.phase.*` / `v2.plan.*`）
+历史归档：整包路径与 `prompt_registry.py` 已删除。等价能力见 `role_prompt_registry.py`、`phase_prompt_registry.py`、`prompt_yaml_utils.py` 与 `prompts/roles/`、`prompts/phase/`、`prompts/plans/`。
 
 ## v2 角色卡结构化迁移（2026-06-01）
 

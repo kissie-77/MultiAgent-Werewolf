@@ -8,6 +8,7 @@ import fire
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from llm_werewolf.observability.health import check_readiness
 from llm_werewolf.paths import ARTIFACTS_DIR
@@ -78,9 +79,11 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/ready")
-    def ready() -> dict[str, object]:
-        require_ark = os.environ.get("OBS_READY_REQUIRE_ARK", "1") != "0"
-        return check_readiness(artifacts_dir=ARTIFACTS_DIR, require_ark_key=require_ark)
+    def ready() -> JSONResponse:
+        require_llm = os.environ.get("OBS_READY_REQUIRE_LLM", os.environ.get("OBS_READY_REQUIRE_ARK", "1")) != "0"
+        payload = check_readiness(artifacts_dir=ARTIFACTS_DIR, require_llm_key=require_llm)
+        status_code = 200 if payload.get("status") == "ready" else 503
+        return JSONResponse(content=payload, status_code=status_code)
 
     @app.get(f"{API_PREFIX}/pages")
     def page_route_index() -> dict[str, str]:

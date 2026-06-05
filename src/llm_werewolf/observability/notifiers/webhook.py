@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -11,6 +12,18 @@ from llm_werewolf.observability.models import AlertEvent
 from llm_werewolf.observability.notifiers.base import AlertNotifier
 
 logger = logging.getLogger(__name__)
+
+
+def _post_sync(url: str, body: bytes, timeout: float) -> int:
+    """在线程池中执行的同步 HTTP POST，返回状态码。"""
+    req = request.Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with request.urlopen(req, timeout=timeout) as resp:
+        return int(resp.status)
 
 
 class WebhookNotifier(AlertNotifier):
@@ -27,15 +40,11 @@ class WebhookNotifier(AlertNotifier):
             "alerts": [event.model_dump(mode="json") for event in events],
         }
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        req = request.Request(
-            self._url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
         try:
-            with request.urlopen(req, timeout=self._timeout) as resp:
-                if resp.status >= 400:
-                    logger.warning("Webhook returned HTTP %s", resp.status)
+            status = await asyncio.to_thread(_post_sync, self._url, body, self._timeout)
+            if status >= 400:
+                logger.warning("Webhook returned HTTP %s", status)
         except error.URLError as exc:
             logger.warning("Webhook notify failed: %s", exc)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Webhook unexpected error: %s", exc)

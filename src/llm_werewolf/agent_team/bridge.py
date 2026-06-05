@@ -449,7 +449,12 @@ class WerewolfAdapterBridge:
             response = await agent.get_response(prompt)
         except Exception as exc:
             msg = f"vote_intention LLM failed: {last_error or exc}"
-            raise RuntimeError(msg) from exc
+            logger.warning(
+                "request_vote_intention failed agent=%s, using seat=0 fallback",
+                getattr(agent, "name", "?"),
+                exc_info=True,
+            )
+            return _entry_from_seat(0, msg)
 
         target = WerewolfAdapterBridge.parse_target_selection(
             response, possible_targets, allow_skip=True
@@ -769,12 +774,11 @@ class WerewolfAdapterBridge:
             return WerewolfAdapterBridge.parse_yes_no(response)
         except Exception as exc:
             logger.warning(
-                "request_yes_no failed agent=%s",
+                "request_yes_no failed agent=%s, defaulting to False",
                 getattr(agent, "name", "?"),
                 exc_info=True,
             )
-            msg = f"yes/no decision failed for agent {getattr(agent, 'name', '?')}: {exc}"
-            raise RuntimeError(msg) from exc
+            return False
 
     @staticmethod
     async def request_multi_target(

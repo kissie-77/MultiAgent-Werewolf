@@ -28,7 +28,7 @@ from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.utils import load_config
 from llm_werewolf.game_runtime.locale import Locale
-from llm_werewolf.interface.bootstrap import (
+from llm_werewolf.interface.cli.runtime.bootstrap import (
     prepare_game_roster,
     create_information_hub,
     wire_agentscope_after_setup,
@@ -94,7 +94,7 @@ async def run(config_path: Path, run_dir: Path) -> None:
 
     replay_md.write_text("\n".join(lines), encoding="utf-8")
 
-    from llm_werewolf.interface.finalize_run import finalize_run
+    from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run
 
     post = await finalize_run(
         engine,

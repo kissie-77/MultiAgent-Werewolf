@@ -157,6 +157,10 @@ class SpeechDecision(BaseModel):
     private_thought: str | None = Field(
         default=None, description="Private reasoning; not broadcast to other players."
     )
+    self_explode: bool = Field(
+        default=False,
+        description="White Wolf only: self-destruct during day speech; skip voting and enter night.",
+    )
 
     @field_validator("public_speech")
     @classmethod

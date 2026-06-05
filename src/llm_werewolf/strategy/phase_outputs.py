@@ -36,6 +36,7 @@ class ActionPhase(str, Enum):
 _PHASE_TASK: dict[RoundtablePhase, str] = {
     RoundtablePhase.DAY_DISCUSSION: (
         "【任务】白天公开讨论轮。分析局势、回应前置发言、表明站队。"
+        "白狼王可在 SpeechDecision 中设 self_explode=true 自爆（跳过投票直入黑夜）。"
         "不得在本轮提交刀人/投票/验人/守人/用药目标。"
     ),
     RoundtablePhase.WOLF_TEAM_DISCUSSION: (

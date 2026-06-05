@@ -67,6 +67,8 @@ class GameState:
         self.allow_revote = False
         self.show_role_on_death = True
 
+        self.skip_day_voting = False
+
     def get_alive_witch_player_ids(self) -> list[str]:
         """返回存活女巫的玩家 ID 列表（用于刀口等仅女巫可见的事件）。"""
         return [p.player_id for p in self.get_alive_players() if p.get_role_name() == "Witch"]
@@ -137,6 +139,7 @@ class GameState:
             self.guardian_wolf_protected = None
             self.nightmare_blocked = None
             self.raven_marked = None
+            self.wolf_beauty_charmed = None
 
         return self.phase
 

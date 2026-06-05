@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from datetime import datetime
 
 import fire
 import logfire
@@ -121,6 +122,9 @@ async def main(
     presenter = ConsolePresenter(locale)
     engine.on_event = presenter.present_event
 
+    run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_dir.mkdir(parents=True, exist_ok=True)
+
     engine.setup_game(players=agents, roles=roles)
     human_viewers = _human_viewer_ids(engine)
 
@@ -141,12 +145,11 @@ async def main(
     console.print(f"[cyan]{locale.get('interface_mode')}[/cyan]")
     _announce_human_identity(engine, locale)
 
-    from datetime import datetime
-
     from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run
+    from llm_werewolf.interface.cli.runtime.finalize_run import persist_run_artifacts
+    from llm_werewolf.observability.dispatcher import get_dispatcher, record_run_failure
     from llm_werewolf.observability.runtime_log import attach_run_log_handler, detach_run_log_handler
 
-    run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
     attach_run_log_handler(run_dir)
     try:
         result = await engine.play_game()
@@ -189,12 +192,23 @@ async def main(
         else:
             console.print("\nGame interrupted by user.")
     except Exception as exc:
+        error_text = str(exc).strip() or type(exc).__name__
         logfire.error(
             "game_execution_error",
-            error=str(exc),
+            error=error_text,
             config_path=str(config_path),
             num_players=num_players,
         )
+        try:
+            persist_run_artifacts(engine, run_dir)
+            record_run_failure(run_dir, error=error_text, run_id=run_dir.name)
+            await get_dispatcher().emit_session_failed(
+                run_id=run_dir.name,
+                run_dir=run_dir,
+                error=error_text,
+            )
+        except Exception as alert_exc:
+            logfire.warning("run_failure_alert_failed", error=str(alert_exc))
         if players_config.language == "zh-TW":
             console.print(f"[red]執行遊戲時發生錯誤: {exc}[/red]")
         elif players_config.language == "zh-CN":

@@ -48,6 +48,7 @@ uv run werewolf-watch --since 24h --push=True
 
 # API 就绪探测（本地）
 curl http://127.0.0.1:8000/ready
+# 200 + status=ready；缺 LLM key 或 artifacts 不可写时 503，body 含 checks 明细
 ```
 
 ## 单场 run 关键产物

@@ -258,7 +258,7 @@ def _rubric_items(eval_root: Path, evolution_root: str | Path | None) -> list[di
             "item": "Few-shot / 思维链",
             "status": "implemented",
             "evidence": [
-                "strategy/prompts/v2/text/agent_base.md 包含显式 few-shot 示例",
+                "strategy/prompts/shared/agent_base.md 包含显式 few-shot 示例",
                 "复杂局面要求 private_thought 内部推理，public_speech 只给公开理由",
             ],
             "remaining_gap": "如果要更强，可以给每个角色单独补角色专属 few-shot。",

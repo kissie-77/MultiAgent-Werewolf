@@ -1,4 +1,4 @@
-from llm_werewolf.interface.bootstrap import prepare_game_roster
+from llm_werewolf.interface.cli.runtime.bootstrap import prepare_game_roster
 
 
 def test_interface_bootstrap_exposes_roster_entrypoint() -> None:

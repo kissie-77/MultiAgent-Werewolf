@@ -8,6 +8,7 @@ from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.interface.cli.entry import _human_viewer_ids
 from llm_werewolf.interface.cli.runtime.bootstrap import prepare_game_roster
+from llm_werewolf.interface.cli.runtime.bootstrap import create_information_hub
 from llm_werewolf.interface.cli.runtime.overrides import (
     apply_human_seats,
     apply_plan_assignment_override,
@@ -107,7 +108,7 @@ def test_resize_players_config_cannot_shrink_past_human_tail() -> None:
 def test_human_viewer_ids_after_setup() -> None:
     cfg = apply_human_seats(_demo_config(), [6])
     agents, roles, game_config = prepare_game_roster(cfg)
-    engine = GameEngine(game_config, language=cfg.language)
+    engine = GameEngine(game_config, language=cfg.language, information_hub=create_information_hub())
     engine.setup_game(players=agents, roles=roles)
 
     assert _human_viewer_ids(engine) == ["player_6"]

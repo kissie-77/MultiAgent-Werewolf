@@ -155,3 +155,20 @@ def update_run_meta_alerts(run_dir: Path, *, post_game_status: str, alert_count:
     meta["post_game_status"] = post_game_status
     meta["alert_count"] = alert_count
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def record_run_failure(run_dir: Path, *, error: str, run_id: str | None = None) -> None:
+    """写入 run_meta.json 的失败状态，供 observability run_failed 规则消费。"""
+    run_dir = Path(run_dir)
+    meta_path = run_dir / "run_meta.json"
+    meta: dict[str, Any] = {}
+    if meta_path.is_file():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            meta = {}
+    meta["status"] = "failed"
+    meta["error"] = error
+    if run_id:
+        meta["run_id"] = run_id
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")

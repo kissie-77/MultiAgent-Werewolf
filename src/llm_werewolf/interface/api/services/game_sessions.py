@@ -30,7 +30,7 @@ from llm_werewolf.interface.api.services.roster_customize import (
 )
 from llm_werewolf.interface.api.services.replay import extract_game_snapshot
 from llm_werewolf.interface.api.services.runs import get_run_detail
-from llm_werewolf.interface.bootstrap import (
+from llm_werewolf.interface.cli.runtime.bootstrap import (
     create_information_hub,
     prepare_game_roster,
     wire_agentscope_after_setup,

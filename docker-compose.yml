@@ -1,0 +1,68 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────────────────
+# MultiAgent-Werewolf 生产部署配置
+#
+# 服务拓扑：
+#   web (nginx:80) ──反代 /api──► api (uvicorn:8000)
+#
+# 快速启动：
+#   cp .env.example .env          # 填入 API Key 和 OBS_ALERT_WEBHOOK_URL
+#   docker compose up -d
+#   open http://localhost
+# ──────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Python 后端 API ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: llm-werewolf-api:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Observability：Webhook 告警（在 .env 中填写真实 URL）
+      OBS_ALERT_WEBHOOK_URL: ${OBS_ALERT_WEBHOOK_URL:-}
+      OBS_ALERT_MIN_SEVERITY: ${OBS_ALERT_MIN_SEVERITY:-warning}
+      # 就绪检查：生产环境需要 LLM Key
+      OBS_READY_REQUIRE_LLM: "1"
+    volumes:
+      # 持久化对局产物（artifacts/）
+      - artifacts:/app/artifacts
+      # 可选：挂载自定义 observability 配置
+      - ./configs/observability.yaml:/app/configs/observability.yaml:ro
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── 前端（React SPA + nginx）─────────────────────────────────────────────
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: llm-werewolf-web:latest
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - internal
+
+# ── 卷 & 网络 ────────────────────────────────────────────────────────────
+volumes:
+  artifacts:
+    driver: local
+
+networks:
+  internal:
+    driver: bridge

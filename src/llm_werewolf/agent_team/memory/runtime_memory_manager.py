@@ -43,7 +43,6 @@ class RuntimeMemoryManager:
         self.episodic = EpisodicMemory(event_logger)
         self.procedural = ProceduralMemory()
         self.semantic = SemanticMemory(backend=semantic_backend, compressor=compressor)
-        self.coach = None
         self._used_card_ids: list[str] = []
         self._belief_skill_context: str = ""
         self._belief_matched_skill_ids: list[str] = []
@@ -214,11 +213,13 @@ class RuntimeMemoryManager:
             )
 
     def extract_semantic_candidates(self, won: bool) -> list[str]:
-        """Delegate runtime semantic extraction to Coach."""
+        """Extract runtime semantic candidates without importing evaluation."""
         if not self.player_id or not self._episodic_enabled():
             return []
+        from llm_werewolf.agent_team.memory.semantic_extraction import extract_semantic_candidates
+
         report = self.episodic.export_episode_report(self.player_id)
-        return self._coach().extract_semantic_candidates(
+        return extract_semantic_candidates(
             report,
             won=won,
             semantic=self.semantic,
@@ -256,13 +257,6 @@ class RuntimeMemoryManager:
             model=self.config.working_compression_model,
             timeout=self.config.working_compression_timeout,
         )
-
-    def _coach(self):
-        if self.coach is None:
-            from llm_werewolf.evaluation.post_game.coach.coach import Coach
-
-            self.coach = Coach()
-        return self.coach
 
     def _max_cards_for_role(self, role: str) -> int:
         if role in get_werewolf_roles() or role in {"wolf", "werewolf", "wolf_king"}:

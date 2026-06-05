@@ -2,7 +2,7 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-06-04
+> **最后更新**：2026-06-05
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
@@ -36,6 +36,7 @@
 - [x] 文档：evaluation 仅保留 README / DESIGN / ROADMAP
 - [x] Runtime error / Timeout / structured 中断进入 `data_quality`，自动降低赛后评分置信度
 - [x] PromptBadCaseChecker 增加「公开事实无支撑」检测，标记凭空跳身份/报技能结果类发言
+- [x] `scan_run_dir` 批量扫描固定包含 `PromptBadCaseChecker`（observability / werewolf-watch 消费）
 
 ## 进行中
 
@@ -65,6 +66,7 @@
 
 | 日期       | 摘要                                               |
 | ---------- | -------------------------------------------------- |
+| 2026-06-02 | `scan_run_dir` 固定跑 PromptBadCaseChecker；后端文档批次对齐 |
 | 2026-06-04 | Skill 写库：when_to_use 相似合并 +0.15、稀疏 bump；DESIGN §8.2 / §10 |
 | 2026-06-02 | PostGame 质量门控 + review-dashboard；DESIGN §5.2–§5.3 |
 | 2026-06-02 | 赛后质量门禁：运行时错误降置信度；新增公开事实无支撑 bad-case 检测 |

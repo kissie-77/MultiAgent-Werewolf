@@ -159,7 +159,18 @@ class InformationHub:
         )
         return [p for p in routed if self._react_agent(p) is not None]
 
+    def _refresh_actor_belief_skills(self, actor: PlayerProtocol) -> None:
+        """Match belief skills immediately before a private LLM decision."""
+        if self._get_alive_players is None:
+            return
+        refresh_player_belief_skills(
+            actor,
+            alive=self._get_alive_players(),
+            wolf_camp_mind=self._wolf_camp_mind,
+        )
+
     def _merge_private_context(self, actor: PlayerProtocol, additional_context: str) -> str:
+        self._refresh_actor_belief_skills(actor)
         parts: list[str] = []
         if self._build_observation:
             observation = self._build_observation(actor)
@@ -349,6 +360,7 @@ class InformationHub:
                 continue
             if self._is_human_player(observer):
                 continue
+            self._refresh_actor_belief_skills(observer)
             possible_targets = [p for p in alive if p.player_id != observer.player_id]
             extra_parts = [context_builder(observer), EngineContexts.hub_decision_memory_notice()]
             if anchor == VoteIntentionAnchor.INITIAL:
@@ -575,11 +587,7 @@ class InformationHub:
                 if not speaker.is_alive() or speaker.agent is None:
                     continue
 
-                refresh_player_belief_skills(
-                    speaker,
-                    alive=self._get_alive_players(),
-                    wolf_camp_mind=self._wolf_camp_mind,
-                )
+                self._refresh_actor_belief_skills(speaker)
                 context = context_builder(speaker)
                 if routed_messages:
                     prior_lines = [
@@ -648,6 +656,14 @@ class InformationHub:
 
                 if on_speech:
                     on_speech(speaker, decision, routed)
+
+                if (
+                    getattr(decision, "self_explode", False)
+                    and channel == VisibilityChannel.PUBLIC
+                    and phase.strip().lower() == "day_discussion"
+                    and speaker.get_role_name() == "White Wolf"
+                ):
+                    break
 
                 if vote_intention_tracker is not None:
                     speech_text = decision.public_speech.strip()
@@ -856,11 +872,7 @@ class InformationHub:
 
         from llm_werewolf.strategy.phase_outputs import resolve_roundtable_phase
 
-        refresh_player_belief_skills(
-            speaker,
-            alive=self._get_alive_players(),
-            wolf_camp_mind=self._wolf_camp_mind,
-        )
+        self._refresh_actor_belief_skills(speaker)
         rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
         decision = await WerewolfAdapterBridge.request_speech(
             speaker.agent, context, instruction, roundtable_phase=rt_phase

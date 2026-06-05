@@ -2,14 +2,14 @@
 
 > **模块**：agent_team
 > **状态**：active
-> **最后更新**：2026-05-26
+> **最后更新**：2026-06-02
 > **关联代码**：`src/llm_werewolf/agent_team/`
 > **关联测试**：`tests/agent_team/`
 > **Agent Skill**：`.agents/skills/generated/agent-team/`
 
 ## 职责
 
-Agent 执行层：AgentScope 接入、消息路由、信息隔离、记忆管理、Skill 读取、结构化决策调用。负责将游戏引擎的阶段指令转化为 Agent 的发言和决策。
+Agent 执行层：AgentScope 接入、消息路由、信息隔离、记忆管理、**信念匹配 Skill 注入**（私密决策前 refresh）、结构化决策调用。
 
 ## 不负责
 

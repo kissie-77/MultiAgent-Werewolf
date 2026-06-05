@@ -76,7 +76,7 @@ def abstract_evidence_target_label(target_id: Any) -> str:
         return ""
     return "本局选定的阵营收益目标（具体座位见 role_skills.json）"
 
-# 策略要点提炼自 strategy/prompts/v2/roles/*.yaml 与常见网规狼人杀思路
+# 策略要点提炼自 strategy/prompts/roles/*/role.yaml 与常见网规狼人杀思路
 _ROLE_DAY_PERSUASION: dict[str, dict[str, str]] = {
     "wolf": {
         "when": "白天讨论进入归票阶段，场上出现可抗推的「逻辑漏洞位」或需要统一狼队票型时",

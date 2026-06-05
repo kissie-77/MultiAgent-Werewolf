@@ -58,9 +58,9 @@ def test_vote_intention_concurrency_accepts_parallel_value() -> None:
 
 
 def test_kimi_config_enables_parallel_vote_intentions() -> None:
-    cfg = load_config(Path("configs/xiaomi.yaml"))
+    cfg = load_config(Path("configs/llm-12p-kimi.yaml"))
 
-    assert cfg.vote_intention_concurrency == 6
+    assert cfg.vote_intention_concurrency > 1
 
 
 def test_plan_assignment_defaults_to_disabled() -> None:

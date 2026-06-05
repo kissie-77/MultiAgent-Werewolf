@@ -62,7 +62,7 @@ flowchart LR
 | 对局结束 | 同上 + `finally` | `detach_run_log_handler()` |
 | PostGame 后 | `finalize_run.py` | `emit_from_post_game`；写 `post_game_status` / `alert_count` |
 | API 会话失败 | `game_sessions.py` | `emit_session_failed`；`GET .../status` 暴露 `post_game_status` |
-| HTTP | `api/app.py` | `GET /health`（liveness）、`GET /ready`（readiness） |
+| HTTP | `api/app.py` | `GET /health`（liveness）；`GET /ready`（readiness，未就绪 **503** + `checks`/`failed` 明细） |
 | CLI | `watch_cli.py` | `werewolf-watch` 扫 `artifacts/runs/`、`eval_runs/` |
 
 `post_game_status`：`ok` | `failed` | `skipped`；`result.error` 或 `stage_errors` 非空时为 `failed`。
@@ -101,7 +101,7 @@ flowchart LR
 | `OBS_ALERT_MIN_SEVERITY` | 最低推送级别（默认 `warning`） |
 | `OBS_ALERT_DEDUPE_TTL` | 去重冷却秒数（默认 300） |
 | `OBS_ALERTS_DIR` | 告警审计目录（默认 `artifacts/alerts`） |
-| `OBS_READY_REQUIRE_ARK` | `0` 时 `/ready` 跳过 ARK key 检查 |
+| `OBS_READY_REQUIRE_LLM` | `0` 时 `/ready` 跳过 LLM API key 检查（兼容旧名 `OBS_READY_REQUIRE_ARK=0`） |
 
 ## 6. 产物约定
 
@@ -117,7 +117,7 @@ flowchart LR
 
 | 能力 | 位置 | 用途 |
 |------|------|------|
-| `scan_run_dir` | `evaluation/signals/run_scan.py` | 对已有 run 跑 checker 子集 + ERROR 事件 |
+| `scan_run_dir` | `evaluation/signals/run_scan.py` | 对已有 run 跑 checker 子集（**含 `PromptBadCaseChecker`**）+ ERROR 事件 |
 | `load_post_game_signals` | `evaluation/signals/post_game_signals.py` | 解析 PostGame 步级状态 |
 | `derive_post_game_status` | 同上 | `finalize_run` 写入 `run_meta` |
 

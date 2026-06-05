@@ -9,6 +9,7 @@ from llm_werewolf.evaluation.core.checkers import (
     AsyncFlowChecker,
     DecisionConsistencyChecker,
     InformationIsolationChecker,
+    PromptBadCaseChecker,
     RoleSkillChecker,
     VictoryCheckerEvaluator,
 )
@@ -103,6 +104,23 @@ def scan_run_dir(
                         message=f"Checker raised {type(exc).__name__}: {exc}",
                     )
                 )
+
+    try:
+        checks.extend(
+            PromptBadCaseChecker().check(
+                events,
+                player_roles={},
+                player_camps={},
+            )
+        )
+    except Exception as exc:
+        checks.append(
+            CheckResult(
+                checker="PromptBadCaseChecker",
+                passed=False,
+                message=f"Checker raised {type(exc).__name__}: {exc}",
+            )
+        )
 
     checks.extend(_error_event_checks(events))
     return checks

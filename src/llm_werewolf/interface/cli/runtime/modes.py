@@ -38,7 +38,7 @@ _MODE_CONFIGS: dict[tuple[str, str], GameMode] = {
     ("human_mixed", "basic"): GameMode(
         participation="human_mixed",
         rules="basic",
-        config_path=Path("configs/xiaomi.yaml"),
+        config_path=Path("configs/llm-12p-kimi.yaml"),
         description="基础人机混战：使用真实 LLM 配置，并将指定座位替换为人类玩家。",
     ),
     ("human_mixed", "badge_flow"): GameMode(

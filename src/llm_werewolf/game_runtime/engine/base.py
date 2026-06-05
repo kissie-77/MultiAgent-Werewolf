@@ -195,6 +195,13 @@ class GameEngineBase:
             players: 具有 name 和 model 属性的 agent 实例列表。
             roles: 要分配的角色实例列表。
         """
+        if self.information_hub is None:
+            msg = (
+                "information_hub must be injected before setup_game; "
+                "use create_information_hub() in the assembly layer"
+            )
+            raise RuntimeError(msg)
+
         if len(players) != len(roles):
             msg = f"Number of players ({len(players)}) must match number of roles ({len(roles)})"
             raise ValueError(msg)
@@ -550,6 +557,15 @@ class GameEngineBase:
             self.game_state.next_phase()  # 进入 DAY_DISCUSSION
             await self.run_day_phase()
 
+            if self.game_state.skip_day_voting:
+                self.game_state.skip_day_voting = False
+                if self.check_victory():
+                    break
+                self._on_round_end(self.game_state.round_number)
+                self.game_state.next_phase()  # DAY_VOTING
+                self.game_state.next_phase()  # NIGHT
+                continue
+
             self.game_state.next_phase()  # 进入 DAY_VOTING
             await self.run_voting_phase()
 
@@ -595,7 +611,14 @@ class GameEngineBase:
             phase_messages = ["Sheriff election completed."]
         elif current_phase == GamePhase.DAY_DISCUSSION:
             phase_messages = await self.run_day_phase()
-            self.game_state.next_phase()
+            if self.game_state.skip_day_voting:
+                self.game_state.skip_day_voting = False
+                self.game_state.next_phase()
+                if not self.check_victory():
+                    self._on_round_end(self.game_state.round_number)
+                    self.game_state.next_phase()
+            else:
+                self.game_state.next_phase()
         elif current_phase == GamePhase.DAY_VOTING:
             phase_messages = await self.run_voting_phase()
             if not self.check_victory():

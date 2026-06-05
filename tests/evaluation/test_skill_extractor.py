@@ -626,9 +626,10 @@ def test_build_system_prompt_includes_active_skills(tmp_path: Path, monkeypatch)
     skill_loader.list_role_skill_files.cache_clear()
 
     prompt = build_system_prompt(3, "Werewolf", "default")
+    # Skills are now injected dynamically at decision time via RuntimeMemoryManager.refresh_belief_skills,
+    # not embedded statically in build_system_prompt. The prompt only contains a placeholder.
     assert "对局经验 Skill" in prompt
-    assert "wolf_demo" in prompt
-    assert "首夜统一刀口" in prompt
+    assert "动态注入" in prompt
 
 
 # ── skill 状态流转测试 ──────────────────────────────────────────────
@@ -776,7 +777,7 @@ def test_full_lifecycle_draft_active_deprecated(
 def test_deprecated_skill_not_in_prompt(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """deprecated skill 不会出现在系统 prompt 中。"""
+    """deprecated skill 不会出现在系统 prompt 中（active skill 也不再静态嵌入，改为运行时动态注入）。"""
     from llm_werewolf.agent_team.agents.factory import build_system_prompt
     from llm_werewolf.agent_team.skill_support import skill_loader
 
@@ -794,7 +795,9 @@ def test_deprecated_skill_not_in_prompt(
     skill_loader.list_role_skill_files.cache_clear()
 
     prompt = build_system_prompt(3, "Werewolf", "default")
-    assert "good" in prompt
+    # Skills are now injected dynamically at decision time (belief-matched), not statically in the system prompt.
+    # Verify neither active nor deprecated skill IDs appear as embedded content.
+    assert "Old Skill" not in prompt
     assert "old" not in prompt
 
 

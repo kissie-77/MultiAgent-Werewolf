@@ -52,7 +52,7 @@ belief_signals: vote_intention_set,b1_top_above_0_7
 
 Skill **不在开局灌入 system prompt 全文**，而是每次发言/决策前按当前信念矩阵匹配后注入 decision context：
 
-1. **匹配时机**：`InformationHub` 在 `run_roundtable` / `collect_speech` 中，对当前发言人先 `refresh_player_belief_skills()`，再组装 decision context。
+1. **匹配时机**：`InformationHub` 在每次私密 LLM 决策前（发言、选座/投票、女巫、投票意向等）对当前玩家先 `refresh_player_belief_skills()`，再组装 decision context。
 2. **匹配规则**（`select_skills_for_belief`）：
    - 若 frontmatter 有 `belief_signals`：Skill 所需信号必须是当前活跃信号的**子集**（PostGame 自动生成，少人工标注）。
    - 否则 fallback：比较 `belief_pattern` 与当前分布模式，并结合正文/when_to_use 关键词。

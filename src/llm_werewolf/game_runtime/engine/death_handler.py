@@ -19,6 +19,9 @@ class DeathHandlerMixin:
     def _handle_lover_death(self, dead_player: PlayerProtocol) -> None:
         """处理玩家死亡时情侣伴侣的连带死亡。
 
+        情侣死亡不再递归触发新的情侣链（防止循环），但会将伴侣加入死亡集合，
+        使 _handle_death_abilities 能在后续统一处理其死亡能力（猎人/白狼王）。
+
         Args:
             dead_player: 已死亡的玩家。
         """
@@ -37,6 +40,8 @@ class DeathHandlerMixin:
                 self.locale.get("died_of_heartbreak", player=partner.name),
                 data={"player_id": partner.player_id},
             )
+            # 情侣伴侣本身若也是恋人（三角恋边缘情况）不再递归，避免死循环。
+            # 但若伴侣也是某人的情侣且对方存活，仍需处理——在下一次 _handle_lover_death 调用时处理。
 
     def _handle_wolf_beauty_charm_death(self, wolf_beauty: PlayerProtocol) -> None:
         """处理狼美人死亡时被魅惑玩家的连带死亡。
@@ -279,6 +284,8 @@ class DeathHandlerMixin:
             self.locale.get("hunter_shoots", hunter=shooter.name, target=target.name)
             if shooter.role.name == RoleNames.HUNTER
             else self.locale.get("alpha_wolf_shoots", alpha=shooter.name, target=target.name)
+            if shooter.role.name == RoleNames.ALPHA_WOLF
+            else self.locale.get("white_wolf_shoots", white_wolf=shooter.name, target=target.name)
         )
 
         self._log_event(
@@ -374,17 +381,17 @@ class DeathHandlerMixin:
 
         # 检查是否有狼美人已死亡
         all_deaths = self.game_state.night_deaths | self.game_state.day_deaths
-        wolf_beauty_dead = False
+        wolf_beauty_player = None
         for player in self.game_state.players:
             if (
                 hasattr(player.role, "charmed_player")
                 and not player.is_alive()
                 and player.player_id in all_deaths
             ):
-                wolf_beauty_dead = True
+                wolf_beauty_player = player
                 break
 
-        if not wolf_beauty_dead:
+        if wolf_beauty_player is None:
             return
 
         charmed = self.game_state.get_player(charmed_id)
@@ -393,9 +400,14 @@ class DeathHandlerMixin:
             self.game_state.night_deaths.add(charmed.player_id)
             self._log_event(
                 EventType.PLAYER_DIED,
-                self.locale.get("died_from_charm", player=charmed.name, wolf_beauty=charmed.name),
+                self.locale.get(
+                    "died_from_charm", player=charmed.name, wolf_beauty=wolf_beauty_player.name
+                ),
                 data={"player_id": charmed.player_id, "reason": "wolf_beauty_charm"},
             )
+            # 被魅惑者若是情侣，其伴侣也随之死亡（死亡链传播）
+            if charmed.is_lover() and charmed.lover_partner_id:
+                self._handle_lover_death(charmed)
 
     async def resolve_deaths(self) -> list[str]:
         """根据夜间行动结算所有死亡。

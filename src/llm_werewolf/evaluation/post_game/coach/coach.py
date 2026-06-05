@@ -211,6 +211,7 @@ class Coach:
         candidates = [
             ctx.run_dir / "skill_snapshot.previous.json",
             self._resolve_previous_snapshot_path_from_meta(ctx),
+            self._resolve_sibling_run_snapshot(ctx),
         ]
         for candidate in candidates:
             if candidate is None or not candidate.is_file():
@@ -221,6 +222,15 @@ class Coach:
                 logger.warning("Failed to load previous skill snapshot", exc_info=True)
                 return None
         return None
+
+    def _resolve_sibling_run_snapshot(self, ctx: RunContext) -> Path | None:
+        from llm_werewolf.evaluation.leaderboard.entry_builder import infer_previous_run_dir
+
+        previous_run_dir = infer_previous_run_dir(ctx.run_dir)
+        if not previous_run_dir:
+            return None
+        snapshot = Path(previous_run_dir) / "skill_snapshot.json"
+        return snapshot if snapshot.is_file() else None
 
     def _resolve_previous_snapshot_path_from_meta(self, ctx: RunContext) -> Path | None:
         meta_path = ctx.run_dir / "experiment_meta.json"

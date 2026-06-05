@@ -6,6 +6,7 @@ from llm_werewolf.game_runtime.types import Camp
 from llm_werewolf.game_runtime.config import create_game_config_from_player_count
 from llm_werewolf.agent_team.agents.base import BaseAgent
 from llm_werewolf.game_runtime.roles.registry import create_roles
+from llm_werewolf.interface.cli.runtime.bootstrap import create_information_hub
 
 
 class MemoryAwareDemoAgent(BaseAgent):
@@ -19,7 +20,7 @@ class MemoryAwareDemoAgent(BaseAgent):
 
 def test_check_victory_triggers_memory_game_end_hooks() -> None:
     config = create_game_config_from_player_count(6)
-    engine = GameEngine(config)
+    engine = GameEngine(config, information_hub=create_information_hub())
     players = [
         MemoryAwareDemoAgent(name=f"Player{i}", model="demo") for i in range(config.num_players)
     ]

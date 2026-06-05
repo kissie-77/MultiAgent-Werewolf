@@ -6,11 +6,27 @@ import os
 from pathlib import Path
 from typing import Any
 
+_LLM_KEY_ENVS: tuple[str, ...] = (
+    "ARK_API_KEY",
+    "OPENAI_API_KEY",
+    "VIBE_API_KEY",
+    "MOONSHOT_API_KEY",
+    "KIMI_API_KEY",
+    "ANTHROPIC_API_KEY",
+)
+
+
+def _detect_llm_api_key() -> tuple[bool, str | None]:
+    for env_name in _LLM_KEY_ENVS:
+        if os.environ.get(env_name, "").strip():
+            return True, env_name
+    return False, None
+
 
 def check_readiness(
     *,
     artifacts_dir: Path | None = None,
-    require_ark_key: bool = True,
+    require_llm_key: bool = True,
 ) -> dict[str, Any]:
     """返回 readiness 详情；status=ready 表示通过全部已启用检查。"""
     artifacts_dir = artifacts_dir or Path("artifacts")
@@ -26,11 +42,16 @@ def check_readiness(
     except OSError as exc:
         checks["artifacts_writable"] = {"ok": False, "error": str(exc)}
 
-    if require_ark_key:
-        ark_ok = bool(os.environ.get("ARK_API_KEY"))
-        checks["ark_api_key"] = {"ok": ark_ok, "required": True}
+    if require_llm_key:
+        llm_ok, matched = _detect_llm_api_key()
+        checks["llm_api_key"] = {
+            "ok": llm_ok,
+            "required": True,
+            "matched_env": matched,
+            "candidates": list(_LLM_KEY_ENVS),
+        }
     else:
-        checks["ark_api_key"] = {"ok": True, "required": False, "skipped": True}
+        checks["llm_api_key"] = {"ok": True, "required": False, "skipped": True}
 
     failed = [name for name, body in checks.items() if not body.get("ok")]
     status = "ready" if not failed else "not_ready"

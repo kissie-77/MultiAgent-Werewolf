@@ -60,7 +60,7 @@ def test_memory_manager_skips_md_library_injection_without_backend(temp_skill_ro
 
     context = manager.get_context_for_decision()
     assert "[经验]" not in context
-    assert "wolf_demo" in manager._used_card_ids
+    assert manager._used_card_ids == []
 
 
 def test_memory_manager_injects_semantic_and_working_context():
@@ -457,6 +457,8 @@ def test_memory_manager_extracts_and_persists_semantic_candidates_on_game_end():
 
 
 def test_memory_manager_delegates_runtime_extraction_to_coach():
+    from unittest.mock import patch
+
     logger = EventLogger()
     logger.create_event(
         EventType.VOTE_CAST,
@@ -479,9 +481,11 @@ def test_memory_manager_delegates_runtime_extraction_to_coach():
         calls.append({"report": report, **kwargs})
         return ["失败反思：第1轮不要过早依赖2号投给5号形成判断"]
 
-    manager._coach().extract_semantic_candidates = fake_extract
-
-    candidates = manager.extract_semantic_candidates(won=False)
+    with patch(
+        "llm_werewolf.agent_team.memory.semantic_extraction.extract_semantic_candidates",
+        side_effect=fake_extract,
+    ):
+        candidates = manager.extract_semantic_candidates(won=False)
 
     assert candidates == ["失败反思：第1轮不要过早依赖2号投给5号形成判断"]
     assert len(calls) == 1

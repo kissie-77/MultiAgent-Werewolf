@@ -31,7 +31,8 @@
 - 统一模板：[DOC_TEMPLATE.md](./DOC_TEMPLATE.md)
 - 新结论写入模块 `DESIGN.md`，进度写入 `ROADMAP.md`
 - 子模块文档：`evaluation/`、`agent_team/memory/` 各仅保留三件套；历史专题见 `architecture/evaluation/`、`architecture/memory/`
-- 根目录 [前端规划.md](./archive/前端规划.md)：Web 14 页与 API 对接（frontend 模块）
+- **后端文档范围**：`game_runtime`、`agent_team`、`strategy`、`evaluation`、`interface`、`observability` 及 `architecture/` 下非 UI 专题；`ui/`、`frontend/` 暂不纳入本轮同步
+- 工程质量与修复脉络见 [reports/工程代码质量修复记录-2026-06-04.md](./reports/工程代码质量修复记录-2026-06-04.md) §三（2026-06-02 后端批次）
 
 ## 运维与验证
 

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.evaluation.core.models import CheckResult
-from llm_werewolf.observability.core.config import ObservabilityConfig, RuleConfig
-from llm_werewolf.observability.core.models import AlertEvent, AlertSeverity
+from llm_werewolf.observability.core.config import RuleConfig, ObservabilityConfig
+from llm_werewolf.observability.core.models import AlertEvent
 from llm_werewolf.observability.core.runtime_log import count_provider_events
+
+if TYPE_CHECKING:
+    from llm_werewolf.evaluation.core.models import CheckResult
 
 
 def _rule_enabled(config: ObservabilityConfig, name: str) -> RuleConfig | None:

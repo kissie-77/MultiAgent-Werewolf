@@ -20,7 +20,21 @@ from agentscope.message import Msg as AgentScopeMsg
 from agentscope.pipeline import MsgHub
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.strategy.contracts.decisions import SpeechDecision
+from llm_werewolf.strategy.belief.state import BeliefLog, BeliefSnapshotRecord
+from llm_werewolf.strategy.belief.format import (
+    format_belief_summary,
+    format_wolf_camp_context,
+    sync_all_belief_memories,
+    sync_player_belief_memory,
+    refresh_player_belief_skills,
+)
+from llm_werewolf.strategy.belief.updater import merge_llm_beliefs, ensure_agent_belief_state
+from llm_werewolf.strategy.wolf.camp_mind import (
+    WolfCampMindModel,
+    is_wolf_player,
+    merge_wolf_camp_delta,
+)
+from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.strategy.voting.intention import (
     VoteIntentionEntry,
     VoteIntentionAnchor,
@@ -28,18 +42,8 @@ from llm_werewolf.strategy.voting.intention import (
     VoteIntentionSnapshot,
     SpeechVoteIntentionRecord,
 )
-from llm_werewolf.strategy.belief.state import BeliefLog, BeliefSnapshotRecord
-from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state, merge_llm_beliefs
-from llm_werewolf.strategy.belief.format import (
-    format_belief_summary,
-    format_wolf_camp_context,
-    refresh_player_belief_skills,
-    sync_all_belief_memories,
-    sync_player_belief_memory,
-)
-from llm_werewolf.strategy.wolf.camp_mind import WolfCampMindModel, is_wolf_player, merge_wolf_camp_delta
-from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
 from llm_werewolf.game_runtime.events.visibility import RoutedMessage, VisibilityChannel
 from llm_werewolf.agent_team.invocation.serial_calls import allow_parallel_agent_calls
 from llm_werewolf.agent_team.communication.message_router import MessageRouter

@@ -3,23 +3,23 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
+from datetime import datetime, timezone
 
 from llm_werewolf.evaluation.core.checkers import PromptBadCaseChecker
-from llm_werewolf.evaluation.post_game.event_adapter import events_from_dicts
-from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.game_runtime.types.enums import Camp
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.evaluation.post_game.event_adapter import events_from_dicts
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from llm_werewolf.evaluation.post_game.camp_persuasion import (
-        CampPersuasionReport,
-        CampSpeechInfluence,
-    )
-    from llm_werewolf.evaluation.post_game.run_context import RunContext
     from llm_werewolf.game_runtime.types import Event
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
+    from llm_werewolf.evaluation.post_game.camp_persuasion import (
+        CampSpeechInfluence,
+        CampPersuasionReport,
+    )
 
 
 def _events_from_dicts(rows: list[dict[str, Any]]) -> list[Event]:

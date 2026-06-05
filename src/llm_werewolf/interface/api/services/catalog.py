@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from llm_werewolf.game_runtime.prompts.identity import (
-    _VICTORY_TEXT,
-    get_identity_template,
-)
 from llm_werewolf.game_runtime.roles.catalog import get_catalog, get_definition
-from llm_werewolf.game_runtime.roles.registry import build_catalog_to_runtime_map
 from llm_werewolf.interface.api.models.pages import RoleDetail, RoleListItem, RoleListPageData
+from llm_werewolf.game_runtime.roles.registry import build_catalog_to_runtime_map
+from llm_werewolf.game_runtime.prompts.identity import _VICTORY_TEXT, get_identity_template
 from llm_werewolf.interface.api.services.content import CAMP_LABELS
-
 
 _CATALOG_TO_RUNTIME = build_catalog_to_runtime_map()
 

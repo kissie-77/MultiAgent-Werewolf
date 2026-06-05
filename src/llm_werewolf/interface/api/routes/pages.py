@@ -2,29 +2,30 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Query, Depends, APIRouter, HTTPException
 
-from llm_werewolf.interface.api.deps import get_configs_dir, get_eval_runs_dir, get_runs_dir
+from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir, get_eval_runs_dir
 from llm_werewolf.interface.api.models import ApiResponse
-from llm_werewolf.interface.api.models.page_spec import get_page_spec, list_page_specs
-from llm_werewolf.interface.api.services.config import compare_models
 from llm_werewolf.interface.api.services.pages import (
-    build_about_page,
-    build_features_page,
     build_game_page,
     build_home_page,
-    build_how_to_play_page,
-    build_model_detail_page,
-    build_models_list_page,
-    build_night_phase_page_enriched,
-    build_replay_page_enriched,
-    build_role_detail_page,
+    build_about_page,
+    build_features_page,
     build_roles_list_page,
-    build_share_replay_page_enriched,
+    build_how_to_play_page,
+    build_models_list_page,
+    build_role_detail_page,
+    build_model_detail_page,
+    build_replay_page_enriched,
     build_strategy_page_enriched,
+    build_night_phase_page_enriched,
+    build_share_replay_page_enriched,
 )
+from llm_werewolf.interface.api.services.config import compare_models
+from llm_werewolf.interface.api.models.page_spec import get_page_spec, list_page_specs
+
 router = APIRouter(prefix="/pages", tags=["pages"])
 
 
@@ -54,9 +55,9 @@ def page_home(
 
 @router.get("/game")
 def page_game(
-    run_id: str | None = Query(None),
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
-    config_id: str | None = Query(None),
+    run_id: Annotated[str | None, Query()] = None,
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
+    config_id: Annotated[str | None, Query()] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[Any]:
@@ -126,7 +127,7 @@ def page_models(
 
 @router.get("/models/compare")
 def page_models_compare(
-    ids: list[str] = Query(..., min_length=2),
+    ids: Annotated[list[str], Query(min_length=2)],
 ) -> ApiResponse[Any]:
     """AI 模型对比页。"""
     return ApiResponse(data=compare_models(ids).model_dump())
@@ -147,10 +148,10 @@ def page_model_detail(
 
 @router.get("/replay")
 def page_replay(
-    run_id: str = Query(...),
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
-    view: str = Query("public", pattern="^(public|god)$"),
-    viewer_id: str | None = Query(None),
+    run_id: Annotated[str, Query()],
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
+    view: Annotated[str, Query(pattern="^(public|god)$")] = "public",
+    viewer_id: Annotated[str | None, Query()] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[Any]:
@@ -170,8 +171,8 @@ def page_replay(
 
 @router.get("/share-replay")
 def page_share_replay(
-    run_id: str = Query(...),
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    run_id: Annotated[str, Query()],
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[Any]:

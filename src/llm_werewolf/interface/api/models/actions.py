@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator
+from typing import TYPE_CHECKING
 
-from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
+from pydantic import Field, BaseModel, field_validator
+
+if TYPE_CHECKING:
+    from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
 
 
 class PlayerRosterDefaults(BaseModel):

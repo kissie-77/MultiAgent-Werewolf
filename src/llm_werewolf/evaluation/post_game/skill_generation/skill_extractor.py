@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import re
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from pathlib import Path
 from datetime import datetime, timezone
 
 from llm_werewolf.agent_team.skill_support.skill_loader import is_trusted_source_run
 from llm_werewolf.evaluation.post_game.skill_generation.skill_md import render_skill_markdown
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
-    BeliefDistributionSummary,
     BeliefRunIndex,
+    BeliefDistributionSummary,
     build_belief_when_clause,
+    generalize_seat_references,
     build_persuasion_skill_card,
     build_night_action_skill_card,
-    generalize_seat_references,
 )
 from llm_werewolf.evaluation.post_game.skill_generation.skill_generation_rules import (
     SkillGenerationCandidate,
@@ -348,7 +348,10 @@ def _load_existing_skills_for_merge(
     *,
     agent_skills_root: Path,
 ) -> list[dict[str, Any]]:
-    from llm_werewolf.agent_team.skill_support.skill_markdown import extract_when_to_use, read_skill_markdown
+    from llm_werewolf.agent_team.skill_support.skill_markdown import (
+        extract_when_to_use,
+        read_skill_markdown,
+    )
 
     role_dir = agent_skills_root / role_key / skill_version
     if not role_dir.is_dir():
@@ -481,7 +484,10 @@ def write_skill_markdown_files(
 ) -> list[str]:
     """写入 run 目录下的 Skill MD；可选将通过门控的 Skill 双写 agent_team/skills/<role>/<version>/。"""
     from llm_werewolf.agent_team.skill_support import skill_loader
-    from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest, set_active_manifest
+    from llm_werewolf.strategy.registry.role_version_manifest import (
+        get_active_manifest,
+        set_active_manifest,
+    )
 
     written: list[str] = []
     merges_by_role: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}

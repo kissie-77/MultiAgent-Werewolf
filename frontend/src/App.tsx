@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ThreeCanvas from "./components/ThreeCanvas";
 import CardDeck from "./components/CardDeck";
 import SpeechConsole from "./components/SpeechConsole";
@@ -19,6 +19,14 @@ export default function App() {
   const [speechHeight, setSpeechHeight] = useState(210);
   const [isDragging, setIsDragging] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      dragCleanupRef.current?.();
+      dragCleanupRef.current = null;
+    };
+  }, []);
 
   // Initialize game state on page load
   useEffect(() => {
@@ -69,8 +77,10 @@ export default function App() {
       setIsDragging(false);
       window.removeEventListener("mousemove", doDrag);
       window.removeEventListener("mouseup", stopDrag);
+      dragCleanupRef.current = null;
     };
 
+    dragCleanupRef.current = stopDrag;
     window.addEventListener("mousemove", doDrag);
     window.addEventListener("mouseup", stopDrag);
   };
@@ -97,8 +107,10 @@ export default function App() {
       setIsDragging(false);
       window.removeEventListener("touchmove", doDragTouch);
       window.removeEventListener("touchend", stopDragTouch);
+      dragCleanupRef.current = null;
     };
 
+    dragCleanupRef.current = stopDragTouch;
     window.addEventListener("touchmove", doDragTouch, { passive: true });
     window.addEventListener("touchend", stopDragTouch);
   };

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib import error, request
+import asyncio
+import logging
 
-from llm_werewolf.observability.core.models import AlertEvent
 from llm_werewolf.observability.notifiers.base import AlertNotifier
+
+if TYPE_CHECKING:
+    from llm_werewolf.observability.core.models import AlertEvent
 
 logger = logging.getLogger(__name__)
 
@@ -46,5 +48,5 @@ class WebhookNotifier(AlertNotifier):
                 logger.warning("Webhook returned HTTP %s", status)
         except error.URLError as exc:
             logger.warning("Webhook notify failed: %s", exc)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Webhook unexpected error: %s", exc)

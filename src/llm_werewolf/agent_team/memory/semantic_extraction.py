@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
+import logging
 
 if TYPE_CHECKING:
     from llm_werewolf.agent_team.memory.base import CompressorProtocol

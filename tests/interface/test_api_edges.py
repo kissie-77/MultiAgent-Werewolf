@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from fixtures import write_sample_run
+from tests.interface.fixtures import write_sample_run
 from llm_werewolf.interface.api.deps import get_artifacts_dir
 from llm_werewolf.interface.api.services.board import build_board_presets
 from llm_werewolf.interface.api.services.config import list_config_files, parse_config_brief
@@ -69,7 +69,7 @@ def test_list_run_dirs_skips_non_directories(api_dirs: dict[str, Path]) -> None:
 
 
 def test_extract_game_snapshot_with_sheriff(api_dirs: dict[str, Path]) -> None:
-    from fixtures import sample_run_events
+    from tests.interface.fixtures import sample_run_events
 
     run_dir = api_dirs["runs_dir"] / "sheriff-run"
     events = sample_run_events() + [

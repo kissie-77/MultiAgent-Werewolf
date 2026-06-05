@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import os
-from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from functools import lru_cache
 
 import yaml
 
+from llm_werewolf.strategy.registry.prompt_yaml_utils import coerce_text_dict as _coerce_text_dict
+from llm_werewolf.strategy.registry.prompt_yaml_utils import coerce_text_list as _coerce_text_list
 from llm_werewolf.strategy.registry.prompt_yaml_utils import (
-    coerce_text_dict as _coerce_text_dict,
-    coerce_text_list as _coerce_text_list,
     render_legacy_suggestion as _render_legacy_suggestion,
 )
 

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import logging
 from collections import deque
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from llm_werewolf.agent_team.memory.base import CompressorProtocol
@@ -15,12 +15,7 @@ logger = logging.getLogger(__name__)
 PROTECTED_PERSISTENT_TAGS = frozenset({"belief", "wolf_camp", "belief_rules"})
 FIXED_GAME_INFO_TAGS = frozenset({"role_pool"})
 BELIEF_PERSISTENT_PRIORITY = 10
-_BELIEF_RULES_TEXT = "\n".join([
-    "【信念/意向更新规则】",
-    "- first_order / second_order 仅填写需要修改的条目；无变化则留空数组 []。",
-    "- 每条信念修改必须含 reason，说明依据。",
-    "- 若 seat 与上一帧不同，必须在顶层 reason 说明改票理由。",
-])
+_BELIEF_RULES_TEXT = "【信念/意向更新规则】\n- first_order / second_order 仅填写需要修改的条目；无变化则留空数组 []。\n- 每条信念修改必须含 reason，说明依据。\n- 若 seat 与上一帧不同，必须在顶层 reason 说明改票理由。"
 
 
 @dataclass

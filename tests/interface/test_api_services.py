@@ -46,7 +46,7 @@ from llm_werewolf.interface.api.services.runs import (
     resolve_run_path,
 )
 
-from fixtures import write_demo_config, write_sample_run
+from tests.interface.fixtures import write_demo_config, write_sample_run
 
 
 @pytest.fixture

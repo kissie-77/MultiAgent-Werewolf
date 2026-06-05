@@ -137,7 +137,7 @@ def _wins_from_entry(entry: dict) -> int:
         return int(entry["wins"])
     games = int(entry.get("games", 0))
     win_rate = float(entry.get("win_rate", 0.0))
-    return int(round(games * win_rate))
+    return round(games * win_rate)
 
 
 def _wilson_interval(

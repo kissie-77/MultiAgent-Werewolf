@@ -6,10 +6,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from llm_werewolf.agent_team.skill_support.skill_markdown import parse_frontmatter
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -325,7 +327,7 @@ def write_evolution_summary(runs_root: Path, output_dir: Path) -> Path:
             "## 初始版 vs 终局版",
             "",
             f"| 指标 | 初始版 ({first.get('version_id', '?')}) | 终局版 ({last.get('version_id', '?')}) | 变化 |",
-            f"| --- | ---: | ---: | ---: |",
+            "| --- | ---: | ---: | ---: |",
         ])
         for metric, label in [
             ("win_rate", "胜率"),

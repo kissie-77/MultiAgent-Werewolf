@@ -6,13 +6,17 @@ Hub 在 ``MessageRouter`` 按游戏规则解析受众后再投递。
 
 from __future__ import annotations
 
-from llm_werewolf.game_runtime.types import EventType, PlayerProtocol
+from typing import TYPE_CHECKING
+
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.events.visibility import (
     RoutedMessage,
     VisibilityChannel,
     event_type_for_channel,
 )
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.types import EventType, PlayerProtocol
 
 
 class MessageRouter:

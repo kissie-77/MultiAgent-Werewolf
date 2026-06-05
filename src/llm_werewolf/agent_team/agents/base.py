@@ -1,29 +1,27 @@
 from random import Random
-
 from typing import Any
 
-from pydantic import Field, PrivateAttr, BaseModel, ConfigDict
+from pydantic import Field, BaseModel, ConfigDict, PrivateAttr
 
 from llm_werewolf.game_runtime.config import PlayerConfig
 from llm_werewolf.agent_team.agents.mixin import PromptAgentMixin
+from llm_werewolf.strategy.contracts.decisions import (
+    YesNoDecision,
+    SpeechDecision,
+    SeatChoiceDecision,
+    WitchNightDecision,
+    VoteIntentionDecision,
+    MultiSeatChoiceDecision,
+)
 from llm_werewolf.agent_team.agents.demo_policy import (
     DEFAULT_SPEECH,
     DemoPromptKind,
-    build_mind_state,
-    classify_prompt,
-    extract_seats,
-    pick_seat,
-    fallback_speech,
     respond,
-)
-from llm_werewolf.strategy.contracts.decisions import (
-    MindStateDecision,
-    MultiSeatChoiceDecision,
-    SeatChoiceDecision,
-    SpeechDecision,
-    VoteIntentionDecision,
-    WitchNightDecision,
-    YesNoDecision,
+    pick_seat,
+    extract_seats,
+    classify_prompt,
+    fallback_speech,
+    build_mind_state,
 )
 
 
@@ -195,7 +193,6 @@ class DemoAgent(PromptAgentMixin, BaseAgent):
 def create_agent(
     config: PlayerConfig,
     language: str = "zh-CN",
-    use_agentscope: bool = True,
     default_plan: str = "default",
     prompt_version: str = "v1",
     *,
@@ -217,10 +214,6 @@ def create_agent(
             seed=demo_seed,
         )
 
-    if not use_agentscope:
-        msg = "Only AgentScope backend is supported for LLM players."
-        raise ValueError(msg)
-
     from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 
     plan_name = config.plan or default_plan
@@ -235,10 +228,10 @@ def create_agent(
 
 
 __all__ = [
+    "DEFAULT_SPEECH",
     "BaseAgent",
     "DemoAgent",
-    "create_agent",
-    "DEFAULT_SPEECH",
     "DemoPromptKind",
     "classify_prompt",
+    "create_agent",
 ]

@@ -1,5 +1,4 @@
-"""
-User-facing interface layer for LLM Werewolf.
+"""User-facing interface layer for LLM Werewolf.
 
 Layout
 ------

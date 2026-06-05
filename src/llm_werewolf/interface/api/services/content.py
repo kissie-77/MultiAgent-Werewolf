@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
+from llm_werewolf.game_runtime.roles.catalog import get_catalog
 from llm_werewolf.interface.api.models.pages import (
-    ContentPageData,
-    ContentSection,
     NavLink,
-    NightPhasePageData,
-    NightPhaseStep,
-    StrategyPageData,
     StrategyTip,
+    ContentSection,
+    NightPhaseStep,
+    ContentPageData,
+    StrategyPageData,
+    NightPhasePageData,
 )
 from llm_werewolf.game_runtime.prompts.identity import get_identity_template
-from llm_werewolf.game_runtime.roles.catalog import get_catalog
-
 
 CAMP_LABELS = {
     "werewolf": "狼人阵营",

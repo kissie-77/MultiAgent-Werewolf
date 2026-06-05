@@ -1,0 +1,43 @@
+intro:
+  - 请基于下列材料撰写赛后复盘，产出将用于 `post_game_report.md` 与 Prompt 调优流水线。
+  - 规则：每个维度只能使用该维度区块内的记录；不要跨维度合并推断未提供的私密夜间信息。
+
+meta:
+  winner_camp: "胜负阵营: {winner_camp}（werewolf=狼人，villager=好人）"
+  prompt_version: "运行时 Prompt 版本: {prompt_version}"
+  game_result: "结果说明: {game_result_text}"
+
+timeline_section_title: "## 关键转折时间线（规则提取，用于定位轮次；细节以分维度材料为准）"
+
+mvp_section_title: "## MVP 规则评分（已计算，请据此选金句与策略亮点，勿改分）"
+mvp_line: "全场 MVP: {player_name} ({role_name}, camp={camp}, score={mvp_total})"
+player_rank_line: "- #{rank} {player_name}: total={mvp_total} raw={breakdown_raw}"
+golden_section_title: "### MVP 候选金句/片段（优先在 summary_zh 中引用 1 条）"
+golden_line: "- [{kind}] R{round_number}: {excerpt}"
+
+dimension_title: "## 维度：{title}"
+dimension_focus_prefix: "分析要点："
+dimension_source: "（来源 `{rel_path}`）"
+
+dimension_focus:
+  persuasion: "公开归票链、立场转变、前后矛盾；引用时写清「第 N 轮白天」与玩家名。"
+  wolf_night: "刀口一致性、队友配合、抗推/冲票目标；仅使用本区块狼队频道记录。"
+  strategy: "技能时机（验人/救毒/守护/开枪）与身份行为是否自洽。"
+  outcome: "关键票型、出局顺序与胜负拐点；与终局结果对照。"
+
+data_quality_title: "## 数据质量"
+data_quality:
+  vote_intentions: "- 公开投票意向: {has_vote_intentions}"
+  wolf_channel: "- 狼队频道: {has_wolf_team_channel}"
+  confidence: "- 置信度: {confidence}（low 时须收敛推断并在 risks 注明）"
+
+output_instructions:
+  - "### 输出要求（JSON）"
+  - "字段 `summary_zh`：≤300 字，遵循 system 中的四段结构；必须出现至少 1 次「第 N 夜」或「第 N 天」。"
+  - "字段 `prompt_suggestions`：2–3 条字符串。每条格式建议：「【角色 prompt_role_key】具体改动：…；证据：R? …」。角色 key 示例：wolf、prophet、witch、villager、guard。"
+  - "字段 `risks`：列出材料缺口（如缺狼队频道）、低置信度影响、或维度间矛盾；无则 `[]`。"
+
+json_reminder: "请严格以 JSON 回复，字段: summary_zh, prompt_suggestions, risks。"
+plain_json_fallback: |
+  请不要调用工具，直接输出一个严格 JSON 对象，字段: summary_zh, prompt_suggestions, risks。
+  不要输出 Markdown、解释或额外文字。

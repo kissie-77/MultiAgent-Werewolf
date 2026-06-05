@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field, BaseModel
 
-from llm_werewolf.interface.api.models.common import (
-    ArtifactRef,
-    NavLink,
-    PaginatedList,
-    PlayerBrief,
-    RunDetail,
-    RunSummary,
-)
-
+if TYPE_CHECKING:
+    from llm_werewolf.interface.api.models.common import (
+        NavLink,
+        RunDetail,
+        RunSummary,
+        ArtifactRef,
+        PlayerBrief,
+        PaginatedList,
+    )
 
 # --- Shared UI blocks ---
 
@@ -102,7 +102,7 @@ class HomePageData(BaseModel):
     stats_cards: list[StatCard]
     recent_runs: list[RunSummary]
     quick_actions: list[NavLink]
-    game_modes: list["GameModeOption"] = Field(default_factory=list)
+    game_modes: list[GameModeOption] = Field(default_factory=list)
 
 
 # --- Content pages (intro / guide) ---
@@ -258,7 +258,7 @@ class GamePageData(BaseModel):
     board_preset: BoardPreset | None = None
     players: list[PlayerBrief] = Field(default_factory=list)
     camp_counts: dict[str, int] = Field(default_factory=dict)
-    recent_events: list["ReplayEventItem"] = Field(default_factory=list)
+    recent_events: list[ReplayEventItem] = Field(default_factory=list)
 
 
 class ReplayEventItem(BaseModel):

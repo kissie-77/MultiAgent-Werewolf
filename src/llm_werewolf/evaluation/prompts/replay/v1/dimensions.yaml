@@ -1,0 +1,5 @@
+dimensions:
+  persuasion: 公开说服（仅白天公开记录）
+  wolf_night: 狼队夜间讨论（仅 wolf_team 频道）
+  strategy: 角色策略执行（仅技能与票型事件）
+  outcome: 结果贡献（仅投票/出局/刀口/胜负）

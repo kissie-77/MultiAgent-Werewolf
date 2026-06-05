@@ -1,8 +1,10 @@
 # Agent Skill 卡片库
 
-> **最后更新**：2026-05-23
+> **最后更新**：2026-06-05
 
 PostGame 评测从对局中提取的 **Skill** 以 Markdown 存放于此，按 **prompt_role_key / skill_version** 分目录。
+
+各角色 `v1/` 目录下的 `.gitkeep` 为**占位符**：对局结束后由 PostGame `skill_extractor` 自动写入 `.md` 技能卡，空目录属正常现象。
 
 ## 目录结构
 

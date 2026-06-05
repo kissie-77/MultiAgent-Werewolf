@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from llm_werewolf.game_runtime.config.presets import create_game_config_from_player_count
 from llm_werewolf.game_runtime.roles.catalog import get_catalog
 from llm_werewolf.interface.api.models.pages import BoardPreset
+from llm_werewolf.game_runtime.config.presets import create_game_config_from_player_count
 
 
 def build_board_presets(*, min_players: int = 6, max_players: int = 20) -> list[BoardPreset]:

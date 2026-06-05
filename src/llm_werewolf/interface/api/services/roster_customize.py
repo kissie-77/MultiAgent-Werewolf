@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
-from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig
-from llm_werewolf.interface.api.models.actions import PlayerRosterDefaults, PlayerRosterSlot, StartGameRequest
+from typing import TYPE_CHECKING
+
 from llm_werewolf.interface.cli.runtime.overrides import apply_human_seats
+from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig
 from llm_werewolf.interface.cli.runtime.player_count import resize_players_config
+
+if TYPE_CHECKING:
+    from llm_werewolf.interface.api.models.actions import (
+        PlayerRosterSlot,
+        StartGameRequest,
+        PlayerRosterDefaults,
+    )
 
 _ROSTER_FIELDS = ("name", "model", "base_url", "api_key_env", "model_env", "plan")
 

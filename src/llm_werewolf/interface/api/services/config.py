@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
 from llm_werewolf.interface.api.models.pages import (
     ModelCompareItem,
-    ModelComparePageData,
     ModelConfigBrief,
-    ModelDetailPageData,
     ModelListPageData,
-    ModelUsageStat,
+    ModelDetailPageData,
+    ModelComparePageData,
 )
 from llm_werewolf.interface.api.services.runs import aggregate_model_usage
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _infer_provider(config_path: Path, models: list[str]) -> str | None:

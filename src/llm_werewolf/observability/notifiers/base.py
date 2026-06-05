@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from llm_werewolf.observability.core.models import AlertEvent
+if TYPE_CHECKING:
+    from llm_werewolf.observability.core.models import AlertEvent
 
 
 class AlertNotifier(ABC):

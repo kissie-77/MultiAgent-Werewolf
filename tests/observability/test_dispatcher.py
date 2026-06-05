@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -30,6 +32,38 @@ async def test_dispatcher_dedupes_same_code(tmp_path: Path) -> None:
     second = await dispatcher.emit([event], run_dir=tmp_path / "run-1")
     assert len(first) == 1
     assert second == []
+
+
+def test_dispatcher_prunes_expired_dedupe_keys(tmp_path: Path) -> None:
+    config = ObservabilityConfig.from_env(alerts_dir=tmp_path / "alerts")
+    config.dedupe_ttl_seconds = 60
+    dispatcher = AlertDispatcher(config, notifiers=[])
+    event_a = AlertEvent(
+        run_id="run-1",
+        source="test",
+        severity=AlertSeverity.WARNING,
+        code="error_events_per_run",
+        message="too many errors",
+    )
+    event_b = AlertEvent(
+        run_id="run-1",
+        source="test",
+        severity=AlertSeverity.WARNING,
+        code="checker_critical",
+        message="leak",
+    )
+    with patch("llm_werewolf.observability.core.dispatcher.time.time", return_value=1000.0):
+        assert dispatcher._should_emit(event_a) is True
+        assert dispatcher._should_emit(event_b) is True
+        assert len(dispatcher._recent) == 2
+
+    with patch("llm_werewolf.observability.core.dispatcher.time.time", return_value=1070.0):
+        assert dispatcher._should_emit(event_a) is True
+        assert event_a.dedupe_key() in dispatcher._recent
+        assert event_b.dedupe_key() not in dispatcher._recent
+        assert len(dispatcher._recent) == 1
+        assert dispatcher._should_emit(event_b) is True
+        assert len(dispatcher._recent) == 2
 
 
 def test_evaluate_run_failed_signal() -> None:

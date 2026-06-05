@@ -7,50 +7,60 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import TYPE_CHECKING, Any
+import logging
 
+from llm_werewolf.strategy.belief.state import MindStateResult
+from llm_werewolf.agent_team.bridge.parsing import parse_speech as _parse_speech
+from llm_werewolf.agent_team.bridge.parsing import parse_yes_no as _parse_yes_no
+from llm_werewolf.agent_team.bridge.parsing import (
+    parse_target_selection as _parse_target_selection,
+)
+from llm_werewolf.agent_team.bridge.parsing import (
+    parse_multi_target_selection as _parse_multi_target_selection,
+)
+from llm_werewolf.agent_team.bridge.prompts import build_speech_prompt as _build_speech_prompt
+from llm_werewolf.agent_team.bridge.prompts import build_yes_no_prompt as _build_yes_no_prompt
+from llm_werewolf.agent_team.bridge.prompts import (
+    build_mind_state_prompt as _build_mind_state_prompt,
+)
+from llm_werewolf.agent_team.bridge.prompts import (
+    build_witch_night_prompt as _build_witch_night_prompt,
+)
+from llm_werewolf.agent_team.bridge.prompts import (
+    build_multi_target_prompt as _build_multi_target_prompt,
+)
+from llm_werewolf.agent_team.bridge.prompts import (
+    build_vote_intention_prompt as _build_vote_intention_prompt,
+)
+from llm_werewolf.agent_team.bridge.prompts import (
+    build_target_selection_prompt as _build_target_selection_prompt,
+)
 from llm_werewolf.game_runtime.support.seat import get_player_seat, resolve_player_by_seat
-
+from llm_werewolf.strategy.voting.intention import VoteIntentionEntry, VoteIntentionAnchor
 from llm_werewolf.strategy.contracts.decisions import (
     YesNoDecision,
     SpeechDecision,
+    MindStateDecision,
     SeatChoiceDecision,
     WitchNightDecision,
     VoteIntentionDecision,
-    MindStateDecision,
     MultiSeatChoiceDecision,
     is_valid_public_speech,
-    validate_mind_state_decision,
     validate_seat_choice_reason,
+    validate_mind_state_decision,
 )
-from llm_werewolf.strategy.belief.state import MindStateResult
-from llm_werewolf.strategy.contracts.phase_outputs import (
-    ActionPhase,
-    RoundtablePhase,
+from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase, RoundtablePhase
+from llm_werewolf.game_runtime.support.fallback_log import (
+    mark_agent_fallback,
+    clear_agent_decision_metadata,
 )
-from llm_werewolf.strategy.voting.intention import VoteIntentionEntry, VoteIntentionAnchor
 from llm_werewolf.game_runtime.prompts.decision_fallback import select_target_fallback
 from llm_werewolf.agent_team.invocation.structured_invoke import (
     coerce_speech,
     invoke_structured,
     agent_uses_structured_output,
-)
-from llm_werewolf.agent_team.bridge.parsing import (
-    parse_speech as _parse_speech,
-    parse_yes_no as _parse_yes_no,
-    parse_target_selection as _parse_target_selection,
-    parse_multi_target_selection as _parse_multi_target_selection,
-)
-from llm_werewolf.agent_team.bridge.prompts import (
-    build_speech_prompt as _build_speech_prompt,
-    build_yes_no_prompt as _build_yes_no_prompt,
-    build_mind_state_prompt as _build_mind_state_prompt,
-    build_witch_night_prompt as _build_witch_night_prompt,
-    build_multi_target_prompt as _build_multi_target_prompt,
-    build_vote_intention_prompt as _build_vote_intention_prompt,
-    build_target_selection_prompt as _build_target_selection_prompt,
 )
 
 if TYPE_CHECKING:
@@ -668,6 +678,8 @@ class WerewolfAdapterBridge:
         if not possible_targets:
             return None
 
+        clear_agent_decision_metadata(agent)
+
         structured = agent_uses_structured_output(agent) or callable(
             getattr(agent, "get_structured_response", None)
         )
@@ -840,6 +852,7 @@ class WerewolfAdapterBridge:
         schema_retries: int = 1,
         roundtable_phase: RoundtablePhase | None = None,
     ) -> SpeechDecision:
+        clear_agent_decision_metadata(agent)
         structured = agent_uses_structured_output(agent) or callable(
             getattr(agent, "get_structured_response", None)
         )
@@ -864,15 +877,19 @@ class WerewolfAdapterBridge:
                 parsed = WerewolfAdapterBridge.parse_speech(response)
                 if is_valid_public_speech(parsed.public_speech):
                     return parsed
-        except Exception:
+        except Exception as exc:
             logger.warning("request_speech failed agent=%s, using fallback", getattr(agent, "name", "?"), exc_info=True)
+            mark_agent_fallback(agent, kind="speech", reason=type(exc).__name__)
         fallback_getter = getattr(agent, "_generate_fallback_response", None)
         if callable(fallback_getter):
             raw = fallback_getter(prompt, "speech_fallback")
             parsed = WerewolfAdapterBridge.parse_speech(raw)
             if is_valid_public_speech(parsed.public_speech):
+                meta = getattr(agent, "_last_decision_metadata", None)
+                if not (isinstance(meta, dict) and meta.get("fallback")):
+                    mark_agent_fallback(agent, kind="speech", reason="speech_fallback")
                 return parsed
-        # 最终兜底：返回一条合法的公开发言（≥15字）
+        mark_agent_fallback(agent, kind="speech", reason="default_speech")
         return SpeechDecision(
             public_speech="目前场上信息还不够，我需要多听几轮发言再做判断。先观察大家的站队和投票倾向，重点关注发言前后矛盾的人。",
             private_thought=None,

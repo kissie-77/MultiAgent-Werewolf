@@ -15,7 +15,7 @@ from llm_werewolf.interface.api.services.roster_customize import (
 
 @pytest.fixture
 def demo_config(tmp_path):
-    from fixtures import write_demo_config
+    from tests.interface.fixtures import write_demo_config
 
     configs_dir = tmp_path / "configs"
     path = write_demo_config(configs_dir)

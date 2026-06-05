@@ -10,6 +10,11 @@ export interface Player {
   votedFor?: number;
 }
 
+export interface NightSkillAdditional {
+  saved?: boolean;
+  poisonTarget?: number | null;
+}
+
 export interface GameState {
   players: Player[];
   dayNumber: number;

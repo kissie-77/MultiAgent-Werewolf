@@ -1,26 +1,26 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
+from pathlib import Path
+from datetime import datetime, timezone
+from dataclasses import dataclass
 
+from llm_werewolf.evaluation.evolution.prompt_patch import apply_to_role_card
+from llm_werewolf.evaluation.evolution.prompt_history import (
+    proposal_support_key,
+    build_history_support,
+)
 from llm_werewolf.strategy.registry.role_prompt_registry import (
     copy_role_prompt_package,
     register_role_prompt_search_root,
 )
 from llm_werewolf.strategy.registry.role_version_manifest import (
     RoleVersionManifest,
-    get_active_manifest,
     next_version_label,
+    get_active_manifest,
     set_active_manifest,
 )
-from llm_werewolf.evaluation.evolution.prompt_history import (
-    build_history_support,
-    proposal_support_key,
-)
-from llm_werewolf.evaluation.evolution.prompt_patch import apply_to_role_card
 
 PROMPT_VERSIONS_ROOT = Path("artifacts") / "prompt_versions"
 DEFAULT_HISTORY_WINDOW = 5

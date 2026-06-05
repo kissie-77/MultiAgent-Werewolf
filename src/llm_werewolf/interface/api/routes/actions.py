@@ -2,26 +2,28 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Annotated
 
-from llm_werewolf.interface.api.deps import get_configs_dir, get_eval_runs_dir, get_runs_dir
+from fastapi import Query, Depends, APIRouter, HTTPException
+
+from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir, get_eval_runs_dir
 from llm_werewolf.interface.api.models import ApiResponse
 from llm_werewolf.interface.api.models.actions import (
+    PageActionSpec,
+    StartGameRequest,
+    StartGameResponse,
     ActionSpecResponse,
     CancelGameResponse,
     GameStatusResponse,
     ModelCompareRequest,
     ModelCompareResponse,
-    PageActionSpec,
     StartGameModesResponse,
-    StartGameRequest,
-    StartGameResponse,
     TriggerPostGameRequest,
     TriggerPostGameResponse,
 )
 from llm_werewolf.interface.api.services.config import compare_models
-from llm_werewolf.interface.api.services.game_sessions import game_session_manager
 from llm_werewolf.interface.api.services.start_modes import build_start_modes
+from llm_werewolf.interface.api.services.game_sessions import game_session_manager
 
 router = APIRouter(tags=["actions"])
 
@@ -130,7 +132,7 @@ async def start_game(
 @router.get("/games/{run_id}/status")
 def game_status(
     run_id: str,
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[GameStatusResponse]:

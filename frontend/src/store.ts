@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { GameState } from "./types";
+import { fetchWithRetry } from "./api/retry";
+import { GameState, NightSkillAdditional } from "./types";
 
 const EMPTY_START_STATE: GameState = {
   players: [],
@@ -20,6 +21,17 @@ const EMPTY_START_STATE: GameState = {
   executionId: null,
 };
 
+const IN_GAME_PHASES = new Set<GameState["phase"]>([
+  "ROLE_CHOICE",
+  "NIGHT_WOLF",
+  "NIGHT_SEER",
+  "NIGHT_WITCH",
+  "DAY_ANNOUNCEMENT",
+  "DAY_DEBATE",
+  "DAY_VOTE",
+  "GAME_OVER",
+]);
+
 interface GameStore {
   state: GameState | null;
   selectedCardId: number | null;
@@ -34,13 +46,21 @@ interface GameStore {
   submitUserSpeech: () => Promise<void>;
   castVote: () => Promise<void>;
   simulateNextAI: () => Promise<void>;
-  nightSkillAction: (actionType: "NIGHT_KILL" | "NIGHT_INSPECT" | "NIGHT_SAVED_OR_POISON", targetId: number, additional?: any) => Promise<void>;
+  nightSkillAction: (actionType: "NIGHT_KILL" | "NIGHT_INSPECT" | "NIGHT_SAVED_OR_POISON", targetId: number, additional?: NightSkillAdditional) => Promise<void>;
   transitionToDebate: () => Promise<void>;
   exitGame: () => Promise<void>;
   setSelectedCardId: (id: number | null) => void;
   setUserSpeechText: (text: string) => void;
   toggleAutoPlay: () => void;
   setSetupCount: (count: number | null) => void;
+}
+
+async function postJson(path: string, body?: unknown): Promise<Response> {
+  return fetchWithRetry(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -53,16 +73,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setSetupCount: (count) => set({ setupCount: count }),
 
   fetchState: async () => {
+    const previous = get().state;
     try {
-      const res = await fetch("/api/game/state");
+      const res = await fetchWithRetry("/api/game/state");
       if (!res.ok) {
+        if (previous && IN_GAME_PHASES.has(previous.phase)) {
+          console.warn("fetchState failed during active game; keeping previous state");
+          return;
+        }
         set({ state: EMPTY_START_STATE });
         return;
       }
-      const data = await res.json();
+      const data = (await res.json()) as GameState;
       set({ state: data });
     } catch (err) {
-      console.warn("Express mock unavailable, using START_SCREEN:", err);
+      console.warn("fetchState unavailable:", err);
+      if (previous && IN_GAME_PHASES.has(previous.phase)) {
+        return;
+      }
       set({ state: EMPTY_START_STATE });
     }
   },
@@ -70,11 +98,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetGame: async (userRole = "预言家", playerCount = 6, gameMode = "humanVsAI", startImmediately = false) => {
     set({ isLoading: true, selectedCardId: null, userSpeechText: "" });
     try {
-      const res = await fetch("/api/game/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userRole, playerCount, gameMode, startImmediately })
-      });
+      const res = await postJson("/api/game/reset", { userRole, playerCount, gameMode, startImmediately });
       const data = await res.json();
       set({ state: data, isLoading: false });
     } catch (err) {
@@ -87,11 +111,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { userSpeechText } = get();
     set({ isLoading: true });
     try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SPEECH_SUBMIT", text: userSpeechText })
-      });
+      const res = await postJson("/api/game/action", { action: "SPEECH_SUBMIT", text: userSpeechText });
       const data = await res.json();
       set({ state: data, userSpeechText: "", selectedCardId: null, isLoading: false });
     } catch (err) {
@@ -105,11 +125,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (selectedCardId === null) return;
     set({ isLoading: true });
     try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "USER_VOTE", targetId: selectedCardId })
-      });
+      const res = await postJson("/api/game/action", { action: "USER_VOTE", targetId: selectedCardId });
       const data = await res.json();
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
@@ -121,11 +137,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   simulateNextAI: async () => {
     set({ isLoading: true });
     try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "SIMULATE_NEXT_SPEAKER" })
-      });
+      const res = await postJson("/api/game/action", { action: "SIMULATE_NEXT_SPEAKER" });
       const data = await res.json();
       set({ state: data, isLoading: false });
     } catch (err) {
@@ -137,11 +149,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   nightSkillAction: async (actionType, targetId, additional) => {
     set({ isLoading: true });
     try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: actionType, targetId, ...additional })
-      });
+      const res = await postJson("/api/game/action", { action: actionType, targetId, ...additional });
       const data = await res.json();
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
@@ -153,11 +161,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   transitionToDebate: async () => {
     set({ isLoading: true });
     try {
-      const res = await fetch("/api/game/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "TRANSITION_TO_DEBATE" })
-      });
+      const res = await postJson("/api/game/action", { action: "TRANSITION_TO_DEBATE" });
       const data = await res.json();
       set({ state: data, isLoading: false });
     } catch (err) {
@@ -169,9 +173,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   exitGame: async () => {
     set({ isLoading: true, isAutoPlaying: false });
     try {
-      const res = await fetch("/api/game/exit", {
-        method: "POST"
-      });
+      const res = await postJson("/api/game/exit");
       const data = await res.json();
       set({ state: data, isLoading: false });
     } catch (err) {

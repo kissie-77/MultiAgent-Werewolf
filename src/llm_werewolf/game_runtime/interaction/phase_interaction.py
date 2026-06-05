@@ -6,18 +6,19 @@ from typing import TYPE_CHECKING, Protocol
 import asyncio
 
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
+from llm_werewolf.game_runtime.types import GamePhase
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
-    from llm_werewolf.strategy.contracts.decisions import SpeechDecision, WitchNightDecision
-    from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
     from llm_werewolf.strategy.voting.intention import (
         VoteIntentionTracker,
         SpeechVoteIntentionRecord,
     )
+    from llm_werewolf.strategy.contracts.decisions import SpeechDecision, WitchNightDecision
     from llm_werewolf.game_runtime.events.visibility import RoutedMessage
+    from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 
 
 class PhaseInteractionHub(Protocol):
@@ -145,20 +146,29 @@ class PhaseInteraction:
         self._day_timeout = float(day_timeout) if day_timeout else None
         self._vote_timeout = float(vote_timeout) if vote_timeout else None
 
+    _VOTE_PHASES = frozenset({
+        GamePhase.DAY_VOTING.value,
+        "voting",
+        "sheriffvoting",
+    })
+    _DAY_PHASES = frozenset({
+        GamePhase.DAY_DISCUSSION.value,
+        GamePhase.SHERIFF_ELECTION.value,
+        "day",
+        "sheriff",
+        "discussion",
+    })
+
     def _timeout_for_phase(self, phase: str | None) -> float | None:
         if not phase:
             return self._night_timeout
         normalized = phase.strip().lower()
-        if normalized in {"voting", "sheriffvoting", "day_voting"}:
+        if normalized in self._VOTE_PHASES:
             return self._vote_timeout
-        if normalized in {
-            "day",
-            "sheriff",
-            "discussion",
-            "day_discussion",
-            "sheriff_election",
-        }:
+        if normalized in self._DAY_PHASES:
             return self._day_timeout
+        if normalized == GamePhase.NIGHT.value:
+            return self._night_timeout
         return self._night_timeout
 
     async def _await_with_timeout(self, coro, phase: str | None):

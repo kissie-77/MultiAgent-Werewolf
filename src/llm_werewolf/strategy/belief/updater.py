@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+import logging
 
-from llm_werewolf.strategy.voting.seat import get_player_seat
+logger = logging.getLogger(__name__)
+
+_SYSTEM_NOTES = frozenset(
+    {"身份已公开", "预言家验人结果", "已知队友", "已知狼人", "本人（狼）", "本人（好人阵营）", "已出局"}
+)
+
 from llm_werewolf.strategy.wolf.team import participates_in_wolf_team
-from llm_werewolf.strategy.contracts.decisions import BeliefEntry, SecondOrderEntry
+from llm_werewolf.strategy.voting.seat import get_player_seat
 from llm_werewolf.strategy.belief.state import BeliefState
+from llm_werewolf.strategy.contracts.decisions import BeliefEntry, SecondOrderEntry
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import PlayerProtocol
@@ -105,14 +112,14 @@ def merge_llm_beliefs(
         if entry.target_seat == state.observer_seat:
             continue
         existing = state.first_order.get(entry.target_seat)
-        if existing and existing.note in {"身份已公开", "预言家验人结果", "已知队友", "已知狼人"}:
+        if existing and existing.note in _SYSTEM_NOTES:
             continue
         state.set_entry(
             BeliefEntry(
                 target_seat=entry.target_seat,
                 wolf_probability=_clip_prob(entry.wolf_probability),
                 reason=entry.reason,
-                note=entry.reason or entry.note,
+                note=entry.note,
             )
         )
 
@@ -168,6 +175,14 @@ def ensure_agent_belief_state(
     agent = player.agent
     if agent is None:
         return BeliefState(observer_seat=get_player_seat(player) or 0)
+
+    observer_seat = get_player_seat(player) or 0
+    if observer_seat == 0:
+        logger.warning(
+            "belief_state_init_missing_seat player_id=%s name=%s",
+            getattr(player, "player_id", "?"),
+            getattr(player, "name", "?"),
+        )
 
     state = getattr(agent, "belief_state", None)
     if not isinstance(state, BeliefState):

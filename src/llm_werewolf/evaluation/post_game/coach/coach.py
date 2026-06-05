@@ -3,24 +3,25 @@
 from __future__ import annotations
 
 import json
-import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
+import logging
+from pathlib import Path
+from datetime import datetime, timezone
+from dataclasses import field, dataclass
 
 from llm_werewolf.evaluation.post_game.episodic_bridge import (
-    episode_excerpt_for_player_round,
     export_player_episode_reports,
+    episode_excerpt_for_player_round,
 )
+from llm_werewolf.evaluation.post_game.coach_prompt_builder import build_semantic_extract_prompt
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from llm_werewolf.agent_team.memory.base import CompressorProtocol
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
     from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
     from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-    from llm_werewolf.evaluation.post_game.run_context import RunContext
 
 
 @dataclass
@@ -270,18 +271,10 @@ class Coach:
         if compressor is None:
             return []
 
-        lines = [
-            "请从以下狼人杀对局记录中提炼 1-3 条可复用的策略经验。",
-            "每条不超过 50 字，只输出策略经验列表，不要写流水账。",
-            f"本局结果：{'胜利' if won else '失败'}",
-        ]
-        for episode in report.get("episodes", []):
-            messages = episode.get("key_event_messages", []) + episode.get("decision_event_messages", [])
-            if messages:
-                lines.append(f"第{episode.get('round_number')}轮：" + "；".join(messages[:4]))
+        prompt = build_semantic_extract_prompt(report, won=won)
 
         try:
-            response = compressor.call_llm_text("\n".join(lines), max_tokens=300)
+            response = compressor.call_llm_text(prompt, max_tokens=300)
         except Exception:
             logger.warning("Semantic candidate extraction via LLM failed", exc_info=True)
             return []

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import Field, BaseModel
 
-from llm_werewolf.evaluation.core.models import CheckSeverity
+if TYPE_CHECKING:
+    from llm_werewolf.evaluation.core.models import CheckSeverity
 
 
 class AlertSeverity(str, Enum):

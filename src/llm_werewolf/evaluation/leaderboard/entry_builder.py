@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
+from pathlib import Path
 
 from llm_werewolf.evaluation.leaderboard.models import LeaderboardEntry
 
@@ -253,6 +253,4 @@ def _resolve_value(explicit: str | None, meta_value: Any, default: str) -> str:
 def _looks_like_run_dir(path: Path) -> bool:
     if (path / "skill_snapshot.json").is_file():
         return True
-    if (path / "summary.json").is_file() and (path / "manifest.json").is_file():
-        return True
-    return False
+    return bool((path / "summary.json").is_file() and (path / "manifest.json").is_file())

@@ -19,6 +19,7 @@ from llm_werewolf.evaluation.post_game.run_context import RunContext, load_run_c
 from llm_werewolf.evaluation.post_game.scoring.mvp import write_mvp_scores
 from llm_werewolf.evaluation.post_game.replay_agent import run_llm_replay, write_post_game_analysis
 from llm_werewolf.evaluation.core.vote_swing_analysis import write_persuasion_artifacts
+from llm_werewolf.evaluation.post_game.counterfactual import write_counterfactual_artifacts
 from llm_werewolf.evaluation.post_game.pipeline_steps import (
     StepRecord,
     run_step,
@@ -27,19 +28,15 @@ from llm_werewolf.evaluation.post_game.pipeline_steps import (
     run_step_async,
     write_pipeline_steps,
 )
-from llm_werewolf.evaluation.post_game.pipeline_registry import (
-    required_step_ids,
-    step_artifacts,
-)
+from llm_werewolf.evaluation.post_game.bad_case_report import write_bad_case_artifacts
 from llm_werewolf.evaluation.post_game.camp_persuasion import (
     CampPersuasionReport,
     write_camp_persuasion_artifacts,
 )
 from llm_werewolf.evaluation.post_game.episodic_bridge import write_episodic_artifacts
 from llm_werewolf.evaluation.post_game.prompt_proposal import write_prompt_proposals
+from llm_werewolf.evaluation.post_game.pipeline_registry import step_artifacts, required_step_ids
 from llm_werewolf.evaluation.post_game.game_quality_report import write_game_quality_report
-from llm_werewolf.evaluation.post_game.counterfactual import write_counterfactual_artifacts
-from llm_werewolf.evaluation.post_game.bad_case_report import write_bad_case_artifacts
 from llm_werewolf.evaluation.post_game.scoring.score_contexts import write_score_contexts
 from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     write_role_skills_artifacts,

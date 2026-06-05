@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from pathlib import Path
 from functools import lru_cache
 
+from llm_werewolf.strategy.belief.format import summarize_belief_pattern
 from llm_werewolf.agent_team.skill_support.skill_markdown import (
-    ensure_description_format,
+    parse_frontmatter,
     extract_description,
     extract_markdown_section,
-    parse_frontmatter,
+    ensure_description_format,
 )
-from llm_werewolf.strategy.belief.format import summarize_belief_pattern
 from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
 if TYPE_CHECKING:
@@ -53,7 +53,9 @@ def role_skill_version_dir(role_key: str, skill_version: str | None = None) -> P
 
 
 def list_skill_versions(role_key: str) -> tuple[str, ...]:
-    from llm_werewolf.strategy.registry.role_version_manifest import list_skill_versions as _list_versions
+    from llm_werewolf.strategy.registry.role_version_manifest import (
+        list_skill_versions as _list_versions,
+    )
 
     return _list_versions(role_key)
 

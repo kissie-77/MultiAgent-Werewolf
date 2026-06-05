@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
-from typing import Any, Iterable
+from dataclasses import field, asdict, dataclass
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_PROMPT_VERSION = "latest"
 DEFAULT_SKILL_VERSION = "latest"

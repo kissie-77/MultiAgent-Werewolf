@@ -1,15 +1,15 @@
 import os
+from typing import Literal
 
 from pydantic import Field, BaseModel, computed_field, field_validator, model_validator
 from typing_extensions import Self
-from typing import Literal
 from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
 from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
 from llm_werewolf.strategy.registry.role_version_manifest import (
-    DEFAULT_PROMPT_VERSION,
     DEFAULT_SKILL_VERSION,
+    DEFAULT_PROMPT_VERSION,
     RoleVersionManifest,
 )
 
@@ -199,6 +199,10 @@ class PlayersConfig(BaseModel):
         ge=10,
         description="Optional override for night action timeout (seconds).",
     )
+    role_shuffle_seed: int | None = Field(
+        default=None,
+        description="Optional seed for deterministic role shuffle at game start (replay/eval).",
+    )
     players: list[PlayerConfig] = Field(
         ...,
         title="Player List",
@@ -230,9 +234,7 @@ class PlayersConfig(BaseModel):
             if (
                 self.role_versions.default_prompt_version == DEFAULT_PROMPT_VERSION
                 and legacy != DEFAULT_PROMPT_VERSION
-            ):
-                self.role_versions.default_prompt_version = legacy
-            elif legacy != self.role_versions.default_prompt_version and not self.role_versions.prompt_versions:
+            ) or (legacy != self.role_versions.default_prompt_version and not self.role_versions.prompt_versions):
                 self.role_versions.default_prompt_version = legacy
         return self
 

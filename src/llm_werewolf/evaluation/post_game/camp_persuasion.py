@@ -15,8 +15,8 @@ from llm_werewolf.evaluation.post_game.run_context import (
 from llm_werewolf.evaluation.core.vote_swing_analysis import (
     VoteSwingReport,
     analyze_path,
-    format_markdown_report,
     load_speech_records,
+    format_markdown_report,
 )
 
 

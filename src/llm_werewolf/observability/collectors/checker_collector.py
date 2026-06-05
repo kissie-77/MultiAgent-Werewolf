@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from llm_werewolf.evaluation.core.models import CheckResult, CheckSeverity
-from llm_werewolf.observability.core.config import ObservabilityConfig
 from llm_werewolf.observability.core.models import AlertEvent, AlertSeverity
+
+if TYPE_CHECKING:
+    from llm_werewolf.observability.core.config import ObservabilityConfig
 
 
 def collect_checker_alerts(

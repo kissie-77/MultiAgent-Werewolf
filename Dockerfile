@@ -27,7 +27,7 @@ WORKDIR /app
 
 # 从 builder 复制 venv（比重新 pip install 快）
 COPY --from=builder /build/.venv /app/.venv
-ENV PATH="/app/venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH"
 
 # 复制源码
 COPY src/ ./src/

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
+from pathlib import Path
 
 from llm_werewolf.evaluation.evolution.runner import run_evolution_cycle
 

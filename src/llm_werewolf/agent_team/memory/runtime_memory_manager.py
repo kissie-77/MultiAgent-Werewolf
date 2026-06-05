@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.agent_team.memory.base import CompressorProtocol, SemanticBackend
 from llm_werewolf.agent_team.memory.config import MemoryConfig
-from llm_werewolf.agent_team.memory.episodic_memory import EpisodicMemory, KEY_EVENT_TYPES
-from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
-from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
-from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
-from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
-from llm_werewolf.agent_team.skill_support.skill_markdown import extract_description
 from llm_werewolf.game_runtime.roles.registry import get_werewolf_roles
+from llm_werewolf.agent_team.memory.llm_compressor import LLMCompressor
+from llm_werewolf.agent_team.memory.working_memory import WorkingMemory
+from llm_werewolf.agent_team.memory.episodic_memory import KEY_EVENT_TYPES, EpisodicMemory
+from llm_werewolf.agent_team.memory.semantic_memory import SemanticMemory
+from llm_werewolf.agent_team.memory.procedural_memory import ProceduralMemory
+from llm_werewolf.agent_team.skill_support.skill_markdown import extract_description
+
+if TYPE_CHECKING:
+    from llm_werewolf.agent_team.memory.base import SemanticBackend, CompressorProtocol
 
 
 class RuntimeMemoryManager:
@@ -51,7 +53,7 @@ class RuntimeMemoryManager:
 
     async def aclose(self) -> None:
         """Compatibility hook for optional async resources."""
-        return None
+        return
 
     def on_game_start(self, role: str, *, role_counts: dict[str, int] | None = None) -> None:
         """Inject role skills and procedural summaries at game start."""
@@ -113,11 +115,11 @@ class RuntimeMemoryManager:
         """Mirror belief matrix / vote intention into protected WorkingMemory slots."""
         if not self._prompt_context_enabled():
             return
-        from llm_werewolf.agent_team.memory.working_memory import (
-            BELIEF_PERSISTENT_PRIORITY,
-            _BELIEF_RULES_TEXT,
-        )
         from llm_werewolf.strategy.belief.format import format_belief_context
+        from llm_werewolf.agent_team.memory.working_memory import (
+            _BELIEF_RULES_TEXT,
+            BELIEF_PERSISTENT_PRIORITY,
+        )
 
         if not self._belief_rules_initialized:
             self.working.upsert_persistent(
@@ -150,8 +152,8 @@ class RuntimeMemoryManager:
 
     def refresh_belief_skills(self, state: object) -> None:
         """Match role skills to the current belief matrix for decision/speech injection."""
-        from llm_werewolf.agent_team.skill_support.skill_loader import refresh_belief_skill_context
         from llm_werewolf.strategy.belief.state import BeliefState
+        from llm_werewolf.agent_team.skill_support.skill_loader import refresh_belief_skill_context
         from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
         if not isinstance(state, BeliefState) or not state.first_order:
@@ -239,7 +241,7 @@ class RuntimeMemoryManager:
 
     def _inject_semantic_context(self, role: str) -> None:
         # Skill MD is injected via belief matching; only backend cards enter working memory here.
-        if self.semantic._backend is None:
+        if not self.semantic.has_backend:
             return
         for card in self.semantic.retrieve_for_role(role, top_k=self.config.semantic_top_k):
             description = card.description or extract_description(card.content)

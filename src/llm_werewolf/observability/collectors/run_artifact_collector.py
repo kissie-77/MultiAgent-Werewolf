@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
-from typing import Any
 
-from llm_werewolf.evaluation.signals.post_game_signals import load_post_game_signals
+from llm_werewolf.observability.core.config import ObservabilityConfig
+from llm_werewolf.observability.rules.engine import evaluate_run_signals
 from llm_werewolf.evaluation.signals.run_scan import scan_run_dir
 from llm_werewolf.observability.core.runtime_log import load_provider_events
+from llm_werewolf.evaluation.signals.post_game_signals import load_post_game_signals
 from llm_werewolf.observability.collectors.checker_collector import collect_checker_alerts
-from llm_werewolf.observability.core.config import ObservabilityConfig
-from llm_werewolf.observability.core.models import AlertEvent
-from llm_werewolf.observability.rules.engine import evaluate_run_signals
+
+if TYPE_CHECKING:
+    from llm_werewolf.observability.core.models import AlertEvent
 
 
 def _read_run_meta(run_dir: Path) -> dict[str, Any]:

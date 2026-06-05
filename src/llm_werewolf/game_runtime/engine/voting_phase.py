@@ -4,18 +4,18 @@ import asyncio
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
-from llm_werewolf.strategy.contracts.decisions import SpeechDecision
-from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.actions import VoteAction
-from llm_werewolf.strategy.registry.role_prompts import GamePrompts
-from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase, action_phase_instruction
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import RoleNames
-from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.game_runtime.actions.base import Action
+from llm_werewolf.game_runtime.support.seat import get_player_seat
 from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
+from llm_werewolf.strategy.registry.role_prompts import GamePrompts
+from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase, action_phase_instruction
 from llm_werewolf.game_runtime.engine.death_messages import elimination_announcement
 
 
@@ -114,6 +114,13 @@ class VotingPhaseMixin:
                 fallback_target = _fallback_target_from_vote_intention(player, possible_targets)
                 if fallback_target is None:
                     return None
+                from llm_werewolf.game_runtime.support.fallback_log import mark_agent_fallback
+
+                mark_agent_fallback(
+                    player.agent,
+                    kind="vote",
+                    reason="vote_intention",
+                )
                 player.agent.add_decision(
                     "Round "
                     f"{self.game_state.round_number}: Voted for "
@@ -183,6 +190,7 @@ class VotingPhaseMixin:
                         "voter_name": action.actor.name,
                         "target_id": action.target.player_id,
                         "target_name": action.target.name,
+                        **self._decision_data(action),
                     },
                 )
 
@@ -270,6 +278,24 @@ class VotingPhaseMixin:
         self._handle_lover_death(eliminated)
         self._handle_wolf_beauty_charm_death(eliminated)
 
+    def _append_vote_tie_no_elimination(
+        self, tie_candidates: list[str], messages: list[str]
+    ) -> list[str]:
+        if not self.game_state:
+            return messages
+        tie_names = ", ".join(
+            self.game_state.get_player(cid).name
+            for cid in tie_candidates
+            if self.game_state.get_player(cid)
+        )
+        self._log_event(
+            EventType.VOTE_RESULT,
+            self.locale.get("vote_tie_no_elimination", candidates=tie_names),
+            data={"tie_candidates": tie_candidates},
+        )
+        messages.append(self.locale.get("vote_tie_no_elimination", candidates=tie_names))
+        return messages
+
     async def _handle_vote_tie(self, tie_candidates: list[str], messages: list[str]) -> list[str]:
         """处理投票平票：第一次平票 → PK 发言 + 重新投票；第二次平票 → 无人淘汰。
 
@@ -284,6 +310,9 @@ class VotingPhaseMixin:
             return messages
 
         tie_count = self.game_state.vote_tie_count
+
+        if tie_count >= 1:
+            return self._append_vote_tie_no_elimination(tie_candidates, messages)
 
         if tie_count == 0 and not self.game_state.allow_revote:
             self._log_event(
@@ -356,35 +385,10 @@ class VotingPhaseMixin:
                     eliminated = self.game_state.get_player(new_candidates[0])
                     if eliminated:
                         self._eliminate_voted_player(eliminated)
-                else:
-                    # 第二次平票
-                    await self._handle_vote_tie(new_candidates, messages)
+                elif new_candidates:
+                    return self._append_vote_tie_no_elimination(new_candidates, messages)
             else:
                 self._log_event(EventType.VOTE_RESULT, self.locale.get("no_votes"), data={})
-        else:
-            # 第二次平票：无人淘汰
-            self._log_event(
-                EventType.VOTE_RESULT,
-                self.locale.get(
-                    "vote_tie_no_elimination",
-                    candidates=", ".join(
-                        self.game_state.get_player(cid).name
-                        for cid in tie_candidates
-                        if self.game_state.get_player(cid)
-                    ),
-                ),
-                data={"tie_candidates": tie_candidates},
-            )
-            messages.append(
-                self.locale.get(
-                    "vote_tie_no_elimination",
-                    candidates=", ".join(
-                        self.game_state.get_player(cid).name
-                        for cid in tie_candidates
-                        if self.game_state.get_player(cid)
-                    ),
-                )
-            )
 
         return messages
 

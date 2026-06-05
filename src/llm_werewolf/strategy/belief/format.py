@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+from dataclasses import field, dataclass
 
-from llm_werewolf.strategy.belief.state import BeliefState, BeliefSnapshotRecord
-from llm_werewolf.strategy.wolf.camp_mind import WolfCampMindModel, format_wolf_camp_board, is_wolf_player
+from llm_werewolf.strategy.wolf.camp_mind import (
+    WolfCampMindModel,
+    is_wolf_player,
+    format_wolf_camp_board,
+)
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import PlayerProtocol
+    from llm_werewolf.strategy.belief.state import BeliefState, BeliefSnapshotRecord
 
 
 def _format_first_order_lines(state: BeliefState, *, max_entries: int) -> list[str]:

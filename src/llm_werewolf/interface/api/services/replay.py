@@ -3,24 +3,26 @@
 from __future__ import annotations
 
 import json
-from typing import Any
-from collections import Counter
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
+from collections import Counter
 
-from llm_werewolf.evaluation.post_game.run_context import load_run_context
-from llm_werewolf.evaluation.log_views.filters import event_is_visible_to
-from llm_werewolf.evaluation.post_game.turning_points import build_turning_points
-from llm_werewolf.interface.api.models.common import PlayerBrief
 from llm_werewolf.interface.api.models.pages import (
-    GameSnapshot,
     MvpRankItem,
+    GameSnapshot,
     PhaseSummary,
-    ReplayEventItem,
     ReplayPageData,
+    ReplayEventItem,
     ReplayScoreBlock,
     ShareReplayPageData,
 )
 from llm_werewolf.interface.api.services.runs import get_run_detail
+from llm_werewolf.evaluation.log_views.filters import event_is_visible_to
+from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.evaluation.post_game.turning_points import build_turning_points
+
+if TYPE_CHECKING:
+    from llm_werewolf.interface.api.models.common import PlayerBrief
 
 
 def _load_json(path: Path) -> dict | list | None:

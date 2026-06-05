@@ -11,14 +11,12 @@ from typing import TYPE_CHECKING
 from dataclasses import field, dataclass
 from collections.abc import Callable, Awaitable
 
-from llm_werewolf.game_runtime.support.seat import get_player_seat, resolve_player_by_seat
 from llm_werewolf.game_runtime.types import Camp
-from llm_werewolf.strategy.registry.role_prompts import GamePrompts
-from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 from llm_werewolf.game_runtime.roles.names import (
     participates_in_wolf_team,
     is_untransformed_blood_moon,
 )
+from llm_werewolf.game_runtime.support.seat import get_player_seat, resolve_player_by_seat
 from llm_werewolf.game_runtime.roles.werewolf import build_werewolf_team_context
 from llm_werewolf.game_runtime.actions.villager import (
     CupidLinkAction,
@@ -37,6 +35,8 @@ from llm_werewolf.game_runtime.actions.werewolf import (
     NightmareWolfBlockAction,
     GuardianWolfProtectAction,
 )
+from llm_werewolf.strategy.registry.role_prompts import GamePrompts
+from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import ActionProtocol, PlayerProtocol, GameStateProtocol
@@ -103,12 +103,19 @@ def _seat_label(player: PlayerProtocol) -> str:
 def _attach_decision_metadata(
     action: ActionProtocol, target: PlayerProtocol, decision: object | None
 ) -> ActionProtocol:
-    metadata = {
+    metadata: dict[str, object] = {
         "decision_seat": get_player_seat(target),
         "resolved_target_id": target.player_id,
         "resolved_target_name": target.name,
         "fallback": False,
     }
+    actor = getattr(action, "actor", None)
+    agent = getattr(actor, "agent", None)
+    agent_meta = getattr(agent, "_last_decision_metadata", None)
+    if isinstance(agent_meta, dict) and agent_meta.get("fallback"):
+        metadata["fallback"] = True
+        metadata["fallback_reason"] = agent_meta.get("fallback_reason")
+        metadata["decision_kind"] = agent_meta.get("decision_kind", "skill")
     if decision is not None and hasattr(decision, "model_dump"):
         metadata["structured_decision"] = decision.model_dump(mode="json")
     action._decision_metadata = metadata

@@ -7,9 +7,9 @@ under eval/evolution run directories without changing runtime Agent behavior.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
+from pathlib import Path
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

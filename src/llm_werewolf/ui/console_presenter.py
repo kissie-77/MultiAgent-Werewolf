@@ -227,6 +227,18 @@ class ConsolePresenter:
             style = self._get_event_style(event.event_type)
             console.print(event.message, style=style)
 
+    def _flush_day_transition_buffers(self) -> None:
+        """入昼或警长竞选前结清夜间/白天残留缓冲。"""
+        self._flush_werewolf_discussion()
+        self._flush_night_actions()
+        self._flush_delayed_night_public_events()
+        self._flush_discussion()
+        self._flush_votes()
+
+    def _flush_all_pending_buffers(self) -> None:
+        """游戏结束等终态前强制输出全部缓冲，避免残留。"""
+        self._flush_day_transition_buffers()
+
     def _handle_phase_change(self, event: Event) -> None:
         """处理阶段切换并输出视觉分隔符。"""
         tw = self._is_traditional_chinese()
@@ -247,9 +259,7 @@ class ConsolePresenter:
             console.print("═" * 70, style="blue")
             console.print()
         elif phase_value.startswith("day"):
-            # 入昼前刷新夜间行动和狼人讨论
-            self._flush_night_actions()
-            self._flush_delayed_night_public_events()
+            self._flush_day_transition_buffers()
 
             round_num = event.data.get("round", 0)
             round_label = "輪" if tw else "轮"
@@ -262,9 +272,7 @@ class ConsolePresenter:
             console.print("═" * 70, style="yellow")
             console.print()
         elif phase_value == "sheriff_election":
-            # 首夜后先结清夜间公开信息，再进入独立警长竞选阶段。
-            self._flush_night_actions()
-            self._flush_delayed_night_public_events()
+            self._flush_day_transition_buffers()
 
             round_num = event.data.get("round", 0)
             round_label = "輪" if tw else "轮"
@@ -378,18 +386,25 @@ class ConsolePresenter:
     def _buffer_discussion(self, event: Event) -> None:
         """缓冲讨论消息以便分组展示。"""
         if event.data:
+            from llm_werewolf.game_runtime.support.fallback_log import fallback_prefix_from_data
+
             player_name = event.data.get("player_name", "Unknown")
             speech = event.data.get("speech", "")
-            self._discussion_messages.append(f"{player_name}: {speech}")
+            prefix = fallback_prefix_from_data(event.data)
+            self._discussion_messages.append(f"{prefix}{player_name}: {speech}")
 
     def _present_live_speech(self, event: Event) -> None:
         """人类玩家视角下实时展示公开发言，避免投票后整轮重复刷屏。"""
         if not event.data:
             console.print(event.message, style="cyan")
             return
+        from llm_werewolf.game_runtime.support.fallback_log import fallback_prefix_from_data
+
         player_name = event.data.get("player_name", "Unknown")
         speech = event.data.get("speech", "")
-        console.print(f"\n💬 {player_name}: {speech}", style="cyan")
+        prefix = fallback_prefix_from_data(event.data)
+        style = "bold yellow" if prefix else "cyan"
+        console.print(f"\n💬 {prefix}{player_name}: {speech}", style=style)
 
     def _present_live_werewolf_discussion(self, event: Event) -> None:
         """人类狼人视角下实时展示已可见的狼队夜聊。"""
@@ -403,9 +418,12 @@ class ConsolePresenter:
     def _buffer_werewolf_discussion(self, event: Event) -> None:
         """缓冲狼人讨论以便分组展示。"""
         if event.data:
+            from llm_werewolf.game_runtime.support.fallback_log import fallback_prefix_from_data
+
             player_name = event.data.get("player_name", "Unknown")
             speech = event.data.get("speech", "")
-            self._werewolf_discussion.append(f"🐺 {player_name}: {speech}")
+            prefix = fallback_prefix_from_data(event.data)
+            self._werewolf_discussion.append(f"🐺 {prefix}{player_name}: {speech}")
 
     def _flush_werewolf_discussion(self) -> None:
         """展示狼人讨论（仅在夜晚阶段调用）。"""
@@ -494,6 +512,7 @@ class ConsolePresenter:
 
     def _present_game_end(self, event: Event) -> None:
         """展示游戏结束。"""
+        self._flush_all_pending_buffers()
         title = "🏆 遊戲結束 🏆" if self._is_traditional_chinese() else "🏆 游戏结束 🏆"
         console.print()
         console.print("═" * 70, style="bold magenta")

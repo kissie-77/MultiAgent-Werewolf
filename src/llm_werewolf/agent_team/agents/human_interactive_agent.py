@@ -352,9 +352,7 @@ class HumanInteractiveAgent(BaseAgent):
         if not compact:
             return False
         unique_chars = set(compact)
-        if len(unique_chars) <= 3:
-            return False
-        return True
+        return not len(unique_chars) <= 3
 
     @staticmethod
     def _normalize(

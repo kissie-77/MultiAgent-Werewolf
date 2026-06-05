@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _load_belief_rows(run_dir: Path) -> list[dict[str, Any]]:

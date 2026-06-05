@@ -4,23 +4,25 @@ from __future__ import annotations
 
 import os
 import json
-import asyncio
 from typing import TYPE_CHECKING, Any
+import asyncio
 
-from agentscope.message import Msg as AgentScopeMsg
 from pydantic import ValidationError
+from agentscope.message import Msg as AgentScopeMsg
 
 from llm_werewolf.agent_team.agents.factory import create_react_agent
 from llm_werewolf.agent_team.agents.agentscope_agent import (
     _extract_structured_payload_from_content,
 )
-from llm_werewolf.strategy.contracts.evaluation_outputs import ReplayAnalysisDecision
 from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
-from llm_werewolf.agent_team.invocation.structured_invoke import (
-    generate_response_instruction,
-    unwrap_structured_metadata,
-)
 from llm_werewolf.evaluation.post_game.turning_points import build_rule_summary_zh
+from llm_werewolf.strategy.contracts.evaluation_outputs import ReplayAnalysisDecision
+from llm_werewolf.agent_team.invocation.structured_invoke import (
+    unwrap_structured_metadata,
+    generate_response_instruction,
+)
+from llm_werewolf.evaluation.post_game.replay_prompt_builder import build_replay_prompt
+from llm_werewolf.evaluation.registry.post_game_prompt_registry import load_replay_prompt_bundle
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,13 +30,6 @@ if TYPE_CHECKING:
     from llm_werewolf.game_runtime.config import PlayerConfig
     from llm_werewolf.evaluation.post_game.run_context import RunContext
     from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
-
-EVAL_ANALYST_SYSTEM_PROMPT = (
-    "你是一名狼人杀对局赛后评测分析师。"
-    "你只能根据用户提供的「分维度材料」和「MVP 规则分」进行复盘；"
-    "不得引用材料中未出现的夜间私密信息、未列出的发言或臆造身份。"
-    "输出须符合调用方要求的 JSON 字段。"
-)
 
 
 def _load_analyst_config(config_path: Path | None) -> PlayerConfig | None:
@@ -114,92 +109,12 @@ def _parse_json_response(text: str) -> dict[str, Any]:
     return json.loads(cleaned)
 
 
-def _read_context_file(run_dir: Path, rel_path: str, *, max_chars: int = 5000) -> str:
-    path = run_dir / rel_path
-    if not path.is_file():
-        return ""
-    return path.read_text(encoding="utf-8")[:max_chars]
-
-
-def build_replay_prompt(
-    ctx: RunContext,
-    camp_report: CampPersuasionReport | None = None,
+async def _invoke_eval_analyst(
+    react_agent: Any,
+    user_prompt: str,
     *,
-    mvp_payload: dict[str, Any] | None = None,
-    dimension_context_paths: dict[str, str] | None = None,
-    public_digest: str = "",
-    swing_digest: str = "",
-) -> str:
-    del camp_report, public_digest, swing_digest
-    mvp_payload = mvp_payload or {}
-    paths = dimension_context_paths or mvp_payload.get("dimension_context_paths") or {}
-
-    sections = [
-        "请基于下列「分维度材料」撰写赛后复盘。",
-        "规则：每个维度只能使用该维度区块内的记录；不要合并推断未提供的私密夜间信息。",
-        "",
-        f"胜负阵营: {ctx.winner_camp}",
-        f"Prompt 版本: {ctx.prompt_version}",
-        f"结果说明: {ctx.game_result_text or '（无）'}",
-        "",
-        "## MVP 规则评分（已计算，请据此选金句与策略亮点，勿改分）",
-        "",
-    ]
-
-    mvp = mvp_payload.get("mvp")
-    if mvp:
-        sections.append(
-            f"全场 MVP: {mvp.get('player_name')} ({mvp.get('role_name')}, "
-            f"camp={mvp.get('camp')}, score={mvp.get('mvp_total')})"
-        )
-    for row in (mvp_payload.get("players") or [])[:5]:
-        sections.append(
-            f"- #{row.get('rank')} {row.get('player_name')}: total={row.get('mvp_total')} "
-            f"raw={row.get('breakdown_raw')}"
-        )
-    golden: list[dict[str, Any]] = []
-    if mvp and mvp.get("player_id"):
-        for player in mvp_payload.get("players") or []:
-            if player.get("player_id") == mvp.get("player_id"):
-                golden = player.get("golden_speech_candidates") or []
-                break
-    if golden:
-        sections.extend(["", "### MVP 候选金句/片段", ""])
-        for item in golden[:5]:
-            sections.append(
-                f"- [{item.get('kind')}] R{item.get('round_number')}: {item.get('excerpt', '')[:200]}"
-            )
-
-    dim_titles = {
-        "persuasion": "公开说服（仅白天公开记录）",
-        "wolf_night": "狼队夜间讨论（仅 wolf_team 频道）",
-        "strategy": "角色策略执行（仅技能与票型事件）",
-        "outcome": "结果贡献（仅投票/出局/刀口/胜负）",
-    }
-    for dim, title in dim_titles.items():
-        rel = paths.get(dim)
-        if not rel:
-            continue
-        body = _read_context_file(ctx.run_dir, rel)
-        if not body.strip():
-            continue
-        sections.extend(["", f"## 维度：{title}", f"（来源 `{rel}`）", "", body])
-
-    dq = mvp_payload.get("data_quality") or {}
-    sections.extend([
-        "",
-        "## 数据质量",
-        f"- 公开投票意向: {dq.get('has_vote_intentions')}",
-        f"- 狼队频道: {dq.get('has_wolf_team_channel')}",
-        f"- 置信度: {dq.get('confidence')}",
-        "",
-        "请以 JSON 回复，字段: summary_zh (string), prompt_suggestions (string[]), risks (string[])",
-        "summary_zh 须点明 MVP 为何是此人（可败方），并引用上述维度中的具体轮次。",
-    ])
-    return "\n".join(sections)
-
-
-async def _invoke_eval_analyst(react_agent: Any, user_prompt: str) -> ReplayAnalysisDecision:
+    plain_json_fallback: str,
+) -> ReplayAnalysisDecision:
     """结构化调用 eval analyst，含 429 重试与 plain JSON fallback。"""
     last_error: Exception | None = None
     for attempt in range(3):
@@ -218,11 +133,7 @@ async def _invoke_eval_analyst(react_agent: Any, user_prompt: str) -> ReplayAnal
                 await asyncio.sleep(2**attempt)
                 continue
 
-    plain_prompt = (
-        f"{user_prompt}\n\n"
-        "请不要调用工具，直接输出一个严格 JSON 对象，字段: summary_zh, prompt_suggestions, risks。\n"
-        "不要输出 Markdown、解释或额外文字。"
-    )
+    plain_prompt = f"{user_prompt}\n\n{plain_json_fallback}"
     plain_msg = AgentScopeMsg(name="Moderator", content=plain_prompt, role="user")
     try:
         response_msg = await run_serial_agent_call(lambda: react_agent(plain_msg))
@@ -247,14 +158,15 @@ async def run_eval_replay(
     dimension_context_paths: dict[str, str] | None = None,
     public_digest: str = "",
     swing_digest: str = "",
+    replay_prompt_version: str | None = None,
 ) -> dict[str, Any]:
+    del camp_report, public_digest, swing_digest
+    prompt_bundle = load_replay_prompt_bundle(replay_prompt_version)
     prompt = build_replay_prompt(
         ctx,
-        camp_report,
         mvp_payload=mvp_payload,
         dimension_context_paths=dimension_context_paths,
-        public_digest=public_digest,
-        swing_digest=swing_digest,
+        prompt_version=prompt_bundle.version,
     )
     analyst_config = _load_analyst_config(config_path)
 
@@ -270,18 +182,25 @@ async def run_eval_replay(
 
     try:
         react_agent = create_react_agent(
-            analyst_config, agent_name="EvalAnalyst", sys_prompt=EVAL_ANALYST_SYSTEM_PROMPT
+            analyst_config,
+            agent_name="EvalAnalyst",
+            sys_prompt=prompt_bundle.system_prompt,
         )
         user_prompt = (
-            f"{prompt}\n\n请严格以 JSON 回复，字段: summary_zh, prompt_suggestions, risks。\n\n"
+            f"{prompt}\n\n{prompt_bundle.json_reminder}\n\n"
             f"{generate_response_instruction('ReplayAnalysisDecision')}"
         )
-        parsed = await _invoke_eval_analyst(react_agent, user_prompt)
+        parsed = await _invoke_eval_analyst(
+            react_agent,
+            user_prompt,
+            plain_json_fallback=prompt_bundle.plain_json_fallback,
+        )
 
         return {
             "mode": "llm",
             "backend": "agentscope",
             "input_policy": "dimension_scoped_contexts_only",
+            "replay_prompt_version": prompt_bundle.version,
             **parsed.model_dump(),
         }
     except json.JSONDecodeError as exc:

@@ -2,39 +2,45 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Annotated
 
-from llm_werewolf.game_runtime.roles.catalog import get_definition
-from llm_werewolf.interface.api.deps import get_configs_dir, get_eval_runs_dir, get_runs_dir
+from fastapi import Query, Depends, APIRouter, HTTPException
+
+from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir, get_eval_runs_dir
 from llm_werewolf.interface.api.models import (
+    RunDetail,
+    RoleDetail,
     ApiResponse,
-    ContentPageData,
     GamePageData,
     HomePageData,
-    ModelComparePageData,
-    ModelDetailPageData,
+    ReplayPageData,
+    ContentPageData,
+    RunListPageData,
+    RoleListPageData,
+    StrategyPageData,
     ModelListPageData,
     NightPhasePageData,
-    ReplayPageData,
-    RoleDetail,
-    RoleListPageData,
-    RunDetail,
-    RunListPageData,
+    ModelDetailPageData,
     ShareReplayPageData,
-    StrategyPageData,
+    ModelComparePageData,
 )
+from llm_werewolf.game_runtime.roles.catalog import get_definition
+from llm_werewolf.interface.api.services.runs import paginate_runs, get_run_detail
+from llm_werewolf.interface.api.services.pages import build_game_page, build_home_page
+from llm_werewolf.interface.api.services.config import (
+    compare_models,
+    get_model_detail,
+    list_models_page,
+)
+from llm_werewolf.interface.api.services.replay import get_replay_page, get_share_replay_page
 from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
-from llm_werewolf.interface.api.services.config import compare_models, get_model_detail, list_models_page
 from llm_werewolf.interface.api.services.content import (
     get_about_page,
     get_features_page,
+    get_strategy_page,
     get_how_to_play_page,
     get_night_phase_page,
-    get_strategy_page,
 )
-from llm_werewolf.interface.api.services.pages import build_game_page, build_home_page
-from llm_werewolf.interface.api.services.replay import get_replay_page, get_share_replay_page
-from llm_werewolf.interface.api.services.runs import get_run_detail, paginate_runs
 
 home_router = APIRouter(prefix="/home", tags=["pages:home"])
 game_router = APIRouter(prefix="/game", tags=["pages:game"])
@@ -62,9 +68,9 @@ def get_home_page(
 
 @game_router.get("", response_model=ApiResponse[GamePageData])
 def game_page(
-    run_id: str | None = Query(None),
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
-    config_id: str | None = Query(None),
+    run_id: Annotated[str | None, Query()] = None,
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
+    config_id: Annotated[str | None, Query()] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[GamePageData]:
@@ -132,7 +138,7 @@ def models_list_page(configs_dir=Depends(get_configs_dir)) -> ApiResponse[ModelL
 
 @models_router.get("/compare", response_model=ApiResponse[ModelComparePageData])
 def models_compare_page(
-    ids: list[str] = Query(..., min_length=2),
+    ids: Annotated[list[str], Query(min_length=2)],
 ) -> ApiResponse[ModelComparePageData]:
     return ApiResponse(data=compare_models(ids))
 
@@ -147,9 +153,9 @@ def model_detail_page(
 
 @runs_router.get("", response_model=ApiResponse[RunListPageData])
 def list_runs(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[RunListPageData]:
@@ -169,7 +175,7 @@ def list_runs(
 @runs_router.get("/{run_id}", response_model=ApiResponse[RunDetail])
 def get_run(
     run_id: str,
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[RunDetail]:
@@ -182,9 +188,9 @@ def get_run(
 @replay_router.get("/{run_id}", response_model=ApiResponse[ReplayPageData])
 def replay_page(
     run_id: str,
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
-    view: str = Query("public", pattern="^(public|god)$"),
-    viewer_id: str | None = Query(None),
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
+    view: Annotated[str, Query(pattern="^(public|god)$")] = "public",
+    viewer_id: Annotated[str | None, Query()] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[ReplayPageData]:
@@ -204,7 +210,7 @@ def replay_page(
 @replay_router.get("/{run_id}/share", response_model=ApiResponse[ShareReplayPageData])
 def share_replay_page(
     run_id: str,
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
+    source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[ShareReplayPageData]:

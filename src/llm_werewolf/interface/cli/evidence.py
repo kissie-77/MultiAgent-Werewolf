@@ -2,8 +2,8 @@ from pathlib import Path
 
 import fire
 
-from llm_werewolf.evaluation.core.evidence_pack import build_evidence_pack
 from llm_werewolf.paths import EVAL_RUNS_DIR
+from llm_werewolf.evaluation.core.evidence_pack import build_evidence_pack
 
 
 def main(

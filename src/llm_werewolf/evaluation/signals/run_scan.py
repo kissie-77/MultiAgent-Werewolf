@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 from pathlib import Path
 
+from llm_werewolf.evaluation.core.models import CheckResult
 from llm_werewolf.evaluation.core.checkers import (
     AsyncFlowChecker,
+    RoleSkillChecker,
+    PromptBadCaseChecker,
+    VictoryCheckerEvaluator,
     DecisionConsistencyChecker,
     InformationIsolationChecker,
-    PromptBadCaseChecker,
-    RoleSkillChecker,
-    VictoryCheckerEvaluator,
 )
-from llm_werewolf.evaluation.core.models import CheckResult
-from llm_werewolf.evaluation.post_game.event_adapter import event_from_dict
-from llm_werewolf.game_runtime.types import Event
 from llm_werewolf.game_runtime.types.enums import EventType
+from llm_werewolf.evaluation.post_game.event_adapter import event_from_dict
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.types import Event
 
 
 def _read_events_jsonl(path: Path) -> list[Event]:

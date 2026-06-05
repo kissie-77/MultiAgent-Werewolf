@@ -30,7 +30,8 @@ markers = [
 ]
 minversion = "8.2"
 testpaths = "tests/"
-pythonpath = ["src", "tests/interface"]
+# tests/interface: conftest imports `tests.interface.fixtures` (see tests/__init__.py)
+pythonpath = ["src", "tests"]
 python_files = "test_*.py"
 cache_dir = "~/.cache/pytest"
 asyncio_mode = "auto"
@@ -257,7 +258,7 @@ preview = true
 
 # Enable Auto Fixing.
 fix = true
-unsafe-fixes = true
+unsafe-fixes = false
 
 # Whether to automatically exclude files that are ignored by .ignore, .gitignore, .git/info/exclude, and global gitignore files. Enabled by default.
 respect-gitignore = true

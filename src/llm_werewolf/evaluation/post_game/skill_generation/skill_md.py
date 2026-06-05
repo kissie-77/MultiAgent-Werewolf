@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 from llm_werewolf.evaluation.post_game.skill_generation.skill_card_builder import (
     _result_zh,
-    abstract_evidence_target_label,
     generalize_seat_references,
+    abstract_evidence_target_label,
 )
 
 

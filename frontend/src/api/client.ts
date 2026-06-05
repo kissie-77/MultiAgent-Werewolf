@@ -11,7 +11,8 @@ import {
   FeaturesPageData,
   HowToPlayPageData,
   NightPhasePageData,
-  StrategyPageData
+  StrategyPageData,
+  RunListPageData
 } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -95,6 +96,12 @@ export class ApiClient {
 
   static async getStrategyPageData(): Promise<StrategyPageData> {
     return this.get<StrategyPageData>("/api/v1/pages/strategy");
+  }
+
+  static async getRunsPageData(page = 1, pageSize = 20): Promise<RunListPageData> {
+    return this.get<RunListPageData>(
+      `/api/v1/runs?page=${page}&page_size=${pageSize}`
+    );
   }
 }
 

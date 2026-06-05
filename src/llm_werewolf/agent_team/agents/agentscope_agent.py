@@ -8,7 +8,6 @@ import logging
 
 logging.getLogger("agentscope.formatter").setLevel(logging.ERROR)
 import re
-import json
 from typing import Any
 import asyncio
 
@@ -18,18 +17,18 @@ from pydantic import Field, BaseModel, ValidationError
 # 使用AgentScope原生的Msg类
 from agentscope.message import Msg as AgentScopeMsg
 
+from llm_werewolf.agent_team.agents.base import BaseAgent
+from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.strategy.contracts.decisions import (
     SpeechDecision,
     extract_public_text,
     is_valid_public_speech,
 )
-from llm_werewolf.agent_team.agents.base import BaseAgent
-from llm_werewolf.game_runtime.prompts.manager import PromptManager
 from llm_werewolf.agent_team.invocation.serial_calls import run_serial_agent_call
 from llm_werewolf.agent_team.invocation.structured_invoke import (
+    _unwrap_tool_payload,
     parse_structured_from_text,
     unwrap_structured_metadata,
-    _unwrap_tool_payload,
 )
 
 logger = logging.getLogger(__name__)
@@ -315,15 +314,14 @@ class AgentScopeWerewolfAgent(BaseAgent):
                     )
                     if _is_agentscope_interrupt_text(response_text):
                         await self._cleanup_agentscope_interrupt_memory()
-                    response_text = self._generate_fallback_response(message, "interrupted")
+                    response_text = self._mark_and_generate_fallback(message, "interrupted")
                     last_error = None
                     break
-                elif not self._message_expects_seat_only(message):
-                    if (
-                        not self._is_werewolf_private_chat(message)
-                        and not is_valid_public_speech(extract_public_text(response_text))
-                    ):
-                        response_text = self._generate_fallback_response(message, "invalid_speech")
+                if not self._message_expects_seat_only(message) and (
+                    not self._is_werewolf_private_chat(message)
+                    and not is_valid_public_speech(extract_public_text(response_text))
+                ):
+                    response_text = self._mark_and_generate_fallback(message, "invalid_speech")
                 last_error = None
                 break
             except RateLimitError as exc:
@@ -341,7 +339,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 break
 
         if last_error is not None:
-            response_text = self._generate_fallback_response(message, str(last_error))
+            response_text = self._mark_and_generate_fallback(message, str(last_error))
 
         self.chat_history.append({"role": "assistant", "content": response_text})
 
@@ -373,11 +371,11 @@ class AgentScopeWerewolfAgent(BaseAgent):
         async def handle_interrupted_text(text: str) -> bool:
             if not _is_agentscope_interrupt_text(text):
                 return False
-                logger.debug(
-                    "structured_response_interrupted agent=%s model=%s",
-                    self.name,
-                    structured_model.__name__,
-                )
+            logger.debug(
+                "structured_response_interrupted agent=%s model=%s",
+                self.name,
+                structured_model.__name__,
+            )
             object.__setattr__(self, "_last_structured_source", "interrupted")
             await self._cleanup_agentscope_interrupt_memory()
             return True
@@ -508,7 +506,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
                             )
                             decision = None
                         if structured_model is SpeechDecision:
-                            from llm_werewolf.strategy.contracts.decisions import normalize_speech_decision
+                            from llm_werewolf.strategy.contracts.decisions import (
+                                normalize_speech_decision,
+                            )
 
                             if decision is not None:
                                 decision = normalize_speech_decision(
@@ -518,7 +518,9 @@ class AgentScopeWerewolfAgent(BaseAgent):
                                     not is_valid_public_speech(decision.public_speech)
                                     and text.strip()
                                 ):
-                                    from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
+                                    from llm_werewolf.agent_team.bridge import (
+                                        WerewolfAdapterBridge,
+                                    )
 
                                     decision = WerewolfAdapterBridge.parse_speech(text)
                         if decision is not None:
@@ -688,6 +690,16 @@ class AgentScopeWerewolfAgent(BaseAgent):
                 return "\n".join(texts)
             return str(content)
         return str(response_msg)
+
+    def _mark_and_generate_fallback(self, message: str, error: str) -> str:
+        from llm_werewolf.game_runtime.support.fallback_log import (
+            mark_agent_fallback,
+            infer_decision_kind_from_prompt,
+        )
+
+        kind = infer_decision_kind_from_prompt(message)
+        mark_agent_fallback(self, kind=kind, reason=error[:120] or kind)
+        return self._generate_fallback_response(message, error)
 
     def _generate_fallback_response(self, message: str, error: str) -> str:
         """Agent 失败时生成兜底回复。

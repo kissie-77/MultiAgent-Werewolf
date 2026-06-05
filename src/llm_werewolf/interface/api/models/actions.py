@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, BaseModel, field_validator
 
+# Runtime (not TYPE_CHECKING) import: used in pydantic model fields below, so they
+# must be resolvable for model_rebuild. pages.py does not import actions -> no cycle.
 from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
 
 

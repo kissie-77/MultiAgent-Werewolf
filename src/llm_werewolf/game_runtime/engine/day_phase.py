@@ -4,9 +4,9 @@ from collections import Counter
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
+from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import RoleNames
 from llm_werewolf.strategy.contracts.decisions import SpeechDecision
-from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
 
@@ -92,15 +92,23 @@ class DayPhaseMixin:
         """记录白天发言；可见性为 PUBLIC（由引擎决定，而非 agent）。"""
         if not self.game_state:
             return
-        self._log_event(
-            event_type_for_channel(VisibilityChannel.PUBLIC),
-            self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech),
-            data={
+        from llm_werewolf.game_runtime.support.fallback_log import (
+            merge_agent_decision_into_event_data,
+        )
+
+        event_data = merge_agent_decision_into_event_data(
+            {
                 "player_id": speaker.player_id,
                 "player_name": speaker.name,
                 "speech": decision.public_speech,
                 "private_thought": decision.private_thought,
             },
+            getattr(speaker, "agent", None),
+        )
+        self._log_event(
+            event_type_for_channel(VisibilityChannel.PUBLIC),
+            self.locale.get("player_speech", player=speaker.name, speech=decision.public_speech),
+            data=event_data,
             visible_to=None,
         )
 

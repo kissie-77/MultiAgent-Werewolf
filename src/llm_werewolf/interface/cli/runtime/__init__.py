@@ -1,14 +1,14 @@
 """CLI runtime helpers: roster wiring, modes, seat overrides."""
 
+from llm_werewolf.interface.cli.runtime.modes import GameMode, list_modes, resolve_config_path
 from llm_werewolf.interface.cli.runtime.bootstrap import (
+    prepare_game_roster,
     bind_agentscope_roles,
     create_information_hub,
     create_players_from_config,
-    prepare_game_roster,
     wire_agentscope_after_setup,
 )
-from llm_werewolf.interface.cli.runtime.modes import GameMode, list_modes, resolve_config_path
-from llm_werewolf.interface.cli.runtime.overrides import apply_human_seats, parse_seat_list
+from llm_werewolf.interface.cli.runtime.overrides import parse_seat_list, apply_human_seats
 from llm_werewolf.interface.cli.runtime.player_count import resize_players_config
 
 __all__ = [

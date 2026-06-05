@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
 from dataclasses import field, dataclass
 
-from llm_werewolf.strategy.voting.seat import get_player_seat
 from llm_werewolf.strategy.wolf.team import participates_in_wolf_team
-from llm_werewolf.strategy.contracts.decisions import (
-    ExposureRadarDelta,
-    GodRoleDelta,
-    WolfCampDelta,
-)
+from llm_werewolf.strategy.voting.seat import get_player_seat
+
+if TYPE_CHECKING:
+    from llm_werewolf.strategy.contracts.decisions import WolfCampDelta
 
 _GOD_ROLES = ("Seer", "Witch", "Guard", "Hunter", "Villager")
 _THREAT_WEIGHTS = {"Seer": 0.45, "Witch": 0.30, "Guard": 0.15, "Hunter": 0.05, "Villager": 0.05}
@@ -157,7 +155,7 @@ def merge_wolf_camp_delta(
             existing.threat_score = compute_threat_score(merged)
             existing.priority = _priority_from_threat(existing.threat_score)
             if item.reason:
-                existing.evidence = (existing.evidence + [item.reason])[-5:]
+                existing.evidence = ([*existing.evidence, item.reason])[-5:]
             if contributor_seat not in existing.contributors:
                 existing.contributors.append(contributor_seat)
             existing.updated_round = round_number

@@ -3,11 +3,11 @@
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
-from llm_werewolf.strategy.contracts.decisions import SpeechDecision
-from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 from llm_werewolf.game_runtime.i18n.locale import Locale
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel
+from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 
 
 class SheriffElectionMixin:
@@ -128,12 +128,19 @@ class SheriffElectionMixin:
             return self._build_speech_context(candidate, candidates)
 
         def on_speech(speaker: PlayerProtocol, decision: SpeechDecision, _routed: object) -> None:
+            from llm_werewolf.game_runtime.support.fallback_log import (
+                merge_agent_decision_into_event_data,
+            )
+
             self._log_event(
                 EventType.SHERIFF_CANDIDATE_SPEECH,
                 self.locale.get(
                     "candidate_speech", candidate=speaker.name, speech=decision.public_speech
                 ),
-                data={"player_id": speaker.player_id, "speech": decision.public_speech},
+                data=merge_agent_decision_into_event_data(
+                    {"player_id": speaker.player_id, "speech": decision.public_speech},
+                    getattr(speaker, "agent", None),
+                ),
                 visible_to=None,
             )
 

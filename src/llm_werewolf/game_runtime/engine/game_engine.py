@@ -30,4 +30,16 @@ class GameEngine(
     - VotingPhaseMixin：投票阶段执行
     """
 
-    pass
+    def describe(self) -> str:
+        """返回当前对局摘要，便于日志与调试。"""
+        state = self.game_state
+        if state is None:
+            return "GameEngine(state=uninitialized)"
+        alive = state.get_alive_players()
+        return (
+            f"GameEngine(phase={state.phase.value}, round={state.round_number}, "
+            f"alive={len(alive)}/{len(state.players)}, winner={state.winner!r})"
+        )
+
+    def __repr__(self) -> str:
+        return self.describe()

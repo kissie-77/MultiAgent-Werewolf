@@ -2,78 +2,68 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from llm_werewolf.game_runtime.roles.catalog import get_catalog, get_definition
 from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.models.pages import (
-    AboutPageData,
+    StatCard,
+    HeroBlock,
     BoardPreset,
     FeatureCard,
-    FeaturesPageData,
-    GameModeOption,
-    GamePageData,
-    HeroBlock,
-    HomePageData,
-    HowToPlayPageData,
-    ModelComparePageData,
-    ModelDetailPageData,
-    ModelListPageData,
-    ModelPlayerSlot,
-    NightPhasePageData,
-    PhaseFlowStep,
-    ReplayPageData,
-    RoleDetailPageData,
-    RoleListPageData,
-    ShareReplayPageData,
-    StatCard,
-    StrategyPageData,
     StrategyTip,
+    GamePageData,
+    HomePageData,
+    AboutPageData,
+    PhaseFlowStep,
+    GameModeOption,
+    ReplayPageData,
+    ModelPlayerSlot,
+    FeaturesPageData,
+    RoleListPageData,
+    StrategyPageData,
+    HowToPlayPageData,
+    ModelListPageData,
+    NightPhasePageData,
+    RoleDetailPageData,
+    ModelDetailPageData,
+    ShareReplayPageData,
 )
-from llm_werewolf.interface.api.services.board import (
-    board_sizes_for_role,
-    build_board_presets,
+from llm_werewolf.interface.api.services.runs import (
+    list_run_dirs,
+    get_run_detail,
+    aggregate_model_usage,
 )
-from llm_werewolf.interface.api.services.catalog import (
-    _NIGHT_ACTION_ROLES,
-    _to_list_item,
-    get_role_detail,
-    list_roles_page,
-)
+from llm_werewolf.interface.cli.runtime.modes import list_modes
+from llm_werewolf.interface.api.services.board import build_board_presets, board_sizes_for_role
 from llm_werewolf.interface.api.services.config import (
-    compare_models,
     get_model_detail,
-    list_config_files,
     list_models_page,
+    list_config_files,
     parse_config_brief,
 )
-from llm_werewolf.interface.api.services.content import (
-    CAMP_LABELS,
-    default_nav_links,
-    get_about_page,
-    get_features_page,
-    get_home_content,
-    get_how_to_play_page,
-    get_night_phase_page,
-    get_strategy_page,
-)
 from llm_werewolf.interface.api.services.replay import (
+    _load_json,
+    recent_events,
+    get_replay_page,
     build_mvp_ranking,
     build_phase_summary,
-    build_turning_point_lines,
     extract_camp_counts,
     extract_game_snapshot,
-    recent_events,
-    _load_json,
-    _load_markdown,
-    _score_blocks,
-    build_timeline,
-    get_replay_page,
     get_share_replay_page,
+    build_turning_point_lines,
 )
-from llm_werewolf.interface.api.services.runs import aggregate_model_usage, get_run_detail, list_run_dirs
-from llm_werewolf.interface.cli.runtime.modes import list_modes
+from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
+from llm_werewolf.interface.api.services.content import (
+    CAMP_LABELS,
+    get_about_page,
+    get_home_content,
+    default_nav_links,
+    get_features_page,
+    get_strategy_page,
+    get_how_to_play_page,
+    get_night_phase_page,
+)
 
 _NIGHT_STEP_ROLES = {
     "pre_wolf": ["Cupid", "NightmareWolf", "Guard", "GuardianWolf", "Thief"],

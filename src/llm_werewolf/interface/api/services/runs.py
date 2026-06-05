@@ -3,19 +3,20 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
+import contextlib
 
-from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.interface.api.models.pages import ModelUsageStat
 from llm_werewolf.interface.api.models.common import (
-    ArtifactRef,
     PageMeta,
-    PaginatedList,
-    PlayerBrief,
     RunDetail,
     RunSummary,
+    ArtifactRef,
+    PlayerBrief,
+    PaginatedList,
 )
-from llm_werewolf.interface.api.models.pages import ModelUsageStat
+from llm_werewolf.evaluation.post_game.run_context import load_run_context
 
 
 def _dir_mtime_iso(path: Path) -> str | None:
@@ -166,10 +167,8 @@ def get_run_detail(
     extra: dict = {}
     manifest_path = path / "post_game_manifest.json"
     if manifest_path.is_file():
-        try:
+        with contextlib.suppress(json.JSONDecodeError):
             extra["post_game_manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            pass
 
     return RunDetail(
         **summary.model_dump(),

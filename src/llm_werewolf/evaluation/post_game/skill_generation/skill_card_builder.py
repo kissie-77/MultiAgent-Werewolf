@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-from dataclasses import dataclass, field
-import json
 import re
+import json
+from typing import TYPE_CHECKING, Any
+from dataclasses import field, dataclass
 
 if TYPE_CHECKING:
     from llm_werewolf.evaluation.post_game.run_context import RunContext
@@ -30,7 +30,7 @@ def format_belief_prob_summary(probs: list[float], *, limit: int = 3) -> str:
 
 
 def abstract_skill_target_label(
-    ctx: "RunContext",
+    ctx: RunContext,
     target_id: str | None,
     *,
     action: str = "generic",
@@ -483,7 +483,7 @@ class BeliefRunIndex:
     rows: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
-    def from_run_dir(cls, run_dir) -> "BeliefRunIndex":
+    def from_run_dir(cls, run_dir) -> BeliefRunIndex:
         return cls(rows=load_belief_rows(run_dir))
 
     def _matches(
@@ -504,9 +504,7 @@ class BeliefRunIndex:
             return False
         if anchor is not None and str(row.get("anchor", "")) != anchor:
             return False
-        if speaker_id is not None and str(row.get("speaker_id", "")) != speaker_id:
-            return False
-        return True
+        return not (speaker_id is not None and str(row.get("speaker_id", "")) != speaker_id)
 
     def find_persuasion_snapshot(
         self,

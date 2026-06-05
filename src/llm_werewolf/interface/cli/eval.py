@@ -3,9 +3,9 @@ from pathlib import Path
 
 import fire
 
+from llm_werewolf.paths import EVAL_RUNS_DIR
 from llm_werewolf.evaluation.core.runner import EvaluationRunner
 from llm_werewolf.evaluation.core.scenarios import get_scenario
-from llm_werewolf.paths import EVAL_RUNS_DIR
 
 
 def main(

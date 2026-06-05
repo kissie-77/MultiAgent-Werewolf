@@ -1,33 +1,31 @@
-import asyncio
 import json
-import random
 import time
-from datetime import datetime
+import random
+import asyncio
 from pathlib import Path
-from typing import Any
+from datetime import datetime
 
+from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.game_runtime.types import Event, EventType
+from llm_werewolf.game_runtime.config import GameConfig
 from llm_werewolf.agent_team.agents.base import DemoAgent
-from llm_werewolf.evaluation.core.checkers import (
-    AsyncFlowChecker,
-    DecisionConsistencyChecker,
-    InformationIsolationChecker,
-    PromptBadCaseChecker,
-    RoleSkillChecker,
-    VictoryCheckerEvaluator,
-)
-from llm_werewolf.evaluation.core.metrics import build_summary
 from llm_werewolf.evaluation.core.models import CheckResult, GameRunResult
+from llm_werewolf.evaluation.core.metrics import build_summary
 from llm_werewolf.evaluation.core.recorder import EvaluationRecorder
 from llm_werewolf.evaluation.core.reporter import EvaluationReporter
 from llm_werewolf.evaluation.core.scenarios import EvaluationScenario
+from llm_werewolf.interface.cli.runtime.bootstrap import create_information_hub
+from llm_werewolf.evaluation.core.checker_registry import (
+    CheckerRunContext,
+    run_registered_checkers,
+)
 from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_run
 from llm_werewolf.evaluation.leaderboard.entry_builder import build_entry, write_entry_bundle
-from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.config import GameConfig
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
-from llm_werewolf.game_runtime.types import Event, EventType
-from llm_werewolf.interface.cli.runtime.bootstrap import create_information_hub
-from llm_werewolf.strategy.registry.role_version_manifest import RoleVersionManifest, set_active_manifest
+from llm_werewolf.strategy.registry.role_version_manifest import (
+    RoleVersionManifest,
+    set_active_manifest,
+)
 
 
 class EvaluationRunner:
@@ -93,7 +91,7 @@ class EvaluationRunner:
         game_dir = self.games_dir / game_id
         recorder = EvaluationRecorder(game_dir)
         started = time.perf_counter()
-        engine = self._build_engine(scenario)
+        engine = self._build_engine(scenario, seed=seed)
         events: list[Event] = []
         observations_by_player: dict[str, str] = {}
         crashed = False
@@ -149,7 +147,9 @@ class EvaluationRunner:
         if engine.game_state and engine.game_state.vote_intention_tracker is not None:
             records = engine.game_state.vote_intention_tracker.export_records()
             recorder.record_vote_intentions(records)
-            from llm_werewolf.evaluation.core.vote_swing_analysis import ensure_vote_intentions_jsonl
+            from llm_werewolf.evaluation.core.vote_swing_analysis import (
+                ensure_vote_intentions_jsonl,
+            )
 
             events_for_intentions = [event.model_dump(mode="json") for event in events]
             ensure_vote_intentions_jsonl(game_dir, records=records, events=events_for_intentions)
@@ -201,8 +201,12 @@ class EvaluationRunner:
             checks=checks,
         )
 
-    def _build_engine(self, scenario: EvaluationScenario) -> GameEngine:
-        config = GameConfig(num_players=scenario.num_players, role_names=scenario.role_names)
+    def _build_engine(self, scenario: EvaluationScenario, *, seed: int) -> GameEngine:
+        config = GameConfig(
+            num_players=scenario.num_players,
+            role_names=scenario.role_names,
+            role_shuffle_seed=seed,
+        )
         agents = [
             DemoAgent(
                 name=f"EvalPlayer{i}",
@@ -238,34 +242,14 @@ class EvaluationRunner:
                 player.player_id: player.get_camp() for player in engine.game_state.players
             }
 
-        checks: list[CheckResult] = []
-        checkers: list[tuple[Any, dict[str, Any]]] = [
-            (RoleSkillChecker(), {"events": events}),
-            (
-                InformationIsolationChecker(),
-                {"events": events, "observations_by_player": observations_by_player},
-            ),
-            (VictoryCheckerEvaluator(), {"events": events, "final_winner": final_winner}),
-            (AsyncFlowChecker(), {"events": events}),
-            (DecisionConsistencyChecker(), {"events": events}),
-            (
-                PromptBadCaseChecker(),
-                {"events": events, "player_roles": player_roles, "player_camps": player_camps},
-            ),
-        ]
-
-        for checker, kwargs in checkers:
-            try:
-                checks.extend(checker.check(**kwargs))
-            except Exception as exc:
-                checks.append(
-                    CheckResult(
-                        checker=checker.__class__.__name__,
-                        passed=False,
-                        message=f"Checker raised {type(exc).__name__}: {exc}",
-                    )
-                )
-
+        context = CheckerRunContext(
+            events=events,
+            observations_by_player=observations_by_player,
+            final_winner=final_winner,
+            player_roles=player_roles,
+            player_camps=player_camps,
+        )
+        checks = run_registered_checkers(context)
         checks.extend(self._error_event_checks(events))
         return checks
 

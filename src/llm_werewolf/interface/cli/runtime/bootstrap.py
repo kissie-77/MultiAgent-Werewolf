@@ -8,8 +8,11 @@ from llm_werewolf.game_runtime.config import PlayersConfig, create_game_config_f
 from llm_werewolf.agent_team.agents.base import create_agent
 from llm_werewolf.agent_team.agents.factory import configure_agents_for_players
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
+from llm_werewolf.strategy.registry.role_version_manifest import (
+    RoleVersionManifest,
+    set_active_manifest,
+)
 from llm_werewolf.agent_team.communication.information_hub import InformationHub
-from llm_werewolf.strategy.registry.role_version_manifest import RoleVersionManifest, set_active_manifest
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime import GameEngine
@@ -58,12 +61,10 @@ def bind_agentscope_roles(
 def create_players_from_config(players_config: PlayersConfig) -> list[BaseAgent]:
     """从 YAML 构建座位 Agent（当 ``agent_backend`` 指定时使用 AgentScope）。"""
     set_active_manifest(players_config.role_version_manifest())
-    use_agentscope = players_config.use_agentscope_backend
     return [
         create_agent(
             player_cfg,
             language=players_config.language,
-            use_agentscope=use_agentscope,
             default_plan=players_config.default_plan,
         )
         for player_cfg in players_config.players
@@ -97,6 +98,8 @@ def prepare_game_roster(
         updates["vote_timeout"] = players_config.vote_timeout
     if players_config.night_timeout is not None:
         updates["night_timeout"] = players_config.night_timeout
+    if players_config.role_shuffle_seed is not None:
+        updates["role_shuffle_seed"] = players_config.role_shuffle_seed
     game_config = game_config.model_copy(update=updates)
     players = create_players_from_config(players_config)
     roles = create_roles(role_names=game_config.role_names)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from llm_werewolf.paths import ARTIFACTS_DIR, EVAL_RUNS_DIR, RUNS_DIR
+from llm_werewolf.paths import RUNS_DIR, ARTIFACTS_DIR, EVAL_RUNS_DIR
 
 
 def get_project_root() -> Path:

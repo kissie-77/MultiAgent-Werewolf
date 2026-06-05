@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
+from typing import TYPE_CHECKING, Any
+import logging
 from pathlib import Path
-from typing import Any
 
-from llm_werewolf.evaluation.post_game.pipeline import PostGameResult
-from llm_werewolf.observability.collectors.run_artifact_collector import RunArtifactCollector
 from llm_werewolf.observability.core.config import ObservabilityConfig, load_config
 from llm_werewolf.observability.core.models import AlertEvent, AlertSeverity
-from llm_werewolf.observability.notifiers.base import AlertNotifier
 from llm_werewolf.observability.notifiers.webhook import WebhookNotifier
+from llm_werewolf.observability.collectors.run_artifact_collector import RunArtifactCollector
+
+if TYPE_CHECKING:
+    from llm_werewolf.observability.notifiers.base import AlertNotifier
+    from llm_werewolf.evaluation.post_game.pipeline import PostGameResult
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +37,18 @@ class AlertDispatcher:
             return []
         return [WebhookNotifier(self._config.webhook_url)]
 
+    def _prune_recent(self, now: float) -> None:
+        ttl = self._config.dedupe_ttl_seconds
+        expired = [key for key, ts in self._recent.items() if now - ts >= ttl]
+        for key in expired:
+            del self._recent[key]
+
     def _should_emit(self, event: AlertEvent) -> bool:
         if not event.severity.meets_minimum(self._config.min_severity):
             return False
         key = event.dedupe_key()
         now = time.time()
+        self._prune_recent(now)
         last = self._recent.get(key)
         if last is not None and now - last < self._config.dedupe_ttl_seconds:
             return False

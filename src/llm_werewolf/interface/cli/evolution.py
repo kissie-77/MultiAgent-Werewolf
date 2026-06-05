@@ -2,9 +2,9 @@ from pathlib import Path
 
 import fire
 
-from llm_werewolf.evaluation.evolution.matrix_runner import run_evolution_matrix
-from llm_werewolf.evaluation.evolution.runner import run_evolution_cycle
 from llm_werewolf.paths import EVAL_RUNS_DIR
+from llm_werewolf.evaluation.evolution.runner import run_evolution_cycle
+from llm_werewolf.evaluation.evolution.matrix_runner import run_evolution_matrix
 
 
 def main(

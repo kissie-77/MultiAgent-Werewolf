@@ -8,8 +8,8 @@ from llm_werewolf.game_runtime.actions.villager import (
     KnightDuelAction,
     WitchPoisonAction,
     GuardProtectAction,
-    GraveyardKeeperCheckAction,
     MagicianSwapAction,
+    GraveyardKeeperCheckAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import (
     WerewolfKillAction,

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+import contextlib
 
 from llm_werewolf.game_runtime.support.utils import load_config
-from llm_werewolf.interface.api.models.actions import StartGameModeOption, StartGameModesResponse
 from llm_werewolf.interface.cli.runtime.modes import list_modes
+from llm_werewolf.interface.api.models.actions import StartGameModeOption, StartGameModesResponse
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def build_start_modes(configs_dir: Path) -> StartGameModesResponse:
@@ -45,10 +49,8 @@ def build_start_modes(configs_dir: Path) -> StartGameModesResponse:
         if not path.is_file():
             continue
         extra_count: int | None = None
-        try:
+        with contextlib.suppress(ValueError, OSError):
             extra_count = len(load_config(path).players)
-        except (ValueError, OSError):
-            pass
         modes.append(
             StartGameModeOption(
                 participation="all_agent",

@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from random import Random
+from typing import TYPE_CHECKING
 
 from llm_werewolf.strategy.contracts.decisions import (
     BeliefEntry,
-    ExposureRadarDelta,
     GodRoleDelta,
-    MindStateDecision,
-    SecondOrderEntry,
     WolfCampDelta,
+    SecondOrderEntry,
+    MindStateDecision,
+    ExposureRadarDelta,
     is_valid_public_speech,
 )
+
+if TYPE_CHECKING:
+    from random import Random
 
 _SEAT_LINE = re.compile(r"^\s*-\s*座位\s*(\d+)")
 
@@ -96,7 +99,7 @@ def pick_seat(seats: list[int], seat_number: int, *, allow_skip: bool, rng: Rand
     if allow_skip and not random_mode and seat_number % 5 == 0:
         return 0
     if random_mode:
-        return rng.choice(candidates)  # noqa: S311
+        return rng.choice(candidates)
     return candidates[(seat_number - 1) % len(candidates)]
 
 
@@ -203,7 +206,7 @@ def respond(
 
     if kind == DemoPromptKind.YES_NO:
         if random_mode:
-            return rng.choice(["[[1]]", "[[0]]"])  # noqa: S311
+            return rng.choice(["[[1]]", "[[0]]"])
         return "[[1]]" if actor_seat % 2 == 1 else "[[0]]"
 
     if kind == DemoPromptKind.VOTE_INTENTION:
@@ -217,7 +220,7 @@ def respond(
     if kind == DemoPromptKind.WITCH:
         if "刀口" in message or "被狼人击杀" in message or "击杀" in message:
             if random_mode:
-                return rng.choice(["save", "none", "none"])  # noqa: S311
+                return rng.choice(["save", "none", "none"])
             return "save" if actor_seat % 2 == 1 else "none"
         poison_seats = [seat for seat in seats if seat > 0]
         if poison_seats and actor_seat % 4 == 0:
@@ -248,7 +251,7 @@ def respond(
             DEFAULT_SPEECH,
             f"{role_display}认为目前需要更多信息，暂不下结论，建议先听完整轮发言。",
         ]
-        speech = rng.choice(variants)  # noqa: S311
+        speech = rng.choice(variants)
     return f"[[{speech}]]{{先隐藏真实立场，继续观察。}}"
 
 

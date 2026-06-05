@@ -6,7 +6,6 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
-from fixtures import write_sample_run, write_demo_config
 
 from llm_werewolf.interface.api.services.runs import (
     list_run_dirs,
@@ -49,6 +48,8 @@ from llm_werewolf.interface.api.services.content import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+from tests.interface.fixtures import write_demo_config, write_sample_run
 
 
 @pytest.fixture

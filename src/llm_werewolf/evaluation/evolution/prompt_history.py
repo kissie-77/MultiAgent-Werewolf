@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from llm_werewolf.evaluation.evolution.prompt_patch import (
     LIST_REPLACE_KEYWORDS,
     normalize_rule_text,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def build_history_support(

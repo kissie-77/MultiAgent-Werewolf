@@ -12,11 +12,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+if TYPE_CHECKING:
+    from pathlib import Path
 
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
 
 # ─── Bad Case 检测器 ────────────────────────────────────────────────
 
@@ -260,8 +261,8 @@ def _format_markdown(payload: dict[str, Any]) -> str:
 
     summary = payload["severity_summary"]
     lines.append("## 严重程度分布\n")
-    lines.append(f"| 严重 | 中等 | 轻微 |")
-    lines.append(f"|------|------|------|")
+    lines.append("| 严重 | 中等 | 轻微 |")
+    lines.append("|------|------|------|")
     lines.append(f"| {summary['high']} | {summary['medium']} | {summary['low']} |\n")
 
     if not payload["cases"]:

@@ -194,6 +194,7 @@ MIT
 - `configs/`：对局与模型配置
 - `scripts/`：辅助脚本
 - `docs/`：设计、记录、评测与归档文档，目录说明见 [docs/README.md](docs/README.md)
+- `项目评分报告.md`：模块评分、问题核实与修复状态（2026-06-05）
 - `artifacts/`：本地运行产物与数据目录，不纳入版本管理
 - `artifacts/runs/`：单局对战与赛后分析产物
 - `artifacts/data/`：本地数据目录

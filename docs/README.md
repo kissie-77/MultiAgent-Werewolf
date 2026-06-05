@@ -25,14 +25,17 @@
 | `evaluation/` | **仅** README · DESIGN · ROADMAP 三件套 |
 | `reports/` | 专项报告、排查过程稿；工程质量本轮记录见 [修复记录](./reports/工程代码质量修复记录-2026-06-04.md) 与 [总体计划](./reports/工程代码质量修复总体计划.md) |
 | `archive/` | 已归档文档 |
+| 仓库根目录 | [项目评分报告.md](../项目评分报告.md)（模块评分、问题核实与修复状态，2026-06-05） |
 
 ## 写作规范
 
 - 统一模板：[DOC_TEMPLATE.md](./DOC_TEMPLATE.md)
 - 新结论写入模块 `DESIGN.md`，进度写入 `ROADMAP.md`
 - 子模块文档：`evaluation/`、`agent_team/memory/` 各仅保留三件套；历史专题见 `architecture/evaluation/`、`architecture/memory/`
-- **后端文档范围**：`game_runtime`、`agent_team`、`strategy`、`evaluation`、`interface`、`observability` 及 `architecture/` 下非 UI 专题；`ui/`、`frontend/` 暂不纳入本轮同步
-- 工程质量与修复脉络见 [reports/工程代码质量修复记录-2026-06-04.md](./reports/工程代码质量修复记录-2026-06-04.md) §三（2026-06-02 后端批次）
+- **后端文档范围**：`game_runtime`、`agent_team`、`strategy`、`evaluation`、`interface`、`observability` 及 `architecture/` 下非 UI 专题
+- **前端文档**：`frontend/` 三件套与 API 健壮性（retry、局中状态保留）见 [frontend/README.md](./frontend/README.md)
+- 工程质量与修复脉络见 [reports/工程代码质量修复记录-2026-06-04.md](./reports/工程代码质量修复记录-2026-06-04.md) §三（2026-06-02）与 §六（2026-06-05 评分报告批次）
+- 赛后 LLM 提示词外置：`src/llm_werewolf/evaluation/prompts/`（`replay/v1`、`coach/v1`），加载器见 `evaluation/registry/post_game_prompt_registry.py`
 
 ## 运维与验证
 

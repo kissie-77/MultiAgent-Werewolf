@@ -2,7 +2,6 @@ from llm_werewolf.game_runtime.types import ActionType, PlayerProtocol, GameStat
 from llm_werewolf.game_runtime.roles.names import (
     RoleNames,
     role_name_is,
-    player_camp_is,
     participates_in_wolf_team,
 )
 from llm_werewolf.game_runtime.actions.base import Action

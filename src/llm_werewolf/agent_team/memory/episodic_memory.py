@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from dataclasses import asdict, dataclass
 
-from llm_werewolf.game_runtime.events.events import EventLogger
 from llm_werewolf.game_runtime.types import Event, EventType
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.events.events import EventLogger
 
 KEY_EVENT_TYPES = {
     EventType.VOTE_CAST,

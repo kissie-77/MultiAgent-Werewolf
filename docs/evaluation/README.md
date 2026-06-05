@@ -21,11 +21,14 @@
 ```
 evaluation/
 ├── __init__.py
-├── core/                    # 评测核心（runner、checkers、evidence_pack、time_analysis）
+├── core/                    # 评测核心（runner、checkers、checker_registry、evidence_pack）
 ├── post_game/               # PostGame 14 步流水线
 │   ├── coach/
-│   ├── scoring/
+│   ├── replay_prompt_builder.py
+│   ├── coach_prompt_builder.py
 │   └── skill_generation/
+├── prompts/                 # 赛后 LLM 提示词外置（replay/v1、coach/v1）
+├── registry/                # post_game_prompt_registry
 ├── scoring/                 # 独立评分模块（intention、benefit、belief_calibration）
 ├── log_views/               # POV 复盘视图
 ├── leaderboard/             # 实验 entry 聚合与 A/B
@@ -44,8 +47,10 @@ evaluation/
 
 | 代码路径 | 内容 |
 |----------|------|
-| `evaluation/core/` | runner、checkers、scenarios、evidence_pack、time_analysis |
-| `evaluation/post_game/` | pipeline、Coach、eval_agent |
+| `evaluation/core/` | runner、checkers、checker_registry、scenarios、evidence_pack |
+| `evaluation/prompts/` | replay/coach 提示词 YAML/MD（v1 manifest） |
+| `evaluation/registry/` | `post_game_prompt_registry` 加载与构建入口 |
+| `evaluation/post_game/` | pipeline、Coach、eval_agent、prompt builders |
 | `evaluation/post_game/skill_generation/` | Skill 提取、场景合并（+0.15）、稀疏 bump 写回 `skills/<role>/<version>/` |
 | `evaluation/scoring/` | intention、benefit、belief_calibration |
 | `evaluation/log_views/` | POV 视图 |

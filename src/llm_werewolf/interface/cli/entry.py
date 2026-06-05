@@ -1,5 +1,5 @@
-import asyncio
 import sys
+import asyncio
 from datetime import datetime
 
 import fire
@@ -18,16 +18,16 @@ if hasattr(sys.stderr, "reconfigure"):
 
 from llm_werewolf.paths import RUNS_DIR
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.interface.cli.runtime.modes import resolve_config_path
-from llm_werewolf.game_runtime.support.utils import load_config
+from llm_werewolf.ui.console_presenter import ConsolePresenter
 from llm_werewolf.game_runtime.i18n.locale import Locale
+from llm_werewolf.game_runtime.support.utils import load_config
+from llm_werewolf.interface.cli.runtime.modes import resolve_config_path
 from llm_werewolf.interface.cli.runtime.bootstrap import (
     prepare_game_roster,
     create_information_hub,
     wire_agentscope_after_setup,
 )
 from llm_werewolf.interface.cli.runtime.startup_menu import prompt_startup_selection
-from llm_werewolf.ui.console_presenter import ConsolePresenter
 
 console = Console()
 
@@ -95,7 +95,10 @@ async def main(
 
             players_config = resize_players_config(players_config, int(players))
         if human_seat is not None:
-            from llm_werewolf.interface.cli.runtime.overrides import parse_seat_list, apply_human_seats
+            from llm_werewolf.interface.cli.runtime.overrides import (
+                parse_seat_list,
+                apply_human_seats,
+            )
 
             players_config = apply_human_seats(players_config, parse_seat_list(human_seat))
         if plan_assignment is not None or plan_assignment_seed is not None:
@@ -145,10 +148,12 @@ async def main(
     console.print(f"[cyan]{locale.get('interface_mode')}[/cyan]")
     _announce_human_identity(engine, locale)
 
-    from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run
-    from llm_werewolf.interface.cli.runtime.finalize_run import persist_run_artifacts
     from llm_werewolf.observability.core.dispatcher import get_dispatcher, record_run_failure
-    from llm_werewolf.observability.core.runtime_log import attach_run_log_handler, detach_run_log_handler
+    from llm_werewolf.observability.core.runtime_log import (
+        attach_run_log_handler,
+        detach_run_log_handler,
+    )
+    from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
 
     attach_run_log_handler(run_dir)
     try:

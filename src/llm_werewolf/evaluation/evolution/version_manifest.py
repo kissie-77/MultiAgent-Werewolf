@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
+from pathlib import Path
 
 from llm_werewolf.agent_team.skill_support import skill_loader
 from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills

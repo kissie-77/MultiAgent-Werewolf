@@ -2,30 +2,31 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
-import logging
-from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from pathlib import Path
+import json
+import asyncio
+import logging
+import contextlib
 from typing import TYPE_CHECKING, Any, Callable
+from pathlib import Path
+from datetime import datetime
+from dataclasses import field, dataclass
 
 if TYPE_CHECKING:
     from llm_werewolf.interface.api.models.state import GameStateResponse, LastNight
     from llm_werewolf.interface.api.models.view import ViewResponse
 
-from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.game_runtime import GameEngine
 from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 from llm_werewolf.game_runtime.types import GamePhase
 from llm_werewolf.game_runtime.support.utils import load_config
+from llm_werewolf.interface.api.services.runs import get_run_detail
 from llm_werewolf.interface.api.models.actions import (
+    StartGameRequest,
+    StartGameResponse,
     CancelGameResponse,
     ControlGameResponse,
     GameStatusResponse,
-    StartGameRequest,
-    StartGameResponse,
     TriggerPostGameResponse,
 )
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
@@ -36,17 +37,29 @@ from llm_werewolf.interface.api.services.roster_customize import (
     resolve_start_rules,
 )
 from llm_werewolf.interface.api.services.replay import extract_game_snapshot
-from llm_werewolf.interface.api.services.runs import get_run_detail
 from llm_werewolf.interface.api.services.seat import seat_of as _seat_of
+from llm_werewolf.observability.core.dispatcher import get_dispatcher
+from llm_werewolf.observability.core.runtime_log import (
+    attach_run_log_handler,
+    detach_run_log_handler,
+)
 from llm_werewolf.interface.cli.runtime.bootstrap import (
-    create_information_hub,
     prepare_game_roster,
+    create_information_hub,
     wire_agentscope_after_setup,
 )
-from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
+from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
-from llm_werewolf.observability.core.dispatcher import get_dispatcher, update_run_meta_alerts
-from llm_werewolf.observability.core.runtime_log import attach_run_log_handler, detach_run_log_handler
+from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
+from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
+from llm_werewolf.interface.api.services.roster_customize import (
+    resolve_start_rules,
+    has_roster_customizations,
+    prepare_start_players_config,
+)
+
+if TYPE_CHECKING:
+    from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 
 logger = logging.getLogger(__name__)
 
@@ -659,10 +672,8 @@ class GameSessionManager:
             return None
         if session.task and not session.task.done():
             session.task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await session.task
-            except asyncio.CancelledError:
-                pass
         if session.status not in {GameSessionStatus.COMPLETED, GameSessionStatus.FAILED}:
             session.status = GameSessionStatus.CANCELLED
             session.completed_at = datetime.now().isoformat(timespec="seconds")

@@ -4,6 +4,8 @@
 
 对局结束后会自动跑 **PostGame**（`evaluation/post_game/`）：阵营匹配说服分析、**情景记忆 episode 导出**（`episodic_reports.json`，与 `agent_team.memory.EpisodicMemory` 同源）、Prompt 提案 JSON、**Skill 提取（MD + JSON）**、`coach_summary.json`（为 Skill 附加 POV episode 证据）。真实 LLM 对局由 `interface/finalize_run.py` 触发；批量 eval 默认 `skip_llm=True`。
 
+赛后 LLM 提示词外置在 `evaluation/prompts/`（`replay/v1`、`coach/v1`），由 `evaluation/registry/post_game_prompt_registry.py` 加载；进化产物可写入 `artifacts/prompt_post_game/`。
+
 ## 运行方式
 
 运行 6 人基础 smoke 评测：

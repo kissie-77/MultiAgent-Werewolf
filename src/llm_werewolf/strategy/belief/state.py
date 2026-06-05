@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from pathlib import Path
 from dataclasses import field, dataclass
 
-from llm_werewolf.strategy.contracts.decisions import BeliefEntry, SecondOrderEntry, WolfCampDelta
+if TYPE_CHECKING:
+    from llm_werewolf.strategy.contracts.decisions import (
+        BeliefEntry,
+        WolfCampDelta,
+        SecondOrderEntry,
+    )
 
 
 @dataclass

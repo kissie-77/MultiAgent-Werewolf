@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
-from collections import Counter
-from random import Random
 from types import MethodType
+from random import Random
+from collections import Counter
 
 from llm_werewolf.game_runtime.support.env import load_project_dotenv
 
@@ -18,9 +18,9 @@ from agentscope.memory import InMemoryMemory
 from agentscope.formatter import OpenAIChatFormatter
 
 from llm_werewolf.agent_team.memory import RuntimeMemoryManager
-from llm_werewolf.game_runtime.config import MemoryConfig, PlanAssignmentConfig, PlayerConfig
-from llm_werewolf.agent_team.agents.fast_react_agent import FastReActAgent
+from llm_werewolf.game_runtime.config import MemoryConfig, PlayerConfig, PlanAssignmentConfig
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
+from llm_werewolf.agent_team.agents.fast_react_agent import FastReActAgent
 
 if TYPE_CHECKING:
     from agentscope.agent import ReActAgent

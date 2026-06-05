@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.evaluation.post_game.run_context import RunContext
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
 
 
 def build_counterfactual_report(ctx: RunContext) -> dict[str, Any]:

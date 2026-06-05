@@ -7,18 +7,18 @@ Plan 策略：strategy/prompts/plans/<version>/（PlanStrategies）。
 选座、投票、女巫用药：SeatChoiceDecision / YesNoDecision（bridge 仍支持 [[ ]] 回退解析）。
 """
 
+from llm_werewolf.strategy.registry.role_prompt_registry import (
+    get_role_card,
+    agent_base_template_path,
+    resolve_latest_prompt_version,
+)
 from llm_werewolf.strategy.registry.phase_prompt_registry import (
-    hydrate_prompt_namespace,
     load_plan_bundle,
     load_phase_prompts,
     load_seat_action_map,
-    resolve_latest_phase_version,
+    hydrate_prompt_namespace,
     resolve_latest_plan_version,
-)
-from llm_werewolf.strategy.registry.role_prompt_registry import (
-    agent_base_template_path,
-    get_role_card,
-    resolve_latest_prompt_version,
+    resolve_latest_phase_version,
 )
 
 

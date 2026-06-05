@@ -5,24 +5,24 @@ from __future__ import annotations
 import os
 
 import fire
-import uvicorn
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
-from llm_werewolf.observability.core.health import check_readiness
 from llm_werewolf.paths import ARTIFACTS_DIR
 from llm_werewolf.interface.api.routes import (
-    actions_router,
-    content_router,
     game_router,
     home_router,
-    models_router,
-    pages_router,
-    replay_router,
-    roles_router,
     runs_router,
+    pages_router,
+    roles_router,
+    models_router,
+    replay_router,
+    actions_router,
+    content_router,
 )
+from llm_werewolf.observability.core.health import check_readiness
 
 API_PREFIX = "/api/v1"
 
@@ -52,6 +52,19 @@ PAGE_ROUTE_MAP = {
 }
 
 
+def _ready_require_llm_key() -> bool:
+    """Whether /ready must verify an LLM API key is configured.
+
+    Set ``OBS_READY_REQUIRE_LLM=0`` to skip (e.g. local UI-only dev).
+    ``OBS_READY_REQUIRE_ARK`` is a deprecated alias kept for backward compatibility.
+    """
+    if "OBS_READY_REQUIRE_LLM" in os.environ:
+        return os.environ["OBS_READY_REQUIRE_LLM"] != "0"
+    if "OBS_READY_REQUIRE_ARK" in os.environ:
+        return os.environ["OBS_READY_REQUIRE_ARK"] != "0"
+    return True
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="LLM Werewolf API",
@@ -70,8 +83,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Accept", "Authorization", "Content-Type"],
     )
 
     @app.get("/health")
@@ -80,7 +93,7 @@ def create_app() -> FastAPI:
 
     @app.get("/ready")
     def ready() -> JSONResponse:
-        require_llm = os.environ.get("OBS_READY_REQUIRE_LLM", os.environ.get("OBS_READY_REQUIRE_ARK", "1")) != "0"
+        require_llm = _ready_require_llm_key()
         payload = check_readiness(artifacts_dir=ARTIFACTS_DIR, require_llm_key=require_llm)
         status_code = 200 if payload.get("status") == "ready" else 503
         return JSONResponse(content=payload, status_code=status_code)

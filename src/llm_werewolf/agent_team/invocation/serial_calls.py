@@ -24,7 +24,7 @@ _SERIALIZE_AGENT_CALLS: ContextVar[bool] = ContextVar("SERIALIZE_AGENT_CALLS", d
 
 
 def _delay_seconds() -> float:
-    raw = os.getenv("AGENT_SERIAL_DELAY_SECONDS", "0")
+    raw = os.getenv("AGENT_SERIAL_DELAY_SECONDS", "1.0")
     try:
         return max(0.0, float(raw))
     except ValueError:

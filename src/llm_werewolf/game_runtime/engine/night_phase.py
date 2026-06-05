@@ -3,14 +3,14 @@
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
-from llm_werewolf.strategy.contracts.decisions import SpeechDecision
 from llm_werewolf.game_runtime.i18n.locale import Locale
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.roles.werewolf import BloodMoonApostle
-from llm_werewolf.game_runtime.scheduling.night_scheduler import NightSkillScheduler
 from llm_werewolf.game_runtime.prompts.actions import EngineContexts
+from llm_werewolf.strategy.contracts.decisions import SpeechDecision
 from llm_werewolf.game_runtime.state.game_state import GameState
 from llm_werewolf.game_runtime.events.visibility import VisibilityChannel, event_type_for_channel
+from llm_werewolf.game_runtime.scheduling.night_scheduler import NightSkillScheduler
 from llm_werewolf.game_runtime.registries.role_night_plans import offer_blood_moon_transform
 
 
@@ -108,17 +108,25 @@ class NightPhaseMixin:
             for p in self.game_state.get_alive_players()
             if participates_in_wolf_team(p)
         ]
-        self._log_event(
-            event_type_for_channel(VisibilityChannel.WOLF_TEAM),
-            self.locale.get(
-                "werewolf_discussion", player=speaker.name, speech=decision.public_speech
-            ),
-            data={
+        from llm_werewolf.game_runtime.support.fallback_log import (
+            merge_agent_decision_into_event_data,
+        )
+
+        event_data = merge_agent_decision_into_event_data(
+            {
                 "player_id": speaker.player_id,
                 "player_name": speaker.name,
                 "speech": decision.public_speech,
                 "role": "Werewolf",
             },
+            getattr(speaker, "agent", None),
+        )
+        self._log_event(
+            event_type_for_channel(VisibilityChannel.WOLF_TEAM),
+            self.locale.get(
+                "werewolf_discussion", player=speaker.name, speech=decision.public_speech
+            ),
+            data=event_data,
             visible_to=wolf_ids,
         )
 

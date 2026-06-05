@@ -1,5 +1,5 @@
-import itertools
 import re
+import itertools
 
 from llm_werewolf.game_runtime.types import Camp, Event, EventType
 from llm_werewolf.strategy.contracts.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
@@ -28,8 +28,8 @@ class PromptBadCaseChecker:
     }
     _public_speech_events = {EventType.PLAYER_SPEECH, EventType.SHERIFF_CANDIDATE_SPEECH}
     _unsupported_claim_patterns = (
-        re.compile(r"(?:玩家)?\d+号?.{0,12}(?:跳|自称|认|报).{0,6}(?:女巫|预言家|猎人|守卫)"),
-        re.compile(r"(?:玩家)?\d+号?.{0,12}(?:救了|救过|银水|查验|验了|金水|查杀)"),
+        re.compile(r"(?:玩家)?\d+号?.{0,6}(?:跳|自称|认|报).{0,4}(?:女巫|预言家|猎人|守卫)"),
+        re.compile(r"(?:玩家)?\d+号?.{0,6}(?:救了|救过|银水|查验|验了|金水|查杀)"),
     )
     _claim_support_markers = (
         "跳",
@@ -325,6 +325,7 @@ class InformationIsolationChecker:
     """
 
     _SENSITIVE_DATA_KEYS = frozenset({"result", "werewolf_votes", "private_thought", "decision"})
+    _MIN_FRAGMENT_LEN = 12
 
     def check(
         self, events: list[Event], observations_by_player: dict[str, str] | None = None
@@ -343,7 +344,7 @@ class InformationIsolationChecker:
                 if player_id in allowed:
                     continue
                 for fragment in sensitive_fragments:
-                    if fragment and fragment in observation:
+                    if self._fragment_leaked(fragment, observation):
                         results.append(
                             CheckResult(
                                 checker=self.__class__.__name__,
@@ -365,24 +366,30 @@ class InformationIsolationChecker:
 
         return results
 
+    def _fragment_leaked(self, fragment: str, observation: str) -> bool:
+        text = fragment.strip()
+        if len(text) < self._MIN_FRAGMENT_LEN:
+            return False
+        return text in observation
+
     def _collect_sensitive_fragments(self, event: Event) -> list[str]:
         fragments: list[str] = []
-        if event.message:
-            fragments.append(event.message)
+        if event.message and event.message.strip():
+            fragments.append(event.message.strip())
         data = event.data or {}
         for key in self._SENSITIVE_DATA_KEYS:
             value = data.get(key)
             if value is None:
                 continue
             if isinstance(value, str):
-                fragments.append(value)
+                fragments.append(value.strip())
             elif isinstance(value, list):
                 for item in value:
                     if isinstance(item, dict):
                         for part in item.values():
-                            if isinstance(part, str) and part:
-                                fragments.append(part)
-        return fragments
+                            if isinstance(part, str) and part.strip():
+                                fragments.append(part.strip())
+        return [frag for frag in fragments if len(frag) >= self._MIN_FRAGMENT_LEN]
 
 
 class AsyncFlowChecker:

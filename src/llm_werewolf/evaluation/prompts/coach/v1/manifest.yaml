@@ -1,0 +1,6 @@
+schema: post_game_prompt_manifest_v1
+agent: coach
+version: v1
+status: active
+parent: null
+description: Coach semantic experience extraction prompts

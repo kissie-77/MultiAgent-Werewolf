@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from dataclasses import dataclass
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import PlayerProtocol

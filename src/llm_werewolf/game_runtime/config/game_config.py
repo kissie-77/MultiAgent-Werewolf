@@ -59,6 +59,10 @@ class GameConfig(BaseModel):
             "1 preserves the historical fully-serialized behavior."
         ),
     )
+    role_shuffle_seed: int | None = Field(
+        default=None,
+        description="Optional seed for deterministic role-to-seat shuffle in setup_game.",
+    )
 
     @field_validator("role_names")
     @classmethod

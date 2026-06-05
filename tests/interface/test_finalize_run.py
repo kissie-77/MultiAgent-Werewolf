@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from fixtures import write_sample_run
+from tests.interface.fixtures import write_sample_run
 
 
 def _finalize_module():

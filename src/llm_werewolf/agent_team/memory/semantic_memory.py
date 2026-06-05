@@ -2,28 +2,35 @@
 
 from __future__ import annotations
 
-import logging
 import re
 import uuid
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+import logging
 from pathlib import Path
+from datetime import datetime, timezone
+from dataclasses import field, asdict, dataclass
 
-from llm_werewolf.agent_team.memory.base import CompressorProtocol, SemanticBackend
+from llm_werewolf.agent_team.skill_support import skill_loader
+from llm_werewolf.agent_team.memory.semantic_matching import (
+    similarity,
+    normalize_content,
+    merge_card_contents,
+)
+from llm_werewolf.agent_team.memory.semantic_matching import (
+    merge_reflections as merge_reflection_texts,
+)
 from llm_werewolf.agent_team.memory.semantic_matching import (
     deduplicate_candidates as deduplicate_candidate_texts,
-    merge_card_contents,
-    merge_reflections as merge_reflection_texts,
-    normalize_content,
-    similarity,
 )
-from llm_werewolf.agent_team.skill_support import skill_loader
 from llm_werewolf.agent_team.skill_support.skill_markdown import (
-    ensure_description_format,
     extract_description,
     read_skill_markdown,
+    ensure_description_format,
     render_frontmatter_markdown,
 )
+
+if TYPE_CHECKING:
+    from llm_werewolf.agent_team.memory.base import SemanticBackend, CompressorProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +94,10 @@ class SemanticMemory:
     ) -> None:
         self._backend = backend
         self._compressor = compressor
+
+    @property
+    def has_backend(self) -> bool:
+        return self._backend is not None
 
     def retrieve_for_role(self, role: str, top_k: int = 3) -> list[StrategyCard]:
         if self._backend is not None:

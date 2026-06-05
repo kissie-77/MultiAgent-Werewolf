@@ -37,7 +37,8 @@ help:
 	@echo "$(CYAN)运行游戏$(RESET)"
 	@echo "  $(BOLD)make demo$(RESET)           Demo 模式（6 人，无需 API Key）"
 	@echo "  $(BOLD)make demo9$(RESET)          Demo 模式（9 人，含警徽流）"
-	@echo "  $(BOLD)make api$(RESET)            启动 FastAPI 服务"
+	@echo "  $(BOLD)make api$(RESET)            启动 FastAPI 服务（:8000）"
+	@echo "  $(BOLD)make dev-web$(RESET)        启动前端 Vite 开发服（:5173，代理 /api → :8000）"
 	@echo ""
 	@echo "$(CYAN)Docker 部署$(RESET)"
 	@echo "  $(BOLD)make docker-up$(RESET)      构建并启动所有容器（后台）"
@@ -109,6 +110,10 @@ demo9:
 .PHONY: api
 api:
 	$(RUN) werewolf-api
+
+.PHONY: dev-web
+dev-web:
+	cd frontend && npm install && npm run dev
 
 # ─── Docker 部署 ──────────────────────────────────────────────────────────
 .PHONY: docker-up

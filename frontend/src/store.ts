@@ -1,5 +1,24 @@
 import { create } from "zustand";
-import { GameState, Player } from "./types";
+import { GameState } from "./types";
+
+const EMPTY_START_STATE: GameState = {
+  players: [],
+  dayNumber: 0,
+  phase: "START_SCREEN",
+  currentSpeakerId: null,
+  countdown: 0,
+  speechLogs: [],
+  narration: "",
+  winner: null,
+  wolfKilledTarget: null,
+  witchSaved: false,
+  witchPoisonedTarget: null,
+  seerVerifiedTarget: null,
+  seerVerificationResult: null,
+  victimId: null,
+  discussionIndex: 0,
+  executionId: null,
+};
 
 interface GameStore {
   state: GameState | null;
@@ -36,10 +55,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   fetchState: async () => {
     try {
       const res = await fetch("/api/game/state");
+      if (!res.ok) {
+        set({ state: EMPTY_START_STATE });
+        return;
+      }
       const data = await res.json();
       set({ state: data });
     } catch (err) {
-      console.error("Failed to fetch game state:", err);
+      console.warn("Express mock unavailable, using START_SCREEN:", err);
+      set({ state: EMPTY_START_STATE });
     }
   },
 

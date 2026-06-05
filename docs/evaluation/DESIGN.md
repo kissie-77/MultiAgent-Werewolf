@@ -97,6 +97,8 @@ run_evolution_cycle → 评测 + PostGame + prompt_evolver
 
 ### 5.1 `llm_replay` / eval_agent 结构化输出
 
+**提示词外置**（2026-06-05）：system/user 模板与评分维度在 `evaluation/prompts/replay/v1/`；Coach 语义提取在 `evaluation/prompts/coach/v1/`。`replay_prompt_builder` / `coach_prompt_builder` 经 `post_game_prompt_registry` 组装，含转折点时间线与 `prompt_suggestions` 格式约束。
+
 Evaluation Analyst 经 `run_eval_replay` 调用 `create_react_agent` + `structured_model=ReplayAnalysisDecision`。Doubao 等 OpenAI 兼容端点常只返回 `generate_response` 的 `tool_use`，而不写入 `Msg.metadata.structured_output`；若仅读 metadata 会误判为 `empty eval agent response`。
 
 `eval_agent._parse_replay_decision` 按下列顺序恢复 `ReplayAnalysisDecision`（与对局 `AgentScopeWerewolfAgent.get_structured_response` 同源工具）：

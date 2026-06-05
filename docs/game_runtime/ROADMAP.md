@@ -64,6 +64,9 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-05 | `GameConfig.role_shuffle_seed`：`setup_game` 角色洗牌可复现；评测/CLI 透传种子 |
+| 2026-06-05 | `_handle_vote_tie` 改为迭代收尾（`_append_vote_tie_no_elimination`），消除自我递归 |
+| 2026-06-05 | `phase_interaction` 超时匹配改用 `GamePhase` 枚举 |
 | 2026-06-05 | 目录重组：rules/interaction/scheduling/i18n/support 子包；README 目录结构图 |
 | 2026-06-05 | 毒奶规则（守卫+女巫同救仍死亡）；女巫/守卫 11 项专项测试 |
 | 2026-06-05 | 修复 wolf_beauty_charmed 跨轮状态泄漏；死亡链递归传播（魅惑→情侣）；6 项回归测试 |

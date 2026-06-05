@@ -2,7 +2,7 @@
 
 > **模块**：frontend
 > **状态**：draft
-> **最后更新**：2026-05-23
+> **最后更新**：2026-06-05
 > **关联代码**：`frontend/`
 
 ## 1. 目标
@@ -35,7 +35,13 @@
 - `frontend → interface/api`（HTTP）
 - 详细页面与 API 映射见 [前端规划.md](../archive/前端规划.md)
 
-## 5. 相关文档
+## 5. API 客户端健壮性（2026-06-05）
+
+- 所有 `store` 请求经 `fetchWithRetry`（默认 2 次重试、递增退避）；5xx 可重试，4xx 直接返回。
+- `fetchState` 失败时：若 `phase` 已在局中（非 `START_SCREEN`），**保留上一状态**，避免网络抖动把用户踢回开始页。
+- 夜间技能附加字段使用 `NightSkillAdditional`，不再使用 `any`。
+
+## 6. 相关文档
 
 - 进度：[ROADMAP.md](./ROADMAP.md)
 - 页面规划：[../archive/前端规划.md](../archive/前端规划.md)

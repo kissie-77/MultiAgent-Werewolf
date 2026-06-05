@@ -1,6 +1,6 @@
 """ROLE_SEAT_ACTION 使用 catalog 中的运行时角色名。"""
 
-from llm_werewolf.strategy.role_prompts import ROLE_SEAT_ACTION, GamePrompts
+from llm_werewolf.strategy.registry.role_prompts import ROLE_SEAT_ACTION, GamePrompts
 from llm_werewolf.game_runtime.roles.registry import CATALOG_TO_RUNTIME_NAME
 
 

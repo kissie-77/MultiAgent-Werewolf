@@ -3,7 +3,7 @@ from pathlib import Path
 
 from llm_werewolf.evaluation.evolution.prompt_evolver import evolve_prompt_from_run
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
-from llm_werewolf.strategy.role_prompt_registry import register_role_prompt_search_root
+from llm_werewolf.strategy.registry.role_prompt_registry import register_role_prompt_search_root
 
 
 def _evolved_wolf_version(result) -> str:

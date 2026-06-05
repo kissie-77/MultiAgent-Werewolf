@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 from llm_werewolf.game_runtime.types import Camp
-from llm_werewolf.strategy.belief_state import BeliefLog, BeliefSnapshotRecord, BeliefState
-from llm_werewolf.strategy.belief_format import (
+from llm_werewolf.strategy.belief.state import BeliefLog, BeliefSnapshotRecord, BeliefState
+from llm_werewolf.strategy.belief.format import (
     build_agent_belief_context,
     format_belief_context,
     format_belief_summary,
 )
-from llm_werewolf.strategy.belief_updater import (
+from llm_werewolf.strategy.belief.updater import (
     apply_public_elimination_to_all_agents,
     apply_revealed_role,
     ensure_agent_belief_state,
     init_belief_state,
     merge_llm_beliefs,
 )
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     BeliefEntry,
     SecondOrderEntry,
     WolfCampDelta,
@@ -27,7 +27,7 @@ from llm_werewolf.strategy.decisions import (
     validate_mind_state_decision,
     validate_seat_choice_reason,
 )
-from llm_werewolf.strategy.wolf_camp_mind import (
+from llm_werewolf.strategy.wolf.camp_mind import (
     init_wolf_camp_mind,
     merge_wolf_camp_delta,
     format_wolf_camp_board,
@@ -169,8 +169,8 @@ def test_validate_seat_choice_reason() -> None:
 
 
 def test_format_belief_batch_log() -> None:
-    from llm_werewolf.strategy.belief_format import format_belief_batch_log
-    from llm_werewolf.strategy.belief_state import BeliefSnapshotRecord
+    from llm_werewolf.strategy.belief.format import format_belief_batch_log
+    from llm_werewolf.strategy.belief.state import BeliefSnapshotRecord
 
     records = [
         BeliefSnapshotRecord(

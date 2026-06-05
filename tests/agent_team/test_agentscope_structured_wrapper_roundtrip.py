@@ -11,7 +11,7 @@ from agentscope.model import ChatResponse
 from llm_werewolf.agent_team.agents.agentscope_agent import AgentScopeWerewolfAgent
 from llm_werewolf.agent_team.agents.factory import create_react_agent
 from llm_werewolf.game_runtime.config import PlayerConfig
-from llm_werewolf.strategy.decisions import SeatChoiceDecision, SpeechDecision
+from llm_werewolf.strategy.contracts.decisions import SeatChoiceDecision, SpeechDecision
 
 
 class CountingFakeModel:

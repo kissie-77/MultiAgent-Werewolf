@@ -37,7 +37,7 @@ def pick_latest_version(versions: Iterable[str], *, fallback: str = _FALLBACK_VE
 
 
 def _skills_root() -> Path:
-    return Path(__file__).resolve().parents[1] / "agent_team" / "skills"
+    return Path(__file__).resolve().parents[2] / "agent_team" / "skills"
 
 
 def list_skill_versions(role_key: str) -> tuple[str, ...]:
@@ -63,7 +63,7 @@ class RoleVersionManifest:
     def prompt_version_for(self, role_key: str) -> str:
         if role_key in self.prompt_versions:
             return self.prompt_versions[role_key]
-        from llm_werewolf.strategy.role_prompt_registry import list_prompt_versions
+        from llm_werewolf.strategy.registry.role_prompt_registry import list_prompt_versions
 
         return pick_latest_version(
             list_prompt_versions(role_key),

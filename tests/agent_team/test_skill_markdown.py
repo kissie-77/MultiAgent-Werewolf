@@ -143,9 +143,9 @@ def test_parse_skill_belief_pattern_from_frontmatter_and_body() -> None:
 
 
 def test_detect_belief_signals_rules() -> None:
-    from llm_werewolf.strategy.belief_format import detect_belief_signals
-    from llm_werewolf.strategy.belief_state import BeliefState
-    from llm_werewolf.strategy.decisions import BeliefEntry, SecondOrderEntry
+    from llm_werewolf.strategy.belief.format import detect_belief_signals
+    from llm_werewolf.strategy.belief.state import BeliefState
+    from llm_werewolf.strategy.contracts.decisions import BeliefEntry, SecondOrderEntry
 
     state = BeliefState(observer_seat=2, last_vote_seat=6)
     state.set_entry(BeliefEntry(target_seat=6, wolf_probability=1.0))
@@ -162,8 +162,8 @@ def test_detect_belief_signals_rules() -> None:
 
 
 def test_select_skills_for_belief_matches_signals(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.strategy.belief_state import BeliefState
-    from llm_werewolf.strategy.decisions import BeliefEntry
+    from llm_werewolf.strategy.belief.state import BeliefState
+    from llm_werewolf.strategy.contracts.decisions import BeliefEntry
 
     root = tmp_path / "skills"
     wolf_dir = _role_skill_dir(root, "wolf")
@@ -182,8 +182,8 @@ def test_select_skills_for_belief_matches_signals(tmp_path: Path, monkeypatch) -
 
 
 def test_select_skills_for_belief_matches_pattern(tmp_path: Path, monkeypatch) -> None:
-    from llm_werewolf.strategy.belief_state import BeliefState
-    from llm_werewolf.strategy.decisions import BeliefEntry
+    from llm_werewolf.strategy.belief.state import BeliefState
+    from llm_werewolf.strategy.contracts.decisions import BeliefEntry
 
     root = tmp_path / "skills"
     wolf_dir = _role_skill_dir(root, "wolf")
@@ -205,8 +205,8 @@ def test_select_skills_for_belief_matches_pattern(tmp_path: Path, monkeypatch) -
 def test_sync_belief_context_injects_matched_skills(tmp_path: Path, monkeypatch) -> None:
     from llm_werewolf.agent_team.memory.runtime_memory_manager import RuntimeMemoryManager
     from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
-    from llm_werewolf.strategy.belief_state import BeliefState
-    from llm_werewolf.strategy.decisions import BeliefEntry
+    from llm_werewolf.strategy.belief.state import BeliefState
+    from llm_werewolf.strategy.contracts.decisions import BeliefEntry
 
     root = tmp_path / "skills"
     _write_concentrated_skill(_role_skill_dir(root, "villager"))
@@ -237,8 +237,8 @@ REAL_RUN_DIR = Path("artifacts/runs/12p-doubao-20260531-203127")
 
 
 def _belief_row_to_state(row: dict):
-    from llm_werewolf.strategy.belief_state import BeliefState
-    from llm_werewolf.strategy.decisions import BeliefEntry, SecondOrderEntry
+    from llm_werewolf.strategy.belief.state import BeliefState
+    from llm_werewolf.strategy.contracts.decisions import BeliefEntry, SecondOrderEntry
 
     vote = row.get("vote_intention") or {}
     state = BeliefState(
@@ -364,7 +364,7 @@ def test_auto_gen_belief_skills_from_real_run(tmp_path: Path, monkeypatch, capsy
 
         pytest.skip(f"missing run dir {REAL_RUN_DIR}")
 
-    from llm_werewolf.strategy.belief_format import detect_belief_signals_from_snapshot
+    from llm_werewolf.strategy.belief.format import detect_belief_signals_from_snapshot
 
     role_skills = json.loads((REAL_RUN_DIR / "role_skills.json").read_text(encoding="utf-8"))
     beliefs = _load_beliefs_rows(REAL_RUN_DIR)

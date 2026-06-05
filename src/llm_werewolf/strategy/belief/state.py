@@ -7,7 +7,7 @@ from typing import Any
 from pathlib import Path
 from dataclasses import field, dataclass
 
-from llm_werewolf.strategy.decisions import BeliefEntry, SecondOrderEntry, WolfCampDelta
+from llm_werewolf.strategy.contracts.decisions import BeliefEntry, SecondOrderEntry, WolfCampDelta
 
 
 @dataclass

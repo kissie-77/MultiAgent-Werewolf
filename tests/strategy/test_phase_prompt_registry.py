@@ -1,13 +1,13 @@
 """Tests for externalized phase/plan prompt packages."""
 
-from llm_werewolf.strategy.phase_prompt_registry import (
+from llm_werewolf.strategy.registry.phase_prompt_registry import (
     load_phase_prompts,
     load_plan_bundle,
     load_seat_action_map,
     resolve_latest_phase_version,
     resolve_latest_plan_version,
 )
-from llm_werewolf.strategy.role_prompts import GamePrompts, PlanStrategies, ROLE_SEAT_ACTION
+from llm_werewolf.strategy.registry.role_prompts import GamePrompts, PlanStrategies, ROLE_SEAT_ACTION
 
 
 def test_phase_prompts_loaded_from_yaml() -> None:

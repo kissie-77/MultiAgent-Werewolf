@@ -9,7 +9,7 @@ import pytest
 
 from llm_werewolf.agent_team.communication.information_hub import InformationHub
 from llm_werewolf.game_runtime.types import Camp
-from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor, VoteIntentionEntry
+from llm_werewolf.strategy.voting.intention import VoteIntentionAnchor, VoteIntentionEntry
 
 
 @dataclass

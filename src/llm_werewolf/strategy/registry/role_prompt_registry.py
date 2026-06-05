@@ -9,14 +9,15 @@ from typing import Any
 
 import yaml
 
-from llm_werewolf.strategy.prompt_yaml_utils import (
+from llm_werewolf.strategy.registry.prompt_yaml_utils import (
     coerce_text_dict as _coerce_text_dict,
     coerce_text_list as _coerce_text_list,
     render_legacy_suggestion as _render_legacy_suggestion,
 )
 
-_ROLE_PROMPTS_ROOT = Path(__file__).resolve().parent / "prompts" / "roles"
-_SHARED_AGENT_BASE = Path(__file__).resolve().parent / "prompts" / "shared" / "agent_base.md"
+_STRATEGY_ROOT = Path(__file__).resolve().parent.parent
+_ROLE_PROMPTS_ROOT = _STRATEGY_ROOT / "prompts" / "roles"
+_SHARED_AGENT_BASE = _STRATEGY_ROOT / "prompts" / "shared" / "agent_base.md"
 _EXTRA_ROLE_PROMPT_ROOTS: list[Path] = []
 _GENERATED_ROLE_PROMPTS_ROOT = Path("artifacts") / "prompt_roles"
 
@@ -59,13 +60,13 @@ def list_prompt_versions(role_key: str) -> tuple[str, ...]:
         for path in role_root.iterdir():
             if path.is_dir() and (path / "role.yaml").is_file():
                 versions.add(path.name)
-    from llm_werewolf.strategy.role_version_manifest import version_sort_key
+    from llm_werewolf.strategy.registry.role_version_manifest import version_sort_key
 
     return tuple(sorted(versions, key=version_sort_key))
 
 
 def resolve_latest_prompt_version(role_key: str, *, fallback: str = "v1") -> str:
-    from llm_werewolf.strategy.role_version_manifest import pick_latest_version
+    from llm_werewolf.strategy.registry.role_version_manifest import pick_latest_version
 
     return pick_latest_version(list_prompt_versions(role_key), fallback=fallback)
 

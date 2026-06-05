@@ -3,7 +3,7 @@
 import pytest
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     SPEECH_PUBLIC_MIN_CHARS,
     SpeechDecision,
     extract_public_text,
@@ -19,7 +19,7 @@ from llm_werewolf.strategy.decisions import (
     mind_state_schema_instruction,
     metadata_looks_like_wrong_schema_for_speech,
 )
-from llm_werewolf.strategy.phase_outputs import (
+from llm_werewolf.strategy.contracts.phase_outputs import (
     ROUNDTABLE_SPEECH_ONLY_MARKER,
     RoundtablePhase,
     roundtable_phase_instruction,

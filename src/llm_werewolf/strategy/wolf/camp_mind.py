@@ -7,9 +7,9 @@ from typing import Any
 from pathlib import Path
 from dataclasses import field, dataclass
 
-from llm_werewolf.strategy.seat import get_player_seat
-from llm_werewolf.strategy.wolf_team import participates_in_wolf_team
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.voting.seat import get_player_seat
+from llm_werewolf.strategy.wolf.team import participates_in_wolf_team
+from llm_werewolf.strategy.contracts.decisions import (
     ExposureRadarDelta,
     GodRoleDelta,
     WolfCampDelta,

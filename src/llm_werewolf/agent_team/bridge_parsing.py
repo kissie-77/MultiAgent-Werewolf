@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING
 
 from llm_werewolf.game_runtime.seat import resolve_player_by_seat
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     SpeechDecision,
     extract_public_text,
     normalize_speech_decision,

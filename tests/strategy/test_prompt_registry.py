@@ -1,7 +1,7 @@
 """Per-role prompt package schema tests (replaces legacy v2 bundle registry tests)."""
 
-from llm_werewolf.strategy.prompt_yaml_utils import coerce_text_dict, coerce_text_list
-from llm_werewolf.strategy.role_prompt_registry import (
+from llm_werewolf.strategy.registry.prompt_yaml_utils import coerce_text_dict, coerce_text_list
+from llm_werewolf.strategy.registry.role_prompt_registry import (
     agent_base_template_path,
     build_role_strategy_prompt,
     get_role_card,

@@ -8,7 +8,7 @@ from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.game_runtime.roles.villager import Villager
 from llm_werewolf.game_runtime.roles.werewolf import Werewolf
-from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor
+from llm_werewolf.strategy.voting.intention import VoteIntentionAnchor
 
 
 class _Target:

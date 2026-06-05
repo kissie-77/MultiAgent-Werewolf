@@ -6,11 +6,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from llm_werewolf.strategy.role_prompt_registry import (
+from llm_werewolf.strategy.registry.role_prompt_registry import (
     copy_role_prompt_package,
     register_role_prompt_search_root,
 )
-from llm_werewolf.strategy.role_version_manifest import (
+from llm_werewolf.strategy.registry.role_version_manifest import (
     RoleVersionManifest,
     get_active_manifest,
     next_version_label,

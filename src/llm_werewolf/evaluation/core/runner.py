@@ -27,7 +27,7 @@ from llm_werewolf.game_runtime.config import GameConfig
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
 from llm_werewolf.game_runtime.types import Event, EventType
 from llm_werewolf.interface.cli.runtime.bootstrap import create_information_hub
-from llm_werewolf.strategy.role_version_manifest import RoleVersionManifest, set_active_manifest
+from llm_werewolf.strategy.registry.role_version_manifest import RoleVersionManifest, set_active_manifest
 
 
 class EvaluationRunner:

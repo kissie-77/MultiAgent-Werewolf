@@ -1,4 +1,4 @@
-from llm_werewolf.strategy.role_prompts import GamePrompts, RolePrompts, PlanStrategies
+from llm_werewolf.strategy.registry.role_prompts import GamePrompts, RolePrompts, PlanStrategies
 
 
 def test_role_strategy_prompt_is_canonical() -> None:

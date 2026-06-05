@@ -16,7 +16,7 @@ from llm_werewolf.evaluation.evolution.version_manifest import (
     restore_runtime_from_manifest,
     write_version_manifest,
 )
-from llm_werewolf.strategy.role_version_manifest import (
+from llm_werewolf.strategy.registry.role_version_manifest import (
     RoleVersionManifest,
     set_active_manifest,
 )

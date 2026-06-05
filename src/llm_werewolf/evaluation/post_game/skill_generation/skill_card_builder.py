@@ -686,7 +686,7 @@ def build_belief_when_clause(snapshot: dict[str, Any] | None) -> BeliefDistribut
     }
     parts.append(usage_hints.get(pattern, usage_hints["mixed"]))
 
-    from llm_werewolf.strategy.belief_format import detect_belief_signals_from_snapshot
+    from llm_werewolf.strategy.belief.format import detect_belief_signals_from_snapshot
 
     signal_snapshot = detect_belief_signals_from_snapshot(snapshot)
     if signal_snapshot.descriptions:

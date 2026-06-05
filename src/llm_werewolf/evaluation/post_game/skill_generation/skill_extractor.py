@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from datetime import datetime, timezone
 
@@ -32,8 +33,6 @@ _MERGE_WEIGHT_DELTA = 0.15
 _WHEN_TO_USE_MATCH_THRESHOLD = 0.78
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from llm_werewolf.evaluation.post_game.run_context import RunContext
     from llm_werewolf.evaluation.post_game.camp_persuasion import CampPersuasionReport
 
@@ -482,7 +481,7 @@ def write_skill_markdown_files(
 ) -> list[str]:
     """写入 run 目录下的 Skill MD；可选将通过门控的 Skill 双写 agent_team/skills/<role>/<version>/。"""
     from llm_werewolf.agent_team.skill_support import skill_loader
-    from llm_werewolf.strategy.role_version_manifest import get_active_manifest, set_active_manifest
+    from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest, set_active_manifest
 
     written: list[str] = []
     merges_by_role: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}

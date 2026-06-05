@@ -6,7 +6,7 @@ import re
 from enum import Enum
 from random import Random
 
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     BeliefEntry,
     ExposureRadarDelta,
     GodRoleDelta,

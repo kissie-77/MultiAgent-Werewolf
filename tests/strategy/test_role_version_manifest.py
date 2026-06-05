@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_werewolf.strategy.role_version_manifest import (
+from llm_werewolf.strategy.registry.role_version_manifest import (
     RoleVersionManifest,
     pick_latest_version,
     version_sort_key,
@@ -13,7 +13,7 @@ from llm_werewolf.strategy.role_version_manifest import (
 
 @pytest.fixture(autouse=True)
 def _isolate_role_prompt_roots(monkeypatch: pytest.MonkeyPatch):
-    from llm_werewolf.strategy import role_prompt_registry
+    from llm_werewolf.strategy.registry import role_prompt_registry
 
     monkeypatch.setattr(role_prompt_registry, "_EXTRA_ROLE_PROMPT_ROOTS", [])
     monkeypatch.delenv("LLM_WEREWOLF_ROLE_PROMPT_ROOTS", raising=False)
@@ -39,7 +39,7 @@ def test_manifest_uses_latest_prompt_and_skill_when_unpinned(
     tmp_path: Path, monkeypatch
 ) -> None:
     from llm_werewolf.agent_team.skill_support import skill_loader
-    from llm_werewolf.strategy import role_prompt_registry
+    from llm_werewolf.strategy.registry import role_prompt_registry
 
     prompt_root = tmp_path / "prompt_roles"
     skill_root = tmp_path / "skills"
@@ -53,7 +53,7 @@ def test_manifest_uses_latest_prompt_and_skill_when_unpinned(
     role_prompt_registry.register_role_prompt_search_root(prompt_root)
     monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: skill_root)
     monkeypatch.setattr(
-        "llm_werewolf.strategy.role_version_manifest._skills_root",
+        "llm_werewolf.strategy.registry.role_version_manifest._skills_root",
         lambda: skill_root,
     )
     skill_loader.list_role_skill_files.cache_clear()
@@ -65,7 +65,7 @@ def test_manifest_uses_latest_prompt_and_skill_when_unpinned(
 
 def test_manifest_honors_explicit_role_pins(tmp_path: Path, monkeypatch) -> None:
     from llm_werewolf.agent_team.skill_support import skill_loader
-    from llm_werewolf.strategy import role_prompt_registry
+    from llm_werewolf.strategy.registry import role_prompt_registry
 
     prompt_root = tmp_path / "prompt_roles"
     skill_root = tmp_path / "skills"
@@ -79,7 +79,7 @@ def test_manifest_honors_explicit_role_pins(tmp_path: Path, monkeypatch) -> None
     role_prompt_registry.register_role_prompt_search_root(prompt_root)
     monkeypatch.setattr(skill_loader, "agent_skills_root", lambda: skill_root)
     monkeypatch.setattr(
-        "llm_werewolf.strategy.role_version_manifest._skills_root",
+        "llm_werewolf.strategy.registry.role_version_manifest._skills_root",
         lambda: skill_root,
     )
     skill_loader.list_role_skill_files.cache_clear()

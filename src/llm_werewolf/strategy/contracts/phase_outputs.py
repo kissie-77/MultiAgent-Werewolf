@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from llm_werewolf.strategy.decisions import speech_schema_instruction
+from llm_werewolf.strategy.contracts.decisions import speech_schema_instruction
 
 # 嵌入提示词，避免 AgentScope 旧路径将讨论误判为仅选座。
 ROUNDTABLE_SPEECH_ONLY_MARKER = "【子阶段·仅发言】"

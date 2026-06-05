@@ -13,11 +13,11 @@ from llm_werewolf.agent_team.skill_support.skill_markdown import (
     extract_markdown_section,
     parse_frontmatter,
 )
-from llm_werewolf.strategy.belief_format import summarize_belief_pattern
-from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+from llm_werewolf.strategy.belief.format import summarize_belief_pattern
+from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
 if TYPE_CHECKING:
-    from llm_werewolf.strategy.belief_state import BeliefState
+    from llm_werewolf.strategy.belief.state import BeliefState
 
 _SKILLS_DIR_NAME = "skills"
 _UNTRUSTED_SOURCE_RUN_MARKERS = (
@@ -53,19 +53,19 @@ def role_skill_version_dir(role_key: str, skill_version: str | None = None) -> P
 
 
 def list_skill_versions(role_key: str) -> tuple[str, ...]:
-    from llm_werewolf.strategy.role_version_manifest import list_skill_versions as _list_versions
+    from llm_werewolf.strategy.registry.role_version_manifest import list_skill_versions as _list_versions
 
     return _list_versions(role_key)
 
 
 def resolve_latest_skill_version(role_key: str, *, fallback: str = "v1") -> str:
-    from llm_werewolf.strategy.role_version_manifest import pick_latest_version
+    from llm_werewolf.strategy.registry.role_version_manifest import pick_latest_version
 
     return pick_latest_version(list_skill_versions(role_key), fallback=fallback)
 
 
 def next_skill_version(role_key: str, current: str | None = None) -> str:
-    from llm_werewolf.strategy.role_version_manifest import next_version_label
+    from llm_werewolf.strategy.registry.role_version_manifest import next_version_label
 
     base = current or resolve_skill_version(role_key)
     candidate = next_version_label(base)

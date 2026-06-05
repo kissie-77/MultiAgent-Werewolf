@@ -6,7 +6,7 @@ from typing import Any
 
 from llm_werewolf.agent_team.skill_support import skill_loader
 from llm_werewolf.agent_team.skill_support.skill_loader import load_role_skills
-from llm_werewolf.strategy.role_version_manifest import (
+from llm_werewolf.strategy.registry.role_version_manifest import (
     RoleVersionManifest,
     get_active_manifest,
     set_active_manifest,

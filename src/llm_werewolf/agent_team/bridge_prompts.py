@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from llm_werewolf.game_runtime.seat import get_player_seat
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     generate_response_instruction,
     mind_state_schema_instruction,
     seat_choice_schema_instruction,
@@ -13,14 +13,14 @@ from llm_werewolf.strategy.decisions import (
     vote_intention_schema_instruction,
     witch_night_schema_instruction,
 )
-from llm_werewolf.strategy.phase_outputs import (
+from llm_werewolf.strategy.contracts.phase_outputs import (
     ActionPhase,
     RoundtablePhase,
     action_phase_instruction,
     roundtable_phase_instruction,
 )
-from llm_werewolf.strategy.role_prompts import ROLE_SEAT_ACTION, GamePrompts
-from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor
+from llm_werewolf.strategy.registry.role_prompts import ROLE_SEAT_ACTION, GamePrompts
+from llm_werewolf.strategy.voting.intention import VoteIntentionAnchor
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import PlayerProtocol

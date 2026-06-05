@@ -7,8 +7,8 @@ from collections.abc import Callable, Awaitable
 
 from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
 from llm_werewolf.game_runtime.types import Camp
-from llm_werewolf.strategy.role_prompts import GamePrompts
-from llm_werewolf.strategy.phase_outputs import ActionPhase
+from llm_werewolf.strategy.registry.role_prompts import GamePrompts
+from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 from llm_werewolf.game_runtime.roles.names import (
     is_untransformed_blood_moon,
     participates_in_wolf_team,

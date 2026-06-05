@@ -4,7 +4,7 @@ import pytest
 
 from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.game_runtime.roles.villager import Seer
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     SeatChoiceDecision,
     VoteIntentionDecision,
     WitchNightDecision,

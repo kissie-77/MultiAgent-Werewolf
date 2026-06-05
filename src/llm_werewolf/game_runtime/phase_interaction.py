@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from llm_werewolf.game_runtime.types import AgentProtocol, PlayerProtocol
-    from llm_werewolf.strategy.decisions import SpeechDecision, WitchNightDecision
-    from llm_werewolf.strategy.phase_outputs import ActionPhase
-    from llm_werewolf.strategy.vote_intention import (
+    from llm_werewolf.strategy.contracts.decisions import SpeechDecision, WitchNightDecision
+    from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
+    from llm_werewolf.strategy.voting.intention import (
         VoteIntentionTracker,
         SpeechVoteIntentionRecord,
     )

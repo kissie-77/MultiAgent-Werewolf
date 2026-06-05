@@ -10,8 +10,9 @@ from typing import Any
 
 import yaml
 
-_PHASE_PROMPTS_ROOT = Path(__file__).resolve().parent / "prompts" / "phase"
-_PLAN_PROMPTS_ROOT = Path(__file__).resolve().parent / "prompts" / "plans"
+_STRATEGY_ROOT = Path(__file__).resolve().parent.parent
+_PHASE_PROMPTS_ROOT = _STRATEGY_ROOT / "prompts" / "phase"
+_PLAN_PROMPTS_ROOT = _STRATEGY_ROOT / "prompts" / "plans"
 _GENERATED_PHASE_ROOT = Path("artifacts") / "prompt_phase"
 _GENERATED_PLAN_ROOT = Path("artifacts") / "prompt_plans"
 _EXTRA_PHASE_ROOTS: list[Path] = []
@@ -88,7 +89,7 @@ def list_phase_versions(*, fallback: str = "v1") -> tuple[str, ...]:
                 versions.add(path.name)
     if not versions:
         return (fallback,)
-    from llm_werewolf.strategy.role_version_manifest import version_sort_key
+    from llm_werewolf.strategy.registry.role_version_manifest import version_sort_key
 
     return tuple(sorted(versions, key=version_sort_key))
 
@@ -104,19 +105,19 @@ def list_plan_versions(*, fallback: str = "v1") -> tuple[str, ...]:
                 versions.add(path.name)
     if not versions:
         return (fallback,)
-    from llm_werewolf.strategy.role_version_manifest import version_sort_key
+    from llm_werewolf.strategy.registry.role_version_manifest import version_sort_key
 
     return tuple(sorted(versions, key=version_sort_key))
 
 
 def resolve_latest_phase_version(*, fallback: str = "v1") -> str:
-    from llm_werewolf.strategy.role_version_manifest import pick_latest_version
+    from llm_werewolf.strategy.registry.role_version_manifest import pick_latest_version
 
     return pick_latest_version(list_phase_versions(fallback=fallback), fallback=fallback)
 
 
 def resolve_latest_plan_version(*, fallback: str = "v1") -> str:
-    from llm_werewolf.strategy.role_version_manifest import pick_latest_version
+    from llm_werewolf.strategy.registry.role_version_manifest import pick_latest_version
 
     return pick_latest_version(list_plan_versions(fallback=fallback), fallback=fallback)
 

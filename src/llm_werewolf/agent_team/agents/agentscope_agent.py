@@ -18,7 +18,7 @@ from pydantic import Field, BaseModel, ValidationError
 # 使用AgentScope原生的Msg类
 from agentscope.message import Msg as AgentScopeMsg
 
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     SpeechDecision,
     extract_public_text,
     is_valid_public_speech,
@@ -482,7 +482,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                         structured_source = "tool_use_input"
                 if metadata:
                     if structured_model is SpeechDecision:
-                        from llm_werewolf.strategy.decisions import (
+                        from llm_werewolf.strategy.contracts.decisions import (
                             metadata_looks_like_wrong_schema_for_speech,
                         )
 
@@ -508,7 +508,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
                             )
                             decision = None
                         if structured_model is SpeechDecision:
-                            from llm_werewolf.strategy.decisions import normalize_speech_decision
+                            from llm_werewolf.strategy.contracts.decisions import normalize_speech_decision
 
                             if decision is not None:
                                 decision = normalize_speech_decision(
@@ -898,7 +898,7 @@ class AgentScopeWerewolfAgent(BaseAgent):
     @staticmethod
     def _message_expects_seat_only(message: str) -> bool:
         """Prompt 要求座位号/投票而非发言时返回 True。"""
-        from llm_werewolf.strategy.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
+        from llm_werewolf.strategy.contracts.phase_outputs import ROUNDTABLE_SPEECH_ONLY_MARKER
 
         if ROUNDTABLE_SPEECH_ONLY_MARKER in message:
             return False

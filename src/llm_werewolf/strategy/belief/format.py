@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from llm_werewolf.strategy.belief_state import BeliefState, BeliefSnapshotRecord
-from llm_werewolf.strategy.wolf_camp_mind import WolfCampMindModel, format_wolf_camp_board, is_wolf_player
+from llm_werewolf.strategy.belief.state import BeliefState, BeliefSnapshotRecord
+from llm_werewolf.strategy.wolf.camp_mind import WolfCampMindModel, format_wolf_camp_board, is_wolf_player
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import PlayerProtocol
@@ -104,7 +104,7 @@ def build_agent_belief_context(
     alive: list[PlayerProtocol],
     wolf_camp_mind: WolfCampMindModel | None = None,
 ) -> str:
-    from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state
+    from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
 
     parts: list[str] = []
     state = ensure_agent_belief_state(player, alive)
@@ -125,7 +125,7 @@ def sync_player_belief_memory(
     wolf_camp_mind: WolfCampMindModel | None = None,
 ) -> None:
     """Write latest B1/B2 (+ wolf panel) into the player's WorkingMemory."""
-    from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state
+    from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
 
     agent = player.agent
     if agent is None:
@@ -391,7 +391,7 @@ def refresh_player_belief_skills(
     wolf_camp_mind: WolfCampMindModel | None = None,
 ) -> None:
     """Refresh belief-matched skills immediately before a speech/decision turn."""
-    from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state
+    from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
 
     agent = player.agent
     if agent is None:

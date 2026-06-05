@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from llm_werewolf.strategy.decisions import SeatChoiceDecision, WitchNightDecision
+from llm_werewolf.strategy.contracts.decisions import SeatChoiceDecision, WitchNightDecision
 from llm_werewolf.agent_team.invocation.structured_invoke import (
     invoke_structured,
     parse_structured_from_text,

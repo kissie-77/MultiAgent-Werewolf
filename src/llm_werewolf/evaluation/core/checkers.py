@@ -2,7 +2,7 @@ import itertools
 import re
 
 from llm_werewolf.game_runtime.types import Camp, Event, EventType
-from llm_werewolf.strategy.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
+from llm_werewolf.strategy.contracts.decisions import SPEECH_PUBLIC_MIN_CHARS, looks_like_seat_only
 
 _EMPTY_SPEECH_MARKERS = ("（无公开发言）", "无公开发言")
 

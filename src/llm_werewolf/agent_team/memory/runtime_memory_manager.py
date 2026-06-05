@@ -117,7 +117,7 @@ class RuntimeMemoryManager:
             BELIEF_PERSISTENT_PRIORITY,
             _BELIEF_RULES_TEXT,
         )
-        from llm_werewolf.strategy.belief_format import format_belief_context
+        from llm_werewolf.strategy.belief.format import format_belief_context
 
         if not self._belief_rules_initialized:
             self.working.upsert_persistent(
@@ -151,8 +151,8 @@ class RuntimeMemoryManager:
     def refresh_belief_skills(self, state: object) -> None:
         """Match role skills to the current belief matrix for decision/speech injection."""
         from llm_werewolf.agent_team.skill_support.skill_loader import refresh_belief_skill_context
-        from llm_werewolf.strategy.belief_state import BeliefState
-        from llm_werewolf.strategy.role_version_manifest import get_active_manifest
+        from llm_werewolf.strategy.belief.state import BeliefState
+        from llm_werewolf.strategy.registry.role_version_manifest import get_active_manifest
 
         if not isinstance(state, BeliefState) or not state.first_order:
             self._belief_skill_context = ""

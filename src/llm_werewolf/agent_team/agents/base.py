@@ -16,7 +16,7 @@ from llm_werewolf.agent_team.agents.demo_policy import (
     fallback_speech,
     respond,
 )
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     MindStateDecision,
     MultiSeatChoiceDecision,
     SeatChoiceDecision,

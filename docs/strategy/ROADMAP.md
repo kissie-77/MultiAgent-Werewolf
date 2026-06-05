@@ -14,6 +14,7 @@
 | 信念矩阵 / 投票意向 | ✅ Done | |
 | GamePrompts / PlanStrategies 外置 | ✅ Done | `phase/`、`plans/` + `phase_prompt_registry.py` |
 | Legacy v2 整包清理 | ✅ Done | 删除 `prompts/v2/`、`prompt_registry.py` |
+| 目录重组 | ✅ Done | Python 代码归入 `belief/` `contracts/` `registry/` `voting/` `wolf/`；`prompts/` 保留 YAML 资产 |
 
 ## 已完成
 
@@ -26,6 +27,7 @@
 - [x] `prompt_evolver`：仅对改动身份 bump prompt 版本
 - [x] 流程 prompt 去掉「放在 `[[]]` 里」；Bridge 保留文本回退
 - [x] 清理 legacy `prompts/v2/` 与 `prompt_registry.py`
+- [x] 目录重组：15 个根目录 `.py` 归入 5 个子包；全仓库 import 路径同步更新
 
 ## 进行中
 
@@ -39,6 +41,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-05 | 目录重组：`belief/` `contracts/` `registry/` `voting/` `wolf/` 子包；README 目录结构图 |
 | 2026-06-05 | 文档日期对齐；uv.lock + CI 矩阵 3.10/3.12 修复（基础设施批次） |
 | 2026-06-02 | 私密决策 belief skill refresh 文档对齐（agent_team）；phase prompt Schema 化 |
 | 2026-06-02 | GamePrompts / PlanStrategies 外置；删除 legacy v2 整包 |

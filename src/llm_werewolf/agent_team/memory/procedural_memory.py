@@ -1,6 +1,6 @@
 """程序记忆：对既有角色策略和计划模板的薄封装。"""
 
-from llm_werewolf.strategy.role_prompts import PlanStrategies
+from llm_werewolf.strategy.registry.role_prompts import PlanStrategies
 from llm_werewolf.game_runtime.prompts.manager import PromptManager
 
 

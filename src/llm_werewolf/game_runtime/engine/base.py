@@ -117,14 +117,14 @@ class GameEngineBase:
             self.game_state.track_vote_intentions
             and self.game_state.vote_intention_tracker is None
         ):
-            from llm_werewolf.strategy.vote_intention import VoteIntentionTracker
+            from llm_werewolf.strategy.voting.intention import VoteIntentionTracker
 
             self.game_state.vote_intention_tracker = VoteIntentionTracker()
 
         if self.game_state.track_vote_intentions and self.game_state.belief_log is None:
-            from llm_werewolf.strategy.belief_state import BeliefLog
-            from llm_werewolf.strategy.belief_updater import ensure_agent_belief_state
-            from llm_werewolf.strategy.wolf_camp_mind import init_wolf_camp_mind
+            from llm_werewolf.strategy.belief.state import BeliefLog
+            from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
+            from llm_werewolf.strategy.wolf.camp_mind import init_wolf_camp_mind
 
             self.game_state.belief_log = BeliefLog()
             wolves = [p for p in self.game_state.players if participates_in_wolf_team(p)]
@@ -133,7 +133,7 @@ class GameEngineBase:
             for player in alive:
                 if player.agent is not None:
                     ensure_agent_belief_state(player, alive)
-            from llm_werewolf.strategy.belief_format import sync_all_belief_memories
+            from llm_werewolf.strategy.belief.format import sync_all_belief_memories
 
             sync_all_belief_memories(
                 alive,
@@ -293,7 +293,7 @@ class GameEngineBase:
 
     def _log_vote_intention_record(self, record: object) -> None:
         """记录与发言关联的投票意向变化，供回放分析。"""
-        from llm_werewolf.strategy.vote_intention import (
+        from llm_werewolf.strategy.voting.intention import (
             SpeechVoteIntentionRecord,
             format_intentions_line,
         )
@@ -321,10 +321,10 @@ class GameEngineBase:
         speaker: PlayerProtocol | None,
     ) -> None:
         """记录一批心智状态快照，供控制台 / game_log 展示信念矩阵。"""
-        from llm_werewolf.strategy.belief_format import format_belief_batch_log
-        from llm_werewolf.strategy.belief_state import BeliefSnapshotRecord
+        from llm_werewolf.strategy.belief.format import format_belief_batch_log
+        from llm_werewolf.strategy.belief.state import BeliefSnapshotRecord
 
-        from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor
+        from llm_werewolf.strategy.voting.intention import VoteIntentionAnchor
 
         if not isinstance(anchor, VoteIntentionAnchor):
             return
@@ -360,7 +360,7 @@ class GameEngineBase:
         if not self.game_state or self.game_state.belief_log is None:
             return
         from llm_werewolf.game_runtime.seat import get_player_seat
-        from llm_werewolf.strategy.belief_updater import apply_public_elimination_to_all_agents
+        from llm_werewolf.strategy.belief.updater import apply_public_elimination_to_all_agents
 
         seat = get_player_seat(player)
         if seat is None:
@@ -370,7 +370,7 @@ class GameEngineBase:
             eliminated_seat=seat,
             is_werewolf=participates_in_wolf_team(player),
         )
-        from llm_werewolf.strategy.belief_format import sync_all_belief_memories
+        from llm_werewolf.strategy.belief.format import sync_all_belief_memories
 
         sync_all_belief_memories(
             self.game_state.players,

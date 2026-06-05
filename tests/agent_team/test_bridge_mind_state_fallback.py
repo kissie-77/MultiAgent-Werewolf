@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
-from llm_werewolf.strategy.belief_state import BeliefState
-from llm_werewolf.strategy.vote_intention import VoteIntentionAnchor
+from llm_werewolf.strategy.belief.state import BeliefState
+from llm_werewolf.strategy.voting.intention import VoteIntentionAnchor
 
 
 class _StubAgent:

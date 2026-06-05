@@ -9,7 +9,7 @@ import logging
 
 from pydantic import BaseModel, ValidationError
 
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     SpeechDecision,
     normalize_speech_decision,
     generate_response_instruction,

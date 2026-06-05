@@ -5,8 +5,8 @@ import pytest
 from llm_werewolf.agent_team.bridge import WerewolfAdapterBridge
 from llm_werewolf.game_runtime.roles import Villager, Werewolf
 from llm_werewolf.game_runtime.state.player import Player
-from llm_werewolf.strategy.decisions import SeatChoiceDecision
-from llm_werewolf.strategy.phase_outputs import ActionPhase
+from llm_werewolf.strategy.contracts.decisions import SeatChoiceDecision
+from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 
 
 class _SeatOnlyStructuredAgent:

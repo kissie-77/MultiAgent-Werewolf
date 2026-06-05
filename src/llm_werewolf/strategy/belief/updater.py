@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from llm_werewolf.strategy.seat import get_player_seat
-from llm_werewolf.strategy.wolf_team import participates_in_wolf_team
-from llm_werewolf.strategy.decisions import BeliefEntry, SecondOrderEntry
-from llm_werewolf.strategy.belief_state import BeliefState
+from llm_werewolf.strategy.voting.seat import get_player_seat
+from llm_werewolf.strategy.wolf.team import participates_in_wolf_team
+from llm_werewolf.strategy.contracts.decisions import BeliefEntry, SecondOrderEntry
+from llm_werewolf.strategy.belief.state import BeliefState
 
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import PlayerProtocol

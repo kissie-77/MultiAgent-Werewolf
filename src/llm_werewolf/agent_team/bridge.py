@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
 
-from llm_werewolf.strategy.decisions import (
+from llm_werewolf.strategy.contracts.decisions import (
     YesNoDecision,
     SpeechDecision,
     SeatChoiceDecision,
@@ -25,12 +25,12 @@ from llm_werewolf.strategy.decisions import (
     validate_mind_state_decision,
     validate_seat_choice_reason,
 )
-from llm_werewolf.strategy.belief_state import MindStateResult
-from llm_werewolf.strategy.phase_outputs import (
+from llm_werewolf.strategy.belief.state import MindStateResult
+from llm_werewolf.strategy.contracts.phase_outputs import (
     ActionPhase,
     RoundtablePhase,
 )
-from llm_werewolf.strategy.vote_intention import VoteIntentionEntry, VoteIntentionAnchor
+from llm_werewolf.strategy.voting.intention import VoteIntentionEntry, VoteIntentionAnchor
 from llm_werewolf.game_runtime.prompts.decision_fallback import select_target_fallback
 from llm_werewolf.agent_team.invocation.structured_invoke import (
     coerce_speech,

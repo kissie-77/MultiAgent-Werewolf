@@ -40,7 +40,7 @@ def persist_run_artifacts(engine: Any, run_dir: Path) -> None:
     if state is not None and state.wolf_camp_mind is not None:
         wolf_path = run_dir / "wolf_camp_mind.jsonl"
         if not wolf_path.is_file() and state.wolf_camp_mind.history:
-            from llm_werewolf.strategy.wolf_camp_mind import save_wolf_camp_history
+            from llm_werewolf.strategy.wolf.camp_mind import save_wolf_camp_history
 
             save_wolf_camp_history(state.wolf_camp_mind, wolf_path)
 

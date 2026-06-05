@@ -43,9 +43,9 @@ def test_persist_run_artifacts_writes_beliefs(tmp_path) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()
 
-    from llm_werewolf.strategy.belief_state import BeliefLog, BeliefSnapshotRecord
-    from llm_werewolf.strategy.wolf_camp_mind import init_wolf_camp_mind, merge_wolf_camp_delta
-    from llm_werewolf.strategy.decisions import WolfCampDelta, GodRoleDelta
+    from llm_werewolf.strategy.belief.state import BeliefLog, BeliefSnapshotRecord
+    from llm_werewolf.strategy.wolf.camp_mind import init_wolf_camp_mind, merge_wolf_camp_delta
+    from llm_werewolf.strategy.contracts.decisions import WolfCampDelta, GodRoleDelta
 
     belief_log = BeliefLog()
     belief_log.append(

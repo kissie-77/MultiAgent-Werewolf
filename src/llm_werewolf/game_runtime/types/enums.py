@@ -80,6 +80,7 @@ class ActionType(str, Enum):
     WHITE_WOLF_KILL = "white_wolf_kill"
     WOLF_BEAUTY_CHARM = "wolf_beauty_charm"
     NIGHTMARE_BLOCK = "nightmare_block"
+    MAGICIAN_SWAP = "magician_swap"
 
     VOTE = "vote"
     SHERIFF_CAMPAIGN = "sheriff_campaign"
@@ -90,7 +91,6 @@ class ActionType(str, Enum):
     ALPHA_WOLF_SHOOT = "alpha_wolf_shoot"
 
     THIEF_CHOOSE = "thief_choose"
-    MAGICIAN_SWAP = "magician_swap"
 
 
 class EventType(str, Enum):
@@ -116,6 +116,7 @@ class EventType(str, Enum):
     WHITE_WOLF_KILLED = "white_wolf_killed"
     WOLF_BEAUTY_CHARMED = "wolf_beauty_charmed"
     NIGHTMARE_BLOCKED = "nightmare_blocked"
+    MAGICIAN_SWAPPED = "magician_swapped"
     GUARDIAN_WOLF_PROTECTED = "guardian_wolf_protected"
     RAVEN_MARKED = "raven_marked"
 

@@ -273,6 +273,46 @@ class GraveyardKeeperCheckAction(Action):
         ]
 
 
+class MagicianSwapAction(Action):
+    """魔术师交换两名玩家身份的行动。"""
+
+    def __init__(
+        self,
+        actor: PlayerProtocol,
+        target1: PlayerProtocol,
+        target2: PlayerProtocol,
+        game_state: GameStateProtocol,
+    ) -> None:
+        super().__init__(actor, game_state)
+        self.target1 = target1
+        self.target2 = target2
+
+    def get_action_type(self) -> ActionType:
+        """获取行动类型。"""
+        return ActionType.MAGICIAN_SWAP
+
+    def validate(self) -> bool:
+        """校验魔术师交换。"""
+        if not hasattr(self.actor.role, "has_swapped"):
+            return False
+        if self.actor.role.has_swapped:
+            return False
+        return (
+            self.actor.is_alive()
+            and self.target1.is_alive()
+            and self.target2.is_alive()
+            and self.target1.player_id != self.target2.player_id
+        )
+
+    def execute(self) -> list[str]:
+        """执行魔术师交换身份。"""
+        self.target1.role, self.target2.role = self.target2.role, self.target1.role
+        self.target1.role.player = self.target1
+        self.target2.role.player = self.target2
+        self.actor.role.has_swapped = True
+        return [f"Magician swaps roles of {self.target1.name} and {self.target2.name}"]
+
+
 class KnightDuelAction(Action):
     """骑士白天决斗的行动。"""
 

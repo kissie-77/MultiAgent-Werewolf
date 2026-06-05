@@ -1,8 +1,14 @@
-"""各角色夜间行动规划（通过 PhaseInteraction / InformationHub 调用 LLM）。"""
+"""各角色夜间行动规划（通过 PhaseInteraction / InformationHub 调用 LLM）。
+
+新增角色只需在 NIGHT_PLAN_SPECS 注册一个 NightPlanSpec 并实现 planner 函数，
+夜间调度器和优先级注册表自动生效——主流程无需修改。
+"""
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING
+from dataclasses import field, dataclass
 from collections.abc import Callable, Awaitable
 
 from llm_werewolf.game_runtime.seat import get_player_seat, resolve_player_by_seat
@@ -10,8 +16,8 @@ from llm_werewolf.game_runtime.types import Camp
 from llm_werewolf.strategy.role_prompts import GamePrompts
 from llm_werewolf.strategy.phase_outputs import ActionPhase
 from llm_werewolf.game_runtime.roles.names import (
-    is_untransformed_blood_moon,
     participates_in_wolf_team,
+    is_untransformed_blood_moon,
 )
 from llm_werewolf.game_runtime.roles.werewolf import build_werewolf_team_context
 from llm_werewolf.game_runtime.actions.villager import (
@@ -21,6 +27,7 @@ from llm_werewolf.game_runtime.actions.villager import (
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
+    MagicianSwapAction,
     GraveyardKeeperCheckAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import (
@@ -34,7 +41,7 @@ from llm_werewolf.game_runtime.actions.werewolf import (
 if TYPE_CHECKING:
     from llm_werewolf.game_runtime.types import ActionProtocol, PlayerProtocol, GameStateProtocol
     from llm_werewolf.game_runtime.roles.base import Role
-    from llm_werewolf.game_runtime.roles.villager import Seer, Cupid, Guard, Witch
+    from llm_werewolf.game_runtime.roles.villager import Seer, Cupid, Guard, Witch, Magician
     from llm_werewolf.game_runtime.roles.werewolf import (
         WhiteWolf,
         WolfBeauty,
@@ -47,6 +54,45 @@ if TYPE_CHECKING:
 NightPlanner = Callable[
     ["Role", "GameStateProtocol", "PhaseInteraction"], Awaitable[list["ActionProtocol"]]
 ]
+
+
+class NightStage(str, Enum):
+    """夜间调度阶段——新增角色必须归入其中一个阶段。"""
+
+    PRE_WOLF = "pre_wolf"
+    WOLF_PHASE_SPECIAL = "wolf_phase_special"
+    WITCH = "witch"
+    POST_WITCH = "post_witch"
+
+
+PRE_WOLF_STAGE = NightStage.PRE_WOLF.value
+WOLF_PHASE_SPECIAL_STAGE = NightStage.WOLF_PHASE_SPECIAL.value
+WITCH_STAGE = NightStage.WITCH.value
+POST_WITCH_STAGE = NightStage.POST_WITCH.value
+
+
+@dataclass(frozen=True)
+class NightPlanSpec:
+    """声明一个角色的夜间调度规格。
+
+    新增角色只需填写此数据类并加入 NIGHT_PLAN_SPECS 即可接入夜间调度，
+    无需修改 NightSkillScheduler 或 ActionProcessor。
+
+    Attributes:
+        role_name: 角色标识名（与 Role.name 一致）。
+        planner: 异步函数，返回该角色本夜产生的 Action 列表。
+        stage: 所属调度阶段；None 表示仅参与狼票（wolf_vote=True 时）。
+        order: 同阶段内的执行顺序（值越小越先执行）。
+        wolf_vote: 是否参与狼队刀票投票。
+        action_classes: 该角色可能产出的 Action 类名列表（用于注册完整性校验）。
+    """
+
+    role_name: str
+    planner: NightPlanner
+    stage: str | None
+    order: int = 0
+    wolf_vote: bool = False
+    action_classes: tuple[str, ...] = field(default_factory=tuple)
 
 
 def _seat_label(player: PlayerProtocol) -> str:
@@ -65,7 +111,7 @@ def _attach_decision_metadata(
     }
     if decision is not None and hasattr(decision, "model_dump"):
         metadata["structured_decision"] = decision.model_dump(mode="json")
-    setattr(action, "_decision_metadata", metadata)
+    action._decision_metadata = metadata
     return action
 
 
@@ -450,6 +496,31 @@ async def plan_cupid_link(
     return []
 
 
+async def plan_magician_swap(
+    role: Magician, game_state: GameStateProtocol, interaction: PhaseInteraction
+) -> list[ActionProtocol]:
+    if role.has_swapped or not role.player.is_alive() or not role.player.agent:
+        return []
+    possible_targets = game_state.get_alive_players()
+    if len(possible_targets) < 2:
+        return []
+    selected = await interaction.request_multi_targets(
+        role.player,
+        role.player.agent,
+        role_name="Magician",
+        action_description="选择两名玩家交换身份",
+        possible_targets=possible_targets,
+        num_targets=2,
+        additional_context="整局仅可交换一次。被交换玩家不会立刻知道自己的身份已被交换。",
+        round_number=game_state.round_number,
+        phase="Night",
+    )
+    if selected and len(selected) == 2:
+        action = MagicianSwapAction(role.player, selected[0], selected[1], game_state)
+        return [action]
+    return []
+
+
 async def plan_raven_mark(
     role, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
@@ -508,22 +579,107 @@ async def plan_graveyard_check(
     return []
 
 
-NIGHT_PLANNERS: dict[str, NightPlanner] = {
-    "Werewolf": plan_werewolf_vote,
-    "Alpha Wolf": plan_alpha_wolf_vote,
-    "White Wolf": plan_white_wolf,
-    "Wolf Beauty": plan_wolf_beauty,
-    "Guardian Wolf": plan_guardian_wolf,
-    "Hidden Wolf": plan_hidden_wolf_vote,
-    "Blood Moon Apostle": plan_blood_moon_apostle,
-    "Nightmare Wolf": plan_nightmare_wolf,
-    "Witch": plan_witch_actions,
-    "Guard": plan_guard_protect,
-    "Seer": plan_seer_check,
-    "Cupid": plan_cupid_link,
-    "Raven": plan_raven_mark,
-    "Graveyard Keeper": plan_graveyard_check,
+async def plan_noop_night_action(
+    role: Role, game_state: GameStateProtocol, interaction: PhaseInteraction
+) -> list[ActionProtocol]:
+    """用于已注册但尚未开放夜间技能的占位角色。"""
+    return []
+
+
+NIGHT_PLAN_SPECS: dict[str, NightPlanSpec] = {
+    # ── PRE_WOLF 阶段 ──────────────────────────────────────────────
+    "Cupid": NightPlanSpec(
+        "Cupid", plan_cupid_link, PRE_WOLF_STAGE, order=10,
+        action_classes=("CupidLinkAction",),
+    ),
+    "Nightmare Wolf": NightPlanSpec(
+        "Nightmare Wolf", plan_nightmare_wolf, PRE_WOLF_STAGE, order=20, wolf_vote=True,
+        action_classes=("NightmareWolfBlockAction",),
+    ),
+    "Guard": NightPlanSpec(
+        "Guard", plan_guard_protect, PRE_WOLF_STAGE, order=30,
+        action_classes=("GuardProtectAction",),
+    ),
+    "Guardian Wolf": NightPlanSpec(
+        "Guardian Wolf", plan_guardian_wolf, PRE_WOLF_STAGE, order=40, wolf_vote=True,
+        action_classes=("GuardianWolfProtectAction",),
+    ),
+    "Thief": NightPlanSpec(
+        "Thief", plan_noop_night_action, PRE_WOLF_STAGE, order=50,
+        action_classes=(),
+    ),
+    # ── 狼票阶段（stage=None, wolf_vote=True）──────────────────────
+    "Werewolf": NightPlanSpec(
+        "Werewolf", plan_werewolf_vote, None, wolf_vote=True,
+        action_classes=("WerewolfVoteAction",),
+    ),
+    "Alpha Wolf": NightPlanSpec(
+        "Alpha Wolf", plan_alpha_wolf_vote, None, wolf_vote=True,
+        action_classes=("WerewolfVoteAction",),
+    ),
+    "Hidden Wolf": NightPlanSpec(
+        "Hidden Wolf", plan_hidden_wolf_vote, None, wolf_vote=True,
+        action_classes=("WerewolfVoteAction",),
+    ),
+    "Blood Moon Apostle": NightPlanSpec(
+        "Blood Moon Apostle", plan_blood_moon_apostle, None, wolf_vote=True,
+        action_classes=("WerewolfVoteAction",),
+    ),
+    # ── WOLF_PHASE_SPECIAL 阶段（狼票后额外技能）─────────────────────
+    "White Wolf": NightPlanSpec(
+        "White Wolf", plan_white_wolf, WOLF_PHASE_SPECIAL_STAGE, order=10, wolf_vote=True,
+        action_classes=("WhiteWolfKillAction",),
+    ),
+    "Wolf Beauty": NightPlanSpec(
+        "Wolf Beauty", plan_wolf_beauty, WOLF_PHASE_SPECIAL_STAGE, order=20, wolf_vote=True,
+        action_classes=("WolfBeautyCharmAction",),
+    ),
+    # ── WITCH 阶段 ──────────────────────────────────────────────────
+    "Witch": NightPlanSpec(
+        "Witch", plan_witch_actions, WITCH_STAGE, order=10,
+        action_classes=("WitchSaveAction", "WitchPoisonAction"),
+    ),
+    # ── POST_WITCH 阶段 ─────────────────────────────────────────────
+    "Seer": NightPlanSpec(
+        "Seer", plan_seer_check, POST_WITCH_STAGE, order=10,
+        action_classes=("SeerCheckAction",),
+    ),
+    "Graveyard Keeper": NightPlanSpec(
+        "Graveyard Keeper", plan_graveyard_check, POST_WITCH_STAGE, order=20,
+        action_classes=("GraveyardKeeperCheckAction",),
+    ),
+    "Raven": NightPlanSpec(
+        "Raven", plan_raven_mark, POST_WITCH_STAGE, order=30,
+        action_classes=("RavenMarkAction",),
+    ),
+    "Magician": NightPlanSpec(
+        "Magician", plan_magician_swap, POST_WITCH_STAGE, order=40,
+        action_classes=("MagicianSwapAction",),
+    ),
 }
+
+NIGHT_PLANNERS: dict[str, NightPlanner] = {
+    role_name: spec.planner for role_name, spec in NIGHT_PLAN_SPECS.items()
+}
+
+
+def night_roles_for_stage(stage: str) -> tuple[str, ...]:
+    """返回某个夜间阶段内按 order 排好的角色名。"""
+    return tuple(
+        spec.role_name
+        for spec in sorted(NIGHT_PLAN_SPECS.values(), key=lambda item: item.order)
+        if spec.stage == stage
+    )
+
+
+def night_roles_with_wolf_vote() -> frozenset[str]:
+    """返回参与狼队刀票的运行时角色名。"""
+    return frozenset(spec.role_name for spec in NIGHT_PLAN_SPECS.values() if spec.wolf_vote)
+
+
+def explicit_night_role_names() -> frozenset[str]:
+    """返回已声明夜间计划的角色名，用于 scheduler 避免重复兜底调度。"""
+    return frozenset(NIGHT_PLAN_SPECS)
 
 
 def _resolve_night_planner(role_name: str) -> NightPlanner | None:
@@ -539,3 +695,25 @@ async def dispatch_night_plan(
     if planner is None:
         return []
     return await planner(role, game_state, interaction)
+
+
+def validate_night_plan_registry() -> list[str]:
+    """校验 NIGHT_PLAN_SPECS 的注册完整性。
+
+    检查每个声明了 action_classes 的 spec，确认对应类名在
+    ACTION_PRIORITY_BY_CLASS 中已注册优先级。返回缺失注册的错误描述列表。
+    空列表表示校验通过。
+    """
+    from llm_werewolf.game_runtime.registries.action_registry import ACTION_PRIORITY_BY_CLASS
+
+    errors: list[str] = []
+    valid_stages = {s.value for s in NightStage}
+    for role_name, spec in NIGHT_PLAN_SPECS.items():
+        if spec.stage is not None and spec.stage not in valid_stages:
+            errors.append(f"{role_name}: stage '{spec.stage}' 不是合法的 NightStage 值")
+        for cls_name in spec.action_classes:
+            if cls_name not in ACTION_PRIORITY_BY_CLASS:
+                errors.append(
+                    f"{role_name}: action_class '{cls_name}' 未在 ACTION_PRIORITY_BY_CLASS 注册"
+                )
+    return errors

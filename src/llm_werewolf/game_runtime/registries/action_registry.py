@@ -17,6 +17,7 @@ ACTION_PRIORITY_BY_CLASS: dict[str, int] = {
     "WitchPoisonAction": ActionPriority.WITCH.value,
     "SeerCheckAction": ActionPriority.SEER.value,
     "GraveyardKeeperCheckAction": ActionPriority.GRAVEYARD_KEEPER.value,
+    "MagicianSwapAction": ActionPriority.GUARD.value,
     "RavenMarkAction": ActionPriority.RAVEN.value,
 }
 

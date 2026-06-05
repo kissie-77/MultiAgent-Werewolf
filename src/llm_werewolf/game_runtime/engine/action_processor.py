@@ -1,5 +1,5 @@
-from collections.abc import Callable
 from typing import ClassVar
+from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import Camp, EventType
 from llm_werewolf.game_runtime.locale import Locale
@@ -12,6 +12,7 @@ from llm_werewolf.game_runtime.actions.villager import (
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
+    MagicianSwapAction,
     GraveyardKeeperCheckAction,
 )
 from llm_werewolf.game_runtime.actions.werewolf import (
@@ -40,6 +41,7 @@ class ActionProcessorMixin:
         (WolfBeautyCharmAction, "_log_wolf_beauty_action"),
         (NightmareWolfBlockAction, "_log_nightmare_block_action"),
         (GuardianWolfProtectAction, "_log_guardian_wolf_action"),
+        (MagicianSwapAction, "_log_magician_swap_action"),
         (RavenMarkAction, "_log_raven_action"),
         (GraveyardKeeperCheckAction, "_log_graveyard_keeper_action"),
     )
@@ -155,7 +157,10 @@ class ActionProcessorMixin:
             )
         if self.game_state and getattr(self.game_state, "belief_log", None) is not None:
             from llm_werewolf.game_runtime.seat import get_player_seat
-            from llm_werewolf.strategy.belief_updater import apply_seer_check, ensure_agent_belief_state
+            from llm_werewolf.strategy.belief_updater import (
+                apply_seer_check,
+                ensure_agent_belief_state,
+            )
 
             alive = self.game_state.get_alive_players()
             state = ensure_agent_belief_state(action.actor, alive)
@@ -249,6 +254,23 @@ class ActionProcessorMixin:
             data={
                 "player_id": action.actor.player_id,
                 "target_id": action.target.player_id,
+                **self._decision_data(action),
+            },
+        )
+
+    def _log_magician_swap_action(self, action: MagicianSwapAction) -> None:
+        """记录魔术师换牌行动（仅魔术师可见）。"""
+        self._log_event(
+            EventType.MAGICIAN_SWAPPED,
+            self.locale.get(
+                "magician_swapped",
+                target1=action.target1.name,
+                target2=action.target2.name,
+            ),
+            data={
+                "player_id": action.actor.player_id,
+                "target1_id": action.target1.player_id,
+                "target2_id": action.target2.player_id,
                 **self._decision_data(action),
             },
         )

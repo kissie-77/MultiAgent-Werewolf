@@ -39,6 +39,7 @@ from llm_werewolf.evaluation.post_game.episodic_bridge import write_episodic_art
 from llm_werewolf.evaluation.post_game.prompt_proposal import write_prompt_proposals
 from llm_werewolf.evaluation.post_game.game_quality_report import write_game_quality_report
 from llm_werewolf.evaluation.post_game.counterfactual import write_counterfactual_artifacts
+from llm_werewolf.evaluation.post_game.bad_case_report import write_bad_case_artifacts
 from llm_werewolf.evaluation.post_game.scoring.score_contexts import write_score_contexts
 from llm_werewolf.evaluation.post_game.skill_generation.skill_extractor import (
     write_role_skills_artifacts,
@@ -334,6 +335,17 @@ async def run_post_game_pipeline(
             steps,
             "counterfactual",
             lambda: write_counterfactual_artifacts(_ctx()),
+        ),
+    )
+
+    _on_registered_step_done(
+        result,
+        steps,
+        "bad_case",
+        _run_registered_step(
+            steps,
+            "bad_case",
+            lambda: write_bad_case_artifacts(_ctx()),
         ),
     )
 

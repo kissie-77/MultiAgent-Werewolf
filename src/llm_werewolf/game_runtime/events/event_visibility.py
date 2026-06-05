@@ -16,6 +16,7 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
     EventType.GRAVEYARD_KEEPER_CHECK,
     EventType.WOLF_BEAUTY_CHARMED,
     EventType.NIGHTMARE_BLOCKED,
+    EventType.MAGICIAN_SWAPPED,
     EventType.RAVEN_MARKED,
 })
 
@@ -63,6 +64,7 @@ ACTOR_ID_KEYS: dict[EventType, str] = {
     EventType.GRAVEYARD_KEEPER_CHECK: "player_id",
     EventType.WOLF_BEAUTY_CHARMED: "player_id",
     EventType.NIGHTMARE_BLOCKED: "player_id",
+    EventType.MAGICIAN_SWAPPED: "player_id",
     EventType.RAVEN_MARKED: "player_id",
     EventType.SHERIFF_VOTE_CAST: "voter_id",
     EventType.ERROR: "player_id",

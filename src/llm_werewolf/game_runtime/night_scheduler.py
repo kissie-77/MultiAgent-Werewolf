@@ -8,7 +8,14 @@ from llm_werewolf.game_runtime.types import EventType
 from llm_werewolf.game_runtime.roles.names import participates_in_wolf_team
 from llm_werewolf.game_runtime.registries.role_registry import get_werewolf_roles
 from llm_werewolf.game_runtime.registries.role_night_plans import (
+    WITCH_STAGE,
+    PRE_WOLF_STAGE,
+    POST_WITCH_STAGE,
+    WOLF_PHASE_SPECIAL_STAGE,
     dispatch_night_plan,
+    night_roles_for_stage,
+    explicit_night_role_names,
+    night_roles_with_wolf_vote,
     dispatch_werewolf_vote_plan,
 )
 
@@ -19,22 +26,10 @@ if TYPE_CHECKING:
     from llm_werewolf.game_runtime.actions.base import Action
     from llm_werewolf.game_runtime.state.game_state import GameState
 
-# 在狼刀目标确定前行动的角色（固定顺序）。
-PRE_WOLF_ROLE_NAMES: tuple[str, ...] = (
-    "Cupid",
-    "Nightmare Wolf",
-    "Guard",
-    "Guardian Wolf",
-    "Thief",
-)
-
-WITCH_ROLE_NAMES: frozenset[str] = frozenset({"Witch"})
-
-# 狼刀目标已知后：先女巫，再按此顺序处理其余夜间角色。
-POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = ("Seer", "Graveyard Keeper", "Raven")
-
-# 狼票阶段内额外收集的狼人特殊技能。其他特殊狼技能在预狼阶段处理。
-WOLF_PHASE_SPECIAL_ROLE_NAMES: tuple[str, ...] = ("White Wolf", "Wolf Beauty")
+PRE_WOLF_ROLE_NAMES: tuple[str, ...] = night_roles_for_stage(PRE_WOLF_STAGE)
+WITCH_ROLE_NAMES: tuple[str, ...] = night_roles_for_stage(WITCH_STAGE)
+POST_WITCH_NIGHT_ROLE_ORDER: tuple[str, ...] = night_roles_for_stage(POST_WITCH_STAGE)
+WOLF_PHASE_SPECIAL_ROLE_NAMES: tuple[str, ...] = night_roles_for_stage(WOLF_PHASE_SPECIAL_STAGE)
 
 
 class NightSkillScheduler:
@@ -55,6 +50,8 @@ class NightSkillScheduler:
         self._resolve_werewolf_votes = resolve_werewolf_votes
         self._log_role_acting = log_role_acting
         self._wolf_role_names = get_werewolf_roles()
+        self._wolf_vote_role_names = night_roles_with_wolf_vote()
+        self._explicit_night_role_names = explicit_night_role_names()
 
     async def run(self) -> tuple[list[Action], list[str]]:
         """预狼批次，随后收集狼票（旧版合并入口）。"""
@@ -100,6 +97,7 @@ class NightSkillScheduler:
             p
             for p in self.game_state.get_alive_players()
             if p.get_role_name() in self._wolf_role_names
+            and p.get_role_name() in self._wolf_vote_role_names
             and p.role.has_night_action(self.game_state)
             and participates_in_wolf_team(p)
         ]
@@ -121,7 +119,8 @@ class NightSkillScheduler:
 
     def _players_post_witch_ordered(self) -> list[PlayerProtocol]:
         players: list[PlayerProtocol] = []
-        handled = set(PRE_WOLF_ROLE_NAMES) | self._wolf_role_names | WITCH_ROLE_NAMES
+        handled = set(PRE_WOLF_ROLE_NAMES) | self._wolf_role_names | set(WITCH_ROLE_NAMES)
+        handled |= self._explicit_night_role_names
         for name in POST_WITCH_NIGHT_ROLE_ORDER:
             for player in self.game_state.get_alive_players():
                 if (

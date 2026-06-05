@@ -178,7 +178,7 @@ async def test_witch_poison_produces_action() -> None:
     game_state.round_number = 1
     game_state.werewolf_target = None
 
-    from llm_werewolf.game_runtime.seat import get_player_seat
+    from llm_werewolf.game_runtime.support.seat import get_player_seat
 
     decision = MagicMock()
     decision.action = "poison"

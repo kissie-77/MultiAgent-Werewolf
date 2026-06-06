@@ -77,3 +77,23 @@ describe("seat snapshot redaction", () => {
     expect(s.players[0].role).toBe("Seer");
   });
 });
+
+describe("public dialogue + event timeline", () => {
+  it("maps sheriff_candidate_speech into speechLogs", () => {
+    let s = initialSpectateState();
+    s = reduceEvent(s, { event_type: "snapshot", selfSeat: 1,
+      roster: [{ seat: 5, name: "P5", role: null, is_alive: true }] } as any);
+    s = reduceEvent(s, { event_type: "sheriff_candidate_speech", message: "我竞选警长",
+      round_number: 1, phase: "sheriff_election", data: { player_id: "player_5" } } as any);
+    expect(s.speechLogs).toHaveLength(1);
+    expect(s.speechLogs[0].content).toBe("我竞选警长");
+  });
+
+  it("accumulates any messaged event into eventLog and dedupes adjacent repeats", () => {
+    let s = initialSpectateState();
+    s = reduceEvent(s, { event_type: "message", message: "天黑请闭眼" } as any);
+    s = reduceEvent(s, { event_type: "message", message: "天黑请闭眼" } as any); // dup
+    s = reduceEvent(s, { event_type: "werewolf_killed", message: "Player3 被狼人杀害" } as any);
+    expect(s.eventLog.map((e) => e.message)).toEqual(["天黑请闭眼", "Player3 被狼人杀害"]);
+  });
+});

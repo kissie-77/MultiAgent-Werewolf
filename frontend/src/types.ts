@@ -18,6 +18,7 @@ export interface GameState {
   currentSpeakerId: number | null;
   countdown: number;
   speechLogs: { playerId: number; playerName: string; role: string; content: string; reasoning?: string; day: number; isNight: boolean }[];
+  eventLog: { round: number; phase: string; type: string; message: string }[];
   narration: string;
   winner: "WOLVES" | "VILLAGERS" | null;
   wolfKilledTarget: number | null;

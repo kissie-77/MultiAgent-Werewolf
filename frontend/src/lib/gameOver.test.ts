@@ -19,7 +19,7 @@ function player(p: Partial<Player>): Player {
 function gs(p: Partial<GameState>): GameState {
   return {
     players: [], dayNumber: 1, phase: "GAME_OVER", currentSpeakerId: null, countdown: 0,
-    speechLogs: [], narration: "", winner: null, wolfKilledTarget: null, witchSaved: false,
+    speechLogs: [], eventLog: [], narration: "", winner: null, wolfKilledTarget: null, witchSaved: false,
     witchPoisonedTarget: null, seerVerifiedTarget: null, seerVerificationResult: null,
     victimId: null, discussionIndex: 0, executionId: null, ...p,
   };

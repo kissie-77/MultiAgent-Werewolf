@@ -33,7 +33,7 @@ function seatOf(data: Record<string, any> | undefined): number | null {
 export function initialSpectateState(): GameState {
   return {
     players: [], dayNumber: 0, phase: "START_SCREEN", currentSpeakerId: null,
-    countdown: 0, speechLogs: [], narration: "", winner: null,
+    countdown: 0, speechLogs: [], eventLog: [], narration: "", winner: null,
     wolfKilledTarget: null, witchSaved: false, witchPoisonedTarget: null,
     seerVerifiedTarget: null, seerVerificationResult: null, victimId: null,
     discussionIndex: 0, executionId: null, gameMode: "llmOnly",
@@ -41,11 +41,19 @@ export function initialSpectateState(): GameState {
 }
 
 export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
-  const s: GameState = { ...prev, players: prev.players.map((p) => ({ ...p })), speechLogs: [...prev.speechLogs] };
+  const s: GameState = { ...prev, players: prev.players.map((p) => ({ ...p })), speechLogs: [...prev.speechLogs], eventLog: [...prev.eventLog] };
 
   // any event carries a phase/round -> keep phase + dayNumber fresh
   if (ev.phase && PHASE_MAP[ev.phase]) s.phase = PHASE_MAP[ev.phase];
   if (typeof ev.round_number === "number" && ev.round_number > 0) s.dayNumber = ev.round_number;
+
+  // accumulate every messaged event into a chronological timeline (dedupe adjacent repeats)
+  if (ev.message) {
+    const last = s.eventLog[s.eventLog.length - 1];
+    if (!last || last.message !== ev.message) {
+      s.eventLog.push({ round: ev.round_number ?? s.dayNumber, phase: ev.phase ?? "", type: ev.event_type, message: ev.message });
+    }
+  }
 
   switch (ev.event_type) {
     case "snapshot": {
@@ -61,7 +69,8 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       break;
     }
     case "player_speech":
-    case "player_discussion": {
+    case "player_discussion":
+    case "sheriff_candidate_speech": {
       const seat = seatOf(ev.data);
       if (seat != null) {
         s.currentSpeakerId = seat;

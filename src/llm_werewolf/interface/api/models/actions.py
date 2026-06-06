@@ -28,6 +28,14 @@ class PlayerRosterSlot(BaseModel):
     plan: str | None = Field(default=None, description="AgentScope plan strategy name")
 
 
+class HumanSeatSpec(BaseModel):
+    seat: int = Field(..., ge=1, le=20, description="1-based seat for the single human player")
+    role: str | None = Field(
+        default=None,
+        description="Optional fixed role (ignored until Enhancement A8; random deal for now)",
+    )
+
+
 class StartGameRequest(BaseModel):
     config_id: str | None = Field(default=None, description="YAML stem under configs/")
     config_path: str | None = Field(default=None, description="Explicit config path")
@@ -64,6 +72,10 @@ class StartGameRequest(BaseModel):
     players: list[PlayerRosterSlot] | None = Field(
         default=None,
         description="Per-seat overrides by index (sparse list allowed)",
+    )
+    human: HumanSeatSpec | None = Field(
+        default=None,
+        description="Single human seat for human-vs-AI; None = pure-LLM spectate",
     )
 
     @field_validator("human_seats")
@@ -108,6 +120,8 @@ class StartGameResponse(BaseModel):
     human_seats: list[int] = Field(default_factory=list)
     badge_flow: bool = False
     custom_roster: bool = False
+    player_token: str | None = None
+    stream_path: str | None = None
 
 
 class GameStatusResponse(BaseModel):

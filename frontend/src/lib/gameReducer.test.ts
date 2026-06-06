@@ -50,3 +50,30 @@ describe("gameReducer", () => {
     expect(s.winner).toBe("WOLVES");
   });
 });
+
+describe("seat snapshot redaction", () => {
+  const snap = {
+    event_type: "snapshot",
+    selfSeat: 1,
+    roster: [
+      { seat: 1, name: "P1", role: "Witch", is_alive: true },
+      { seat: 2, name: "P2", role: null, is_alive: true },
+    ],
+  };
+
+  it("tags the self seat and reveals only its role", () => {
+    const s = reduceEvent(initialSpectateState(), snap as any);
+    expect(s.players).toHaveLength(2);
+    expect(s.players[0].isUser).toBe(true);
+    expect(s.players[0].role).toBe("Witch");
+    expect(s.players[1].isUser).toBe(false);
+    expect(s.players[1].role).toBe(""); // hidden -> empty
+  });
+
+  it("spectate snapshot (no selfSeat) tags nobody", () => {
+    const god = { event_type: "snapshot", roster: [{ seat: 1, name: "P1", role: "Seer", is_alive: true }] };
+    const s = reduceEvent(initialSpectateState(), god as any);
+    expect(s.players[0].isUser).toBe(false);
+    expect(s.players[0].role).toBe("Seer");
+  });
+});

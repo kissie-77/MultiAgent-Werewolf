@@ -6,7 +6,8 @@ export interface SseEvent {
   phase?: string;
   message?: string;
   data?: Record<string, any>;
-  roster?: { seat: number; name: string; role: string; camp?: string | null; is_alive?: boolean }[];
+  roster?: { seat: number; name: string; role: string | null; camp?: string | null; is_alive?: boolean }[];
+  selfSeat?: number;
   event_id?: number;
 }
 
@@ -49,8 +50,10 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
   switch (ev.event_type) {
     case "snapshot": {
       if (ev.roster?.length) {
+        const selfSeat = ev.selfSeat;
         s.players = ev.roster.map<Player>((r) => ({
-          id: r.seat, name: r.name, role: r.role, isUser: false,
+          id: r.seat, name: r.name, role: r.role ?? "",
+          isUser: selfSeat != null && r.seat === selfSeat,
           isAlive: r.is_alive !== false, avatarSeed: r.name, lastSpeech: "",
           statusNotes: "",
         }));

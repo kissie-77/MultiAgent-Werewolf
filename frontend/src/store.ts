@@ -499,7 +499,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           try {
             const snap = JSON.parse(e.data);
             const cur = get().state ?? initialSpectateState();
-            set({ state: reduceEvent(cur, { ...snap, event_type: "snapshot" }) });
+            set({ state: reduceEvent(cur, { ...snap, event_type: "snapshot", selfSeat: seat }) });
           } catch (err) { console.error("bad snapshot frame", err); }
         });
 

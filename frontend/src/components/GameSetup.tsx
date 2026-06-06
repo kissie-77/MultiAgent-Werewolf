@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGameStore } from "../store";
+import { ApiClient } from "../api/client";
 import { getCustomApiKey, setCustomApiKey, getOpenAIApiKey, setOpenAIApiKey, getGeminiApiKey, setGeminiApiKey, getClaudeApiKey, setClaudeApiKey, getDoubaoApiKey, setDoubaoApiKey } from "../lib/config";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from "lucide-react";
@@ -9,9 +10,10 @@ import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from 
 import { getRoleImage } from "../utils/roles";
 
 export default function GameSetup() {
-  const resetGame = useGameStore((state) => state.resetGame);
-  const isLoading = useGameStore((state) => state.isLoading);
   const setSetupCount = useGameStore((state) => state.setSetupCount);
+  const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
   // setupStep represents the startup screen flow phase
   const [setupStep, setSetupStep] = useState<"landing" | "settings">("landing");
@@ -75,8 +77,21 @@ export default function GameSetup() {
   }, [setSetupCount]);
 
   const startMatch = async () => {
+    if (starting) return;
+    setStartError(null);
+    setStarting(true);
     setSetupCount(null);
-    await resetGame(userRole, playerCount, gameMode, true, hasSheriff);
+    try {
+      // 当前一律以全 AI 对局开局并进入实时观战；人机交互在 M3。
+      const res = await ApiClient.startGame({
+        config_id: "llm-6p-deepseek",
+        badge_flow: hasSheriff,
+      });
+      navigate(res.game_page_path); // "/game?run_id=...&source=runs"
+    } catch (e) {
+      setStartError(e instanceof Error ? e.message : String(e));
+      setStarting(false);
+    }
   };
 
   const getRolesDescription = (count: number) => {
@@ -500,7 +515,7 @@ export default function GameSetup() {
             <div className="w-full flex flex-col gap-3 mt-6 relative z-20">
               <button
                 onClick={startMatch}
-                disabled={isLoading}
+                disabled={starting}
                 className="relative w-full px-8 py-5 flex items-center justify-center font-serif text-amber-950 transition-all duration-300 rounded overflow-hidden group shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_40px_rgba(245,158,11,0.4)] active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
                 style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)" }}
               >
@@ -510,11 +525,16 @@ export default function GameSetup() {
                 <div className="absolute inset-0 rounded border border-amber-300/30 m-1 pointer-events-none" />
                 <div className="relative flex items-center justify-center gap-3">
                   <Play className="w-4 h-4 fill-amber-950 drop-shadow-sm group-hover:scale-110 transition-transform" />
-                  <span className="font-serif font-black text-sm uppercase tracking-[0.3em]">{isLoading ? "真灵召唤中" : "拨转命盘 ∙ 开启对局"}</span>
+                  <span className="font-serif font-black text-sm uppercase tracking-[0.3em]">{starting ? "真灵召唤中" : "拨转命盘 ∙ 开启对局"}</span>
                   <span className="mx-1 opacity-60 font-serif text-[10px]">•</span>
-                  <span className="font-gothic text-xl tracking-[0.1em]">{isLoading ? "Summoning" : "Launch Match"}</span>
+                  <span className="font-gothic text-xl tracking-[0.1em]">{starting ? "Summoning" : "Launch Match"}</span>
                 </div>
               </button>
+              {startError && (
+                <p className="mt-2 text-center text-[11px] font-mono text-red-400/90">
+                  开局失败：{startError}
+                </p>
+              )}
             </div>
 
             <div className="text-center font-mono text-[9px] text-amber-900/50 tracking-[0.2em] mt-6 uppercase relative z-20">

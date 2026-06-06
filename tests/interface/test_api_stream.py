@@ -67,3 +67,49 @@ def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):
     client = TestClient(create_app())
     resp = client.get("/api/v1/games/nope/stream?view=god")
     assert resp.status_code == 404
+
+
+async def test_engine_run_publishes_to_broadcaster(tmp_path, monkeypatch):
+    """A real (demo) game wired through GameSessionManager's composite on_event
+    both writes events.jsonl and fans out to a live subscriber."""
+    monkeypatch.chdir(tmp_path)
+    import asyncio
+    from llm_werewolf.interface.api.services import event_stream
+    from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+    from llm_werewolf.interface.api.models.actions import StartGameRequest
+    from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir
+
+    # demo config ships in repo configs/; copy is unnecessary — resolve_config_for_start
+    # accepts a config_id under the repo configs dir.
+    configs_dir = Path(__file__).resolve().parents[2] / "configs"
+    runs_dir = tmp_path / "artifacts" / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    resp = await game_session_manager.start_game(
+        configs_dir=configs_dir, runs_dir=runs_dir,
+        request=StartGameRequest(config_id="demo-6"),
+    )
+    run_id = resp.run_id
+    # The _run_game task is scheduled but has not yet run (start_game never
+    # yields to the loop), so the broadcaster may not be registered yet.
+    # get_or_create returns the same idempotent instance _run_game will reuse,
+    # letting us subscribe before the game produces events.
+    b = event_stream.get_or_create_broadcaster(run_id)
+    assert b is not None
+
+    received: list[dict] = []
+
+    async def consume() -> None:
+        async for ev in b.subscribe():
+            received.append(ev)
+
+    consumer = asyncio.create_task(consume())
+    # wait for the game task to finish (demo agents are fast/offline)
+    session = game_session_manager._sessions[run_id]
+    await asyncio.wait_for(session.task, timeout=120)
+    await asyncio.sleep(0.05)
+    consumer.cancel()
+
+    assert (runs_dir / run_id / "events.jsonl").is_file()
+    types = {e["event_type"] for e in received}
+    assert "game_started" in types or len(received) > 0

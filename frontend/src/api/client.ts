@@ -15,8 +15,10 @@ import {
   RunListPageData,
   StartGameRequest,
   StartGameResponse,
-  GameStatusResponse
+  GameStatusResponse,
+  BackendReplayPageData
 } from "./types";
+import { mapReplayPage } from "../lib/replayMap";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -102,8 +104,15 @@ export class ApiClient {
     return this.get<ModelComparisonData>(`/api/v1/pages/models/compare?${params.toString()}`);
   }
 
-  static async getReplayData(runId: string): Promise<ReplayPageData> {
-    return this.get<ReplayPageData>(`/api/v1/pages/replay?run_id=${encodeURIComponent(runId)}`);
+  static async getReplayData(runId: string, source = "runs"): Promise<ReplayPageData> {
+    // Always request the enriched per-run replay under the god view: belief /
+    // heatmap blocks are only populated for view=god, and the mapper filters the
+    // god-injected belief/vote snapshot events back out of the timeline.
+    const params = new URLSearchParams({ run_id: runId, source, view: "god" });
+    const raw = await this.get<BackendReplayPageData>(
+      `/api/v1/pages/replay?${params.toString()}`
+    );
+    return mapReplayPage(raw);
   }
 
   static async getShareReplayData(runId: string): Promise<ShareReplayPageData> {

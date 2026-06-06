@@ -433,6 +433,87 @@ export interface GameStatusResponse {
   alert_count: number | null;
 }
 
+// --- Replay page backend INPUT types (mirror models/pages.py ReplayPageData) ---
+// These describe the raw shape the backend `/api/v1/pages/replay` endpoint
+// returns. `replayMap.ts` maps them into the front-end `ReplayPageData` shape.
+export interface BackendPlayerBrief {
+  player_id: string;
+  player_name: string;
+  role_name?: string | null;
+  camp?: string | null;
+  ai_model?: string | null;
+  is_alive?: boolean | null;
+}
+
+export interface BackendArtifactRef {
+  name: string;
+  path: string;
+  kind?: string;
+}
+
+export interface BackendRunDetail {
+  run_id: string;
+  source: string;
+  path: string;
+  created_at: string | null;
+  player_count: number | null;
+  winner_camp: string | null; // "werewolf" | "villager" | null (lowercase)
+  has_post_game: boolean;
+  has_replay: boolean;
+  roster: BackendPlayerBrief[];
+  game_result_text?: string | null;
+  artifacts?: BackendArtifactRef[];
+  extra?: Record<string, unknown>;
+}
+
+export interface BackendReplayEventItem {
+  index: number;
+  event_type: string;
+  round_number: number;
+  phase: string; // lowercase, e.g. "night" | "day_discussion" | "day_voting"
+  message: string;
+  timestamp?: string | null;
+  data?: Record<string, any>;
+}
+
+export interface BackendPhaseSummary {
+  round_number: number;
+  phase: string;
+  event_count: number;
+  highlight_event_types: string[];
+}
+
+export interface BackendMvpRankItem {
+  rank: number;
+  player_id: string; // e.g. "player_5"
+  player_name: string;
+  role_name?: string | null;
+  total_score: number; // KNOWN BUG: always 0.0 — real value is scores[mvp].players[].mvp_total
+  ai_model?: string | null;
+}
+
+export interface BackendScoreBlock {
+  kind: string; // "mvp" | "swing" | "benefit" | ...
+  title: string;
+  payload: { data: any };
+}
+
+export interface BackendReplayPageData {
+  run: BackendRunDetail;
+  view_scope?: string;
+  timeline: BackendReplayEventItem[];
+  phase_summary?: BackendPhaseSummary[];
+  turning_points?: string[];
+  mvp_ranking?: BackendMvpRankItem[];
+  scores?: BackendScoreBlock[];
+  views_available?: string[];
+  report_markdown?: string | null;
+  coach_excerpt?: string | null;
+  belief_snapshots?: any[];
+  wolf_camp_snapshots?: any[];
+  belief_heatmap?: any;
+}
+
 // --- Start game (mirrors backend StartGameRequest / StartGameResponse) ---
 export interface StartGameRequest {
   config_id?: string;

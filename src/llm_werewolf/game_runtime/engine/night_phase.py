@@ -167,6 +167,12 @@ class NightPhaseMixin:
             return messages
 
         self._log_event(
+            EventType.SUB_PHASE,
+            "",
+            data={"name": "werewolf_chat"},
+        )
+
+        self._log_event(
             EventType.MESSAGE,
             self.locale.get("narrator_werewolves_wake"),
             data={"action": "werewolves_wake"},

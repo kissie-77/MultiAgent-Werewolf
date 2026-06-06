@@ -53,6 +53,14 @@ class NightSkillScheduler:
         self._wolf_vote_role_names = night_roles_with_wolf_vote()
         self._explicit_night_role_names = explicit_night_role_names()
 
+    def _emit_sub_phase(self, name: str) -> None:
+        """发出轻量级 SUB_PHASE 显示提示（非 GamePhase，非暂停点）。"""
+        self._log_event(
+            EventType.SUB_PHASE,
+            "",
+            data={"name": name},
+        )
+
     async def run(self) -> tuple[list[Action], list[str]]:
         """预狼批次，随后收集狼票（旧版合并入口）。"""
         messages: list[str] = []
@@ -63,10 +71,12 @@ class NightSkillScheduler:
 
     async def run_pre_wolf_phase(self) -> list[Action]:
         """丘比特、梦魇狼、守卫等——在狼票之前。"""
+        self._emit_sub_phase("pre_wolf")
         return await self._collect_for_players(self._players_pre_wolf())
 
     async def run_wolf_vote_phase(self) -> list[Action]:
         """仅收集狼队击杀投票。"""
+        self._emit_sub_phase("werewolf_kill")
         actions = await self._collect_wolf_votes_for_players(self._players_werewolf_voters())
         actions.extend(await self._collect_for_players(self._players_wolf_phase_special()))
         return actions
@@ -74,7 +84,9 @@ class NightSkillScheduler:
     async def run_post_wolf_resolution(self) -> list[Action]:
         """女巫（在 ``werewolf_target`` 确定后），随后预言家 / 守墓人 / 乌鸦。"""
         actions: list[Action] = []
+        self._emit_sub_phase("witch_decide")
         actions.extend(await self._collect_for_players(self._players_witch()))
+        self._emit_sub_phase("seer_check")
         actions.extend(await self._collect_for_players(self._players_post_witch_ordered()))
         return actions
 
@@ -140,11 +152,13 @@ class NightSkillScheduler:
 
     async def _collect_for_players(self, players: list[PlayerProtocol]) -> list[Action]:
         actions: list[Action] = []
-        interaction = self.game_state.require_phase_interaction()
+        if not players:
+            return actions
         for player in players:
             if self._log_role_acting:
                 self._log_role_acting(player)
             try:
+                interaction = self.game_state.require_phase_interaction()
                 result = await self._plan_for_player(player, interaction)
                 if result:
                     actions.extend(result)

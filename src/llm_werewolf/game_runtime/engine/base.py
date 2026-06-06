@@ -311,6 +311,15 @@ class GameEngineBase:
                         memory_manager.on_game_end(player.player_id in winning_ids)
 
             self._log_event(
+                EventType.PHASE_CHANGED,
+                self.locale.get("game_ended", winner=result.winner_camp, reason=result.reason),
+                data={
+                    "phase": GamePhase.ENDED.value,
+                    "round": self.game_state.round_number if self.game_state else 0,
+                },
+            )
+
+            self._log_event(
                 EventType.GAME_ENDED,
                 self.locale.get("game_ended", winner=result.winner_camp, reason=result.reason),
                 data={
@@ -323,6 +332,21 @@ class GameEngineBase:
             return True
 
         return False
+
+    def is_over(self) -> bool:
+        """游戏是否已结束（阶段为 ENDED）。"""
+        if not self.game_state:
+            return False
+        return self.game_state.get_phase() == GamePhase.ENDED
+
+    def final_result_text(self) -> str:
+        """最终对局结果文案：有胜者用 game_over，否则用 game_ended。
+
+        play_game() 与 step-pump 循环共用同一文案逻辑，避免重复。
+        """
+        if self.game_state and self.game_state.winner:
+            return self.locale.get("game_over", winner=self.game_state.winner)
+        return self.locale.get("game_ended", winner="unknown", reason="")
 
     def _log_vote_intention_record(self, record: object) -> None:
         """记录与发言关联的投票意向变化，供回放分析。"""
@@ -611,10 +635,7 @@ class GameEngineBase:
             self._on_round_end(self.game_state.round_number)
             self.game_state.next_phase()  # 进入下一 NIGHT
 
-        if self.game_state.winner:
-            return self.locale.get("game_over", winner=self.game_state.winner)
-
-        return self.locale.get("game_ended", winner="unknown", reason="")
+        return self.final_result_text()
 
     async def step(self) -> list[str]:
         """执行游戏的一步（一个阶段）。"""
@@ -629,22 +650,19 @@ class GameEngineBase:
 
         if current_phase == GamePhase.SETUP:
             self.game_state.next_phase()
-            phase_messages = [
-                "Game initialized! Press 'n' to start the first night phase.",
-                f"Round {self.game_state.round_number} begins.",
-            ]
+            phase_messages = []
         elif current_phase == GamePhase.NIGHT:
+            self.game_state.reset_deaths()
             phase_messages = await self.run_night_phase()
             if not self.check_victory():
                 self.game_state.next_phase()
                 if self.game_state.get_phase() == GamePhase.SHERIFF_ELECTION:
                     await self.execute_sheriff_election()
                     self.game_state.next_phase()
-                    phase_messages.append("Sheriff election completed.")
         elif current_phase == GamePhase.SHERIFF_ELECTION:
             await self.execute_sheriff_election()
             self.game_state.next_phase()
-            phase_messages = ["Sheriff election completed."]
+            phase_messages = []
         elif current_phase == GamePhase.DAY_DISCUSSION:
             phase_messages = await self.run_day_phase()
             if self.game_state.skip_day_voting:

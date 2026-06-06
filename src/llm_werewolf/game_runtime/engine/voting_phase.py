@@ -572,6 +572,16 @@ class VotingPhaseMixin:
         messages = []
         self.game_state.set_phase(GamePhase.DAY_VOTING)
         self.game_state.vote_tie_count = 0
+
+        self._log_event(
+            EventType.PHASE_CHANGED,
+            self.locale.get("voting_phase_separator"),
+            data={
+                "phase": GamePhase.DAY_VOTING.value,
+                "round": self.game_state.round_number,
+            },
+        )
+
         messages.append(self.locale.get("voting_phase_separator"))
 
         # 先处理骑士决斗（投票前）

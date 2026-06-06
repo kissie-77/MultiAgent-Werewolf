@@ -18,9 +18,11 @@ from llm_werewolf.game_runtime.roles.registry import get_role_map
 from llm_werewolf.game_runtime.roles.villager import (
     Cupid,
     Elder,
+    Seer,
     Guard,
     Idiot,
     Witch,
+    Hunter,
     Knight,
     Magician,
 )
@@ -115,6 +117,8 @@ def _extract_role_data(player: PlayerProtocol) -> dict[str, Any]:
         BloodMoonApostle: lambda r: {"transformed": r.transformed},
         Magician: lambda r: {"has_swapped": r.has_swapped},
         Thief: lambda r: {"has_chosen": r.has_chosen},
+        Seer: lambda r: {"ability_uses": r.ability_uses, "disabled": r.disabled},
+        Hunter: lambda r: {"ability_uses": r.ability_uses, "disabled": r.disabled},
     }
 
     # 女巫需特殊处理
@@ -258,6 +262,12 @@ def _restore_witch_data(role: Witch, role_data: dict[str, Any]) -> None:
     role.has_poison_potion = role_data.get("has_poison_potion", True)
 
 
+def _restore_base_skill_state(role: object, role_data: dict[str, Any]) -> None:
+    """恢复基础角色技能状态（ability_uses / disabled）。"""
+    role.ability_uses = role_data.get("ability_uses", 0)
+    role.disabled = role_data.get("disabled", False)
+
+
 def _restore_role_data(player: Player, role_data: dict[str, Any]) -> None:
     """将角色专属数据恢复到玩家角色上。
 
@@ -278,6 +288,8 @@ def _restore_role_data(player: Player, role_data: dict[str, Any]) -> None:
         BloodMoonApostle: lambda r, d: setattr(r, "transformed", d.get("transformed", False)),
         Magician: lambda r, d: setattr(r, "has_swapped", d.get("has_swapped", False)),
         Thief: lambda r, d: setattr(r, "has_chosen", d.get("has_chosen", False)),
+        Seer: lambda r, d: _restore_base_skill_state(r, d),
+        Hunter: lambda r, d: _restore_base_skill_state(r, d),
     }
 
     # 女巫需特殊处理

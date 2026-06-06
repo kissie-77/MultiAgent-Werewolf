@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import HomePage from "./pages/HomePage";
-import GamePage from "./pages/GamePage";
+import SpectateApp from "./App";
 import FeaturesPage from "./pages/FeaturesPage";
 import AboutPage from "./pages/AboutPage";
 import HowToPlayPage from "./pages/HowToPlayPage";
@@ -13,7 +13,7 @@ export default function Router() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/game" element={<GamePage />} />
+        <Route path="/game" element={<SpectateApp />} />
         <Route path="/features" element={<FeaturesPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />

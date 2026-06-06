@@ -99,6 +99,7 @@ class EventType(str, Enum):
     GAME_STARTED = "game_started"
     GAME_ENDED = "game_ended"
     PHASE_CHANGED = "phase_changed"
+    SUB_PHASE = "sub_phase"
     ROUND_STARTED = "round_started"
 
     PLAYER_DIED = "player_died"

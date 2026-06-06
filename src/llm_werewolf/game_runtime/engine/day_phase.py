@@ -101,6 +101,7 @@ class DayPhaseMixin:
                 "player_id": speaker.player_id,
                 "player_name": speaker.name,
                 "speech": decision.public_speech,
+                "private_thought": decision.private_thought,
             },
             getattr(speaker, "agent", None),
         )

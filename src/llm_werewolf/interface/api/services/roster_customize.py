@@ -15,7 +15,7 @@ if TYPE_CHECKING:
         PlayerRosterDefaults,
     )
 
-_ROSTER_FIELDS = ("name", "model", "base_url", "api_key_env", "model_env", "plan")
+_ROSTER_FIELDS = ("name", "model", "base_url", "api_key_env", "model_env", "plan", "api_key", "temperature")
 
 
 def _extract_updates(source: PlayerRosterDefaults | PlayerRosterSlot) -> dict[str, object]:

@@ -106,7 +106,7 @@ def test_role_skill_checker_covers_extended_skill_events() -> None:
         "guardian_wolf_protected",
         "raven_marked",
     }
-    assert all(result.data["missing_fields"] == ["player_id", "target_id"] for result in results)
+    assert all(result.data["missing_fields"] == ["actor_id", "target_id"] for result in results)
 
 
 def test_role_skill_checker_treats_witch_poison_death_as_plain_death() -> None:

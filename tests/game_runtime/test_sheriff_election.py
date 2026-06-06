@@ -11,6 +11,8 @@ class _GameState:
     def __init__(self) -> None:
         self.sheriff_election_done = False
         self.sheriff_id: str | None = None
+        # phase_changed 信号（合并自引擎驱动观战分支）会读取 round_number。
+        self.round_number = 1
 
     def set_sheriff(self, player_id: str) -> None:
         self.sheriff_id = player_id

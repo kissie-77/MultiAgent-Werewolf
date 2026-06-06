@@ -24,6 +24,15 @@ class SheriffElectionMixin:
             return
 
         self._log_event(
+            EventType.PHASE_CHANGED,
+            self.locale.get("sheriff_campaign_started"),
+            data={
+                "phase": GamePhase.SHERIFF_ELECTION.value,
+                "round": self.game_state.round_number,
+            },
+        )
+
+        self._log_event(
             EventType.SHERIFF_CAMPAIGN_STARTED, self.locale.get("sheriff_campaign_started")
         )
 
@@ -53,8 +62,11 @@ class SheriffElectionMixin:
         if not self.game_state:
             return []
 
-        interaction = self.game_state.require_phase_interaction()
         alive_players = self.game_state.get_alive_players()
+        if not any(player.agent for player in alive_players):
+            return []
+
+        interaction = self.game_state.require_phase_interaction()
         candidates: list[PlayerProtocol] = []
 
         for player in alive_players:

@@ -48,6 +48,8 @@
 - [x] 女巫 / 守卫毒奶规则：同夜同救刀口仍死亡（`guard_witch_conflict`）
 - [x] 11 项女巫守卫专项测试（`tests/game_runtime/test_witch_guard_logic.py`）
 - [x] 目录重组：10 个根目录 `.py` 归入 5 个子包；`support/__init__` 惰性导出防循环依赖
+- [x] 警长投票使用独立 `SHERIFF_VOTE` action phase，避免串入夜间角色行动 prompt
+- [x] 引擎驱动观战所需信号：`engine.step()` 与 `play_game()` 行为对齐（可被 API 逐阶段泵）、补全 `phase_changed`（警长竞选/投票/结束）、子阶段信号、5 个技能结构化事件（白狼/狼美人/噩梦/守卫狼→`guardian_wolf_guard`/乌鸦）、拓宽 `role_data`（Hunter/Seer）
 
 ## 进行中
 
@@ -72,6 +74,7 @@
 | 2026-06-05 | 目录重组：rules/interaction/scheduling/i18n/support 子包；README 目录结构图 |
 | 2026-06-05 | 毒奶规则（守卫+女巫同救仍死亡）；女巫/守卫 11 项专项测试 |
 | 2026-06-05 | 修复 wolf_beauty_charmed 跨轮状态泄漏；死亡链递归传播（魅惑→情侣）；6 项回归测试 |
+| 2026-06-04 | 引擎信号补全（供引擎驱动观战）：step()↔play_game() 对齐、phase_changed 补全、子阶段信号、5 技能结构化事件、role_data 拓宽 |
 | 2026-06-02 | 白狼白天自爆进黑夜；setup_game hub fail-fast；文档与 agent_team/strategy 批次对齐 |
 | 2026-06-02 | 人机混战信息隔离：observation 隐藏阵营存活数；警长投票 prompt 阶段修正 |
 | 2026-05-24 | 初始化 game_runtime 三件套文档 |

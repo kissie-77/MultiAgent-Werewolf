@@ -99,31 +99,36 @@ def test_wolf_team_message_without_wolves_is_not_public() -> None:
     assert visible == []
 
 
-def test_typed_wolf_team_skill_events_visible_to_wolves_only() -> None:
-    for event_type in {
-        EventType.WHITE_WOLF_KILLED,
-        EventType.GUARDIAN_WOLF_PROTECTED,
-    }:
-        visible = resolve_visible_to(
-            event_type,
-            {"player_id": "wolf_1", "target_id": "wolf_2"},
-            wolf_player_ids=["wolf_1", "wolf_2"],
-        )
-
-        assert visible == ["wolf_1", "wolf_2"]
+def test_white_wolf_and_guardian_wolf_visible_to_wolf_team() -> None:
+    wolves = ["w1", "w2"]
+    assert resolve_visible_to(
+        EventType.WHITE_WOLF_KILLED, {"target_id": "v1"}, wolf_player_ids=wolves
+    ) == ["w1", "w2"]
+    assert resolve_visible_to(
+        EventType.GUARDIAN_WOLF_PROTECTED, {"actor_id": "w2", "target_id": "w1"},
+        wolf_player_ids=wolves,
+    ) == ["w1", "w2"]
 
 
-def test_typed_private_skill_events_visible_to_actor_only() -> None:
-    for event_type in {
+def test_wolf_beauty_nightmare_raven_visible_to_actor_only() -> None:
+    for event_type in (
         EventType.WOLF_BEAUTY_CHARMED,
         EventType.NIGHTMARE_BLOCKED,
-        EventType.MAGICIAN_SWAPPED,
         EventType.RAVEN_MARKED,
-    }:
-        visible = resolve_visible_to(
-            event_type,
-            {"player_id": "actor_1", "target_id": "player_2"},
-            wolf_player_ids=["wolf_1"],
-        )
+    ):
+        assert resolve_visible_to(
+            event_type, {"actor_id": "a1", "target_id": "t1"}, wolf_player_ids=["a1"]
+        ) == ["a1"]
 
-        assert visible == ["actor_1"]
+
+def test_magician_swap_visible_to_actor_only() -> None:
+    # Magician 走 PRIVATE_ACTOR_TYPES（player_id），不在 actor_id 系的 ACTOR_ONLY_SKILL_TYPES。
+    assert resolve_visible_to(
+        EventType.MAGICIAN_SWAPPED,
+        {"player_id": "actor_1", "target1_id": "t1", "target2_id": "t2"},
+        wolf_player_ids=["wolf_1"],
+    ) == ["actor_1"]
+
+
+def test_sub_phase_is_public() -> None:
+    assert resolve_visible_to(EventType.SUB_PHASE, {"name": "werewolf_chat"}) is None

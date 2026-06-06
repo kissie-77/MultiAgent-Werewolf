@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from pydantic import Field, BaseModel, field_validator
 
-if TYPE_CHECKING:
-    from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
+# Runtime (not TYPE_CHECKING) import: used in pydantic model fields below, so they
+# must be resolvable for model_rebuild. pages.py does not import actions -> no cycle.
+from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
 
 
 class PlayerRosterDefaults(BaseModel):
@@ -16,6 +15,8 @@ class PlayerRosterDefaults(BaseModel):
     api_key_env: str | None = Field(default=None, description="Env var name for API key")
     model_env: str | None = Field(default=None, description="Env var name for model/endpoint id")
     plan: str | None = Field(default=None, description="AgentScope plan strategy name")
+    api_key: str | None = Field(default=None, description="Literal API key (inline mode; not persisted)")
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0, description="Per-seat sampling temperature")
 
 
 class PlayerRosterSlot(BaseModel):
@@ -25,6 +26,8 @@ class PlayerRosterSlot(BaseModel):
     api_key_env: str | None = Field(default=None, description="Env var name for API key")
     model_env: str | None = Field(default=None, description="Env var name for model/endpoint id")
     plan: str | None = Field(default=None, description="AgentScope plan strategy name")
+    api_key: str | None = Field(default=None, description="Literal API key (inline mode; not persisted)")
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0, description="Per-seat sampling temperature")
 
 
 class StartGameRequest(BaseModel):
@@ -126,6 +129,26 @@ class CancelGameResponse(BaseModel):
     run_id: str
     status: str
     message: str | None = None
+
+
+class ControlGameRequest(BaseModel):
+    action: str = Field(..., pattern="^(pause|resume|step|speed)$")
+    value: int | None = Field(default=None, description="Speed factor; required for action=speed")
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, value: int | None) -> int | None:
+        if value is not None and value not in (1, 2, 4):
+            msg = f"speed value must be one of 1, 2, 4; got {value}"
+            raise ValueError(msg)
+        return value
+
+
+class ControlGameResponse(BaseModel):
+    run_id: str
+    play_state: str
+    speed: int
+    phase: str
 
 
 class ModelCompareRequest(BaseModel):

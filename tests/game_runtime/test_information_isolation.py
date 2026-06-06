@@ -251,9 +251,11 @@ class TestPrivateActorEvents:
     def test_private_skill_events_only_actor_visible(
         self, event_type: EventType, actor_id: str
     ) -> None:
+        # 结构化技能事件用 actor_id（白狼/狼美人/噩梦/守卫狼/乌鸦），
+        # 魔术师/守墓人等沿用 player_id —— 两个键都给上，让用例对键约定无关。
         visible = resolve_visible_to(
             event_type,
-            {"player_id": actor_id, "target_id": "some_target"},
+            {"player_id": actor_id, "actor_id": actor_id, "target_id": "some_target"},
             wolf_player_ids=WOLF_IDS,
             witch_player_ids=WITCH_IDS,
         )

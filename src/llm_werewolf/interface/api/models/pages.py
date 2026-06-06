@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import Field, BaseModel
 
-if TYPE_CHECKING:
-    from llm_werewolf.interface.api.models.common import (
-        NavLink,
-        RunDetail,
-        RunSummary,
-        ArtifactRef,
-        PlayerBrief,
-        PaginatedList,
-    )
+# Runtime (not TYPE_CHECKING) import: these types appear in pydantic model fields
+# below, so they must be resolvable for model_rebuild — common.py does not import
+# pages, so there is no circular dependency.
+from llm_werewolf.interface.api.models.common import (
+    NavLink,
+    RunDetail,
+    RunSummary,
+    ArtifactRef,
+    PlayerBrief,
+    PaginatedList,
+)
 
 # --- Shared UI blocks ---
 

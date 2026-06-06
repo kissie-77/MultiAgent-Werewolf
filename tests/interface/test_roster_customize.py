@@ -44,3 +44,29 @@ def test_prepare_start_players_config_returns_none_without_overrides(demo_config
     request = StartGameRequest(config_id="demo-6")
     assert has_roster_customizations(request) is False
     assert prepare_start_players_config(demo_config, request) is None
+
+
+def test_roster_slot_applies_api_key_and_temperature():
+    from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig
+    from llm_werewolf.interface.api.models.actions import PlayerRosterSlot
+    from llm_werewolf.interface.api.services.roster_customize import apply_roster_customizations
+
+    base = PlayersConfig(
+        language="zh-CN",
+        players=[
+            PlayerConfig(name=f"P{i}", model="demo") for i in range(1, 7)
+        ],
+    )
+    slots = [
+        PlayerRosterSlot(
+            model="deepseek-chat",
+            base_url="https://api.deepseek.com/v1",
+            api_key="sk-seat1",
+            temperature=1.1,
+        )
+    ] + [PlayerRosterSlot() for _ in range(5)]
+
+    result = apply_roster_customizations(base, players=slots)
+    assert result.players[0].api_key == "sk-seat1"
+    assert result.players[0].temperature == 1.1
+    assert result.players[0].model == "deepseek-chat"

@@ -1,188 +1,273 @@
 import { create } from "zustand";
-import { fetchWithRetry } from "./api/retry";
-import { GameState, NightSkillAdditional } from "./types";
+import {
+  ControlRequest, GamePhase, GameStateResponse, PlayState, RenderLog,
+  SeatConfig, StreamEvent, Visibility,
+} from "./types";
+import { API, fetchState, postControl, streamUrl, unwrap } from "./lib/api";
+import { getApiKey, providerById } from "./lib/api-keys";
 
-const EMPTY_START_STATE: GameState = {
-  players: [],
-  dayNumber: 0,
-  phase: "START_SCREEN",
-  currentSpeakerId: null,
-  countdown: 0,
-  speechLogs: [],
-  narration: "",
-  winner: null,
-  wolfKilledTarget: null,
-  witchSaved: false,
-  witchPoisonedTarget: null,
-  seerVerifiedTarget: null,
-  seerVerificationResult: null,
-  victimId: null,
-  discussionIndex: 0,
-  executionId: null,
-};
-
-const IN_GAME_PHASES = new Set<GameState["phase"]>([
-  "ROLE_CHOICE",
-  "NIGHT_WOLF",
-  "NIGHT_SEER",
-  "NIGHT_WITCH",
-  "DAY_ANNOUNCEMENT",
-  "DAY_DEBATE",
-  "DAY_VOTE",
-  "GAME_OVER",
-]);
+type Speed = 1 | 2 | 4;
+type RevealView = "god" | "suspense";
 
 interface GameStore {
-  state: GameState | null;
-  selectedCardId: number | null;
-  isLoading: boolean;
-  userSpeechText: string;
-  isAutoPlaying: boolean;
-  setupCount: number | null;
-  
-  // Actions
-  fetchState: () => Promise<void>;
-  resetGame: (userRole?: "预言家" | "女巫" | "猎人" | "狼人" | "村民", playerCount?: number, gameMode?: "llmOnly" | "humanVsAI", startImmediately?: boolean) => Promise<void>;
-  submitUserSpeech: () => Promise<void>;
-  castVote: () => Promise<void>;
-  simulateNextAI: () => Promise<void>;
-  nightSkillAction: (actionType: "NIGHT_KILL" | "NIGHT_INSPECT" | "NIGHT_SAVED_OR_POISON", targetId: number, additional?: NightSkillAdditional) => Promise<void>;
-  transitionToDebate: () => Promise<void>;
-  exitGame: () => Promise<void>;
-  setSelectedCardId: (id: number | null) => void;
-  setUserSpeechText: (text: string) => void;
-  toggleAutoPlay: () => void;
-  setSetupCount: (count: number | null) => void;
+  runId: string | null;
+  status: GameStateResponse["status"] | "idle";
+  gameState: GameStateResponse | null;
+  logs: RenderLog[];
+  cursor: number;
+  queue: StreamEvent[];
+  playState: PlayState | "playing" | "paused";
+  speed: Speed;
+  revealView: RevealView;
+  error: string | null;
+
+  startGame: (seats: SeatConfig[], opts?: { language?: string; enableSheriff?: boolean }) => Promise<void>;
+  cancelGame: () => Promise<void>;
+  controlGame: (action: "pause" | "resume") => Promise<void>;
+  stepGame: () => Promise<void>;
+  setSpeed: (s: Speed) => Promise<void>;
+  setRevealView: (v: RevealView) => void;
+  isGameOver: () => boolean;
+  exitToSetup: () => void;
+  _openStream: (runId: string) => void;
+  _refreshState: () => Promise<void>;
+  _drain: () => void;
 }
 
-async function postJson(path: string, body?: unknown): Promise<Response> {
-  return fetchWithRetry(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+let eventSource: EventSource | null = null;
+let stateTimer: ReturnType<typeof setInterval> | null = null;
+let drainTimer: ReturnType<typeof setInterval> | null = null;
+
+// Single-step auto-pauses (spec §5.3), so the stepped phase's events would
+// otherwise be stranded in `queue` (playState === 'paused' blocks _drain). While
+// this flag is set, _drain is allowed to flush the buffered phase even though we
+// are paused. It is cleared once a `phase` event is rendered — that frame marks
+// the boundary of the phase the step advanced into, so we stop before bleeding
+// into the next (still-paused) phase.
+let stepPending = false;
+
+const STATE_REFRESH_MS = 1500; // authoritative phase/round/play_state poll (cheap, no events)
+const DRAIN_MS = 220;
+
+function teardown() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  if (stateTimer) { clearInterval(stateTimer); stateTimer = null; }
+  if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
+  stepPending = false;
+}
+
+function shouldMask(ev: StreamEvent, view: RevealView): boolean {
+  if (view === "god") return false;
+  return ev.reveal !== "now"; // suspense: on_death / on_game_end 暂时遮挡
+}
+
+function eventText(ev: StreamEvent): string {
+  if (ev.type === "speech") return ev.public_text || ev.text || "";
+  if (ev.type === "skill" && ev.skill) {
+    const a = ev.skill.actor?.seat ?? "?";
+    const t = ev.skill.target?.seat;
+    return t != null ? `技能：${ev.skill.kind}（${a}号 → ${t}号）` : `技能：${ev.skill.kind}（${a}号）`;
+  }
+  if (ev.type === "vote" && ev.vote) {
+    return `投票：${ev.vote.voter?.seat ?? "?"}号 → ${ev.vote.target?.seat ?? "?"}号`;
+  }
+  if (ev.type === "death" && ev.death) {
+    return `出局：${ev.death.seat ?? "?"}号（${ev.death.cause ?? "未知"}）`;
+  }
+  return ev.text || ev.name || "";
+}
+
+function toRenderLog(ev: StreamEvent, view: RevealView): RenderLog {
+  const masked = shouldMask(ev, view);
+  let text = eventText(ev);
+  if (masked) {
+    text = ev.type === "speech" ? "🌙 有角色在暗中交流…" : "🌙 夜间有角色行动了…";
+  }
+  return {
+    seq: ev.seq,
+    kind: ev.type,
+    round: ev.round,
+    speakerSeat: ev.speaker?.seat ?? ev.skill?.actor?.seat ?? null,
+    speakerName: ev.speaker?.name ?? "",
+    text,
+    privateThought: view === "god" ? ev.private_thought ?? null : null,
+    visibility: ev.visibility as Visibility,
+  };
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  state: null,
-  selectedCardId: null,
-  isLoading: false,
-  userSpeechText: "",
-  isAutoPlaying: false,
-  setupCount: null,
-  setSetupCount: (count) => set({ setupCount: count }),
+  runId: null,
+  status: "idle",
+  gameState: null,
+  logs: [],
+  cursor: 0,
+  queue: [],
+  playState: "playing",
+  speed: 1,
+  revealView: "god",
+  error: null,
 
-  fetchState: async () => {
-    const previous = get().state;
+  startGame: async (seats, opts) => {
+    teardown();
+    set({ status: "running", logs: [], cursor: 0, queue: [], gameState: null, error: null, playState: "playing" });
+    const players = seats.map((s) => ({
+      name: s.name,
+      model: s.model,
+      base_url: s.base_url || providerById(s.provider)?.base_url,
+      api_key: getApiKey(s.provider),
+      temperature: s.temperature,
+    }));
     try {
-      const res = await fetchWithRetry("/api/game/state");
-      if (!res.ok) {
-        if (previous && IN_GAME_PHASES.has(previous.phase)) {
-          console.warn("fetchState failed during active game; keeping previous state");
-          return;
-        }
-        set({ state: EMPTY_START_STATE });
-        return;
+      const res = await fetch(`${API}/games/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participation: "all_agent",
+          rules: opts?.enableSheriff ? "badge_flow" : "basic",
+          player_count: seats.length,
+          badge_flow: !!opts?.enableSheriff,
+          players,
+        }),
+      });
+      if (!res.ok) { set({ status: "error", error: `start failed: HTTP ${res.status}` }); return; }
+      const data = unwrap<{ run_id?: string }>(await res.json());
+      if (!data?.run_id) { set({ status: "error", error: "start failed: no run_id" }); return; }
+      set({ runId: data.run_id });
+      get()._openStream(data.run_id);
+      stateTimer = setInterval(() => get()._refreshState(), STATE_REFRESH_MS);
+      drainTimer = setInterval(() => get()._drain(), DRAIN_MS);
+      get()._refreshState();
+    } catch (err) {
+      console.error("startGame failed", err);
+      set({ status: "error", error: String(err) });
+    }
+  },
+
+  // SSE subscription — relies on the browser's built-in auto-reconnect + Last-Event-ID.
+  _openStream: (runId) => {
+    if (eventSource) eventSource.close();
+    const es = new EventSource(streamUrl(runId));
+    // The backend frames every event as a NAMED `event: game` SSE frame
+    // (sse_stream.format_sse, spec §5.2). Named events are delivered ONLY to
+    // listeners added via addEventListener; `onmessage` never fires for them.
+    es.addEventListener("game", (msg: MessageEvent) => {
+      try {
+        const ev = JSON.parse(msg.data) as StreamEvent;
+        set((st) => ({
+          queue: [...st.queue, ev],
+          cursor: Math.max(st.cursor, ev.seq),
+        }));
+        // Drain immediately while playing so the render buffer keeps up; when
+        // paused the periodic drainTimer takes over once resumed. While a step is
+        // pending we also drain immediately, so events that arrive AFTER the
+        // step's control POST resolved still render (avoids a render race).
+        if (get().playState === "playing" || stepPending) get()._drain();
+      } catch (err) {
+        console.error("bad SSE payload", err);
       }
-      const data = (await res.json()) as GameState;
-      set({ state: data });
-    } catch (err) {
-      console.warn("fetchState unavailable:", err);
-      if (previous && IN_GAME_PHASES.has(previous.phase)) {
-        return;
+    });
+    es.onerror = () => { /* browser auto-reconnects with Last-Event-ID; nothing to do */ };
+    eventSource = es;
+  },
+
+  // Authoritative phase/round/play_state/winner + full-snapshot fallback.
+  _refreshState: async () => {
+    const { runId } = get();
+    if (!runId) return;
+    try {
+      const state = await fetchState(runId);
+      set({ gameState: state, status: state.status, playState: state.play_state, speed: state.speed, error: state.error });
+      if (state.phase === GamePhase.ended || state.status === "cancelled" || state.status === "error") {
+        if (stateTimer) { clearInterval(stateTimer); stateTimer = null; }
+        if (drainTimer) { clearInterval(drainTimer); drainTimer = null; }
+        if (eventSource) { eventSource.close(); eventSource = null; }
       }
-      set({ state: EMPTY_START_STATE });
-    }
-  },
-
-  resetGame: async (userRole = "预言家", playerCount = 6, gameMode = "humanVsAI", startImmediately = false) => {
-    set({ isLoading: true, selectedCardId: null, userSpeechText: "" });
-    try {
-      const res = await postJson("/api/game/reset", { userRole, playerCount, gameMode, startImmediately });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
     } catch (err) {
-      console.error("Failed to reset game:", err);
-      set({ isLoading: false });
+      console.error("state refresh failed", err);
     }
   },
 
-  submitUserSpeech: async () => {
-    const { userSpeechText } = get();
-    set({ isLoading: true });
+  _drain: () => {
+    const { playState, queue, speed, revealView } = get();
+    // Normally only drain while playing. When a single-step is pending we drain
+    // the buffered phase even though step auto-paused us; the flag is cleared as
+    // soon as we render a `phase` frame (the boundary of the stepped phase) so we
+    // do not bleed into the next, still-paused, phase.
+    if (queue.length === 0) return;
+    if (playState !== "playing" && !stepPending) return;
+    const take = stepPending ? queue.length : Math.max(speed, 1);
+    const batch = queue.slice(0, take);
+    const rest = queue.slice(take);
+    if (stepPending && batch.some((ev) => ev.type === "phase")) stepPending = false;
+    set((st) => ({
+      queue: rest,
+      logs: [...st.logs, ...batch.map((ev) => toRenderLog(ev, revealView))],
+    }));
+  },
+
+  cancelGame: async () => {
+    const { runId } = get();
+    if (runId) {
+      try { await fetch(`${API}/games/${runId}/cancel`, { method: "POST" }); } catch { /* ignore */ }
+    }
+    teardown();
+    // 停止 means "end this run and go back to setup": clear the in-game snapshot
+    // so App.inSetup re-triggers, instead of stranding the user on a disabled
+    // in-game screen that still requires the separate header exit button.
+    set({ runId: null, status: "idle", gameState: null, logs: [], cursor: 0, queue: [], error: null, playState: "playing" });
+  },
+
+  controlGame: async (action) => {
+    const { runId } = get();
+    if (!runId) return;
+    // A pause/resume supersedes any pending single-step window: on resume the
+    // normal playing-gated drain takes over; on pause we stop flushing.
+    stepPending = false;
     try {
-      const res = await postJson("/api/game/action", { action: "SPEECH_SUBMIT", text: userSpeechText });
-      const data = await res.json();
-      set({ state: data, userSpeechText: "", selectedCardId: null, isLoading: false });
+      const resp = await postControl(runId, { action } as ControlRequest);
+      set({ playState: resp.play_state, speed: resp.speed as Speed });
+      if (resp.play_state === "playing") get()._drain();
     } catch (err) {
-      console.error("Failed to submit speech:", err);
-      set({ isLoading: false });
+      console.error("control failed", err);
     }
   },
 
-  castVote: async () => {
-    const { selectedCardId } = get();
-    if (selectedCardId === null) return;
-    set({ isLoading: true });
+  stepGame: async () => {
+    const { runId } = get();
+    if (!runId) return;
+    // step advances exactly one phase then auto-pauses (spec §5.3). Arm the
+    // step-drain so the stepped phase's events render even though play_state
+    // comes back 'paused'. Set BEFORE the await so SSE frames racing in during
+    // the request are flushed too; drain again after to catch already-buffered
+    // ones (and any that arrived synchronously before the flag was set).
+    stepPending = true;
     try {
-      const res = await postJson("/api/game/action", { action: "USER_VOTE", targetId: selectedCardId });
-      const data = await res.json();
-      set({ state: data, selectedCardId: null, isLoading: false });
+      const resp = await postControl(runId, { action: "step" });
+      set({ playState: resp.play_state });
     } catch (err) {
-      console.error("Failed to cast vote:", err);
-      set({ isLoading: false });
+      console.error("step failed", err);
     }
+    get()._drain();
   },
 
-  simulateNextAI: async () => {
-    set({ isLoading: true });
+  setSpeed: async (s) => {
+    const { runId } = get();
+    set({ speed: s });
+    if (!runId) return;
     try {
-      const res = await postJson("/api/game/action", { action: "SIMULATE_NEXT_SPEAKER" });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
+      const resp = await postControl(runId, { action: "speed", value: s });
+      set({ speed: resp.speed as Speed, playState: resp.play_state });
     } catch (err) {
-      console.error("Failed to simulate speaker:", err);
-      set({ isLoading: false });
+      console.error("speed failed", err);
     }
   },
 
-  nightSkillAction: async (actionType, targetId, additional) => {
-    set({ isLoading: true });
-    try {
-      const res = await postJson("/api/game/action", { action: actionType, targetId, ...additional });
-      const data = await res.json();
-      set({ state: data, selectedCardId: null, isLoading: false });
-    } catch (err) {
-      console.error("Failed to exert night action:", err);
-      set({ isLoading: false });
-    }
-  },
+  setRevealView: (v) => set({ revealView: v }),
 
-  transitionToDebate: async () => {
-    set({ isLoading: true });
-    try {
-      const res = await postJson("/api/game/action", { action: "TRANSITION_TO_DEBATE" });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
-    } catch (err) {
-      console.error("Failed executing transition:", err);
-      set({ isLoading: false });
-    }
-  },
+  isGameOver: () => get().gameState?.phase === GamePhase.ended,
 
-  exitGame: async () => {
-    set({ isLoading: true, isAutoPlaying: false });
-    try {
-      const res = await postJson("/api/game/exit");
-      const data = await res.json();
-      set({ state: data, isLoading: false });
-    } catch (err) {
-      console.error("Failed executing exitGame:", err);
-      set({ isLoading: false });
-    }
+  exitToSetup: () => {
+    teardown();
+    set({ runId: null, status: "idle", gameState: null, logs: [], cursor: 0, queue: [], error: null, playState: "playing" });
   },
-
-  setSelectedCardId: (id) => set({ selectedCardId: id }),
-  setUserSpeechText: (text) => set({ userSpeechText: text }),
-  toggleAutoPlay: () => set((state) => ({ isAutoPlaying: !state.isAutoPlaying }))
 }));

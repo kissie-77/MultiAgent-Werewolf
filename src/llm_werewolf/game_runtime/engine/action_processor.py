@@ -198,62 +198,68 @@ class ActionProcessorMixin:
             )
 
     def _log_white_wolf_action(self, action: WhiteWolfKillAction) -> None:
-        """记录白狼王击杀行动。"""
+        """记录白狼王击杀行动（定向技能事件，仅狼队可见）。"""
         self._log_event(
             EventType.WHITE_WOLF_KILLED,
             self.locale.get("white_wolf_kills", target=action.target.name),
             data={
-                "player_id": action.actor.player_id,
+                "actor_id": action.actor.player_id,
                 "target_id": action.target.player_id,
+                "result": "killed",
+                "visibility": "wolf_team",
                 **self._decision_data(action),
             },
         )
 
     def _log_wolf_beauty_action(self, action: WolfBeautyCharmAction) -> None:
-        """记录狼美人魅惑行动。"""
+        """记录狼美人魅惑行动（定向技能事件，仅行动者可见）。"""
         self._log_event(
             EventType.WOLF_BEAUTY_CHARMED,
             self.locale.get("wolf_beauty_charms", target=action.target.name),
             data={
-                "player_id": action.actor.player_id,
+                "actor_id": action.actor.player_id,
                 "target_id": action.target.player_id,
+                "result": "charmed",
                 **self._decision_data(action),
             },
         )
 
     def _log_nightmare_block_action(self, action: NightmareWolfBlockAction) -> None:
-        """记录梦魇狼封锁行动。"""
+        """记录梦魇狼封锁行动（定向技能事件，仅行动者可见）。"""
         self._log_event(
             EventType.NIGHTMARE_BLOCKED,
             self.locale.get("nightmare_blocks", target=action.target.name),
             data={
-                "player_id": action.actor.player_id,
+                "actor_id": action.actor.player_id,
                 "target_id": action.target.player_id,
+                "result": "blocked",
                 **self._decision_data(action),
             },
         )
 
     def _log_guardian_wolf_action(self, action: GuardianWolfProtectAction) -> None:
-        """记录守墓狼保护行动。"""
+        """记录守墓狼保护行动（定向技能事件，仅狼队可见）。"""
         self._log_event(
             EventType.GUARDIAN_WOLF_PROTECTED,
             self.locale.get("guardian_wolf_protected", target=action.target.name),
             data={
-                "player_id": action.actor.player_id,
+                "actor_id": action.actor.player_id,
                 "target_id": action.target.player_id,
+                "result": "protected",
                 "visibility": "wolf_team",
                 **self._decision_data(action),
             },
         )
 
     def _log_raven_action(self, action: RavenMarkAction) -> None:
-        """记录乌鸦标记行动。"""
+        """记录乌鸦标记行动（定向技能事件，仅行动者可见）。"""
         self._log_event(
             EventType.RAVEN_MARKED,
             self.locale.get("raven_marks", target=action.target.name),
             data={
-                "player_id": action.actor.player_id,
+                "actor_id": action.actor.player_id,
                 "target_id": action.target.player_id,
+                "result": "marked",
                 **self._decision_data(action),
             },
         )

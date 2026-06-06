@@ -1,0 +1,34 @@
+---
+skill_id: wolf_counter_claim_deflect
+prompt_role_key: wolf
+status: active
+source: initial_curated
+camp: werewolf
+quality_passed: True
+weight: 1.1
+win_count: 0
+use_count: 0
+when_to_use: 白天讨论阶段，被其他玩家公开查杀或点名踩为狼人时；狼队矩阵触发：自身被他人狼信≥0.8存在被扛推风险，场上好人信念分散或部分好人处于观望状态时
+belief_pattern: concentrated
+belief_signals: b1_target_certain,b1_top_above_0_7,b2_top_above_0_8_on_me,vote_intention_set
+---
+
+# 接查杀反咬煽动扛推
+
+## 提取依据
+[initial_curated] 可将查杀自己的好人反打为抗推位，拉取好人票扭转自身被放逐的局面。来源：exp1 15 局 PostGame LLM 提炼（seed20260601-good-mem，狼队胜局 MVP 发言）。
+
+## 公开行为
+① 先感谢在场帮你说话的玩家获取好感；② 起跳平民身份，表明自己夜间无信息；③ 要求踩你的玩家拿出怀疑你的逻辑依据或查验证明；④ 反咬对方无逻辑找抗推位，煽动其他好人归票对方。
+
+## 避免
+不要慌神、不要暴露狼队队友、不要给出矛盾的逻辑漏洞。
+
+## 信念分布依据
+第1轮·after_speech；对单一目标狼信极高（≥1.0）；投票意向已收敛到单一目标；自身被他人高怀疑（B2≥0.8）
+- 分布模式：concentrated
+- 触发信号：
+  - 存在目标狼信=1.0
+  - 最高目标狼信≥0.7
+  - 最高他人疑狼≥0.8（指向自身）
+  - 投票意向已锁定到单一座位

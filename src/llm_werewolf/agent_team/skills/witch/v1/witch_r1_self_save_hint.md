@@ -1,0 +1,31 @@
+---
+skill_id: witch_r1_self_save_hint
+prompt_role_key: witch
+status: active
+source: initial_curated
+camp: villager
+quality_passed: True
+weight: 1.0
+win_count: 0
+use_count: 0
+when_to_use: 第1轮白天发言阶段，首夜被刀且已使用解药自救成功时；信念矩阵触发：场上狼信分散，自身暂未成为高怀疑目标时
+belief_pattern: dispersed
+---
+
+# 首夜自救后身份暗示存活
+
+## 提取依据
+[initial_curated] 降低被狼队优先刀杀的概率，保留神职技能为好人阵营保留轮次优势。来源：exp1 LLM 提炼（7 局出现，seed20260601-good-mem 为代表）。
+
+## 公开行为
+① 发言时适度暗示自己有身份（如「我晚上是有信息的/我是有技能的好人」）；② 不明确站队任意被踩的玩家，保持中立分析；③ 优先点出场上发言逻辑漏洞最大的玩家，避免引起狼队注意。
+
+## 避免
+不要明确站队疑似狼人玩家，不要直接跳明女巫身份。
+
+## 信念分布依据
+第1轮·after_speech；场上狼信分散（Top狼信≤0.5）；意向仍观望
+- 分布模式：dispersed
+- 触发信号：
+  - 最高目标狼信≤0.5
+  - 投票意向未锁定到单一座位

@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { GameState, Player } from "./types";
 import { getCustomApiKey } from "./lib/config";
+import type { AwaitingInputEvent } from "./api/types";
+import type { HumanInputSelection } from "./lib/humanInput";
 
 interface GameStore {
   state: GameState | null;
@@ -61,6 +63,16 @@ interface GameStore {
   spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
   connectSpectate: (runId: string) => void;
   disconnectSpectate: () => void;
+
+  // Human-vs-AI seat view (SSE seat stream + awaiting_input bridge)
+  pendingInput: AwaitingInputEvent | null;
+  playerToken: string | null;
+  humanSeat: number | null;
+  seatRunId: string | null;
+  connectSeat: (runId: string, opts: { seat: number; token: string }) => void;
+  ingestSeatEvent: (ev: any) => boolean;
+  submitHumanInput: (selection: HumanInputSelection) => Promise<void>;
+  clearPendingInput: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -418,5 +430,95 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const es = get().spectateSource;
     if (es) es.close();
     set({ spectateSource: null });
+  },
+
+  // --- Human-vs-AI seat view ---------------------------------------------
+  pendingInput: null,
+  playerToken: null,
+  humanSeat: null,
+  seatRunId: null,
+
+  // Capture the awaiting_input bridge events on the seat stream. Returns true
+  // when the event was consumed (so the caller skips the normal reducer).
+  ingestSeatEvent: (ev) => {
+    const t = ev?.event_type;
+    if (t === "awaiting_input") {
+      set({ pendingInput: ev as AwaitingInputEvent });
+      return true;
+    }
+    if (t === "input_received" || t === "input_timeout") {
+      const cur = get().pendingInput;
+      if (cur && (ev.request_id == null || ev.request_id === cur.request_id)) {
+        set({ pendingInput: null });
+      }
+      return true;
+    }
+    return false;
+  },
+
+  clearPendingInput: () => set({ pendingInput: null }),
+
+  submitHumanInput: async (selection) => {
+    const { pendingInput, playerToken, seatRunId } = get();
+    if (!pendingInput || !playerToken || !seatRunId) return;
+    const [{ buildHumanPayload }, { ApiClient }] = await Promise.all([
+      import("./lib/humanInput"),
+      import("./api/client"),
+    ]);
+    const payload = buildHumanPayload(selection);
+    try {
+      await ApiClient.sendInput(seatRunId, {
+        token: playerToken,
+        request_id: pendingInput.request_id,
+        kind: pendingInput.kind,
+        payload,
+      });
+      set({ pendingInput: null });
+    } catch (err) {
+      console.error("Failed to submit human input:", err);
+    }
+  },
+
+  connectSeat: (runId, { seat, token }) => {
+    get().disconnectSpectate();
+    set({
+      insightBeliefs: null,
+      insightVote: null,
+      spectateRoster: null,
+      pendingInput: null,
+      seatRunId: runId,
+      playerToken: token,
+      humanSeat: seat,
+    });
+    Promise.all([import("./lib/gameReducer"), import("./api/sse"), import("./lib/insightMap")]).then(
+      ([{ initialSpectateState, reduceEvent }, { streamUrl }, { mapBeliefEvent, mapVoteEvent }]) => {
+        set({ state: initialSpectateState(), isLoading: false });
+        const es = new EventSource(streamUrl(runId, "seat", seat, token));
+
+        es.addEventListener("snapshot", (e: MessageEvent) => {
+          try {
+            const snap = JSON.parse(e.data);
+            const cur = get().state ?? initialSpectateState();
+            set({ state: reduceEvent(cur, { ...snap, event_type: "snapshot" }) });
+          } catch (err) { console.error("bad snapshot frame", err); }
+        });
+
+        es.onmessage = (e: MessageEvent) => {
+          try {
+            const ev = JSON.parse(e.data);
+            // awaiting_input / input_* bridge events drive the human panel.
+            if (get().ingestSeatEvent(ev)) return;
+            const cur = get().state ?? initialSpectateState();
+            set({ state: reduceEvent(cur, ev) });
+            if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
+            else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
+          } catch (err) { console.error("bad sse event", err); }
+        };
+
+        es.addEventListener("end", () => { get().disconnectSpectate(); });
+        es.onerror = () => { /* EventSource auto-reconnects */ };
+        set({ spectateSource: es });
+      },
+    );
   },
 }));

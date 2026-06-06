@@ -21,6 +21,7 @@ export default function GameSetup() {
   const [gameMode, setGameMode] = useState<"llmOnly" | "humanVsAI">("humanVsAI");
   const [playerCount, setPlayerCount] = useState<number>(6);
   const [userRole, setUserRole] = useState<string>("预言家");
+  const [humanSeat, setHumanSeat] = useState<number>(1);
   const [hasSheriff, setHasSheriff] = useState<boolean>(true);
   const [apiKey, setApiKey] = useState<string>("");
   const [openaiKey, setOpenaiKey] = useState<string>("");
@@ -70,6 +71,11 @@ export default function GameSetup() {
     setSetupCount(playerCount);
   }, [playerCount, setSetupCount]);
 
+  // Keep the human seat within the current player-count range.
+  React.useEffect(() => {
+    setHumanSeat((seat) => Math.min(Math.max(1, seat), playerCount));
+  }, [playerCount]);
+
   React.useEffect(() => {
     return () => {
       setSetupCount(null);
@@ -82,12 +88,21 @@ export default function GameSetup() {
     setStarting(true);
     setSetupCount(null);
     try {
-      // 当前一律以全 AI 对局开局并进入实时观战；人机交互在 M3。
       const res = await ApiClient.startGame({
         config_id: "llm-6p-deepseek",
         badge_flow: hasSheriff,
+        // 人机模式下占用一个人类座位；纯观战模式不传 human。
+        ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat } } : {}),
       });
-      navigate(res.game_page_path); // "/game?run_id=...&source=runs"
+      // 人机模式：用后端返回的座位令牌进入本人座位视角；否则进上帝观战。
+      if (gameMode === "humanVsAI" && res.player_token) {
+        const sep = res.game_page_path.includes("?") ? "&" : "?";
+        navigate(
+          `${res.game_page_path}${sep}view=seat&seat=${humanSeat}&token=${encodeURIComponent(res.player_token)}`
+        );
+      } else {
+        navigate(res.game_page_path); // "/game?run_id=...&source=runs"
+      }
     } catch (e) {
       setStartError(e instanceof Error ? e.message : String(e));
       setStarting(false);
@@ -506,6 +521,40 @@ export default function GameSetup() {
                          The engine will adapt to your chosen identity role automatically.
                        </span>
                     </div>
+                  </div>
+
+                  {/* Seat selection: which chair the human occupies (role is random). */}
+                  <div className="flex flex-col gap-2 bg-black/40 border border-slate-800 rounded p-4">
+                    <label className="text-[10px] text-amber-500/80 font-serif tracking-widest uppercase">
+                      入座席位 · Your Seat
+                    </label>
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setHumanSeat((s) => Math.max(1, s - 1))}
+                        className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
+                      >
+                        -
+                      </button>
+                      <div className="flex flex-col items-center">
+                        <span className="text-2xl font-serif font-black text-amber-500 leading-none">
+                          {humanSeat} 号
+                        </span>
+                        <span className="text-[8px] text-slate-500 uppercase tracking-widest mt-1">
+                          共 {playerCount} 席
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setHumanSeat((s) => Math.min(playerCount, s + 1))}
+                        className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="text-[9px] text-zinc-500 font-mono leading-relaxed">
+                      其余席位由大语言模型扮演；身份随机发牌。
+                    </span>
                   </div>
               </div>
               </div>

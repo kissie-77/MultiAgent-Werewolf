@@ -14,6 +14,7 @@ import { Skull, ShieldAlert, ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import CastSkillOverlay from "../components/CastSkillOverlay";
 import AlertOverlays from "../components/AlertOverlays";
+import HumanInputPanel from "../components/HumanInputPanel";
 
 export default function GameApp() {
   const gameState = useGameStore((state) => state.state);
@@ -23,13 +24,22 @@ export default function GameApp() {
 
   const [searchParams] = useSearchParams();
   const runId = searchParams.get("run_id");
+  const view = searchParams.get("view");
+  const seatParam = searchParams.get("seat");
+  const token = searchParams.get("token");
   const connectSpectate = useGameStore((s) => s.connectSpectate);
+  const connectSeat = useGameStore((s) => s.connectSeat);
   const disconnectSpectate = useGameStore((s) => s.disconnectSpectate);
 
   // Initialize game state on page load: live spectate when ?run_id=, else local game
   useEffect(() => {
     if (runId) {
-      connectSpectate(runId);
+      const seat = seatParam ? Number(seatParam) : NaN;
+      if (view === "seat" && token && Number.isFinite(seat)) {
+        connectSeat(runId, { seat, token });
+      } else {
+        connectSpectate(runId);
+      }
       return () => disconnectSpectate();
     }
     // No run_id: the legacy mock /api/game/state is gone — show the setup screen
@@ -37,7 +47,7 @@ export default function GameApp() {
     if (!useGameStore.getState().state) {
       useGameStore.setState({ state: initialSpectateState() });
     }
-  }, [runId, connectSpectate, disconnectSpectate]);
+  }, [runId, view, seatParam, token, connectSpectate, connectSeat, disconnectSpectate]);
 
   if (!gameState) {
     return (
@@ -164,6 +174,9 @@ export default function GameApp() {
 
       {/* Interactive & Cinematic Skill Casting Overlay */}
       <CastSkillOverlay />
+
+      {/* Human-vs-AI seat decision panel (driven by awaiting_input events) */}
+      <HumanInputPanel />
     </div>
   );
 }

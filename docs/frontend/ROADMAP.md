@@ -2,15 +2,17 @@
 
 > **模块**：frontend
 > **状态**：draft
-> **最后更新**：2026-06-05
+> **最后更新**：2026-06-06
 
 ## 总览
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | Express + Three.js 原型 | ✅ Done | 本地 demo（port 3000） |
-| FastAPI 对接 | 🔄 In Progress | Vite 代理 + 观战 SpectatePanel |
-| 14 页站点 | 🔄 In Progress | 路由 + 6 页已接 `/api/v1/pages/*` |
+| FastAPI 对接（直连 + 解信封） | ✅ Done | Vite 代理 + 废弃 mock |
+| 实时观战 M1/M2/M2b | ✅ Done | SSE god 流 + gameReducer + 信念/票型 + 结算/复盘 |
+| 内容页接后端（B 档：Runs/Models/Share） | ✅ Done | mapper 层吸收契约接缝 |
+| M3 人机对战（座位视图 + 真人输入） | ✅ Done | `HumanInputPanel` + `humanInput.ts` + 座位令牌；真机 2 局打通 |
 | Leaderboard 可视化 | 📋 Planned | 依赖 evaluation |
 
 ## 已完成
@@ -38,6 +40,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-06 | B 档内容页接后端 + M3 人机对战座位输入 + 结算页/立绘修复；详见 [前后端打通与人机对战报告](../reports/前后端打通与人机对战-2026-06-06.md) |
 | 2026-06-05 | 前端联调：Router + Vite 代理 + SpectatePanel + 6 页 API 对接 |
 | 2026-05-23 | 初始化 DESIGN / ROADMAP，消除 README 死链 |
 

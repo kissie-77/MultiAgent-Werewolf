@@ -1,79 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Player, GameState } from "../types";
-import { useGameStore } from "../store";
+import { GameState } from "../types";
 import { Trophy, Star, Skull, Heart, Shield, RefreshCw, Eye, Flame, ShieldAlert, Award, LogOut, Users, BrainCircuit, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { ApiClient } from "../api/client";
 import { isPostGameReady, replayPathFor } from "../lib/settlement";
+import type { ReplayPageData } from "../api/types";
+import { resolveMvpView, resolveBoard, resolveWinnerIsGood, isWolfRole } from "../lib/gameOver";
 
 const POST_GAME_POLL_INTERVAL_MS = 2500;
-
-// Helper function to calculate MVP based on game events
-function calculateMVP(gameState: GameState): Player {
-  const players = gameState.players;
-  const isGoodWin = gameState.winner === "VILLAGERS";
-
-  // Calculate scores for each player
-  const scores = players.map((player) => {
-    let score = 0;
-
-    // 1. Faction victory points
-    const WOLF_CAMP = ["狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼"];
-    const isGoodRole = !WOLF_CAMP.includes(player.role);
-    if (isGoodWin && isGoodRole) {
-      score += 45;
-    } else if (!isGoodWin && WOLF_CAMP.includes(player.role)) {
-      score += 45;
-    }
-
-    // 2. Survival advantage
-    if (player.isAlive) {
-      score += 25;
-    }
-
-    // 3. Engagement and impact (number of speeches)
-    const speechCount = gameState.speechLogs.filter((log) => log.playerId === player.id).length;
-    score += speechCount * 6;
-
-    // 4. Action bonuses
-    if (player.role === "预言家") {
-      if (gameState.seerVerifiedTarget !== null) {
-        score += 20;
-      }
-      if (gameState.seerVerificationResult === "WEREWOLF") {
-        score += 35; // Major contribution: uncovering a wolf
-      }
-    } else if (player.role === "女巫") {
-      if (gameState.witchSaved) {
-        score += 30; // Saved victim
-      }
-      if (gameState.witchPoisonedTarget !== null) {
-        score += 30; // Poisoned target
-      }
-    } else if (player.role === "猎人") {
-      if (!player.isAlive) {
-        score += 20; // Heroic shot threat / target
-      }
-    } else if (WOLF_CAMP.includes(player.role)) {
-      // Did wolves kill successfully?
-      if (gameState.wolfKilledTarget !== null) {
-        score += 20;
-      }
-      if (player.isAlive && !isGoodWin) {
-        score += 20; // Kept alive to the end as wolf
-      }
-    }
-
-    // Add small seat-based deterministic offset to break ties elegantly
-    score += (player.id * 2.3) % 7;
-
-    return { player, score };
-  });
-
-  scores.sort((a, b) => b.score - a.score);
-  return scores[0]?.player || players[0];
-}
 
 interface GameOverPanelProps {
   gameState: GameState;
@@ -81,13 +16,38 @@ interface GameOverPanelProps {
   onExit: () => void;
   /** Backend run id for spectated/web games; enables real post-game polling + replay link. */
   runId?: string | null;
+  /** The human's seat (seat view) so the MVP/board can mark the "本人" badge. */
+  userSeat?: number | null;
 }
 
-export default function GameOverPanel({ gameState, onRestart, onExit, runId }: GameOverPanelProps) {
+// Epic title per MVP role (covers Chinese display names; unknown -> generic).
+function getMVPTitle(role: string) {
+  switch (role) {
+    case "预言家":
+    case "Seer":
+      return { title: "星宿指路人", description: "洞察宿命幽邃，真视天眼常开；凭借绝对推理彻底驱逐暗夜孤狼！" };
+    case "女巫":
+    case "Witch":
+      return { title: "生死掌命者", description: "极光圣水起死回生，见血封喉荡平黑暗；妙手挽星盘于将倾！" };
+    case "猎人":
+    case "Hunter":
+      return { title: "末日执行官", description: "铁血银弹武装威慑，钢枪最后一子弹不屈出击，陪葬仇敌黄昏！" };
+    default:
+      if (isWolfRole(role)) {
+        return { title: "暗夜狂噬领主", description: "獠牙无情撕咬光明，以极致诡辩愚弄整座圆桌议会，篡夺至高王权！" };
+      }
+      return { title: "至臻明镜神探", description: "以凡人之躯并无畏之光，在迷雾中抽丝剥茧，斩断阴影迷瘴！" };
+  }
+}
+
+export default function GameOverPanel({ gameState, onRestart, onExit, runId, userSeat }: GameOverPanelProps) {
   const [postGameReady, setPostGameReady] = useState(false);
+  const [backendReplay, setBackendReplay] = useState<ReplayPageData | null>(null);
 
   // For backend-backed runs, poll game status until post-game artifacts land,
-  // then enable the real deep-replay link. Local games (no runId) skip this.
+  // then enable the real deep-replay link AND pull the authoritative MVP/board
+  // (the seat SSE path has no client roster, and the client MVP recompute is
+  // wrong — see lib/gameOver). Local games (no runId) skip this.
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
@@ -99,6 +59,12 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId }: G
         if (cancelled) return;
         if (isPostGameReady(status)) {
           setPostGameReady(true);
+          try {
+            const replay = await ApiClient.getReplayData(runId);
+            if (!cancelled) setBackendReplay(replay);
+          } catch {
+            // replay fetch failed; the panel still renders (client/placeholder)
+          }
           return; // ready — stop polling
         }
       } catch {
@@ -118,44 +84,16 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId }: G
 
   if (!gameState || !gameState.winner) return null;
 
-  const mvp = calculateMVP(gameState);
-  const isGoodWin = gameState.winner === "VILLAGERS";
-
-  // Provide custom epic title according to MVP role
-  const getMVPTitle = (role: string) => {
-    switch (role) {
-      case "预言家":
-        return {
-          title: "星宿指路人",
-          description: "洞察宿命幽邃，真视天眼常开；凭借绝对推理彻底驱逐暗夜孤狼！"
-        };
-      case "女巫":
-        return {
-          title: "生死掌命者",
-          description: "极光圣水起死回生，见血封喉荡平黑暗；妙手挽星盘于将倾！"
-        };
-      case "猎人":
-        return {
-          title: "末日执行官",
-          description: "铁血银弹武装威慑，钢枪最后一子弹不屈出击，陪葬仇敌黄昏！"
-        };
-      case "狼人":
-        return {
-          title: "暗夜狂噬领主",
-          description: "獠牙无情撕咬光明，以极致诡辩愚弄整座圆桌议会，篡夺至高王权！"
-        };
-      default:
-        return {
-          title: "至臻明镜神探",
-          description: "以凡人之躯并无畏之光，在迷雾中抽丝剥茧，斩断阴影迷瘴！"
-        };
-    }
-  };
-
-  const mvpDetails = getMVPTitle(mvp.role);
+  const seat = userSeat ?? null;
+  const mvp = resolveMvpView(backendReplay, gameState, seat);
+  const board = resolveBoard(backendReplay, gameState.players, seat);
+  const isGoodWin = resolveWinnerIsGood(backendReplay, gameState);
+  const mvpDetails = mvp ? getMVPTitle(mvp.role) : null;
+  // backend runs whose post-game hasn't landed yet have no roster to reveal.
+  const settlementPending = !mvp && board.length === 0;
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="absolute inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex flex-col justify-between p-6 md:p-8 text-zinc-100 font-sans pointer-events-auto"
@@ -202,7 +140,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId }: G
 
       {/* Main Content Dashboard Area */}
       <div className="flex-grow flex flex-col lg:flex-row items-stretch justify-center gap-6 max-w-7xl mx-auto w-full relative z-10 shrink-0 select-none pb-4">
-        
+
         {/* LEFT COLUMN: MVP Feature Card */}
         <motion.div
           initial={{ x: -30, opacity: 0 }}
@@ -217,52 +155,63 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId }: G
           </div>
           <div className="absolute top-2 right-4 text-xs font-serif text-yellow-500/40">★ ★ ★</div>
 
-          <div className="flex-grow flex flex-col items-center justify-center text-center py-6">
-            <div className="relative mb-4">
-              <div className="w-24 h-24 rounded-full border-4 border-yellow-500/90 overflow-hidden bg-[#1a1205] shadow-[0_0_25px_rgba(234,179,8,0.25)] flex items-center justify-center">
-                {/* SVG woodcut user drawing */}
-                <span className="text-5xl font-mono text-yellow-500 font-extrabold">{mvp.id}</span>
+          {mvp && mvpDetails ? (
+            <>
+              <div className="flex-grow flex flex-col items-center justify-center text-center py-6">
+                <div className="relative mb-4">
+                  <div className="w-24 h-24 rounded-full border-4 border-yellow-500/90 overflow-hidden bg-[#1a1205] shadow-[0_0_25px_rgba(234,179,8,0.25)] flex items-center justify-center">
+                    <span className="text-5xl font-mono text-yellow-500 font-extrabold">{mvp.id}</span>
+                  </div>
+                  <div className="absolute -bottom-2 -right-1 bg-yellow-500 text-black font-sans font-black text-[9px] px-2 py-0.5 rounded shadow-lg uppercase tracking-wider flex items-center gap-0.5">
+                    <Award className="w-3 h-3 text-black fill-current" />
+                    MVP
+                  </div>
+                </div>
+
+                <span className="text-[10px] font-mono tracking-widest uppercase text-yellow-500/80 bg-yellow-500/10 border border-yellow-600/35 px-2.5 py-0.5 rounded-full mb-2">
+                  —— {mvpDetails.title} ——
+                </span>
+
+                <h2 className="text-xl font-black tracking-wide text-zinc-100 font-sans">
+                  {mvp.name} ({mvp.id}号席位)
+                </h2>
+                <p className="text-[10px] text-zinc-400 font-mono mt-1.5">
+                  宿命身份: <span className="text-yellow-500 font-bold">{mvp.role}</span> {mvp.isUser ? " | ( 体验决策者 )" : " | ( 虚境智能 AI )"}
+                </p>
+
+                <div className="w-12 h-0.5 bg-yellow-600/35 my-4" />
+
+                <blockquote className="text-xs text-zinc-200/95 font-serif italic max-w-sm leading-relaxed px-4 bg-zinc-900/50 p-4 rounded border border-zinc-800/50">
+                  “ {mvpDetails.description} ”
+                </blockquote>
               </div>
-              <div className="absolute -bottom-2 -right-1 bg-yellow-500 text-black font-sans font-black text-[9px] px-2 py-0.5 rounded shadow-lg uppercase tracking-wider flex items-center gap-0.5">
-                <Award className="w-3 h-3 text-black fill-current" />
-                MVP
+
+              <div className="border-t border-zinc-900/80 pt-4 flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400">
+                  <span>本局执念誓约:</span>
+                  <span className="text-zinc-200">{mvp.role}</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400">
+                  <span>生命留存形态:</span>
+                  <span className={mvp.isAlive ? "text-emerald-400 font-bold" : "text-red-500 font-bold"}>
+                    {mvp.isAlive ? "🟢 驻留人间 (ALIVE)" : "💀 寂灭魂归 (DECIMATED)"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400">
+                  <span>议案主导演讲:</span>
+                  <span className="text-zinc-200">发表 {mvp.speechCount} 轮发言</span>
+                </div>
               </div>
-            </div>
-
-            <span className="text-[10px] font-mono tracking-widest uppercase text-yellow-500/80 bg-yellow-500/10 border border-yellow-600/35 px-2.5 py-0.5 rounded-full mb-2">
-              —— {mvpDetails.title} ——
-            </span>
-            
-            <h2 className="text-xl font-black tracking-wide text-zinc-100 font-sans">
-              {mvp.name.replace(/\(.*?\)/g, "").trim()} ({mvp.id}号席位)
-            </h2>
-            <p className="text-[10px] text-zinc-400 font-mono mt-1.5">
-              宿命身份: <span className="text-yellow-500 font-bold">{mvp.role}</span> {mvp.isUser ? " | ( 体验决策者 )" : " | ( 虚境智能 AI )"}
-            </p>
-
-            <div className="w-12 h-0.5 bg-yellow-600/35 my-4" />
-
-            <blockquote className="text-xs text-zinc-200/95 font-serif italic max-w-sm leading-relaxed px-4 bg-zinc-900/50 p-4 rounded border border-zinc-800/50">
-              “ {mvpDetails.description} ”
-            </blockquote>
-          </div>
-
-          <div className="border-t border-zinc-900/80 pt-4 flex flex-col gap-2">
-            <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400">
-              <span>本局执念誓约:</span>
-              <span className="text-zinc-200">{mvp.role}</span>
-            </div>
-            <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400">
-              <span>生命留存形态:</span>
-              <span className={mvp.isAlive ? "text-emerald-400 font-bold" : "text-red-500 font-bold"}>
-                {mvp.isAlive ? "🟢 驻留人间 (ALIVE)" : "💀 寂灭魂归 (DECIMATED)"}
+            </>
+          ) : (
+            <div className="flex-grow flex flex-col items-center justify-center text-center py-10 gap-3">
+              <Loader2 className="w-8 h-8 text-yellow-500 animate-spin" />
+              <span className="text-[11px] font-mono tracking-widest uppercase text-zinc-400">
+                {settlementPending ? "结算评选生成中…" : "MVP 评选生成中…"}
               </span>
+              <span className="text-[10px] font-mono text-zinc-600">深度复盘就绪后自动填充本局 MVP 与底牌</span>
             </div>
-            <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400">
-              <span>议案主导演讲:</span>
-              <span className="text-zinc-200">发表 {gameState.speechLogs.filter(log => log.playerId === mvp.id).length} 轮发言</span>
-            </div>
-          </div>
+          )}
         </motion.div>
 
         {/* RIGHT COLUMN: Full Board Identities揭幕 */}
@@ -279,68 +228,74 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId }: G
             </h3>
 
             {/* Players Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {gameState.players.map((player) => {
-                const WOLF_CAMP = ["狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼"];
-                const isMVP = player.id === mvp.id;
-                const isWolf = WOLF_CAMP.includes(player.role);
-                
-                return (
-                  <motion.div
-                    key={player.id}
-                    className={`p-3.5 rounded border flex flex-col justify-between gap-1.5 transition-all bg-zinc-950/95 shadow-md relative overflow-hidden ${
-                      isMVP 
-                        ? "border-yellow-500/80 ring-1 ring-yellow-500/30" 
-                        : "border-zinc-900"
-                    }`}
-                  >
-                    {/* Role badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 flex items-center justify-center font-black font-mono">
-                          {player.id}
-                        </span>
-                        <span className="font-sans font-bold text-xs text-zinc-200">
-                          {player.name.replace(/\(.*?\)/g, "").trim()}
-                        </span>
-                      </div>
-                      <span className={`text-[9px] font-serif font-black px-1.5 py-0.5 rounded border uppercase ${
-                        isWolf 
-                          ? "bg-red-950/60 text-red-400 border-red-900/40" 
-                          : (player.role === "村民" || player.role === "平民")
-                            ? "bg-zinc-900 text-zinc-400 border-zinc-800" 
-                            : "bg-indigo-950/60 text-indigo-300 border-indigo-900/40"
-                      }`}>
-                        {player.role}
-                      </span>
-                    </div>
+            {board.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {board.map((player) => {
+                  const isMVP = mvp != null && player.id === mvp.id;
+                  const isWolf = isWolfRole(player.role);
 
-                    <div className="text-[10px] text-zinc-500 font-mono leading-relaxed mt-1 line-clamp-2">
-                      “ {player.statusNotes || "在法阵中沉稳论证，审视迷云。"} ”
-                    </div>
-
-                    <div className="border-t border-zinc-950 pt-2 mt-1 flex justify-between items-center text-[9px] font-mono">
-                      <span className={player.isAlive ? "text-emerald-500" : "text-zinc-600"}>
-                        {player.isAlive ? "🟢 常驻阳世" : "💀 宿命陨落"}
-                      </span>
-                      {player.isUser && (
-                        <span className="text-[8.5px] text-yellow-500/90 font-sans tracking-wide uppercase px-1 border border-yellow-500/30 rounded bg-yellow-500/5">
-                          体验者 (You)
-                        </span>
-                      )}
-                    </div>
-
-                    {isMVP && (
-                      <div className="absolute top-0 right-0 w-8 h-8 pointer-events-none overflow-hidden">
-                        <div className="absolute top-0 right-0 transform translate-x-4 -rotate-45 block bg-yellow-500 w-12 text-center text-[7px] text-black font-black uppercase tracking-tighter">
-                          MVP
+                  return (
+                    <motion.div
+                      key={player.id}
+                      className={`p-3.5 rounded border flex flex-col justify-between gap-1.5 transition-all bg-zinc-950/95 shadow-md relative overflow-hidden ${
+                        isMVP
+                          ? "border-yellow-500/80 ring-1 ring-yellow-500/30"
+                          : "border-zinc-900"
+                      }`}
+                    >
+                      {/* Role badge */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 flex items-center justify-center font-black font-mono">
+                            {player.id}
+                          </span>
+                          <span className="font-sans font-bold text-xs text-zinc-200">
+                            {player.name}
+                          </span>
                         </div>
+                        <span className={`text-[9px] font-serif font-black px-1.5 py-0.5 rounded border uppercase ${
+                          isWolf
+                            ? "bg-red-950/60 text-red-400 border-red-900/40"
+                            : (player.role === "村民" || player.role === "平民" || player.role === "Villager")
+                              ? "bg-zinc-900 text-zinc-400 border-zinc-800"
+                              : "bg-indigo-950/60 text-indigo-300 border-indigo-900/40"
+                        }`}>
+                          {player.role}
+                        </span>
                       </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
+
+                      <div className="text-[10px] text-zinc-500 font-mono leading-relaxed mt-1 line-clamp-2">
+                        “ {player.statusNotes || "在法阵中沉稳论证，审视迷云。"} ”
+                      </div>
+
+                      <div className="border-t border-zinc-950 pt-2 mt-1 flex justify-between items-center text-[9px] font-mono">
+                        <span className={player.isAlive ? "text-emerald-500" : "text-zinc-600"}>
+                          {player.isAlive ? "🟢 常驻阳世" : "💀 宿命陨落"}
+                        </span>
+                        {player.isUser && (
+                          <span className="text-[8.5px] text-yellow-500/90 font-sans tracking-wide uppercase px-1 border border-yellow-500/30 rounded bg-yellow-500/5">
+                            体验者 (You)
+                          </span>
+                        )}
+                      </div>
+
+                      {isMVP && (
+                        <div className="absolute top-0 right-0 w-8 h-8 pointer-events-none overflow-hidden">
+                          <div className="absolute top-0 right-0 transform translate-x-4 -rotate-45 block bg-yellow-500 w-12 text-center text-[7px] text-black font-black uppercase tracking-tighter">
+                            MVP
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-zinc-500">
+                <Loader2 className="w-6 h-6 animate-spin text-zinc-600" />
+                <span className="text-[10px] font-mono uppercase tracking-widest">底牌曝白生成中…</span>
+              </div>
+            )}
           </div>
 
           {/* Interactive Logs timeline drawer summary for context */}
@@ -374,7 +329,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId }: G
             <RefreshCw className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
             重铸星盘 ∙ 预言家开局
           </button>
-          
+
           <button
             onClick={() => onRestart("女巫")}
             className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-white bg-fuchsia-850 hover:bg-fuchsia-750 border border-fuchsia-800/40 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 bg-fuchsia-900"

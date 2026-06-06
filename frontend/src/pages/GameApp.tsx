@@ -15,6 +15,7 @@ import { motion } from "motion/react";
 import CastSkillOverlay from "../components/CastSkillOverlay";
 import AlertOverlays from "../components/AlertOverlays";
 import HumanInputPanel from "../components/HumanInputPanel";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function GameApp() {
   const gameState = useGameStore((state) => state.state);
@@ -86,9 +87,30 @@ export default function GameApp() {
       {/* 3D Render Studio Canvas Layer */}
       <ThreeCanvas />
 
-      {/* GameOver Panel Overlay */}
+      {/* GameOver Panel Overlay — wrapped so a render error can never white-screen the app */}
       {gameState?.phase === "GAME_OVER" && (
-        <GameOverPanel gameState={gameState} onRestart={resetGame} onExit={handleExitGame} runId={runId} />
+        <ErrorBoundary
+          label="GameOverPanel"
+          fallback={
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/90 text-zinc-200 pointer-events-auto">
+              <span className="text-2xl font-black tracking-widest">
+                {gameState.winner === "WOLVES" ? "狼人阵营获胜" : "好人阵营获胜"}
+              </span>
+              <span className="font-mono text-xs text-zinc-500">结算面板渲染异常，已安全兜底。</span>
+              <button onClick={handleExitGame} className="px-5 py-2 bg-zinc-800 border border-zinc-700 rounded text-xs hover:border-zinc-500">
+                退出游戏
+              </button>
+            </div>
+          }
+        >
+          <GameOverPanel
+            gameState={gameState}
+            onRestart={resetGame}
+            onExit={handleExitGame}
+            runId={runId}
+            userSeat={seatParam ? Number(seatParam) : null}
+          />
+        </ErrorBoundary>
       )}
 
       {/* 2D Overlay Interface */}

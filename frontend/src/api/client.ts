@@ -1,5 +1,6 @@
 import { 
   HomePageData, 
+  BackendHomePageData,
   RolesPageData, 
   RoleDetail, 
   ModelsPageData, 
@@ -25,6 +26,7 @@ import {
 import { mapReplayPage } from "../lib/replayMap";
 import { mapModelsPage } from "../lib/modelsMap";
 import { mapSharePage } from "../lib/shareMap";
+import { mapHomePage } from "../lib/homeMap";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -92,7 +94,8 @@ export class ApiClient {
   }
 
   static async getHomePageData(): Promise<HomePageData> {
-    return this.get<HomePageData>("/api/v1/pages/home");
+    const raw = await this.get<BackendHomePageData>("/api/v1/pages/home");
+    return mapHomePage(raw);
   }
 
   static async getRolesPageData(): Promise<RolesPageData> {

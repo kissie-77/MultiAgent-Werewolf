@@ -47,7 +47,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
             const val = Number(e.target.value);
             if (val) onChange(val);
           }}
-          className="bg-black/90 border border-zinc-800 text-[10px] text-yellow-500 font-sans px-2 py-1 focus:border-yellow-500 rounded outline-none cursor-pointer"
+          className="bg-black/90 border border-zinc-800 text-xs text-yellow-500 font-sans px-2.5 py-1.5 focus:border-yellow-500 rounded outline-none cursor-pointer"
         >
           <option value="" disabled>-- 选定施放目标 --</option>
           {targets.map((p) => (
@@ -140,7 +140,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
 
     return (
       <div 
-        className={`relative flex flex-col md:flex-row items-start md:items-center justify-between p-3.5 border-2 rounded min-w-[280px] max-w-sm flex-1 transition-all duration-300 ${
+        className={`relative flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-4 border-2 rounded min-w-[280px] max-w-sm flex-1 transition-all duration-300 ${
           status === "就绪" ? `shadow-[0_0_12px_rgba(0,0,0,0.5)] border-l-4 hover:scale-[1.02]` : ""
         } ${status === "锁定" ? "opacity-60" : ""} bg-gradient-to-r from-black/50 to-zinc-950/30 backdrop-blur-sm`}
         style={{
@@ -156,19 +156,19 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
           />
         )}
 
-        <div className="flex gap-3 items-start select-none">
+        <div className="flex gap-3.5 items-start select-none">
           <div className={`p-2 rounded bg-black/60 border border-zinc-800 ${status === "就绪" ? "animate-pulse" : ""}`}>
-            <IconComp className="w-5 h-5" style={{ color: status === "就绪" ? (glowColor.includes("yellow") ? "#eab308" : (glowColor.includes("fuchsia") ? "#d946ef" : "#10b981")) : undefined }} />
+            <IconComp className="w-5.5 h-5.5" style={{ color: status === "就绪" ? (glowColor.includes("yellow") ? "#eab308" : (glowColor.includes("fuchsia") ? "#d946ef" : "#10b981")) : undefined }} />
           </div>
           <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="font-serif text-xs font-black text-[#f5f5f5] tracking-wide">{title}</span>
-              <span className={`text-[8.5px] px-1.5 py-0.5 rounded-full font-mono font-extrabold uppercase tracking-widest border ${statusStyle}`}>
+            <div className="flex items-center gap-3">
+              <span className="font-serif text-sm font-black text-[#f5f5f5] tracking-wide">{title}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-extrabold uppercase tracking-widest border ${statusStyle}`}>
                 {status}
               </span>
             </div>
-            <span className="text-[9px] text-zinc-500 font-mono mt-0.5">{subtitle} ∙ <span className="text-zinc-600 font-sans">{type}技能</span></span>
-            <span className="text-[10px] text-zinc-400 font-sans leading-relaxed mt-1.5 max-w-[220px]">{description}</span>
+            <span className="text-[10.5px] text-zinc-400 font-mono mt-1">{subtitle} ∙ <span className="text-zinc-500 font-sans">{type}技能</span></span>
+            <span className="text-[12px] text-zinc-300 font-sans leading-6 mt-2 max-w-[240px]">{description}</span>
           </div>
         </div>
 
@@ -208,7 +208,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "神庭命盘开始转动，请在下方点击挑选一名在阵的玩家查明其是恶狼（狼人）还是凡骨（好人）。"
                   })}
                   disabled={phase !== "NIGHT_SEER" || isSeerSkillUsed}
-                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-yellow-800 rounded font-sans font-black text-[9.5px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2.5 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-yellow-800 rounded font-sans font-black text-[11px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   开启查验神眼
                 </button>
@@ -257,7 +257,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: `昨晚落难的无辜凡人 (玩家 ${gameState.victimId} 号) 已被选定。倾注解药圣水可以净化利爪邪毒，逆转死生劫持。`
                   })}
                   disabled={phase !== "NIGHT_WITCH" || isWitchSaveUsed || gameState.victimId === null}
-                  className="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 border-2 border-fuchsia-800 rounded font-sans font-black text-[9.5px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2.5 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 border-2 border-fuchsia-800 rounded font-sans font-black text-[11px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   使用苏生解药
                 </button>
@@ -286,7 +286,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "选定一名场上的眼中钉。此毒一出，断绝一切护体神力与流转因果，今夜过后彻底淘汰。"
                   })}
                   disabled={phase !== "NIGHT_WITCH" || isWitchPoisonUsed}
-                  className="px-4 py-2 bg-emerald-650 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-emerald-800 rounded font-sans font-black text-[9.5px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2.5 bg-emerald-650 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-emerald-800 rounded font-sans font-black text-[11px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   投下致命剧毒
                 </button>
@@ -320,7 +320,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "群狼自幽暗密林深处探出利爪。选定一席将其猎杀淘汰，粉碎凡尘议会的气运。此操作将触发夜里撕咬特效。"
                   })}
                   disabled={phase !== "NIGHT_WOLF" || isWolfBiteUsed}
-                  className="px-4 py-2 bg-red-650 hover:bg-red-600 disabled:opacity-40 border-2 border-red-900 rounded font-sans font-black text-[9.5px] text-[#f5f5f5] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2.5 bg-red-650 hover:bg-red-600 disabled:opacity-40 border-2 border-red-900 rounded font-sans font-black text-[11px] text-[#f5f5f5] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   集结狂嚎袭击
                 </button>
@@ -368,7 +368,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "胸口被撕咬/放逐。扳机已扣死！选定场上一名死敌，用最后一发驱邪银弹将其一同流放！"
                   })}
                   disabled={!isUserDead}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 border-2 border-red-800 rounded font-sans font-black text-[9.5px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-40 border-2 border-red-800 rounded font-sans font-black text-[11px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   扣下复仇扳机
                 </button>
@@ -390,7 +390,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
 
       default:
         return (
-          <div className="text-zinc-500 font-mono text-[10px] uppercase tracking-wider italic text-center p-4">
+          <div className="text-zinc-300 font-sans text-base leading-8 tracking-wide italic text-center p-8 max-w-3xl mx-auto">
             — 圣洁村民 (Plain Villager) 卡牌阵营，无专属主动神迹，请专注于严谨讨论和推理流放恶狼 —
           </div>
         );
@@ -401,14 +401,14 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
     <div className="w-full flex flex-col gap-2 p-1 relative" id="skill-dock-container">
       {/* Decorative Title Border with Neon Underglow */}
       {!hideHeader && (
-        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2 mb-1 select-none">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-yellow-500 animate-pulse" />
-            <span className="font-mono text-[10.5px] font-black tracking-widest text-zinc-350 uppercase">
+        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3 select-none">
+          <div className="flex items-center gap-3">
+            <Zap className="w-5 h-5 text-yellow-500 animate-pulse" />
+            <span className="font-mono text-sm font-black tracking-widest text-zinc-300 uppercase">
               🔮 圣职命象卡牌专属技能契约 (Divine Spellbook & Spells)
             </span>
           </div>
-          <div className="font-mono text-[8px] text-zinc-500 uppercase tracking-tighter">
+          <div className="font-mono text-[10px] text-zinc-400 uppercase tracking-wider">
             角色: <span className="text-yellow-500 font-extrabold">{userRole}</span>
           </div>
         </div>

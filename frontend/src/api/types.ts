@@ -25,6 +25,45 @@ export interface HomePageData {
   }[];
 }
 
+export interface BackendHeroBlock {
+  title?: string;
+  subtitle?: string;
+  cta_label?: string;
+  cta_path?: string;
+}
+
+export interface BackendStatCard {
+  label: string;
+  value: number | string;
+  unit?: string | null;
+  hint?: string | null;
+}
+
+export interface BackendNavLink {
+  key: string;
+  title: string;
+  path: string;
+  description?: string | null;
+}
+
+export interface BackendGameMode {
+  participation: string;
+  rules: string;
+  config_path: string;
+  config_id: string;
+  description: string;
+  player_count: number;
+}
+
+export interface BackendHomePageData {
+  hero?: BackendHeroBlock;
+  nav_links?: BackendNavLink[];
+  stats_cards?: BackendStatCard[];
+  recent_runs?: RunSummary[];
+  quick_actions?: BackendNavLink[];
+  game_modes?: BackendGameMode[];
+}
+
 export interface RoleSummary {
   key: string;
   name: string;

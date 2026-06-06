@@ -402,9 +402,99 @@ export function mapBeliefColumns(
     }));
 }
 
-/** Degraded in M2b: the front-end WolfCampSnapshot fields have no backend source. */
-export function mapWolfCampSnapshots(_rows?: unknown): WolfCampSnapshot[] {
-  return [];
+function roleDistributionSummary(distribution: Record<string, unknown> | null | undefined): string {
+  if (!distribution || typeof distribution !== "object") return "";
+  const parts = Object.entries(distribution)
+    .map(([role, value]) => ({ role, value: num(value) }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3)
+    .map((item) => `${item.role} ${Math.round(item.value * 100)}%`);
+  return parts.join(" / ");
+}
+
+function wolfCampTargetName(seat: number): string {
+  return seat > 0 ? `P${seat}` : "暂无明确目标";
+}
+
+function summarizeWolfCampRow(row: any): string {
+  const contributor = toSeatNumber(row?.contributor_seat);
+  const intel = row?.god_role_intel && typeof row.god_role_intel === "object"
+    ? Object.values(row.god_role_intel)
+    : [];
+  const radar = row?.exposure_radar && typeof row.exposure_radar === "object"
+    ? Object.values(row.exposure_radar)
+    : [];
+
+  const intelText = intel.length > 0
+    ? intel
+        .map((item: any) => {
+          const seat = toSeatNumber(item?.target_seat);
+          const roles = roleDistributionSummary(item?.role_distribution);
+          const evidence = Array.isArray(item?.evidence) && item.evidence.length > 0
+            ? `；证据：${String(item.evidence[item.evidence.length - 1])}`
+            : "";
+          return `${wolfCampTargetName(seat)} 威胁 ${num(item?.threat_score).toFixed(2)} ${roles ? `(${roles})` : ""}${evidence}`;
+        })
+        .join("；")
+    : "暂无神职定位更新";
+
+  const radarText = radar.length > 0
+    ? radar
+        .map((item: any) => {
+          const wolfSeat = toSeatNumber(item?.wolf_seat);
+          const top = Array.isArray(item?.top_suspectors) && item.top_suspectors.length > 0
+            ? `，最高怀疑来自 P${toSeatNumber(item.top_suspectors[0]?.seat)}`
+            : "";
+          return `P${wolfSeat} 暴露 ${num(item?.overall_exposure).toFixed(2)}，建议 ${item?.suggested_stance ?? "hide"}${top}`;
+        })
+        .join("；")
+    : "暂无暴露雷达";
+
+  return `贡献者 ${wolfCampTargetName(contributor)}。神职定位：${intelText}。暴露雷达：${radarText}。`;
+}
+
+function pickWolfCampTarget(row: any): number {
+  const intel = row?.god_role_intel && typeof row.god_role_intel === "object"
+    ? Object.values(row.god_role_intel)
+    : [];
+  const ranked = intel
+    .map((item: any) => ({
+      seat: toSeatNumber(item?.target_seat),
+      threat: num(item?.threat_score),
+      priority: String(item?.priority ?? ""),
+    }))
+    .filter((item) => item.seat > 0)
+    .sort((a, b) => {
+      const priorityScore = (p: string) => p === "kill_tonight" ? 2 : p === "watch" ? 1 : 0;
+      return priorityScore(b.priority) - priorityScore(a.priority) || b.threat - a.threat;
+    });
+  return ranked[0]?.seat ?? 0;
+}
+
+export function mapWolfCampSnapshots(rows?: unknown): WolfCampSnapshot[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row: any, index) => {
+    const targetSeat = pickWolfCampTarget(row);
+    const radar = row?.exposure_radar && typeof row.exposure_radar === "object"
+      ? Object.values(row.exposure_radar)
+      : [];
+    return {
+      day: num(row?.round),
+      campStrategy: summarizeWolfCampRow(row),
+      targetSelectionId: targetSeat,
+      targetSelectionName: wolfCampTargetName(targetSeat),
+      wolfVotes: radar.map((item: any) => {
+        const wolfSeat = toSeatNumber(item?.wolf_seat);
+        return {
+          wolfPlayerId: wolfSeat,
+          wolfPlayerName: wolfCampTargetName(wolfSeat),
+          votedForId: targetSeat,
+          votedForName: wolfCampTargetName(targetSeat),
+        };
+      }),
+    };
+  }).filter((snap, index) => snap.day > 0 || rows[index] != null);
 }
 
 // --- compose ---
@@ -424,7 +514,7 @@ export function mapReplayPage(
     report_markdown: d.report_markdown ?? "",
     coach_excerpt: d.coach_excerpt ?? "",
     belief_snapshots: mapBeliefColumns(d.belief_snapshots),
-    wolf_camp_snapshots: mapWolfCampSnapshots(),
+    wolf_camp_snapshots: mapWolfCampSnapshots(d.wolf_camp_snapshots),
     belief_heatmap: [],
     belief_matrix_anchors: mapBeliefAnchors(d.belief_snapshots),
     vote_swing_summary: mapVoteSwing(d),

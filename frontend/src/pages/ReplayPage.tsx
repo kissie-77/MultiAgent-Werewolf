@@ -300,7 +300,12 @@ export default function ReplayPage() {
             animate={{ opacity: 1, y: 0 }}
             className="w-full"
           >
-            <TimelinePlayback timeline={timeline} viewScope={viewScope} />
+            <TimelinePlayback
+              timeline={timeline}
+              viewScope={viewScope}
+              playerCount={run.initial_players}
+              playerScores={scores}
+            />
           </motion.div>
         )}
 

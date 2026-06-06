@@ -14,6 +14,7 @@ const PHASE_MAP: Record<string, GameState["phase"]> = {
   setup: "START_SCREEN",
   night: "NIGHT_WOLF",
   sheriff_election: "DAY_SHERIFF_RUN",
+  sheriff_vote: "DAY_SHERIFF_VOTE",
   day_discussion: "DAY_DEBATE",
   day_voting: "DAY_VOTE",
   ended: "GAME_OVER",

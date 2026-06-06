@@ -90,6 +90,7 @@ export default function GameSetup() {
     try {
       const res = await ApiClient.startGame({
         config_id: "llm-6p-deepseek",
+        player_count: playerCount,
         badge_flow: hasSheriff,
         // 人机模式下占用一个人类座位；纯观战模式不传 human。
         ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat } } : {}),

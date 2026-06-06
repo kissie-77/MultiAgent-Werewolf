@@ -355,18 +355,18 @@ export default function ControlPanel() {
                 initial={{ scale: 0.95, opacity: 0, y: 10 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                className="bg-slate-900 border border-indigo-500/30 bg-woodcut-dark backdrop-blur-md shadow-[0_0_40px_rgba(30,58,138,0.3)] rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto relative flex flex-col"
+                className="bg-slate-900 border border-indigo-500/30 bg-woodcut-dark backdrop-blur-md shadow-[0_0_40px_rgba(30,58,138,0.3)] rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto relative flex flex-col"
               >
                 <button 
                    onClick={() => setIsSkillModalOpen(false)}
-                   className="absolute top-3 right-3 text-zinc-500 hover:text-red-400 bg-zinc-900 hover:bg-red-950 border border-zinc-800 p-2 rounded-full transition-colors z-20"
+                   className="absolute top-4 right-4 text-zinc-400 hover:text-red-300 bg-zinc-900 hover:bg-red-950 border border-zinc-800 p-2.5 rounded-full transition-colors z-20"
                 >
-                   <X className="w-4 h-4" />
+                   <X className="w-5 h-5" />
                 </button>
-                <div className="p-4 sm:p-8">
+                <div className="p-6 sm:p-10">
                     <SkillBar hideHeader={false} />
                     
-                    <div className="mt-8 flex justify-center">
+                    <div className="mt-10 flex justify-center">
                       <TombstoneButton onClick={() => setIsSkillModalOpen(false)}>
                          关闭祈祷席
                       </TombstoneButton>
@@ -484,7 +484,7 @@ export default function ControlPanel() {
                     <BookOpen className="w-3.5 h-3.5" />
                     查看神职
                   </button>
-                  <TombstoneButton onClick={() => nightSkillAction("NIGHT_KILL", 2)}>
+                  <TombstoneButton onClick={simulateNextAI}>
                     跳过等待 (Skip Night)
                   </TombstoneButton>
                 </div>
@@ -541,7 +541,7 @@ export default function ControlPanel() {
                     <BookOpen className="w-3.5 h-3.5" />
                     查看神职
                   </button>
-                  <TombstoneButton onClick={() => nightSkillAction("NIGHT_INSPECT", 4)}>
+                  <TombstoneButton onClick={simulateNextAI}>
                     跳过查验 (Skip Inspect)
                   </TombstoneButton>
                 </div>
@@ -613,7 +613,7 @@ export default function ControlPanel() {
                     <BookOpen className="w-3.5 h-3.5" />
                     查看神职
                   </button>
-                  <TombstoneButton onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", 0, { saved: false, poisonTarget: null })}>
+                  <TombstoneButton onClick={simulateNextAI}>
                     跳过来药调配 (Skip Potions)
                   </TombstoneButton>
                 </div>

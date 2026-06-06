@@ -426,9 +426,53 @@ describe("mapBeliefColumns", () => {
 });
 
 describe("mapWolfCampSnapshots", () => {
-  it("is degraded to an empty array (no backend source in M2b)", () => {
+  it("maps wolf_camp_mind rows into replay wolf camp snapshots", () => {
+    const out = mapWolfCampSnapshots([
+      {
+        schema: "wolf_camp_mind_v1",
+        round: 1,
+        contributor_seat: 6,
+        god_role_intel: {
+          "5": {
+            target_seat: 5,
+            role_distribution: { Seer: 0.8, Witch: 0.2, Guard: 0, Hunter: 0, Villager: 0 },
+            threat_score: 0.42,
+            priority: "watch",
+            evidence: ["5号被救，疑似神职"],
+          },
+        },
+        exposure_radar: {
+          "2": {
+            wolf_seat: 2,
+            overall_exposure: 0.5,
+            suggested_stance: "counter",
+            top_suspectors: [{ seat: 4, suspicion: 0.5 }],
+          },
+          "6": {
+            wolf_seat: 6,
+            overall_exposure: 0,
+            suggested_stance: "hide",
+            top_suspectors: [],
+          },
+        },
+      },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].day).toBe(1);
+    expect(out[0].targetSelectionId).toBe(5);
+    expect(out[0].targetSelectionName).toBe("P5");
+    expect(out[0].campStrategy).toContain("贡献者 P6");
+    expect(out[0].campStrategy).toContain("P5 威胁 0.42");
+    expect(out[0].campStrategy).toContain("P2 暴露 0.50");
+    expect(out[0].wolfVotes).toEqual([
+      { wolfPlayerId: 2, wolfPlayerName: "P2", votedForId: 5, votedForName: "P5" },
+      { wolfPlayerId: 6, wolfPlayerName: "P6", votedForId: 5, votedForName: "P5" },
+    ]);
+  });
+
+  it("tolerates missing wolf camp rows", () => {
     expect(mapWolfCampSnapshots()).toEqual([]);
-    expect(mapWolfCampSnapshots([{ anything: true }] as any)).toEqual([]);
+    expect(mapWolfCampSnapshots(null)).toEqual([]);
   });
 });
 
@@ -444,6 +488,16 @@ describe("mapReplayPage (Slice C enriched panels)", () => {
       ],
       scores: [mvpScoreBlock(), swingScoreBlock()],
       belief_snapshots: [beliefRow()],
+      wolf_camp_snapshots: [
+        {
+          round: 1,
+          contributor_seat: 2,
+          god_role_intel: {},
+          exposure_radar: {
+            "2": { wolf_seat: 2, overall_exposure: 0, suggested_stance: "hide", top_suspectors: [] },
+          },
+        },
+      ],
     } as Partial<BackendReplayPageData>);
 
     expect(out.scores).toHaveLength(2);
@@ -451,7 +505,7 @@ describe("mapReplayPage (Slice C enriched panels)", () => {
     expect(out.vote_swing_summary).toHaveLength(1);
     expect(out.belief_matrix_anchors).toHaveLength(1);
     expect(out.belief_snapshots).toHaveLength(1);
-    expect(out.wolf_camp_snapshots).toEqual([]);
+    expect(out.wolf_camp_snapshots).toHaveLength(1);
     // mvp_ranking.score must now read mvp_total (0.0 bug fixed)
     expect(out.mvp_ranking[0].score).toBe(87.5);
   });

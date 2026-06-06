@@ -179,6 +179,30 @@ def get_run_detail(
     )
 
 
+def _load_launch_roster_models(run_dir: Path) -> dict[str, str]:
+    """Read per-player model ids from launch_roster.json when event-derived roster lacks them."""
+    path = run_dir / "launch_roster.json"
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    players = raw.get("players") if isinstance(raw, dict) else None
+    if not isinstance(players, list):
+        return {}
+
+    model_by_name: dict[str, str] = {}
+    for item in players:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        model = item.get("model") or item.get("model_env")
+        if isinstance(name, str) and name and isinstance(model, str) and model:
+            model_by_name[name] = model
+    return model_by_name
+
+
 def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | None = None) -> list[ModelUsageStat]:
     """Aggregate model usage from saved run rosters (best-effort)."""
     if runs_dir is None:
@@ -194,8 +218,9 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
         except Exception:
             continue
         winner_camp = ctx.winner_camp
+        launch_models = _load_launch_roster_models(path)
         for entry in ctx.roster.values():
-            model = getattr(entry, "ai_model", None)
+            model = getattr(entry, "ai_model", None) or launch_models.get(entry.player_name)
             if not model:
                 continue
             bucket = stats.setdefault(model, {"runs": set(), "wins": 0})

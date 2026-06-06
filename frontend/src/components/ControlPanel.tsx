@@ -279,7 +279,7 @@ export default function ControlPanel() {
 
   const phase = gameState.phase;
   const user = gameState.players.find((p) => p.isUser);
-  const isDead = user ? !user.isAlive : true;
+  const isDead = user ? !user.isAlive : false;
   const victimId = gameState.victimId;
 
   // Determine Skill State

@@ -8,6 +8,7 @@ export default function SpeechConsole() {
   const gameState = useGameStore((state) => state.state);
   const speechLogs = gameState?.speechLogs || [];
   const currentSpeakerId = gameState?.currentSpeakerId;
+  const selfSeat = gameState?.players.find((p) => p.isUser)?.id ?? null;
   const currentNarration = gameState?.narration || "幽暗城堡的丧钟敲响，所有人各就各位...";
 
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -114,15 +115,26 @@ export default function SpeechConsole() {
         }}
       >
         {speechLogs.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-zinc-600 gap-2 py-8">
-            <span className="font-serif text-4xl text-zinc-800 animate-pulse">☠</span>
-            <span className="font-mono text-xs tracking-widest text-zinc-700 uppercase font-black">风平浪静 虚无之地</span>
-          </div>
+          (gameState?.eventLog?.length ?? 0) > 0 ? (
+            <div className="flex flex-col gap-2 py-6 px-2">
+              {gameState!.eventLog.map((e, i) => (
+                <div key={i} className="text-center font-mono text-[11px] text-indigo-300/80 leading-relaxed">
+                  <span className="text-red-500/70 mr-2">[D-{e.round}{e.phase ? " · " + e.phase : ""}]</span>
+                  {e.message}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-zinc-600 gap-2 py-8">
+              <span className="font-serif text-4xl text-zinc-800 animate-pulse">☠</span>
+              <span className="font-mono text-xs tracking-widest text-zinc-700 uppercase font-black">风平浪静 虚无之地</span>
+            </div>
+          )
         ) : (
           <AnimatePresence initial={false}>
             {speechLogs.map((log, index) => {
               const isNarrator = log.role === "NARRATOR";
-              const isSelf = log.playerId === 1;
+              const isSelf = log.playerId === selfSeat;
               const isActingSpeaker = currentSpeakerId === log.playerId;
               const isThoughtExpanded = expandedThoughts[index];
               
@@ -235,14 +247,14 @@ export default function SpeechConsole() {
           </AnimatePresence>
         )}
         {/* Dynamic bottom cushion so elements do not overlap or cover scrollable speech lines */}
-        {currentSpeakerId !== null && currentSpeakerId !== 1 && (
+        {currentSpeakerId !== null && currentSpeakerId !== selfSeat && (
           <div className="h-10 shrink-0" />
         )}
         <div ref={listEndRef} />
       </div>
 
       {/* Floating typing state if active AI is thinking */}
-      {currentSpeakerId !== null && currentSpeakerId !== 1 && (
+      {currentSpeakerId !== null && currentSpeakerId !== selfSeat && (
         <div className="absolute bottom-4 left-6 bg-black border-2 border-yellow-500/80 px-4 py-2 rounded shadow-2xl animate-pulse flex items-center gap-2 z-20">
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce delay-75" />

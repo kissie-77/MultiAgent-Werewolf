@@ -1,0 +1,5 @@
+schema: plan_strategies_manifest_v1
+version: v1
+status: active
+parent: null
+description: PlanStrategies externalized from role_prompts.py

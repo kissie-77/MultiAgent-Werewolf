@@ -1,0 +1,94 @@
+WARNING  llm_werewolf.agent_team.agents.agentscope_agent:agentscope_agent.py:501 structured_payload_validate_failed agent=P1 model=DummyStructuredDecision source=tool_use_input err=1 validation error for DummyStructuredDecision
+action
+  Field required [type=missing, input_value={'wrong_field': 'vote'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing payload={'wrong_field': 'vote'}
+WARNING  llm_werewolf.agent_team.agents.agentscope_agent:agentscope_agent.py:561 structured_parse_failed agent=P1 model=DummyStructuredDecision text_preview=<empty> metadata={'wrong_field': 'vote'}
+WARNING  llm_werewolf.agent_team.invocation.structured_invoke:structured_invoke.py:183 structured_invoke_failed agent=? model=MindStateDecision attempt=1 err=object NoneType can't be used in 'await' expression
+WARNING  llm_werewolf.agent_team.invocation.structured_invoke:structured_invoke.py:183 structured_invoke_failed agent=? model=MindStateDecision attempt=2 err=object NoneType can't be used in 'await' expression
+WARNING  llm_werewolf.agent_team.invocation.structured_invoke:structured_invoke.py:192 structured_invoke_gave_up agent=? model=MindStateDecision err=object NoneType can't be used in 'await' expression
+WARNING  llm_werewolf.agent_team.invocation.structured_invoke:structured_invoke.py:183 structured_invoke_failed agent=? model=MindStateDecision attempt=1 err=object NoneType can't be used in 'await' expression
+WARNING  llm_werewolf.agent_team.invocation.structured_invoke:structured_invoke.py:183 structured_invoke_failed agent=? model=MindStateDecision attempt=2 err=object NoneType can't be used in 'await' expression
+WARNING  llm_werewolf.agent_team.invocation.structured_invoke:structured_invoke.py:192 structured_invoke_gave_up agent=? model=MindStateDecision err=object NoneType can't be used in 'await' expression
+WARNING  llm_werewolf.agent_team.communication.information_hub:information_hub.py:483 vote_intention failed player_id=p2 player_name=P2: intention unavailable
+WARNING  llm_werewolf.agent_team.memory.llm_compressor:llm_compressor.py:80 LLM compression failed 1 time(s), using fallback: Exception: timeout
+WARNING  llm_werewolf.agent_team.memory.llm_compressor:llm_compressor.py:80 LLM compression failed 1 time(s), using fallback: Exception: timeout
+WARNING  llm_werewolf.agent_team.memory.working_memory:working_memory.py:194 Working memory LLM compression failed, using fallback
+Traceback (most recent call last):
+  File "/Users/baimo/Desktop/werewolf/MultiAgent-Werewolf/src/llm_werewolf/agent_team/memory/working_memory.py", line 191, in _compress_dynamic
+    compressed = self._compressor.compress(self._dynamic)
+  File "/Users/baimo/Desktop/werewolf/MultiAgent-Werewolf/tests/agent_team/test_working_memory.py", line 8, in compress
+    raise RuntimeError("compression service unavailable")
+RuntimeError: compression service unavailable
+WARNING  llm_werewolf.agent_team.test:test_run_signals.py:73 provider returned 429 Too Many Requests
+WARNING  llm_werewolf.agent_team.bridge:test_run_signals.py:92 request_speech failed agent=Player1, using fallback
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/spec "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/home "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/roles "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/roles/Seer "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/night-phase "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/models "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/actions/spec "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/start "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/start "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/start "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/start "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/start "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/start "HTTP/1.1 400 Bad Request"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/start "HTTP/1.1 400 Bad Request"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/games/modes "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/games/test-run-1/status?source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/games/missing-run/status "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/models/compare "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/models/compare "HTTP/1.1 422 Unprocessable Entity"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/runs/test-run-1/post-game "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/runs/missing/post-game "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: POST http://testserver/api/v1/games/not-started/cancel "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/game?run_id=missing-run "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/content/about "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/roles/NoSuchRole "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/replay/missing-id "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/replay/missing-id/share "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/home "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/game?run_id=test-run-1 "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/content/about "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/content/features "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/content/how-to-play "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/content/night-phase "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/content/strategy "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/content/unknown-page "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/roles "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/roles/Witch "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/models "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/models/compare?ids=demo&ids=x "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/models/demo "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/runs?page=1&page_size=1&source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/runs/test-run-1?source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/runs/does-not-exist "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/replay/test-run-1?source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/replay/test-run-1/share?source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/spec/home "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/spec/not-a-page "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/about "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/features "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/how-to-play "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/strategy "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/game "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/game?run_id=test-run-1&source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/game?config_id=demo-6 "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/game?run_id=missing-run "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/roles/NotARealRole "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/models/demo "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/models/compare?ids=demo&ids=other "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/models/compare?ids=demo "HTTP/1.1 422 Unprocessable Entity"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/replay?run_id=test-run-1&source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/replay?run_id=eval-run-1&source=eval "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/replay?run_id=no-such-run "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/share-replay?run_id=test-run-1&source=runs "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/api/v1/pages/share-replay?run_id=missing "HTTP/1.1 404 Not Found"
+ERROR    llm_werewolf.interface.cli.runtime.finalize_run:finalize_run.py:74 PostGame pipeline failed for /private/var/folders/hd/k3vn1xr54hb820l10mc7p2wh0000gn/T/pytest-of-baimo/pytest-43/test_finalize_run_logs_pipelin0/run: boom
+WARNING  llm_werewolf.interface.cli.runtime.finalize_run:finalize_run.py:76 PostGame completed with stage errors for /private/var/folders/hd/k3vn1xr54hb820l10mc7p2wh0000gn/T/pytest-of-baimo/pytest-43/test_finalize_run_logs_stage_e0/run: ['stage1']
+INFO     httpx:_client.py:1025 HTTP Request: GET http://testserver/ready "HTTP/1.1 200 OK"
+WARNING  llm_werewolf.observability.notifiers.webhook:webhook.py:48 Webhook notify failed: HTTP Error 500: Internal Server Error

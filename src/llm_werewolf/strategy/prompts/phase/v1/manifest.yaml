@@ -1,0 +1,5 @@
+schema: phase_prompt_manifest_v1
+version: v1
+status: active
+parent: null
+description: Game flow prompts (GamePrompts) externalized from role_prompts.py

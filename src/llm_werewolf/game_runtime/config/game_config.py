@@ -1,0 +1,103 @@
+from pydantic import Field, BaseModel, field_validator
+from pydantic_core.core_schema import ValidationInfo
+
+from llm_werewolf.game_runtime.roles.registry import validate_role_names
+
+
+class GameConfig(BaseModel):
+    """游戏配置，包括玩家数量、角色与计时设置。"""
+
+    num_players: int = Field(
+        ..., ge=6, le=20, description="Number of players in the game", examples=[6, 9, 12]
+    )
+    role_names: list[str] = Field(
+        ...,
+        description="List of role names to use in the game",
+        examples=[["Werewolf", "Seer", "Witch", "Hunter", "Guard", "Villager"]],
+    )
+
+    night_timeout: int = Field(
+        default=60,
+        ge=10,
+        description="Timeout for night actions in seconds",
+        examples=[30, 60, 90],
+    )
+    day_timeout: int = Field(
+        default=300,
+        ge=30,
+        description="Timeout for day discussion in seconds",
+        examples=[120, 300, 600],
+    )
+    vote_timeout: int = Field(
+        default=60, ge=10, description="Timeout for voting in seconds", examples=[30, 60, 90]
+    )
+
+    allow_revote: bool = Field(
+        default=False, description="Allow players to change their vote", examples=[True, False]
+    )
+    show_role_on_death: bool = Field(
+        default=True, description="Reveal player's role when they die", examples=[True, False]
+    )
+    enable_sheriff: bool = Field(
+        default=False,
+        description="Enable sheriff election after the first night",
+        examples=[True, False],
+    )
+    track_vote_intentions: bool = Field(
+        default=True,
+        description=(
+            "Collect each agent's day-vote intention before/after every roundtable speech "
+            "for replay and persuasion analysis."
+        ),
+    )
+    vote_intention_concurrency: int = Field(
+        default=1,
+        ge=1,
+        le=20,
+        description=(
+            "Maximum concurrent LLM calls when collecting vote intentions. "
+            "1 preserves the historical fully-serialized behavior."
+        ),
+    )
+    role_shuffle_seed: int | None = Field(
+        default=None,
+        description="Optional seed for deterministic role-to-seat shuffle in setup_game.",
+    )
+
+    @field_validator("role_names")
+    @classmethod
+    def validate_role_count(cls, v: list[str], info: ValidationInfo) -> list[str]:
+        """校验角色数量与玩家数量一致。
+
+        Args:
+            v: 角色名称列表。
+            info: 包含其他字段的校验信息。
+
+        Returns:
+            list[str]: 校验后的角色名称。
+
+        Raises:
+            ValueError: 角色数量与玩家数量不匹配时抛出。
+        """
+        num_players = info.data.get("num_players")
+        if num_players and len(v) != num_players:
+            msg = f"Number of roles ({len(v)}) must match number of players ({num_players})"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("role_names")
+    @classmethod
+    def validate_roles(cls, v: list[str]) -> list[str]:
+        """使用角色注册表校验角色名称。
+
+        Args:
+            v: 角色名称列表。
+
+        Returns:
+            list[str]: 校验后的角色名称。
+
+        Raises:
+            ValueError: 角色无效或未包含狼人时抛出。
+        """
+        validate_role_names(v)
+        return v

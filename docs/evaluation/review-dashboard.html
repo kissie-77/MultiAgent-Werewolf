@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狼人杀复盘系统可视化</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --border: #475569;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle { color: var(--text-secondary); font-size: 1.1rem; }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            background: var(--bg-secondary);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .nav-tab:hover { background: var(--bg-card); color: var(--text-primary); }
+        .nav-tab.active { background: var(--accent-blue); color: white; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--accent-blue);
+            border-radius: 2px;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+
+        .metric-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-value { font-size: 2rem; font-weight: bold; margin: 0.5rem 0; }
+        .metric-label { color: var(--text-secondary); font-size: 0.9rem; }
+
+        .score-bar {
+            height: 8px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+
+        .score-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+        .score-fill.blue { background: var(--accent-blue); }
+        .score-fill.green { background: var(--accent-green); }
+        .score-fill.yellow { background: var(--accent-yellow); }
+        .score-fill.red { background: var(--accent-red); }
+        .score-fill.purple { background: var(--accent-purple); }
+
+        table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg-card); color: var(--accent-blue); font-weight: 600; }
+        tr:hover { background: rgba(59, 130, 246, 0.1); }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-blue { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+        .badge-green { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .badge-yellow { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        .badge-purple { background: rgba(139, 92, 246, 0.2); color: var(--accent-purple); }
+
+        .flow-diagram { display: flex; flex-direction: column; gap: 1rem; padding: 1rem; }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .flow-step::after {
+            content: '↓';
+            position: absolute;
+            bottom: -1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--accent-blue);
+            font-size: 1.5rem;
+        }
+
+        .flow-step:last-child::after { display: none; }
+
+        .flow-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .flow-icon.blue { background: rgba(59, 130, 246, 0.2); }
+        .flow-icon.green { background: rgba(16, 185, 129, 0.2); }
+        .flow-icon.yellow { background: rgba(245, 158, 11, 0.2); }
+        .flow-icon.red { background: rgba(239, 68, 68, 0.2); }
+        .flow-icon.purple { background: rgba(139, 92, 246, 0.2); }
+
+        .flow-content { flex: 1; }
+        .flow-title { font-weight: 600; margin-bottom: 0.25rem; }
+        .flow-desc { color: var(--text-secondary); font-size: 0.9rem; }
+
+        .prompt-block {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .prompt-key { color: var(--accent-yellow); }
+        .prompt-value { color: var(--accent-green); }
+        .prompt-comment { color: var(--text-secondary); }
+
+        .io-diagram {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        }
+
+        .io-box {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .io-box.input { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--accent-green); }
+        .io-box.output { background: rgba(59, 130, 246, 0.2); border: 1px solid var(--accent-blue); }
+        .io-box.process { background: rgba(245, 158, 11, 0.2); border: 1px solid var(--accent-yellow); }
+        .io-arrow { color: var(--text-secondary); font-size: 1.5rem; }
+
+        .completion-meter { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
+
+        .meter-bar {
+            flex: 1;
+            height: 12px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .meter-fill { height: 100%; border-radius: 6px; transition: width 0.5s; }
+        .meter-label { min-width: 80px; text-align: right; font-weight: 600; font-size: 0.9rem; }
+
+        .status-indicator { display: inline-flex; align-items: center; gap: 0.5rem; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.green { background: var(--accent-green); }
+        .status-dot.yellow { background: var(--accent-yellow); }
+        .status-dot.red { background: var(--accent-red); }
+
+        .tag {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-right: 0.25rem;
+        }
+
+        .tag-rule { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .tag-llm { background: rgba(139, 92, 246, 0.2); color: var(--accent-purple); }
+        .tag-required { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+
+        .step-table td:first-child { font-family: monospace; font-size: 0.85rem; }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .nav-tabs { flex-direction: column; }
+            .nav-tab { width: 100%; text-align: left; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>狼人杀复盘系统可视化</h1>
+            <p class="subtitle">MultiAgent-Werewolf Evaluation System — 基于最新代码 (2026-06-02)</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="overview">系统总览</button>
+            <button class="nav-tab" data-tab="pipeline">PostGame 流水线</button>
+            <button class="nav-tab" data-tab="scoring">评分体系</button>
+            <button class="nav-tab" data-tab="contexts">评分上下文隔离</button>
+            <button class="nav-tab" data-tab="prompts">提示词与 Schema</button>
+            <button class="nav-tab" data-tab="io">输入输出</button>
+            <button class="nav-tab" data-tab="counterfactual">反事实推演</button>
+            <button class="nav-tab" data-tab="leaderboard">排行榜 & A/B</button>
+            <button class="nav-tab" data-tab="evolution">自进化</button>
+        </nav>
+
+        <!-- 系统总览 -->
+        <div id="overview" class="tab-content active">
+            <div class="card">
+                <h2 class="card-title">系统完成度评估</h2>
+                <div class="grid-4">
+                    <div class="metric-card">
+                        <div class="metric-label">多维评测</div>
+                        <div class="metric-value" style="color: var(--accent-blue);">75%</div>
+                        <div class="score-bar"><div class="score-fill blue" style="width: 75%;"></div></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">关键决策复盘</div>
+                        <div class="metric-value" style="color: var(--accent-green);">60%</div>
+                        <div class="score-bar"><div class="score-fill green" style="width: 60%;"></div></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">反事实推演</div>
+                        <div class="metric-value" style="color: var(--accent-yellow);">50%</div>
+                        <div class="score-bar"><div class="score-fill yellow" style="width: 50%;"></div></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">结构化报告</div>
+                        <div class="metric-value" style="color: var(--accent-purple);">65%</div>
+                        <div class="score-bar"><div class="score-fill purple" style="width: 65%;"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">核心模块架构</h2>
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-icon blue">🎮</div>
+                        <div class="flow-content">
+                            <div class="flow-title">game_runtime — 游戏引擎</div>
+                            <div class="flow-desc">运行对局，生成 events.jsonl + vote_intentions.jsonl + beliefs.jsonl</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon green">📦</div>
+                        <div class="flow-content">
+                            <div class="flow-title">interface.finalize_run — 触发入口</div>
+                            <div class="flow-desc">对局结束自动调用 run_post_game_pipeline(14 步)</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon yellow">🔍</div>
+                        <div class="flow-content">
+                            <div class="flow-title">evaluation — 赛后分析层</div>
+                            <div class="flow-desc">log_views POV 切片 → scoring 四维评分 → Skill 提取 → Coach 报告 → LLM 复盘</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon red">📊</div>
+                        <div class="flow-content">
+                            <div class="flow-title">leaderboard — 排行榜</div>
+                            <div class="flow-desc">entry 构建 → 聚合排序 → A/B 对比 (Wilson CI + z 检验)</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon purple">🔄</div>
+                        <div class="flow-content">
+                            <div class="flow-title">evolution — 自进化闭环</div>
+                            <div class="flow-desc">manifest 继承 → per-role prompt/skill bump → 版本链 → A/B 验收</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">模块边界</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>模块</th>
+                            <th>职责</th>
+                            <th>禁止</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>evaluation</code></td>
+                            <td>赛后流水线、视图、打分、JSON 产物、批量 eval</td>
+                            <td>直接 AsyncOpenAI；改运行时 Prompt</td>
+                        </tr>
+                        <tr>
+                            <td><code>agent_team</code></td>
+                            <td>Evaluation ReActAgent 工厂；Skill 只读加载</td>
+                            <td>评测 Prompt 散落 factory</td>
+                        </tr>
+                        <tr>
+                            <td><code>strategy</code></td>
+                            <td>复盘/Skill 输出 Schema (Pydantic)</td>
+                            <td>评测业务逻辑</td>
+                        </tr>
+                        <tr>
+                            <td><code>game_runtime</code></td>
+                            <td>visible_to、observation（只读复用）</td>
+                            <td>PostGame 逻辑</td>
+                        </tr>
+                        <tr>
+                            <td><code>interface</code></td>
+                            <td>finalize_run 触发 PostGame</td>
+                            <td>—</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PostGame 流水线 -->
+        <div id="pipeline" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">PostGame 流水线（14 步）</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    分步 try/except 执行；单步失败不中断后续可独立步骤；仅 <code>load_context</code> 为必需步骤。
+                    <code>camp_persuasion</code> 失败会跳过 <code>log_views → coach</code>，但 <code>episodic</code>、<code>vote_swing</code>、<code>game_quality_report</code> 仍执行。
+                </p>
+                <div class="card" style="margin-bottom: 1.5rem; background: var(--bg-secondary);">
+                    <h3 style="margin-bottom: 0.75rem; color: var(--accent-green);">质量门控（2026-06-02）</h3>
+                    <ul style="color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.8;">
+                        <li><strong>roster</strong>：从 message / hunter_revenge 等事件补全 role；缺 camp 回填</li>
+                        <li><strong>matched</strong>：阵营有利出局才算；误出同伴不算；无 swing 但意向=出局者也算</li>
+                        <li><strong>MVP</strong>：缺 role/camp 不参与归一化；全场 MVP 优先有身份玩家</li>
+                        <li><strong>proposals / skills</strong>：正向素材需 matched；误出 Seer 等 → bad_case</li>
+                        <li><strong>evolver</strong>：golden / positive 提案 evidence 须含 matched 才采纳</li>
+                    </ul>
+                    <p style="color: var(--text-secondary); margin-top: 0.75rem; font-size: 0.9rem;">详见 <code>docs/evaluation/DESIGN.md</code> §5.2–§5.3</p>
+                </div>
+                <table class="step-table">
+                    <thead>
+                        <tr>
+                            <th>Step ID</th>
+                            <th>类型</th>
+                            <th>主要产物</th>
+                            <th>依赖</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>load_context</code></td>
+                            <td><span class="tag tag-required">必需</span> <span class="tag tag-rule">规则</span></td>
+                            <td>RunContext 对象</td>
+                            <td>—</td>
+                        </tr>
+                        <tr>
+                            <td><code>episodic</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>episodic_reports.json</code></td>
+                            <td>load_context</td>
+                        </tr>
+                        <tr>
+                            <td><code>vote_swing</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>vote_swing_report.md</code>, <code>.json</code></td>
+                            <td>load_context</td>
+                        </tr>
+                        <tr>
+                            <td><code>camp_persuasion</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>camp_persuasion_report.md</code>, <code>.json</code></td>
+                            <td>load_context</td>
+                        </tr>
+                        <tr>
+                            <td><code>log_views</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>views/</code>, <code>views_manifest.json</code></td>
+                            <td>camp_persuasion</td>
+                        </tr>
+                        <tr>
+                            <td><code>intention_scores</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>intention_scores.json</code></td>
+                            <td>camp_persuasion</td>
+                        </tr>
+                        <tr>
+                            <td><code>score_contexts</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>views/score_contexts/</code>, <code>manifest.json</code></td>
+                            <td>camp_persuasion</td>
+                        </tr>
+                        <tr>
+                            <td><code>mvp_scores</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>mvp_scores.json</code></td>
+                            <td>camp_persuasion, score_contexts</td>
+                        </tr>
+                        <tr>
+                            <td><code>benefit_scores</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>benefit_scores.json</code> (v2, MVP 集成)</td>
+                            <td>mvp_scores</td>
+                        </tr>
+                        <tr>
+                            <td><code>llm_replay</code></td>
+                            <td><span class="tag tag-llm">LLM</span></td>
+                            <td><code>post_game_analysis.json</code>, <code>.md</code></td>
+                            <td>mvp_scores, camp_persuasion</td>
+                        </tr>
+                        <tr>
+                            <td><code>game_quality_report</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>game_quality_report.md</code>, <code>.json</code></td>
+                            <td>mvp_scores, llm_replay</td>
+                        </tr>
+                        <tr>
+                            <td><code>counterfactual</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>counterfactual_report.json</code>, <code>.md</code></td>
+                            <td>load_context</td>
+                        </tr>
+                        <tr>
+                            <td><code>prompt_proposals</code></td>
+                            <td><span class="tag tag-rule">规则</span>+<span class="tag tag-llm">LLM</span></td>
+                            <td><code>prompt_proposals.json</code></td>
+                            <td>camp_persuasion, llm_replay</td>
+                        </tr>
+                        <tr>
+                            <td><code>role_skills</code></td>
+                            <td><span class="tag tag-rule">规则</span>+<span class="tag tag-llm">LLM</span></td>
+                            <td><code>role_skills.json</code>, <code>skills/</code></td>
+                            <td>camp_persuasion</td>
+                        </tr>
+                        <tr>
+                            <td><code>coach</code></td>
+                            <td><span class="tag tag-rule">规则</span></td>
+                            <td><code>coach_summary.json</code></td>
+                            <td>camp_persuasion, role_skills</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">流水线执行流程图</h2>
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-icon blue">1️⃣</div>
+                        <div class="flow-content">
+                            <div class="flow-title">load_context</div>
+                            <div class="flow-desc">加载 RunContext（roster、events、prompt_version）</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon green">2️⃣</div>
+                        <div class="flow-content">
+                            <div class="flow-title">episodic + vote_swing + camp_persuasion</div>
+                            <div class="flow-desc">情景记忆导出、投票摇摆分析、阵营说服报告</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon yellow">3️⃣</div>
+                        <div class="flow-content">
+                            <div class="flow-title">log_views + intention_scores + score_contexts</div>
+                            <div class="flow-desc">POV 视图生成、意图评分、四维评分上下文隔离</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon red">4️⃣</div>
+                        <div class="flow-content">
+                            <div class="flow-title">mvp_scores + benefit_scores</div>
+                            <div class="flow-desc">MVP 四维加权评分、收益分（v2 已集成 MVP）</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon purple">5️⃣</div>
+                        <div class="flow-content">
+                            <div class="flow-title">llm_replay + game_quality_report + counterfactual</div>
+                            <div class="flow-desc">LLM 复盘分析、对局质量报告、反事实推演</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon blue">6️⃣</div>
+                        <div class="flow-content">
+                            <div class="flow-title">prompt_proposals + role_skills + coach</div>
+                            <div class="flow-desc">Prompt 改进建议、Skill 卡片提取、Coach 总结</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon green">7️⃣</div>
+                        <div class="flow-content">
+                            <div class="flow-title">写入产物</div>
+                            <div class="flow-desc">post_game_manifest.json + post_game_steps.json + leaderboard_entry.json</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 评分体系 -->
+        <div id="scoring" class="tab-content">
+            <div class="grid-2">
+                <div class="card">
+                    <h2 class="card-title">MVP 综合评分 (v2)</h2>
+                    <div class="io-diagram">
+                        <div class="io-box input">score_contexts<br>四维隔离数据</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box process">四维原始分<br>组内归一化<br>角色权重加权</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box output">MVP 总分<br>维度分解<br>排名 + 金句</div>
+                    </div>
+                    <div class="prompt-block">
+<span class="prompt-key">四维评分:</span>
+<span class="prompt-value">- persuasion (说服): 发言影响力、意向摇摆</span>
+<span class="prompt-value">- strategy (策略): 技能使用正确性</span>
+<span class="prompt-value">- outcome (结果): 对最终结果的贡献</span>
+<span class="prompt-value">- wolf_night (狼队夜间): 狼人专属夜间协作</span>
+
+<span class="prompt-key">计算公式:</span>
+<span class="prompt-value">MVP = Σ(维度标准化分 × 角色权重)</span>
+
+<span class="prompt-key">归一化策略:</span>
+<span class="prompt-value">按角色组内归一化到 0-100 分</span>
+<span class="prompt-value">同角色玩家之间可比</span>
+
+<span class="prompt-key">数据质量分级:</span>
+<span class="prompt-value">high: 意向 ≥6 条且 ≥2 个白天轮次</span>
+<span class="prompt-value">medium: 意向 ≥3 条</span>
+<span class="prompt-value">low: 不足 3 条</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">说服评分 (Persuasion)</h2>
+                    <div class="io-diagram">
+                        <div class="io-box input">vote_swing<br>camp_persuasion<br>公开发言</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box process">阵营对齐<br>摇摆计算<br>匹配放逐</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box output">说服总分<br>黄金发言<br>摇摆数</div>
+                    </div>
+                    <div class="prompt-block">
+<span class="prompt-key">评分公式:</span>
+<span class="prompt-value">Score = (对齐×6 + 摇摆×12 + 净摇摆×4 + 推动×8 + 匹配×25) × 置信度</span>
+
+<span class="prompt-key">置信度:</span>
+<span class="prompt-value">confidence = min(1.0, 活动度/30.0)</span>
+<span class="prompt-value">活动度 = 对齐分 + 摇摆 + 推动</span>
+
+<span class="prompt-key">黄金发言阈值:</span>
+<span class="prompt-value">Score ≥ 25 且 有公开发言内容</span>
+
+<span class="prompt-key">无意向数据时:</span>
+<span class="prompt-value">persuasion 权重重分给 strategy/outcome 并归一化</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">策略评分 (Strategy)</h2>
+                    <div class="io-diagram">
+                        <div class="io-box input">技能事件<br>投票事件<br>角色信息</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box process">技能效果<br>阵营匹配<br>团队伤害</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box output">策略总分<br>技能明细<br>正负分</div>
+                    </div>
+                    <div class="prompt-block">
+<span class="prompt-key">预言家:</span>
+<span class="prompt-value">+25 查验到狼人 | -10 查验到好人</span>
+
+<span class="prompt-key">女巫:</span>
+<span class="prompt-value">+20 救到好人 | +25 毒到狼人 | -15 毒到好人</span>
+
+<span class="prompt-key">守卫:</span>
+<span class="prompt-value">+12 成功保护</span>
+
+<span class="prompt-key">投票:</span>
+<span class="prompt-value">+8 狼人投好人 | +10 好人投狼人 | -12 投队友</span>
+
+<span class="prompt-key">狼人:</span>
+<span class="prompt-value">+2 参与分（夜间无操作时保底）</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">收益评分 (Benefit v2)</h2>
+                    <div class="io-diagram">
+                        <div class="io-box input">MVP 总分<br>意图分<br>四维分解</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box process">MVP 集成<br>意图聚合<br>胜负标记</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box output">收益总分<br>四维 breakdown<br>MVP 排名引用</div>
+                    </div>
+                    <div class="prompt-block">
+<span class="prompt-key">v2 变更:</span>
+<span class="prompt-value">收益分已不再独立计算，而是集成 MVP 量化</span>
+<span class="prompt-value">camp_persuasion 聚合已被 MVP 吸收</span>
+
+<span class="prompt-key">已实现指标:</span>
+<span class="prompt-value">- persuasion (说服原始分)</span>
+<span class="prompt-value">- strategy (策略原始分)</span>
+<span class="prompt-value">- outcome (结果原始分)</span>
+<span class="prompt-value">- wolf_night (狼队夜间原始分)</span>
+<span class="prompt-value">- mvp_total (MVP 总分)</span>
+<span class="prompt-value">- intention_sum (意图总分)</span>
+
+<span class="prompt-key">phase:</span>
+<span class="prompt-value">mvp_integrated (MVP 已生成) / skipped (MVP 未生成)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">角色权重配置 (role_weights.yaml)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>角色</th>
+                            <th>persuasion</th>
+                            <th>strategy</th>
+                            <th>outcome</th>
+                            <th>wolf_night</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge badge-red">狼人</span></td>
+                            <td>30%</td>
+                            <td>25%</td>
+                            <td>25%</td>
+                            <td>20%</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-blue">预言家</span></td>
+                            <td>25%</td>
+                            <td>35%</td>
+                            <td>30%</td>
+                            <td>10%</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-green">女巫</span></td>
+                            <td>20%</td>
+                            <td>30%</td>
+                            <td>40%</td>
+                            <td>10%</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-purple">守卫</span></td>
+                            <td>20%</td>
+                            <td>30%</td>
+                            <td>40%</td>
+                            <td>10%</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-yellow">平民</span></td>
+                            <td>35%</td>
+                            <td>20%</td>
+                            <td>35%</td>
+                            <td>10%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 评分上下文隔离 -->
+        <div id="contexts" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">四维评分上下文隔离策略</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    每个 MVP 维度只包含对应阶段/频道的记录，<strong>禁止混用全局日志</strong>。
+                    Policy: <code>each_dimension_isolated_no_global_log_for_scoring</code>
+                </p>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 style="color: var(--accent-blue); margin-bottom: 0.5rem;">📢 Persuasion (公开说服)</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">仅白天公开发言、放逐投票与公开频道投票意向；不含狼队夜间讨论与私密技能。</p>
+                        <div class="prompt-block" style="margin-top: 0.5rem;">
+<span class="prompt-key">包含事件:</span>
+<span class="prompt-value">player_speech, vote_cast, vote_result,</span>
+<span class="prompt-value">vote_intention_snapshot (public),</span>
+<span class="prompt-value">player_eliminated, phase_change</span>
+
+<span class="prompt-key">过滤规则:</span>
+<span class="prompt-value">- 排除 visible_to 非空的事件</span>
+<span class="prompt-value">- 排除 player_discussion</span>
+<span class="prompt-value">- 仅白天阶段 (day_discussion, day_voting)</span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 style="color: var(--accent-red); margin-bottom: 0.5rem;">🐺 Wolf Night (狼队夜间)</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">仅狼队频道发言、狼队投票意向与当晚刀口结果；不含白天公开讨论。</p>
+                        <div class="prompt-block" style="margin-top: 0.5rem;">
+<span class="prompt-key">包含事件:</span>
+<span class="prompt-value">player_discussion (visible_to ⊆ wolves, ≥2人)</span>
+<span class="prompt-value">werewolf_killed</span>
+<span class="prompt-value">wolf_team 频道 vote_intention</span>
+
+<span class="prompt-key">结构化数据:</span>
+<span class="prompt-value">kills_by_round: [{round_number, target_id, target_name}]</span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 style="color: var(--accent-green); margin-bottom: 0.5rem;">🎯 Strategy (角色策略执行)</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">仅技能判定、夜间刀口、放逐投票等行为事件；不含公开发言正文。</p>
+                        <div class="prompt-block" style="margin-top: 0.5rem;">
+<span class="prompt-key">包含事件:</span>
+<span class="prompt-value">seer_checked, witch_saved, witch_poisoned,</span>
+<span class="prompt-value">guard_protected, werewolf_killed,</span>
+<span class="prompt-value">vote_cast, role_acting</span>
+
+<span class="prompt-key">过滤规则:</span>
+<span class="prompt-value">- player_discussion 仅包含狼队夜间讨论</span>
+<span class="prompt-value">- 排除公开发言正文</span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 style="color: var(--accent-yellow); margin-bottom: 0.5rem;">🏆 Outcome (结果与归因)</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">仅投票、出局、死亡、刀口与终局胜负；不含发言与意向细节。</p>
+                        <div class="prompt-block" style="margin-top: 0.5rem;">
+<span class="prompt-key">包含事件:</span>
+<span class="prompt-value">vote_cast, vote_result, player_eliminated,</span>
+<span class="prompt-value">player_died, game_ended,</span>
+<span class="prompt-value">werewolf_killed, phase_change</span>
+
+<span class="prompt-key">过滤规则:</span>
+<span class="prompt-value">- 最精简的事件集</span>
+<span class="prompt-value">- 不含任何发言内容</span>
+<span class="prompt-value">- 不含投票意向</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Score Contexts 产物</h2>
+                <div class="prompt-block">
+<span class="prompt-key">目录结构:</span>
+<span class="prompt-value">views/score_contexts/</span>
+<span class="prompt-value">├── persuasion.md      # 公开说服上下文</span>
+<span class="prompt-value">├── persuasion.json</span>
+<span class="prompt-value">├── strategy.md        # 角色策略上下文</span>
+<span class="prompt-value">├── strategy.json</span>
+<span class="prompt-value">├── outcome.md         # 结果归因上下文</span>
+<span class="prompt-value">├── outcome.json</span>
+<span class="prompt-value">├── wolf_night.md      # 狼队夜间上下文</span>
+<span class="prompt-value">├── wolf_night.json</span>
+<span class="prompt-value">└── manifest.json      # 索引 + token 估算</span>
+
+<span class="prompt-key">Manifest Schema:</span>
+<span class="prompt-value">{</span>
+<span class="prompt-value">  "schema": "score_contexts_v1",</span>
+<span class="prompt-value">  "policy": "each_dimension_isolated_no_global_log_for_scoring",</span>
+<span class="prompt-value">  "dimensions": [...],</span>
+<span class="prompt-value">  "paths": {"persuasion": "views/score_contexts/persuasion.md", ...}</span>
+<span class="prompt-value">}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示词与 Schema -->
+        <div id="prompts" class="tab-content">
+            <div class="grid-2">
+                <div class="card">
+                    <h2 class="card-title">LLM 复盘结构化输出</h2>
+                    <div class="prompt-block">
+<span class="prompt-comment"># ReplayAnalysisDecision (strategy/decisions.py)</span>
+<span class="prompt-key">解析顺序 (eval_agent._parse_replay_decision):</span>
+<span class="prompt-value">1. unwrap_structured_metadata(metadata)</span>
+<span class="prompt-value">2. _extract_structured_payload_from_content(content)</span>
+<span class="prompt-value">   → tool_use.generate_response.input 取 JSON</span>
+<span class="prompt-value">3. 文本 JSON → _extract_text</span>
+<span class="prompt-value">   → 优先 get_text_content()</span>
+<span class="prompt-value">   → 跳过 thinking 和占位 "Structured response submitted."</span>
+
+<span class="prompt-key">重试 (_invoke_eval_analyst):</span>
+<span class="prompt-value">- 结构化调用最多 3 次，429 指数退避</span>
+<span class="prompt-value">- 失败后 plain JSON 二次请求（禁止 tool）</span>
+
+<span class="prompt-key">mode 取值:</span>
+<span class="prompt-value">- llm: 解析成功</span>
+<span class="prompt-value">- failed: 解析失败 → summary_zh 降级为 build_rule_summary_zh</span>
+<span class="prompt-value">- skipped: 无 API 配置或 key</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">Prompt Proposals Schema (v3)</h2>
+                    <div class="prompt-block">
+<span class="prompt-key">Schema:</span> <span class="prompt-value">prompt_proposals_v3</span>
+
+<span class="prompt-key">proposals[] 字段:</span>
+<span class="prompt-value">{</span>
+<span class="prompt-value">  "kind": "positive_persuasion | bad_case_rule |</span>
+<span class="prompt-value">          mvp_golden_quote | mvp_strategy_highlight | ...",</span>
+<span class="prompt-value">  "target_variable": "prompt_variable_name",</span>
+<span class="prompt-value">  "prompt_role_key": "wolf | prophet | ...",</span>
+<span class="prompt-value">  "suggested_patch": "改进建议内容",</span>
+<span class="prompt-value">  "evidence": "支持证据（正向提案需 matched_elimination）",</span>
+<span class="prompt-value">  "apply_policy": "auto_evolve_next_prompt_version"</span>
+<span class="prompt-value">}</span>
+
+<span class="prompt-key">apply_policy:</span>
+<span class="prompt-value">JSON 产物供 prompt_evolver 按门控采纳；不直接覆盖运行时 YAML</span>
+<span class="prompt-value">evolver 对 positive / golden 要求 evidence.matched_* = true</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">Role Skills Schema (v1)</h2>
+                    <div class="prompt-block">
+<span class="prompt-key">Schema:</span> <span class="prompt-value">role_skills_v1</span>
+
+<span class="prompt-key">skills[] 字段:</span>
+<span class="prompt-value">{</span>
+<span class="prompt-value">  "skill_id": "wolf_r1_p3_1",</span>
+<span class="prompt-value">  "prompt_role_key": "wolf",</span>
+<span class="prompt-value">  "status": "draft | active | deprecated",</span>
+<span class="prompt-value">  "quality_gate": {"passed": true, "rule_id": "...", "reason": "..."},</span>
+<span class="prompt-value">  "skill_card": {</span>
+<span class="prompt-value">    "title_zh": "...",</span>
+<span class="prompt-value">    "when_to_use": "...",</span>
+<span class="prompt-value">    "public_behavior": "...",</span>
+<span class="prompt-value">    "avoid": "..."</span>
+<span class="prompt-value">  },</span>
+<span class="prompt-value">  "evidence": {...},</span>
+<span class="prompt-value">  "weight": 1.0</span>
+<span class="prompt-value">}</span>
+
+<span class="prompt-key">质量门 (Phase 1):</span>
+<span class="prompt-value">该身份有 ≥1 条有效发言或夜间决策 → 进入提取</span>
+<span class="prompt-value">全程空发言 → skipped</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">Skill 状态与写回</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>status</th>
+                                <th>运行时默认加载</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="badge badge-green">active</span></td>
+                                <td>是</td>
+                                <td>权重 ≥ 1.05 可升 active</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge badge-yellow">draft</span></td>
+                                <td>否</td>
+                                <td>PostGame 写库默认 draft，审核后 active</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge badge-red">deprecated</span></td>
+                                <td>否</td>
+                                <td>权重 ≤ 0.95 可降 deprecated</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge badge-blue">skipped</span></td>
+                                <td>不写 MD</td>
+                                <td>无有效素材时不生成</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">
+                        写库流程：<code>next_skill_version()</code> → 复制旧版 → 追加新 MD → 更新 manifest
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入输出 -->
+        <div id="io" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">数据流总览</h2>
+                <div class="grid-3">
+                    <div class="card">
+                        <h3 style="color: var(--accent-green); margin-bottom: 1rem;">📥 输入数据</h3>
+                        <table>
+                            <tr><th>数据类型</th><th>来源</th><th>格式</th></tr>
+                            <tr><td>游戏事件</td><td>EventLogger</td><td>events.jsonl</td></tr>
+                            <tr><td>玩家名册</td><td>游戏配置</td><td>roster (RunContext)</td></tr>
+                            <tr><td>投票意向</td><td>Agent 输出</td><td>vote_intentions.jsonl</td></tr>
+                            <tr><td>信念日志</td><td>Agent 记忆</td><td>beliefs.jsonl</td></tr>
+                            <tr><td>技能文件</td><td>文件系统</td><td>skills/<role>/<ver>/*.md</td></tr>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3 style="color: var(--accent-yellow); margin-bottom: 1rem;">⚙️ 处理模块</h3>
+                        <table>
+                            <tr><th>模块</th><th>功能</th><th>输出</th></tr>
+                            <tr><td>RunContext</td><td>上下文加载</td><td>roster + events + prompt_version</td></tr>
+                            <tr><td>CampPersuasion</td><td>阵营说服分析</td><td>说服报告</td></tr>
+                            <tr><td>log_views</td><td>POV 视图生成</td><td>views/ + manifest</td></tr>
+                            <tr><td>score_contexts</td><td>四维上下文隔离</td><td>views/score_contexts/</td></tr>
+                            <tr><td>MVP Scoring</td><td>多维评分计算</td><td>mvp_scores.json</td></tr>
+                            <tr><td>Counterfactual</td><td>反事实推演</td><td>counterfactual_report</td></tr>
+                            <tr><td>eval_agent</td><td>LLM 复盘分析</td><td>post_game_analysis.json</td></tr>
+                            <tr><td>skill_extractor</td><td>Skill 卡片提取</td><td>role_skills.json + skills/</td></tr>
+                            <tr><td>Coach</td><td>Coach 总结</td><td>coach_summary.json</td></tr>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3 style="color: var(--accent-blue); margin-bottom: 1rem;">📤 输出产物</h3>
+                        <table>
+                            <tr><th>产物</th><th>格式</th><th>用途</th></tr>
+                            <tr><td>post_game_manifest.json</td><td>JSON</td><td>流水线总索引</td></tr>
+                            <tr><td>post_game_steps.json</td><td>JSON</td><td>步骤执行状态</td></tr>
+                            <tr><td>mvp_scores.json</td><td>JSON</td><td>MVP 评分</td></tr>
+                            <tr><td>benefit_scores.json</td><td>JSON</td><td>收益评分 (v2)</td></tr>
+                            <tr><td>intention_scores.json</td><td>JSON</td><td>意图评分</td></tr>
+                            <tr><td>counterfactual_report.json</td><td>JSON</td><td>反事实报告</td></tr>
+                            <tr><td>prompt_proposals.json</td><td>JSON</td><td>Prompt 改进建议</td></tr>
+                            <tr><td>role_skills.json</td><td>JSON</td><td>角色技能</td></tr>
+                            <tr><td>coach_summary.json</td><td>JSON</td><td>教练总结</td></tr>
+                            <tr><td>leaderboard_entry.json</td><td>JSON</td><td>排行榜条目</td></tr>
+                            <tr><td>version_manifest.json</td><td>JSON</td><td>版本清单</td></tr>
+                            <tr><td>game_quality_report.md</td><td>MD</td><td>对局质量报告</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">关键文件结构</h2>
+                <div class="prompt-block">
+<span class="prompt-key">eval_runs/</span>
+<span class="prompt-value">├── run_baseline/</span>
+<span class="prompt-value">│   ├── summary.json              # 游戏汇总</span>
+<span class="prompt-value">│   ├── manifest.json             # 实验配置</span>
+<span class="prompt-value">│   ├── experiment_meta.json      # 版本元信息</span>
+<span class="prompt-value">│   ├── leaderboard_entry.json    # 排行榜条目</span>
+<span class="prompt-value">│   ├── post_game_manifest.json   # 流水线总索引</span>
+<span class="prompt-value">│   ├── post_game_steps.json      # 步骤执行状态</span>
+<span class="prompt-value">│   ├── mvp_scores.json           # MVP 评分</span>
+<span class="prompt-value">│   ├── benefit_scores.json       # 收益评分 (v2)</span>
+<span class="prompt-value">│   ├── intention_scores.json     # 意图评分</span>
+<span class="prompt-value">│   ├── counterfactual_report.json # 反事实报告</span>
+<span class="prompt-value">│   ├── prompt_proposals.json     # Prompt 改进建议</span>
+<span class="prompt-value">│   ├── role_skills.json          # 角色技能</span>
+<span class="prompt-value">│   ├── coach_summary.json        # 教练总结</span>
+<span class="prompt-value">│   ├── version_manifest.json     # 版本清单</span>
+<span class="prompt-value">│   ├── game_quality_report.md    # 对局质量报告</span>
+<span class="prompt-value">│   ├── post_game_analysis.json   # LLM 复盘</span>
+<span class="prompt-value">│   ├── post_game_report.md       # LLM 复盘报告</span>
+<span class="prompt-value">│   ├── views/                    # POV 视图</span>
+<span class="prompt-value">│   │   ├── score_contexts/       # 四维评分上下文</span>
+<span class="prompt-value">│   │   │   ├── persuasion.md/.json</span>
+<span class="prompt-value">│   │   │   ├── strategy.md/.json</span>
+<span class="prompt-value">│   │   │   ├── outcome.md/.json</span>
+<span class="prompt-value">│   │   │   ├── wolf_night.md/.json</span>
+<span class="prompt-value">│   │   │   └── manifest.json</span>
+<span class="prompt-value">│   │   └── views_manifest.json</span>
+<span class="prompt-value">│   └── games/</span>
+<span class="prompt-value">│       └── game_N/</span>
+<span class="prompt-value">│           └── ...</span>
+<span class="prompt-value">├── evolution/</span>
+<span class="prompt-value">│   ├── v1_initial/</span>
+<span class="prompt-value">│   ├── v2_evolved/</span>
+<span class="prompt-value">│   ├── v3_evolved/</span>
+<span class="prompt-value">│   ├── ab_reports/</span>
+<span class="prompt-value">│   │   └── ab_v1_initial_vs_v3_evolved.json</span>
+<span class="prompt-value">│   └── evolution_summary.json</span>
+<span class="prompt-value">└── leaderboards/</span>
+<span class="prompt-value">    ├── leaderboard.json</span>
+<span class="prompt-value">    ├── leaderboard.csv</span>
+<span class="prompt-value">    └── leaderboard.md</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">生命周期</h2>
+                <div class="prompt-block">
+<span class="prompt-key">数据流:</span>
+<span class="prompt-value">events.jsonl → PostGame (14步) → scores / views / role_skills / proposals / coach</span>
+<span class="prompt-value">    → leaderboard_entry + experiment_meta → leaderboards / ab_reports</span>
+<span class="prompt-value">    → skills MD → agent_team/skills/<role>/<version>/</span>
+
+<span class="prompt-key">自进化:</span>
+<span class="prompt-value">run_evolution_cycle → 评测 + PostGame + prompt_evolver</span>
+<span class="prompt-value">    → version_manifest.json (v2) → restore_runtime_from_manifest</span>
+<span class="prompt-value">    → leaderboards/ + ab_reports/ + evolution_summary.json</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 反事实推演 -->
+        <div id="counterfactual" class="tab-content">
+            <div class="grid-2">
+                <div class="card">
+                    <h2 class="card-title">投票摇摆推演</h2>
+                    <div class="io-diagram">
+                        <div class="io-box input">投票结果<br>票数分布</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box process">计算票差<br>识别关键票</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box output">推演案例<br>置信度</div>
+                    </div>
+                    <div class="prompt-block">
+<span class="prompt-key">触发条件:</span>
+<span class="prompt-value">放逐目标票数 - 第二名票数 ≤ 2</span>
+
+<span class="prompt-key">推演逻辑:</span>
+<span class="prompt-value">如果 max(1, 票差) 个投票者改变目标，</span>
+<span class="prompt-value">放逐目标可能改变</span>
+
+<span class="prompt-key">输出示例:</span>
+<span class="prompt-value">{</span>
+<span class="prompt-value">  "kind": "vote_swing",</span>
+<span class="prompt-value">  "actual_action": "3号被放逐",</span>
+<span class="prompt-value">  "counterfactual": "如果1个投票者改投5号，放逐目标可能改变",</span>
+<span class="prompt-value">  "likely_effect": "白天放逐压力和阵营节奏可能改变",</span>
+<span class="prompt-value">  "confidence": "medium"</span>
+<span class="prompt-value">}</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">夜间行动推演</h2>
+                    <div class="io-diagram">
+                        <div class="io-box input">夜间行动<br>刀口/查验/救毒</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box process">目标分析<br>价值评估</div>
+                        <div class="io-arrow">→</div>
+                        <div class="io-box output">推演案例<br>影响评估</div>
+                    </div>
+                    <div class="prompt-block">
+<span class="prompt-key">狼人刀口推演:</span>
+<span class="prompt-value">如果夜间目标从高价值变为低价值或被保护的目标，</span>
+<span class="prompt-value">第二天讨论和生存节奏可能改变</span>
+
+<span class="prompt-key">预言家查验推演:</span>
+<span class="prompt-value">如果查验另一个高怀疑位置，</span>
+<span class="prompt-value">公开信息价值可能更强或更弱</span>
+
+<span class="prompt-key">边界:</span>
+<span class="prompt-value">不是完整分支模拟器，不会重新跑一整局游戏</span>
+<span class="prompt-value">是稳定、可解释的规则型反事实报告</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">反事实推演完成度</h2>
+                <div class="completion-meter">
+                    <span class="meter-label">投票推演</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 60%; background: var(--accent-blue);"></div></div>
+                    <span class="status-indicator"><span class="status-dot yellow"></span> 60%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">夜间推演</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 60%; background: var(--accent-green);"></div></div>
+                    <span class="status-indicator"><span class="status-dot yellow"></span> 60%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">推演深度</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 40%; background: var(--accent-yellow);"></div></div>
+                    <span class="status-indicator"><span class="status-dot red"></span> 40%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">推演覆盖</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 40%; background: var(--accent-red);"></div></div>
+                    <span class="status-indicator"><span class="status-dot red"></span> 40%</span>
+                </div>
+                <div style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    <p><strong>当前限制:</strong> 规则型分析，无完整时间线模拟，只覆盖关键决策</p>
+                    <p><strong>优化方向:</strong> 多变量同时变更、替代时间线模拟、量化影响评估</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 排行榜 & A/B -->
+        <div id="leaderboard" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">排行榜系统架构</h2>
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-icon blue">📊</div>
+                        <div class="flow-content">
+                            <div class="flow-title">Entry 构建</div>
+                            <div class="flow-desc">从 run 目录提取指标：胜率、完成率、MVP评分、平均轮次等</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon green">🏆</div>
+                        <div class="flow-content">
+                            <div class="flow-title">Leaderboard 聚合</div>
+                            <div class="flow-desc">按胜率排序，生成总榜和分组榜（按 model/prompt/skill）</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon yellow">🔬</div>
+                        <div class="flow-content">
+                            <div class="flow-title">A/B 对比</div>
+                            <div class="flow-desc">Wilson 置信区间、双比例 Z 检验、p-value、推荐结论</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h2 class="card-title">统计方法</h2>
+                    <div class="prompt-block">
+<span class="prompt-key">Wilson 置信区间:</span>
+<span class="prompt-value">小样本时比简单 p ± 1.96*sqrt(p*(1-p)/n) 更准确</span>
+
+<span class="prompt-key">双比例 Z 检验:</span>
+<span class="prompt-value">判断 B 的胜率提升是否是统计显著的</span>
+<span class="prompt-value">pooled = (wins_a + wins_b) / (games_a + games_b)</span>
+<span class="prompt-value">z_score = (phat_b - phat_a) / SE</span>
+<span class="prompt-value">p_value = 2 * (1 - Φ(|z_score|))</span>
+
+<span class="prompt-key">推荐逻辑:</span>
+<span class="prompt-value">if win_delta > 0.05 and completion_b >= completion_a and significant:</span>
+<span class="prompt-value">    recommendation = "recommend_b"</span>
+<span class="prompt-value">elif completion_b + 0.05 < completion_a:</span>
+<span class="prompt-value">    recommendation = "reject_b"</span>
+<span class="prompt-value">else:</span>
+<span class="prompt-value">    recommendation = "no_clear_winner"</span>
+
+<span class="prompt-key">注意:</span>
+<span class="prompt-value">win_rate = 有 winner_camp 的局占比，非阵营胜率</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">CLI 命令</h2>
+                    <div class="prompt-block">
+<span class="prompt-comment"># 为单个 run 生成 entry</span>
+<span class="prompt-value">uv run python -m llm_werewolf.evaluation.leaderboard.cli entry \</span>
+<span class="prompt-value">  eval_runs/run_xxx \</span>
+<span class="prompt-value">  --version-id coach_v2 --model kimi --prompt-version v3 --skill-version coach_v2</span>
+
+<span class="prompt-comment"># 聚合所有 entry 生成总榜单</span>
+<span class="prompt-value">uv run python -m llm_werewolf.evaluation.leaderboard.cli build eval_runs</span>
+
+<span class="prompt-comment"># 对比两个版本</span>
+<span class="prompt-value">uv run python -m llm_werewolf.evaluation.leaderboard.cli compare \</span>
+<span class="prompt-value">  eval_runs/run_a/leaderboard_entry.json \</span>
+<span class="prompt-value">  eval_runs/run_b/leaderboard_entry.json</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">排行榜完成度</h2>
+                <div class="completion-meter">
+                    <span class="meter-label">榜单生成</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 85%; background: var(--accent-green);"></div></div>
+                    <span class="status-indicator"><span class="status-dot green"></span> 85%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">A/B 对比</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 80%; background: var(--accent-blue);"></div></div>
+                    <span class="status-indicator"><span class="status-dot green"></span> 80%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">统计分析</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 75%; background: var(--accent-yellow);"></div></div>
+                    <span class="status-indicator"><span class="status-dot yellow"></span> 75%</span>
+                </div>
+                <div style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    <p><strong>已完成:</strong> Wilson CI、z 检验、CLI 工具、entry/build/compare 命令</p>
+                    <p><strong>优化方向:</strong> 按角色独立版本控制、多模型混跑统一显著性</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 自进化 -->
+        <div id="evolution" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">自进化闭环架构</h2>
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-icon blue">🔄</div>
+                        <div class="flow-content">
+                            <div class="flow-title">run_evolution_cycle</div>
+                            <div class="flow-desc">多轮迭代：评测 → PostGame → prompt_evolver → version_manifest.json</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon green">📝</div>
+                        <div class="flow-content">
+                            <div class="flow-title">restore_runtime_from_manifest</div>
+                            <div class="flow-desc">从 version_manifest.json 恢复运行时配置（per-role prompt/skill）</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon yellow">🧪</div>
+                        <div class="flow-content">
+                            <div class="flow-title">评测 + PostGame</div>
+                            <div class="flow-desc">运行对局，执行 14 步 PostGame 流水线，生成评分和 Skill</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon red">📈</div>
+                        <div class="flow-content">
+                            <div class="flow-title">evolve_prompt_from_run</div>
+                            <div class="flow-desc">按身份 bump 版本，生成新版本 prompt/skill</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-icon purple">✅</div>
+                        <div class="flow-content">
+                            <div class="flow-title">A/B 验收</div>
+                            <div class="flow-desc">v1_initial vs 终局版本，Wilson CI + z 检验验证显著提升</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h2 class="card-title">自进化验收标准</h2>
+                    <table>
+                        <tr><th>标准</th><th>要求</th></tr>
+                        <tr><td>Smoke 测试</td><td>smoke_6p_basic 通过</td></tr>
+                        <tr><td>迭代轮次</td><td>≥ 2 轮</td></tr>
+                        <tr><td>对比基准</td><td>v1_initial vs 终局</td></tr>
+                        <tr><td>完成率</td><td>不下降</td></tr>
+                        <tr><td>硬约束</td><td>无新增失败</td></tr>
+                        <tr><td>终局指标</td><td>优于初始</td></tr>
+                        <tr><td>A/B 报告</td><td>存在 ab_reports/*.json</td></tr>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">版本链管理</h2>
+                    <div class="prompt-block">
+<span class="prompt-key">版本链结构:</span>
+<span class="prompt-value">v1_initial → v2_evolved → v3_evolved → ...</span>
+
+<span class="prompt-key">每轮变更:</span>
+<span class="prompt-value">- per-role prompt/skill 版本 bump</span>
+<span class="prompt-value">- memory_runtime_params 更新</span>
+<span class="prompt-value">- model_config 调整</span>
+
+<span class="prompt-key">Coach 上一版快照顺序:</span>
+<span class="prompt-value">1. skill_snapshot.previous.json</span>
+<span class="prompt-value">2. experiment_meta.previous_skill_snapshot_path</span>
+<span class="prompt-value">3. previous_run_dir/skill_snapshot.json</span>
+<span class="prompt-value">4. 同级最近有效 run</span>
+
+<span class="prompt-key">已纳入:</span>
+<span class="prompt-value">prompt version chain, Wilson CI, z 检验, evolution matrix</span>
+
+<span class="prompt-key">暂不做:</span>
+<span class="prompt-value">自动回滚, LLM 自动采纳 proposal, 多模型混跑统一显著性</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">自进化完成度</h2>
+                <div class="completion-meter">
+                    <span class="meter-label">版本链</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 80%; background: var(--accent-green);"></div></div>
+                    <span class="status-indicator"><span class="status-dot green"></span> 80%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">Prompt 进化</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 75%; background: var(--accent-blue);"></div></div>
+                    <span class="status-indicator"><span class="status-dot yellow"></span> 75%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">Skill 进化</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 70%; background: var(--accent-yellow);"></div></div>
+                    <span class="status-indicator"><span class="status-dot yellow"></span> 70%</span>
+                </div>
+                <div class="completion-meter">
+                    <span class="meter-label">A/B 验收</span>
+                    <div class="meter-bar"><div class="meter-fill" style="width: 80%; background: var(--accent-purple);"></div></div>
+                    <span class="status-indicator"><span class="status-dot green"></span> 80%</span>
+                </div>
+                <div style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    <p><strong>已完成:</strong> manifest 继承、per-role bump、版本链、A/B 验收闭环</p>
+                    <p><strong>优化方向:</strong> 自动回滚机制、LLM 自动采纳 proposal、多模型混跑统一显著性</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

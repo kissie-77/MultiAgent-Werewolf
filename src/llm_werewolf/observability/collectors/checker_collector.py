@@ -1,0 +1,43 @@
+"""包装 evaluation checkers 为告警事件。"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from llm_werewolf.evaluation.core.models import CheckResult, CheckSeverity
+from llm_werewolf.observability.core.models import AlertEvent, AlertSeverity
+
+if TYPE_CHECKING:
+    from llm_werewolf.observability.core.config import ObservabilityConfig
+
+
+def collect_checker_alerts(
+    signals: dict[str, Any],
+    config: ObservabilityConfig,
+) -> list[AlertEvent]:
+    rule = config.rules.get("checker_critical")
+    if rule is None or not rule.enabled:
+        return []
+
+    run_id = str(signals.get("run_id") or "unknown")
+    checks: list[CheckResult] = signals.get("checks") or []
+    alerts: list[AlertEvent] = []
+    for check in checks:
+        if check.passed:
+            continue
+        if check.severity != CheckSeverity.CRITICAL:
+            continue
+        alerts.append(
+            AlertEvent(
+                run_id=run_id,
+                source="checker",
+                severity=AlertSeverity.CRITICAL,
+                code="checker_critical",
+                message=f"{check.checker}: {check.message}",
+                context={
+                    "checker": check.checker,
+                    "data": check.data,
+                },
+            )
+        )
+    return alerts

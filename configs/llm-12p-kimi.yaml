@@ -1,0 +1,59 @@
+# 12 人扩展局 — Kimi / VibeAPI（OpenAI 兼容接口）
+# VIBE_API_KEY 放在 .env，勿写入本文件
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+vote_intention_concurrency: 12
+day_timeout: 180
+vote_timeout: 180
+night_timeout: 120
+
+players:
+  - name: 玩家1
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家2
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家3
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家4
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家5
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家6
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家7
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家8
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家9
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家10
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家11
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY
+  - name: 玩家12
+    model: kimi-k2.5
+    base_url: https://www.vibeapi.cn/v1
+    api_key_env: VIBE_API_KEY

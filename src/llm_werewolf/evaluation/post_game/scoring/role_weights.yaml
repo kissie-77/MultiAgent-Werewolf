@@ -1,0 +1,50 @@
+# 各身份在 MVP 合成中的维度权重（合计 1.0）
+# persuasion=公开说服 | strategy=角色/夜间执行 | outcome=归因结果 | wolf_night=狼队夜间讨论（仅狼系身份叠加）
+
+villager:
+  persuasion: 0.45
+  strategy: 0.20
+  outcome: 0.30
+  wolf_night: 0.0
+
+wolf:
+  persuasion: 0.30
+  strategy: 0.20
+  outcome: 0.25
+  wolf_night: 0.25
+
+wolf_king:
+  persuasion: 0.28
+  strategy: 0.22
+  outcome: 0.25
+  wolf_night: 0.25
+
+prophet:
+  persuasion: 0.22
+  strategy: 0.48
+  outcome: 0.25
+  wolf_night: 0.0
+
+witch:
+  persuasion: 0.18
+  strategy: 0.52
+  outcome: 0.25
+  wolf_night: 0.0
+
+guard:
+  persuasion: 0.22
+  strategy: 0.43
+  outcome: 0.30
+  wolf_night: 0.0
+
+hunter:
+  persuasion: 0.30
+  strategy: 0.30
+  outcome: 0.35
+  wolf_night: 0.0
+
+default:
+  persuasion: 0.40
+  strategy: 0.25
+  outcome: 0.30
+  wolf_night: 0.0

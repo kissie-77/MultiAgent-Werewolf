@@ -1,0 +1,6 @@
+schema: post_game_prompt_manifest_v1
+agent: replay
+version: v1
+status: active
+parent: null
+description: Post-game LLM replay analyst (EvalAnalyst) prompts — v1.1 tuned for MVP anchoring, timeline, and role-targeted suggestions

@@ -1,0 +1,103 @@
+name: Code Quality Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.11.15"
+
+jobs:
+  code-quality-check:
+    name: Pre-commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dev tools
+        run: uv sync --frozen --group dev
+
+      - name: Pre-commit on changed code files
+        env:
+          # Ruff/mypy debt is ratcheted separately; keep general hygiene hooks on changed files.
+          SKIP: mypy,ruff-check,ruff-format
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}"
+            FROM="origin/${{ github.base_ref }}"
+            TO="HEAD"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            FROM="${{ github.event.before }}"
+            TO="${{ github.sha }}"
+          else
+            echo "No diff base; running hygiene hooks on tracked code files."
+            mapfile -t FILES < <(git ls-files | grep -Ev '^(docs/|frontend/|.*\.md$)' || true)
+            if [ "${#FILES[@]}" -eq 0 ]; then
+              echo "No code files tracked; skipping pre-commit."
+              exit 0
+            fi
+            uv run pre-commit run --files "${FILES[@]}" --show-diff-on-failure
+            exit 0
+          fi
+          echo "Pre-commit from ${FROM} to ${TO}"
+          mapfile -t FILES < <(git diff --name-only --diff-filter=ACMR "${FROM}" "${TO}" | grep -Ev '^(docs/|frontend/|.*\.md$)' || true)
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "Only docs/frontend/markdown changed; skipping pre-commit."
+            exit 0
+          fi
+          uv run pre-commit run --files "${FILES[@]}" --show-diff-on-failure
+
+      - name: Ruff critical checks on changed Python files
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}"
+            FROM="origin/${{ github.base_ref }}"
+            TO="HEAD"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            FROM="${{ github.event.before }}"
+            TO="${{ github.sha }}"
+          else
+            FROM=""
+            TO=""
+          fi
+          if [ -n "${FROM}" ]; then
+            mapfile -t PY_FILES < <(git diff --name-only --diff-filter=ACMR "${FROM}" "${TO}" | grep -E '\.py$' || true)
+          else
+            mapfile -t PY_FILES < <(git ls-files '*.py' || true)
+          fi
+          if [ "${#PY_FILES[@]}" -eq 0 ]; then
+            echo "No Python files changed; skipping ruff critical checks."
+            exit 0
+          fi
+          uv run ruff check --select E9,F821 -- "${PY_FILES[@]}"

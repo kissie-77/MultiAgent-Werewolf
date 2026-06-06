@@ -1,0 +1,7 @@
+intro:
+  - 请从以下狼人杀对局记录中提炼 1-3 条可复用的策略经验。
+  - 每条不超过 50 字，只输出策略经验列表，不要写流水账。
+
+result_win: 本局结果：胜利
+result_loss: 本局结果：失败
+episode_line: "第{round_number}轮：{messages}"

@@ -1,0 +1,87 @@
+name: Tests
+
+# Re-run by pushing any change under .github/workflows/
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+      - release/*
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  pull_request:
+    branches:
+      - main
+      - master
+      - release/*
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  UV_VERSION: "0.11.15"
+
+jobs:
+  run_tests:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      !(
+        startsWith(github.head_ref, 'chore/') ||
+        startsWith(github.head_ref, 'ci/') ||
+        startsWith(github.head_ref, 'docs/')
+      )
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.12"
+
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv python pin ${{ matrix.python-version }}
+          uv sync --frozen --all-groups
+
+      - name: Run pytest
+        env:
+          # Start CI at a non-zero coverage floor, then ratchet toward the local 80% target.
+          COVERAGE_FAIL_UNDER: "20"
+        run: uv run pytest -vv --cov-fail-under="${COVERAGE_FAIL_UNDER}" | tee .coverage.txt
+
+      - name: Pytest coverage comment
+        if: github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          pytest-coverage-path: ./.coverage.txt
+          junitxml-path: ./.github/reports/.coverage.pytest.xml
+          pytest-xml-coverage-path: ./.github/reports/coverage.xml
+          unique-id-for-comment: ${{ matrix.python-version }}
+          title: Coverage for Python ${{ matrix.python-version }}
+          hide-emoji: true

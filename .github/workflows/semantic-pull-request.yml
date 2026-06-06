@@ -1,0 +1,54 @@
+name: Semantic Pull Request
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  main:
+    name: Semantic Pull Request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Validate PR title
+        id: lint_pr_title
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            build
+            chore
+            ci
+            docs
+            feat
+            fix
+            perf
+            refactor
+            revert
+            style
+            test
+          requireScope: false
+
+      - name: Post PR title error comment
+        if: failure() && steps.lint_pr_title.outputs.error_message != null
+        uses: marocchino/sticky-pull-request-comment@v3.0.4
+        with:
+          header: pr-title-lint-error
+          message: |
+            PR 标题需符合 [Conventional Commits](https://www.conventionalcommits.org/)，例如 `feat(eval): ...` 或 `fix(runtime): ...`。
+
+            ```
+            ${{ steps.lint_pr_title.outputs.error_message }}
+            ```
+
+      - name: Delete resolved comment
+        if: success()
+        uses: marocchino/sticky-pull-request-comment@v3.0.4
+        with:
+          header: pr-title-lint-error
+          delete: true

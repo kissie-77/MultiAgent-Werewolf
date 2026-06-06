@@ -1,0 +1,31 @@
+---
+skill_id: villager_r1_seer_jump_side_pick
+prompt_role_key: villager
+status: active
+source: initial_curated
+camp: villager
+quality_passed: True
+weight: 1.0
+win_count: 0
+use_count: 0
+when_to_use: 第1轮白天讨论阶段，场上出现两个预言家对跳，你作为中立村民需要选择站边时；信念矩阵触发：B1狼信分散（Top狼信均≤0.4），意向仍处于观望状态
+belief_pattern: dispersed
+---
+
+# 首轮预言家对跳站边判断
+
+## 提取依据
+[initial_curated] 修复好人站边判断逻辑缺陷（勿仅因警徽流细节误站边狼队）。来源：exp1 LLM 提炼（seed20260605-wolf-mem，村民误投真预言家复盘）。
+
+## 公开行为
+① 分别对比两个预言家的验人逻辑、警徽流理由是否自洽；② 对比双方的归票目标是否与公开的查验结果一致；③ 观察被查杀方的发言是否存在刻意回避查杀、只攻击预言家的行为；④ 综合三个维度的判断结果选择站边，不得仅因单一细节就直接站边。
+
+## 避免
+避免仅因预言家警徽流的小瑕疵就直接站边对立面，忽略查杀结果等核心信息。
+
+## 信念分布依据
+第1轮·after_speech；场上狼信分散（Top狼信≤0.4）；意向仍观望
+- 分布模式：dispersed
+- 触发信号：
+  - 最高目标狼信≤0.4
+  - 投票意向未锁定到单一座位

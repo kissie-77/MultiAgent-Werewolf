@@ -1,4 +1,10 @@
+# PlanStrategies 外置配置
+# - 仅 6 种粗粒度 plan：default / simple / cautious / bold / complicated / crazy
+# - 每个 plan 含 name + 全部 22 个 prompt_role_key
+# - resolve_plan_text(plan_name, prompt_role_key) 按角色取对应条目注入 agent_base.md
+
 schema: plan_strategies_v1
+
 style_order:
   - conservative
   - aggressive
@@ -13,27 +19,27 @@ role_labels:
   wolf_king: 狼王
   guard: 守卫
   hunter: 猎人
-  white_wolf: 白狼
+  white_wolf: 白狼王
   wolf_beauty: 狼美人
-  guardian_wolf: 守墓狼
+  guardian_wolf: 守卫狼
   hidden_wolf: 隐狼
-  nightmare_wolf: 噩梦狼
+  nightmare_wolf: 梦魇狼
   blood_moon_apostle: 血月使徒
   idiot: 白痴
   elder: 长老
   knight: 骑士
   magician: 魔术师
   cupid: 丘比特
-  raven: 乌鸦
+  raven: 渡鸦
   graveyard_keeper: 守墓人
   thief: 盗贼
   lover: 恋人
 
 style_templates:
-  conservative: 你本局采用{role}保守派打法：优先保证信息边界和身份收益，先观察发言、票型和死亡信息，再给出判断；不要过早站死边或暴露关键意图。
-  aggressive: 你本局采用{role}激进派打法：主动制造讨论焦点，敢于提出明确怀疑和投票方向；发言要推动局势前进，但所有进攻都必须基于你可见的信息。
-  skeptical: 你本局采用{role}质疑派打法：重点拆解他人的逻辑、票型和前后矛盾；多追问理由，少直接跟风，用质疑帮助阵营发现隐藏风险。
-  coordinator: 你本局采用{role}协调派打法：整理多名玩家的发言和投票关系，尝试收束分散讨论，提出可执行的下一步验证或归票方案。
+  conservative: 作为{role}保守派：优先保护身份和信息边界，先观察发言、票型、死亡信息再做判断；不要过早站边或暴露关键意图。
+  aggressive: 作为{role}激进派：主动制造讨论焦点，敢于点名高怀疑目标并带票型方向；所有进攻必须有可见证据支撑。
+  skeptical: 作为{role}质疑派：拆解他人发言逻辑、票型、前后矛盾，多追问理由少跟风；用质疑帮阵营识别伪装者。
+  coordinator: 作为{role}协调派：整理多人发言和投票关系，尝试把分散讨论收束成可执行的下一步（验人 / 归票 / 守护）。
 
 plans:
   default:
@@ -45,53 +51,138 @@ plans:
     wolf_king: 自由发挥
     guard: 自由发挥
     hunter: 自由发挥
-
-  complicated:
-    name: complicated
-    villager: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，必须深度思考，输出思考内容
-    prophet: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，晚上运用技能找到潜在狼人，白天保持谨慎，必须深度思考，输出思考内容
-    witch: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，发挥技能解药救人，觉得是狼人之后使用毒药毒死玩家，必须深度思考，输出思考内容
-    wolf: 使用诡计，第一晚自刀骗药，与队友配合欺骗平民，杀死和票出关键玩家，混淆视听，必须深度思考，输出思考内容
-    wolf_king: 使用诡计，第一晚最好配合刀队友一号骗药，与队友配合欺骗平民，杀死和票出关键玩家，被投票处决时杀死关键玩家，必须深度思考，输出思考内容
-    guard: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，守护关键玩家，白天保持谨慎，必须深度思考，输出思考内容
-    hunter: 仔细研究玩家的发言，尝试找出狼的蛛丝马迹，保护好自己，当被击杀时选择一个认为是狼人的玩家带走，必须深度思考，输出思考内容
-
+    white_wolf: 自由发挥
+    wolf_beauty: 自由发挥
+    guardian_wolf: 自由发挥
+    hidden_wolf: 自由发挥
+    nightmare_wolf: 自由发挥
+    blood_moon_apostle: 自由发挥
+    idiot: 自由发挥
+    elder: 自由发挥
+    knight: 自由发挥
+    magician: 自由发挥
+    cupid: 自由发挥
+    raven: 自由发挥
+    graveyard_keeper: 自由发挥
+    thief: 自由发挥
+    lover: 自由发挥
   simple:
     name: simple
-    villager: 自由发挥，尽量简化发言和思考
-    prophet: 自由发挥，尽量简化发言和思考
-    witch: 自由发挥，尽量简化发言和思考
-    wolf: 自由发挥，尽量简化发言和思考
-    wolf_king: 自由发挥，尽量简化发言和思考
-    guard: 自由发挥，尽量简化发言和思考
-    hunter: 自由发挥，尽量简化发言和思考
-
+    villager: 简化发言：只给关键判断和归票倾向，不展开长逻辑链
+    prophet: 简化发言：跳身份后报查验结果即可，推理从简
+    witch: 简化发言：用药决策后一两句说明，不展开完整心路
+    wolf: 简化发言：跟狼队票型归票，少展开攻防长逻辑
+    wolf_king: 简化发言：跟狼队节奏，不额外暴露狼王信息
+    guard: 简化发言：不透露守护路径，白天只做必要推理
+    hunter: 简化发言：保持低调，不主动暴露枪口威慑
+    white_wolf: 简化发言：与普通狼人一致，不暴露隔夜刀狼节奏
+    wolf_beauty: 简化发言：低调发言，不暴露魅惑对象
+    guardian_wolf: 简化发言：与普通狼人一致，不暴露守护队友行为
+    hidden_wolf: 简化发言：低调划水，少做强判断
+    nightmare_wolf: 简化发言：与普通狼人一致，不暴露封锁对象
+    blood_moon_apostle: 简化发言：按好人视角潜伏，少表态
+    idiot: 简化发言：被扛推时翻牌一句说明即可
+    elder: 简化发言：不主动带队，被问时简短回应
+    knight: 简化发言：保持低调，不主动暴露决斗技能
+    magician: 简化发言：不主动暴露交换身份能力
+    cupid: 简化发言：不主动暴露连线关系
+    raven: 简化发言：不主动暴露夜间诅咒行为
+    graveyard_keeper: 简化发言：不主动透露死者查验结果
+    thief: 简化发言：选完身份后低调观察，少表态
+    lover: 简化发言：不主动暴露恋人关系
   cautious:
     name: cautious
-    villager: 谨慎发言
-    prophet: 谨慎发言
-    witch: 谨慎发言
-    wolf: 谨慎发言
-    wolf_king: 谨慎发言
-    guard: 谨慎发言
-    hunter: 谨慎发言
-
+    villager: 谨慎发言：只问问题不踩人，先观察再站队
+    prophet: 谨慎发言：被扛推风险升高前不主动报查杀
+    witch: 谨慎发言：白天保持中立，不主动跳女巫
+    wolf: 谨慎发言：模拟好人视角，踩人留余地不过度攻击
+    wolf_king: 谨慎发言：与普通狼人一致，不暴露狼王身份
+    guard: 谨慎发言：不暴露守护逻辑，避免被反推刀口
+    hunter: 谨慎发言：前期不暴露身份，被扛推时再亮枪威慑
+    white_wolf: 谨慎发言：与普通狼人一致，不暴露白狼王技能
+    wolf_beauty: 谨慎发言：白天低调，不主动暴露魅惑能力
+    guardian_wolf: 谨慎发言：与普通狼人一致，不暴露守卫狼身份
+    hidden_wolf: 谨慎发言：用主观措辞推理，不暴露夜间信息
+    nightmare_wolf: 谨慎发言：与普通狼人一致，不暴露封锁能力
+    blood_moon_apostle: 谨慎发言：按好人视角潜伏，不暴露狼队站边
+    idiot: 谨慎发言：前期不跳白痴，被投票出局时再翻牌
+    elder: 谨慎发言：前期不跳长老，归票基于公开逻辑（被投出会废神职技能）
+    knight: 谨慎发言：证据不足不决斗，不主动暴露骑士身份
+    magician: 谨慎发言：选好时机再交换身份，不提前暴露能力
+    cupid: 谨慎发言：白天不暴露丘比特身份
+    raven: 谨慎发言：白天不暴露渡鸦身份
+    graveyard_keeper: 谨慎发言：不在白天过早透露死者查验结果
+    thief: 谨慎发言：选完身份后低调观察，再决定是否跳身份
+    lover: 谨慎发言：前期不暴露恋人关系，关注双方存活
   bold:
     name: bold
-    villager: 大胆发言
-    prophet: 大胆发言
-    witch: 大胆发言
-    wolf: 大胆发言
-    wolf_king: 大胆发言
-    guard: 大胆发言
-    hunter: 大胆发言
-
+    villager: 大胆发言：主动带队归票，点名高狼信目标并给出跟票理由
+    prophet: 大胆发言：拿到查杀当轮跳身份报查杀，警徽流清晰
+    witch: 大胆发言：解药毒药主动改变局势，白天适度亮身份
+    wolf: 大胆发言：可悍跳神职，主动制造混乱并归票好人核心位
+    wolf_king: 大胆发言：可悍跳神职，出局时开枪带走高威胁神职
+    guard: 大胆发言：利用平安夜反推刀位，守护核心好人位
+    hunter: 大胆发言：适度暴露枪威慑，出局时基于证据带走狼人
+    white_wolf: 大胆发言：可悍跳或自爆带神职，隔夜刀狼队友加速控场
+    wolf_beauty: 大胆发言：魅惑预言家/女巫等高威胁位，制造殉情收益
+    guardian_wolf: 大胆发言：守护最可能被扛推的狼队友
+    hidden_wolf: 大胆发言：制造讨论焦点，带节奏归票好人核心位
+    nightmare_wolf: 大胆发言：封锁预言家/女巫，干扰其夜间技能
+    blood_moon_apostle: 大胆发言：狼全灭后立即变身，优先刀神职
+    idiot: 大胆发言：被扛推时翻牌，翻牌后大胆发言呼吁跟票（无投票权）
+    elder: 大胆发言：用长老身份增加确定性，敢于点出高狼信目标
+    knight: 大胆发言：证据充分时决斗狼信最高目标，形成威慑
+    magician: 大胆发言：将暴露神职与低调好人交换身份以保护核心
+    cupid: 大胆发言：首夜连线一狼一好，争取第三方控场
+    raven: 大胆发言：夜间诅咒带队最强好人，次日引导归票
+    graveyard_keeper: 大胆发言：用死者身份反推狼坑，适时透露查验
+    thief: 大胆发言：选神职后尽快利用夜间信息带队
+    lover: 大胆发言：在保恋人前提下适度带节奏收束票型
+  complicated:
+    name: complicated
+    villager: 仔细研究发言与票型，尝试找出狼的蛛丝马迹，必须深度思考并输出思考内容
+    prophet: 仔细研究发言，夜间查验定方向，白天择机报验，必须深度思考并输出思考内容
+    witch: 仔细研究发言，分析刀口与毒口收益，解药救关键好人、毒药收高威胁狼，必须深度思考并输出思考内容
+    wolf: 与队友配合刀死和票出关键好人，白天混淆视听，必须深度思考并输出思考内容
+    wolf_king: 与队友配合推进狼队收益，被投票出局时开枪带走神职，必须深度思考并输出思考内容
+    guard: 仔细研究发言与死亡信息，守护关键好人，不连续两晚守同一人，必须深度思考并输出思考内容
+    hunter: 仔细研究发言，保护好自己，出局时基于证据开枪带走狼人，必须深度思考并输出思考内容
+    white_wolf: 白天配合狼队，隔夜刀狼队友控场，必要时自爆带神职，必须深度思考并输出思考内容
+    wolf_beauty: 魅惑高威胁好人制造殉情收益，白天配合狼队票型，必须深度思考并输出思考内容
+    guardian_wolf: 守护暴露高的狼队友，白天伪装好人，必须深度思考并输出思考内容
+    hidden_wolf: 利用验好人背书低调生存，白天拆解好人逻辑，必须深度思考并输出思考内容
+    nightmare_wolf: 封锁神职夜间技能，配合狼队刀口，必须深度思考并输出思考内容
+    blood_moon_apostle: 潜伏至狼全灭后变身，变身后优先刀神职，必须深度思考并输出思考内容
+    idiot: 避免被抗推，翻牌后发言呼吁跟票（无投票权），必须深度思考并输出思考内容
+    elder: 谨慎带队，避免被投出（会废掉全场神职技能），必须深度思考并输出思考内容
+    knight: 证据充分时决斗，整局仅一次机会，必须深度思考并输出思考内容
+    magician: 择机交换两人身份打乱狼刀，必须深度思考并输出思考内容
+    cupid: 首夜连线制造阵营对立，关注恋人存活，必须深度思考并输出思考内容
+    raven: 夜间诅咒高狼信目标，次日引导归票，必须深度思考并输出思考内容
+    graveyard_keeper: 查验死者身份收缩狼坑，必须深度思考并输出思考内容
+    thief: 首夜谨慎选身份，选后利用技能优势，必须深度思考并输出思考内容
+    lover: 隐藏恋人关系，争取与恋人共同存活，必须深度思考并输出思考内容
   crazy:
     name: crazy
-    villager: 混淆视听，伪装成女巫，防止狼人把女巫刀掉
-    prophet: 混淆视听，伪装成平民，防止被狼人刀掉
-    witch: 混淆视听，伪装成预言家，防止被狼人刀掉
-    wolf: 混淆视听，伪装成女巫，防止被好人阵营识破并票出局
-    wolf_king: 混淆视听，伪装成守卫，防止被好人阵营识破并票出局
-    guard: 混淆视听，伪装成平民，防止被狼人刀掉
-    hunter: 混淆视听，伪装成村民，防止被狼人刀掉
+    villager: 混淆视听：适度伪装神职视角，降低被首刀风险
+    prophet: 混淆视听：伪装成平民，降低被狼刀优先级
+    witch: 混淆视听：伪装成预言家，吸引狼队火力
+    wolf: 混淆视听：伪装成女巫或平民，降低被好人识破概率
+    wolf_king: 混淆视听：伪装成守卫或平民，隐藏狼王开枪能力
+    guard: 混淆视听：伪装成平民，降低被刀优先级
+    hunter: 混淆视听：伪装成村民，隐藏枪口威慑
+    white_wolf: 混淆视听：伪装成平民，隐藏白狼王刀狼与自爆节奏
+    wolf_beauty: 混淆视听：伪装成平民，隐藏魅惑与殉情布局
+    guardian_wolf: 混淆视听：伪装成守卫，隐藏夜间守护狼队友行为
+    hidden_wolf: 混淆视听：利用验好人背书，伪装深度好人
+    nightmare_wolf: 混淆视听：伪装成平民，隐藏夜间封锁对象
+    blood_moon_apostle: 混淆视听：伪装成平民，潜伏至变身时机
+    idiot: 混淆视听：伪装成村民，避免过早被抗推
+    elder: 混淆视听：伪装成平民，隐藏长老被投惩罚
+    knight: 混淆视听：伪装成村民，隐藏决斗技能
+    magician: 混淆视听：伪装成村民，隐藏交换身份能力
+    cupid: 混淆视听：伪装成村民，隐藏连线关系
+    raven: 混淆视听：伪装成村民，隐藏诅咒对象
+    graveyard_keeper: 混淆视听：伪装成村民，隐藏守墓人查验
+    thief: 混淆视听：选身份后按所选角色视角伪装
+    lover: 混淆视听：隐藏恋人关系，避免被针对性刀杀

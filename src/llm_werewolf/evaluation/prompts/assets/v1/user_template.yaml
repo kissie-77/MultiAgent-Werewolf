@@ -1,0 +1,37 @@
+intro:
+  - "请基于下列复盘与规则草案，产出非模板化的 Prompt 提案与 Skill 卡片。"
+  - "优先修复 bad case；其次提炼胜方/高光行为的可复用策略。"
+
+replay_section_title: "## LLM 复盘摘要"
+replay_summary: "{replay_summary}"
+replay_suggestions_title: "### 复盘 Prompt 要点（供扩展，勿照抄）"
+replay_suggestion_line: "- {suggestion}"
+replay_risks_title: "### 复盘风险/缺口"
+replay_risk_line: "- {risk}"
+
+belief_section_title: "## 信念矩阵快照（Skill 的 belief_trigger_zh / wolf_camp_trigger_zh 必须据此编写）"
+
+bad_case_title: "## Bad Case（须优先转化为 bad_case_rule 提案）"
+bad_case_line: "- [{kind}] R{round_number} {player_id}: {description} → 建议: {suggestion}"
+
+rule_proposals_title: "## 规则层 Prompt 草案（可改写，勿保留「参考本局有效发言模式」套话）"
+rule_proposal_line: "- [{kind}] role={role} conf={confidence}: {patch_preview}"
+
+rule_skills_title: "## 规则层 Skill 草案（可重写 when_to_use / public_behavior）"
+rule_skill_line: "- role={role} id={skill_id}: when={when_preview}"
+
+mvp_golden_title: "## MVP 金句（可提炼为 mvp_golden_quote 或 Skill 话术示例）"
+mvp_golden_line: "- R{round_number} [{kind}]: {excerpt}"
+
+meta:
+  winner_camp: "胜负: {winner_camp}"
+  prompt_version: "Prompt 版本: {prompt_version}"
+
+json_reminder: |
+  请严格以 JSON 回复，顶层字段: prompt_proposals, skills, extraction_notes。
+  prompt_proposals 每项字段: prompt_role_key, kind, target_layer, suggested_patch_text_zh, rationale, confidence_score, evidence_round, evidence_excerpt。
+  skills 每项字段: prompt_role_key, title_zh, when_to_use, belief_trigger_zh, wolf_camp_trigger_zh, public_behavior, avoid, rationale, quality_passed, source_player_id, evidence_round, evidence_phase。
+
+plain_json_fallback: |
+  请不要调用工具，直接输出一个严格 JSON 对象，字段: prompt_proposals, skills, extraction_notes。
+  不要输出 Markdown、解释或额外文字。

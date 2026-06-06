@@ -26,7 +26,8 @@ def test_role_specific_style_plan_strategy() -> None:
 
     assert plan["name"] == "wolf_skeptical"
     assert "wolf" in plan
-    assert "狼人质疑派打法" in plan["wolf"]
+    assert "狼人质疑派" in plan["wolf"]
+    assert "质疑" in plan["wolf"]
 
 
 def test_default_role_style_plan_names() -> None:

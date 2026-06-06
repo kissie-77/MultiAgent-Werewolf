@@ -35,4 +35,7 @@ def test_plan_bundle_and_plan_strategies() -> None:
         "wolf_coordinator",
     ]
     plan = PlanStrategies.get_plan_by_name("wolf_skeptical")
-    assert "狼人质疑派打法" in plan["wolf"]
+    assert "狼人质疑派" in plan["wolf"]
+    assert "graveyard_keeper" in bundle.plans["default"]
+    assert len(bundle.plans) == 6
+    assert "bold" in bundle.plans and "white_wolf" in bundle.plans["bold"]

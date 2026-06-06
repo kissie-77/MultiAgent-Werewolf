@@ -1,0 +1,30 @@
+{
+  "schema": "role_version_manifest_v1",
+  "default_prompt_version": "latest",
+  "default_skill_version": "v1",
+  "prompt_versions": {},
+  "skill_versions": {
+    "blood_moon_apostle": "v1",
+    "cupid": "v1",
+    "elder": "v1",
+    "graveyard_keeper": "v1",
+    "guard": "v1",
+    "guardian_wolf": "v1",
+    "hidden_wolf": "v1",
+    "hunter": "v1",
+    "idiot": "v1",
+    "knight": "v1",
+    "lover": "v1",
+    "magician": "v1",
+    "nightmare_wolf": "v1",
+    "prophet": "v1",
+    "raven": "v1",
+    "thief": "v1",
+    "villager": "v1",
+    "white_wolf": "v1",
+    "witch": "v1",
+    "wolf": "v1",
+    "wolf_beauty": "v1",
+    "wolf_king": "v1"
+  }
+}

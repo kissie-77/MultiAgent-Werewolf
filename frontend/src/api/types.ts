@@ -550,12 +550,18 @@ export interface BackendShareReplayData {
 }
 
 // --- Start game (mirrors backend StartGameRequest / StartGameResponse) ---
+export interface HumanSeatSpec {
+  seat: number;
+  role?: string | null;
+}
+
 export interface StartGameRequest {
   config_id?: string;
   participation?: string;
   rules?: string;
   player_count?: number;
   badge_flow?: boolean;
+  human?: HumanSeatSpec;
 }
 
 export interface StartGameResponse {
@@ -569,5 +575,35 @@ export interface StartGameResponse {
   replay_page_path: string;
   player_count?: number | null;
   badge_flow?: boolean;
+  player_token?: string | null;
+  stream_path?: string | null;
+}
+
+// --- Human-vs-AI input bridge (mirrors backend HumanInputBroker / route) ---
+// `kind` matches HumanInteractiveAgent decision kinds; `buildHumanPayload`
+// (lib/humanInput.ts) folds the UI selection into the normalized `payload` text.
+export type HumanInputKind = "seat" | "multi" | "yesno" | "witch" | "speech";
+
+export interface AwaitingInputEvent {
+  event_type: "awaiting_input";
+  seat: number;
+  request_id: string;
+  kind: HumanInputKind;
+  prompt: string;
+  valid_targets: number[];
+  deadline?: number | null;
+}
+
+export interface HumanInputRequest {
+  token: string;
+  request_id: string;
+  kind: HumanInputKind;
+  payload: string;
+}
+
+export interface HumanInputResponse {
+  run_id: string;
+  accepted: boolean;
+  message?: string | null;
 }
 

@@ -15,6 +15,8 @@ import {
   RunListPageData,
   StartGameRequest,
   StartGameResponse,
+  HumanInputRequest,
+  HumanInputResponse,
   GameStatusResponse,
   BackendReplayPageData,
   BackendModelsPageData,
@@ -74,6 +76,13 @@ export class ApiClient {
 
   static async startGame(req: StartGameRequest): Promise<StartGameResponse> {
     return this.post<StartGameResponse>("/api/v1/games/start", req);
+  }
+
+  static async sendInput(runId: string, body: HumanInputRequest): Promise<HumanInputResponse> {
+    return this.post<HumanInputResponse>(
+      `/api/v1/games/${encodeURIComponent(runId)}/input`,
+      body
+    );
   }
 
   static async getGameStatus(runId: string, source = "runs"): Promise<GameStatusResponse> {

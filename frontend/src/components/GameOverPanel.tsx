@@ -1,9 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Player, GameState } from "../types";
 import { useGameStore } from "../store";
-import { Trophy, Star, Skull, Heart, Shield, RefreshCw, Eye, Flame, ShieldAlert, Award, LogOut, Users, BrainCircuit } from "lucide-react";
+import { Trophy, Star, Skull, Heart, Shield, RefreshCw, Eye, Flame, ShieldAlert, Award, LogOut, Users, BrainCircuit, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
+import { ApiClient } from "../api/client";
+import { isPostGameReady, replayPathFor } from "../lib/settlement";
+
+const POST_GAME_POLL_INTERVAL_MS = 2500;
 
 // Helper function to calculate MVP based on game events
 function calculateMVP(gameState: GameState): Player {
@@ -75,9 +79,43 @@ interface GameOverPanelProps {
   gameState: GameState;
   onRestart: (role: "预言家" | "女巫" | "猎人" | "狼人" | "村民") => void;
   onExit: () => void;
+  /** Backend run id for spectated/web games; enables real post-game polling + replay link. */
+  runId?: string | null;
 }
 
-export default function GameOverPanel({ gameState, onRestart, onExit }: GameOverPanelProps) {
+export default function GameOverPanel({ gameState, onRestart, onExit, runId }: GameOverPanelProps) {
+  const [postGameReady, setPostGameReady] = useState(false);
+
+  // For backend-backed runs, poll game status until post-game artifacts land,
+  // then enable the real deep-replay link. Local games (no runId) skip this.
+  useEffect(() => {
+    if (!runId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const poll = async () => {
+      try {
+        const status = await ApiClient.getGameStatus(runId);
+        if (cancelled) return;
+        if (isPostGameReady(status)) {
+          setPostGameReady(true);
+          return; // ready — stop polling
+        }
+      } catch {
+        // transient error (run still settling) — keep polling
+      }
+      if (!cancelled) {
+        timer = setTimeout(poll, POST_GAME_POLL_INTERVAL_MS);
+      }
+    };
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [runId]);
+
   if (!gameState || !gameState.winner) return null;
 
   const mvp = calculateMVP(gameState);
@@ -369,13 +407,34 @@ export default function GameOverPanel({ gameState, onRestart, onExit }: GameOver
             重铸星盘 ∙ 狼人开局
           </button>
 
-          <Link
-            to={`/replay/run-gameover-${gameState.winner?.toLowerCase()}`}
-            className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-950 bg-yellow-500 hover:bg-yellow-400 border border-yellow-600 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 text-center font-bold"
-          >
-            <BrainCircuit className="w-3.5 h-3.5 animate-pulse" />
-            查看本局高维深度复盘
-          </Link>
+          {runId ? (
+            postGameReady ? (
+              <Link
+                to={replayPathFor(runId)}
+                className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-950 bg-yellow-500 hover:bg-yellow-400 border border-yellow-600 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 text-center font-bold"
+              >
+                <BrainCircuit className="w-3.5 h-3.5 animate-pulse" />
+                查看本局高维深度复盘
+              </Link>
+            ) : (
+              <span
+                aria-disabled="true"
+                title="复盘数据生成中，请稍候…"
+                className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-400 bg-zinc-900 border border-zinc-700 rounded shadow-lg cursor-wait opacity-70 flex items-center gap-1.5 text-center font-bold"
+              >
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                深度复盘生成中…
+              </span>
+            )
+          ) : (
+            <Link
+              to={`/replay/run-gameover-${gameState.winner?.toLowerCase()}`}
+              className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-950 bg-yellow-500 hover:bg-yellow-400 border border-yellow-600 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 text-center font-bold"
+            >
+              <BrainCircuit className="w-3.5 h-3.5 animate-pulse" />
+              查看本局高维深度复盘
+            </Link>
+          )}
 
           <button
             onClick={onExit}

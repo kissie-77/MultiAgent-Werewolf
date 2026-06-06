@@ -78,7 +78,7 @@ export default function GameApp() {
 
       {/* GameOver Panel Overlay */}
       {gameState?.phase === "GAME_OVER" && (
-        <GameOverPanel gameState={gameState} onRestart={resetGame} onExit={handleExitGame} />
+        <GameOverPanel gameState={gameState} onRestart={resetGame} onExit={handleExitGame} runId={runId} />
       )}
 
       {/* 2D Overlay Interface */}

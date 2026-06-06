@@ -408,6 +408,31 @@ export interface RunListPageData {
   runs: Paginated<RunSummary>;
 }
 
+// --- Game status (mirrors backend GameSnapshot / GameStatusResponse) ---
+export interface GameSnapshot {
+  phase: string | null;
+  round_number: number;
+  winner_camp: "werewolf" | "villager" | null;
+  is_ended: boolean;
+  sheriff_id: string | null;
+  alive_count: number;
+  dead_count: number;
+  event_count: number;
+}
+
+export interface GameStatusResponse {
+  run_id: string;
+  source: string;
+  status: string;
+  snapshot: GameSnapshot | null;
+  error: string | null;
+  result_text: string | null;
+  has_post_game: boolean;
+  has_replay: boolean;
+  post_game_status: string | null;
+  alert_count: number | null;
+}
+
 // --- Start game (mirrors backend StartGameRequest / StartGameResponse) ---
 export interface StartGameRequest {
   config_id?: string;

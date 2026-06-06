@@ -14,7 +14,8 @@ import {
   StrategyPageData,
   RunListPageData,
   StartGameRequest,
-  StartGameResponse
+  StartGameResponse,
+  GameStatusResponse
 } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -67,6 +68,12 @@ export class ApiClient {
 
   static async startGame(req: StartGameRequest): Promise<StartGameResponse> {
     return this.post<StartGameResponse>("/api/v1/games/start", req);
+  }
+
+  static async getGameStatus(runId: string, source = "runs"): Promise<GameStatusResponse> {
+    return this.get<GameStatusResponse>(
+      `/api/v1/games/${encodeURIComponent(runId)}/status?source=${encodeURIComponent(source)}`
+    );
   }
 
   static async getHomePageData(): Promise<HomePageData> {

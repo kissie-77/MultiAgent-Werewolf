@@ -56,6 +56,9 @@ interface GameStore {
 
   // Live spectate (SSE god-view)
   spectateSource: EventSource | null;
+  insightBeliefs: import("./api/insightTypes").BeliefSnapshot[] | null;
+  insightVote: import("./api/insightTypes").VoteIntentionSnapshot | null;
+  spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
   connectSpectate: (runId: string) => void;
   disconnectSpectate: () => void;
 }
@@ -370,27 +373,46 @@ export const useGameStore = create<GameStore>((set, get) => ({
   toggleAutoPlay: () => set((state) => ({ isAutoPlaying: !state.isAutoPlaying })),
 
   spectateSource: null,
+  insightBeliefs: null,
+  insightVote: null,
+  spectateRoster: null,
   connectSpectate: (runId) => {
     get().disconnectSpectate();
-    // lazy import to avoid circular deps at module load
-    import("./lib/gameReducer").then(({ initialSpectateState, reduceEvent }) => {
-      import("./api/sse").then(({ streamUrl }) => {
+    set({ insightBeliefs: null, insightVote: null, spectateRoster: null });
+    Promise.all([import("./lib/gameReducer"), import("./api/sse"), import("./lib/insightMap")]).then(
+      ([{ initialSpectateState, reduceEvent }, { streamUrl }, { mapBeliefEvent, mapVoteEvent }]) => {
         set({ state: initialSpectateState(), isLoading: false });
         const es = new EventSource(streamUrl(runId, "god"));
-        const onMsg = (e: MessageEvent) => {
+
+        // Named "snapshot" frame: inject event_type so the reducer's snapshot
+        // case fires (roster -> seats), and stash the god roster for insight.
+        es.addEventListener("snapshot", (e: MessageEvent) => {
+          try {
+            const snap = JSON.parse(e.data);
+            const cur = get().state ?? initialSpectateState();
+            set({
+              state: reduceEvent(cur, { ...snap, event_type: "snapshot" }),
+              spectateRoster: Array.isArray(snap.roster) ? snap.roster : null,
+            });
+          } catch (err) { console.error("bad snapshot frame", err); }
+        });
+
+        // Unnamed game/insight events (event_type lives inside data JSON).
+        es.onmessage = (e: MessageEvent) => {
           try {
             const ev = JSON.parse(e.data);
             const cur = get().state ?? initialSpectateState();
             set({ state: reduceEvent(cur, ev) });
+            if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
+            else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
           } catch (err) { console.error("bad sse event", err); }
         };
-        es.addEventListener("snapshot", onMsg);
-        es.onmessage = onMsg; // default (unnamed events carry event_type in data)
+
         es.addEventListener("end", () => { get().disconnectSpectate(); });
-        es.onerror = () => { /* EventSource auto-reconnects; nothing to do */ };
+        es.onerror = () => { /* EventSource auto-reconnects */ };
         set({ spectateSource: es });
-      });
-    });
+      },
+    );
   },
   disconnectSpectate: () => {
     const es = get().spectateSource;

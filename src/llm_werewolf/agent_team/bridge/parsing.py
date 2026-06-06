@@ -7,8 +7,10 @@ from typing import TYPE_CHECKING
 
 from llm_werewolf.game_runtime.support.seat import resolve_player_by_seat
 from llm_werewolf.strategy.contracts.decisions import (
+    _SCHEMA_LABEL_PROBE,
     SpeechDecision,
     extract_public_text,
+    split_labeled_speech,
     normalize_speech_decision,
 )
 
@@ -66,8 +68,18 @@ def parse_multi_target_selection(
 
 def parse_speech(response: str) -> SpeechDecision:
     """将模型原始文本拆分为公开发言与私人推理。"""
-    private_blocks = re.findall(r"\{([^}]*)\}", response, flags=re.S)
-    private_thought = "\n".join(b.strip() for b in private_blocks if b.strip()) or None
+    # 遗留约定：{...} 块为私域推理。但 JSON 倾倒 {"public_speech":...} 含 Schema 标签，
+    # 不能当作私域，否则会把公开发言一起吞进 private。
+    brace_private = "\n".join(
+        b.strip()
+        for b in re.findall(r"\{([^}]*)\}", response, flags=re.S)
+        if b.strip() and not _SCHEMA_LABEL_PROBE.search(b)
+    )
+    # 模型把 private_thought 作为纯文本/JSON 标签写进正文时，也回收为私域推理。
+    label_private = None
+    if _SCHEMA_LABEL_PROBE.search(response):
+        _, label_private = split_labeled_speech(response)
+    private_thought = "\n".join(p for p in (brace_private, label_private) if p) or None
     decision = SpeechDecision.model_construct(
         public_speech=extract_public_text(response), private_thought=private_thought
     )

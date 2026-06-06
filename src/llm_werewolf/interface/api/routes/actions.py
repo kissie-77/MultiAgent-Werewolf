@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+import json
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import Query, Depends, APIRouter, HTTPException
+from fastapi import Query, Depends, Request, APIRouter, HTTPException
+from sse_starlette.sse import EventSourceResponse
 
 from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir, get_eval_runs_dir
 from llm_werewolf.interface.api.models import ApiResponse
@@ -22,8 +24,20 @@ from llm_werewolf.interface.api.models.actions import (
     TriggerPostGameResponse,
 )
 from llm_werewolf.interface.api.services.config import compare_models
+from llm_werewolf.interface.api.services.replay import extract_game_snapshot
 from llm_werewolf.interface.api.services.start_modes import build_start_modes
+from llm_werewolf.interface.api.services.event_stream import (
+    get_broadcaster,
+    event_visible_for,
+    read_events_after,
+)
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from collections.abc import AsyncIterator
+
+    from llm_werewolf.interface.api.services.event_stream import EventBroadcaster
 
 router = APIRouter(tags=["actions"])
 
@@ -179,3 +193,93 @@ async def trigger_post_game(
 def compare_models_post(body: ModelCompareRequest) -> ApiResponse[ModelCompareResponse]:
     compare = compare_models(body.ids)
     return ApiResponse(data=ModelCompareResponse(compare=compare))
+
+
+def _count_events(run_dir: Path) -> int:
+    path = run_dir / "events.jsonl"
+    if not path.is_file():
+        return 0
+    with path.open("r", encoding="utf-8") as fh:
+        return sum(1 for line in fh if line.strip())
+
+
+def _sse(event: dict) -> dict:
+    """Format an enriched event dict as an EventSourceResponse message."""
+    return {
+        "id": str(event.get("event_id", "")),
+        "event": str(event.get("event_type", "message")),
+        "data": json.dumps(event, ensure_ascii=False),
+    }
+
+
+async def _stream_events(
+    run_id: str,
+    run_dir: Path,
+    request: Request,
+    broadcaster: EventBroadcaster | None,
+    *,
+    view: str,
+    seat: int | None,
+    last_event_id: int,
+) -> AsyncIterator[dict]:
+    """Yield SSE frames: snapshot, replayed events, then live events until close."""
+    # 1) first frame: coarse snapshot
+    try:
+        snap = extract_game_snapshot(run_dir).model_dump()
+    except Exception:  # pragma: no cover - snapshot best-effort
+        snap = {}
+    yield {"event": "snapshot", "data": json.dumps(snap, ensure_ascii=False)}
+
+    # 2) replay already-persisted events after last_event_id
+    for ev in read_events_after(run_dir, last_event_id):
+        if event_visible_for(ev, view=view, seat=seat):
+            yield _sse(ev)
+
+    # 3) if the run is live, stream new events until it closes
+    if broadcaster is not None and not broadcaster.closed:
+        replayed = max(last_event_id, _count_events(run_dir))
+        async for ev in broadcaster.subscribe():
+            if ev.get("event_id", 0) <= replayed:
+                continue
+            if await request.is_disconnected():
+                break
+            if event_visible_for(ev, view=view, seat=seat):
+                yield _sse(ev)
+
+    yield {"event": "end", "data": json.dumps({"run_id": run_id})}
+
+
+@router.get("/games/{run_id}/stream")
+async def stream_game(
+    run_id: str,
+    request: Request,
+    view: Annotated[str, Query(pattern="^(god|seat)$")] = "god",
+    seat: Annotated[int | None, Query(ge=1, le=20)] = None,
+    last_event_id: Annotated[int, Query(ge=0)] = 0,
+    runs_dir=Depends(get_runs_dir),
+    eval_runs_dir=Depends(get_eval_runs_dir),
+) -> EventSourceResponse:
+    run_dir = runs_dir / run_id
+    if not run_dir.is_dir():
+        alt = eval_runs_dir / run_id
+        run_dir = alt if alt.is_dir() else run_dir
+    if not run_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+
+    # Honor the SSE reconnect header if the client sent one.
+    header_id = request.headers.get("last-event-id")
+    if header_id and header_id.isdigit():
+        last_event_id = int(header_id)
+
+    broadcaster = get_broadcaster(run_id)
+    return EventSourceResponse(
+        _stream_events(
+            run_id,
+            run_dir,
+            request,
+            broadcaster,
+            view=view,
+            seat=seat,
+            last_event_id=last_event_id,
+        )
+    )

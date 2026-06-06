@@ -143,7 +143,7 @@ export default function GameApp() {
 
           </div>
 
-          <InsightDock runId={null} />
+          <InsightDock runId={runId} />
         </div>
 
       </div>

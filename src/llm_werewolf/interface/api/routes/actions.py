@@ -12,7 +12,9 @@ from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir, get_e
 from llm_werewolf.interface.api.models import ApiResponse
 from llm_werewolf.interface.api.models.actions import (
     PageActionSpec,
+    HumanInputRequest,
     StartGameRequest,
+    HumanInputResponse,
     StartGameResponse,
     ActionSpecResponse,
     CancelGameResponse,
@@ -32,6 +34,7 @@ from llm_werewolf.interface.api.services.event_stream import (
     read_events_after,
 )
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+from llm_werewolf.interface.api.services.human_input import get_input_broker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -167,6 +170,34 @@ async def cancel_game(run_id: str) -> ApiResponse[CancelGameResponse]:
     if data is None:
         raise HTTPException(status_code=404, detail=f"Active session not found: {run_id}")
     return ApiResponse(data=data)
+
+
+@router.post("/games/{run_id}/input")
+async def submit_human_input(
+    run_id: str,
+    body: HumanInputRequest,
+) -> ApiResponse[HumanInputResponse]:
+    """Resolve a suspended web-human decision identified by ``request_id``.
+
+    The per-seat ``token`` (minted by ``start_game``) gates submission so only the seat
+    owner can answer. Returns 404 for an unknown run, 403 for a bad token, and 409 when
+    no broker is registered or the ``request_id`` is unknown/already consumed/timed out.
+    """
+    session = game_session_manager._sessions.get(run_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Active session not found: {run_id}")
+    if body.token != session.player_token:
+        raise HTTPException(status_code=403, detail="Invalid seat token")
+    broker = get_input_broker(run_id)
+    if broker is None:
+        raise HTTPException(status_code=409, detail="No input broker for this run")
+    accepted = broker.submit(request_id=body.request_id, payload=body.payload)
+    if not accepted:
+        raise HTTPException(
+            status_code=409,
+            detail="Unknown, already-consumed, or expired request_id",
+        )
+    return ApiResponse(data=HumanInputResponse(run_id=run_id, accepted=True))
 
 
 @router.post("/runs/{run_id}/post-game")

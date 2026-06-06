@@ -124,6 +124,19 @@ class StartGameResponse(BaseModel):
     stream_path: str | None = None
 
 
+class HumanInputRequest(BaseModel):
+    token: str = Field(..., description="Per-seat token from StartGameResponse.player_token")
+    request_id: str = Field(..., description="awaiting_input request id the browser is answering")
+    kind: str = Field(..., description="Decision kind: seat|multi|yesno|witch|speech")
+    payload: str = Field(..., description="Normalized decision text (bridge contract)")
+
+
+class HumanInputResponse(BaseModel):
+    run_id: str
+    accepted: bool
+    message: str | None = None
+
+
 class GameStatusResponse(BaseModel):
     run_id: str
     source: str = "runs"

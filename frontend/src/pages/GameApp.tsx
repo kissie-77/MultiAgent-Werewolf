@@ -9,13 +9,13 @@ import GameSetup from "../components/GameSetup";
 import GameOverPanel from "../components/GameOverPanel";
 import InsightDock from "../components/InsightDock";
 import { useGameStore } from "../store";
+import { initialSpectateState } from "../lib/gameReducer";
 import { Skull, ShieldAlert, ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
 import CastSkillOverlay from "../components/CastSkillOverlay";
 import AlertOverlays from "../components/AlertOverlays";
 
 export default function GameApp() {
-  const fetchState = useGameStore((state) => state.fetchState);
   const gameState = useGameStore((state) => state.state);
   const resetGame = useGameStore((state) => state.resetGame);
   const exitGame = useGameStore((state) => state.exitGame);
@@ -32,8 +32,12 @@ export default function GameApp() {
       connectSpectate(runId);
       return () => disconnectSpectate();
     }
-    fetchState();
-  }, [runId, connectSpectate, disconnectSpectate, fetchState]);
+    // No run_id: the legacy mock /api/game/state is gone — show the setup screen
+    // (START_SCREEN) instead of POSTing to a dead endpoint and crashing.
+    if (!useGameStore.getState().state) {
+      useGameStore.setState({ state: initialSpectateState() });
+    }
+  }, [runId, connectSpectate, disconnectSpectate]);
 
   if (!gameState) {
     return (

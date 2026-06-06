@@ -1,10 +1,79 @@
 import React, { useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Line } from "@react-three/drei";
+import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "../store";
 
-// Camera controller component to smoothly pan and track the active speaker
+function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
+  const { scene } = useThree();
+  
+  const theme = React.useMemo(() => {
+     const bg = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02";
+     const ambientColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c";
+     const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38;
+     const dirColor = isMurderAlert ? "#dc2626" : isNight ? "#d946ef" : "#ff6a00";
+     const dirPos = isNight ? new THREE.Vector3(-10, 14, -5) : new THREE.Vector3(10, 15, 5);
+     const dirIntensity = isNight ? 4.5 : 5.5;
+
+     return {
+       bg: new THREE.Color(bg),
+       ambientColor: new THREE.Color(ambientColor),
+       ambientIntensity,
+       dirColor: new THREE.Color(dirColor),
+       dirPos,
+       dirIntensity
+     };
+  }, [isNight, isMurderAlert]);
+
+  const ambientRef = useRef<THREE.AmbientLight>(null);
+  const dirRef = useRef<THREE.DirectionalLight>(null);
+
+  useEffect(() => {
+    scene.fog = new THREE.Fog(theme.bg, 10, 30);
+    scene.background = theme.bg.clone();
+    return () => {
+      scene.fog = null;
+      scene.background = null;
+    };
+  }, [scene]);
+
+  useFrame((state, delta) => {
+    const s = 1 - Math.exp(-3 * delta); // Smooth framerate independent decay
+
+    // Background & Fog Lerp
+    if (scene.background instanceof THREE.Color) {
+      scene.background.lerp(theme.bg, s);
+    }
+    if (scene.fog && 'color' in scene.fog) {
+      (scene.fog as THREE.Fog).color.lerp(theme.bg, s);
+    }
+
+    // Ambient Light Lerp
+    if (ambientRef.current) {
+      ambientRef.current.color.lerp(theme.ambientColor, s);
+      ambientRef.current.intensity = THREE.MathUtils.lerp(ambientRef.current.intensity, theme.ambientIntensity, s);
+    }
+
+    // Directional Light Lerp
+    if (dirRef.current) {
+      dirRef.current.color.lerp(theme.dirColor, s);
+      dirRef.current.intensity = THREE.MathUtils.lerp(dirRef.current.intensity, theme.dirIntensity, s);
+      dirRef.current.position.lerp(theme.dirPos, s);
+    }
+  });
+
+  return (
+    <>
+      <ambientLight ref={ambientRef} />
+      <directionalLight
+        ref={dirRef}
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+      />
+    </>
+  );
+}
 function CameraTracker() {
   const { camera } = useThree();
   const gameState = useGameStore((state) => state.state);
@@ -26,7 +95,7 @@ function CameraTracker() {
       // Find speaker position
       const speakerIndex = players.findIndex((p) => p.id === currentSpeakerId);
       if (speakerIndex !== -1) {
-        const total = players.length;
+        const total = Math.max(1, players.length);
         const angle = (speakerIndex / total) * Math.PI * 2;
         const radius = Math.max(5, total * 0.72); // Dynamic radius
 
@@ -47,6 +116,11 @@ function CameraTracker() {
   }, [currentSpeakerId, players, phase]);
 
   useFrame((state, delta) => {
+    // MathUtils.damp parameters: (current, target, lambda, dt)
+    // lambda: smoothing factor (higher = faster)
+    const dampingSpeedPos = 3.5;
+    const dampingSpeedLookAt = 4.0;
+    
     if (phase === "START_SCREEN") {
       // Background orbital slow rotation motion
       const time = state.clock.getElapsedTime();
@@ -58,17 +132,36 @@ function CameraTracker() {
       const x = Math.sin(time * orbitSpeed) * orbitRadius;
       const z = Math.cos(time * orbitSpeed) * orbitRadius;
 
-      camera.position.lerp(new THREE.Vector3(x, radius * 1.6, z), 0.05);
-      currentLookAt.current.lerp(new THREE.Vector3(0, 0.4, 0), 0.05);
-      camera.lookAt(currentLookAt.current);
-    } else {
-      // Smoothly step position
-      camera.position.lerp(targetCamPos.current, 0.05);
+      targetCamPos.current.set(x, radius * 1.6, z);
+      
+      // Calculate a local left-offset target based on camera vector 
+      // so the table visually shifts to the right of the screen
+      const dirVec = new THREE.Vector3().subVectors(new THREE.Vector3(0, 0.4, 0), targetCamPos.current).normalize();
+      const upVec = new THREE.Vector3(0, 1, 0);
+      const rightVec = new THREE.Vector3().crossVectors(dirVec, upVec).normalize();
+      
+      // Shift lookTarget slightly to the local left (which moves the visual center to the right)
+      // Use window.innerWidth to scale the offset roughly. If width < height, no offset.
+      let offsetScale = 0;
+      if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
+        offsetScale = radius * 0.8;
+      }
+      
+      const lookTarget = new THREE.Vector3(0, 0.4, 0).add(rightVec.multiplyScalar(-offsetScale));
+      targetLookAt.current.copy(lookTarget);
+    } 
 
-      // Smoothly step lookAt coordinate
-      currentLookAt.current.lerp(targetLookAt.current, 0.05);
-      camera.lookAt(currentLookAt.current);
-    }
+    // Smoothly step position frame-rate independently
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, targetCamPos.current.x, dampingSpeedPos, delta);
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, targetCamPos.current.y, dampingSpeedPos, delta);
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, targetCamPos.current.z, dampingSpeedPos, delta);
+
+    // Smoothly step lookAt coordinate
+    currentLookAt.current.x = THREE.MathUtils.damp(currentLookAt.current.x, targetLookAt.current.x, dampingSpeedLookAt, delta);
+    currentLookAt.current.y = THREE.MathUtils.damp(currentLookAt.current.y, targetLookAt.current.y, dampingSpeedLookAt, delta);
+    currentLookAt.current.z = THREE.MathUtils.damp(currentLookAt.current.z, targetLookAt.current.z, dampingSpeedLookAt, delta);
+    
+    camera.lookAt(currentLookAt.current);
   });
 
   return null;
@@ -77,9 +170,11 @@ function CameraTracker() {
 // Procedural texture for the trial array magic circle
 interface TrialSigilProps {
   tableRadius: number;
+  isNight: boolean;
+  isMurderAlert?: boolean;
 }
 
-function TrialSigil({ tableRadius }: TrialSigilProps) {
+function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
 
@@ -91,11 +186,13 @@ function TrialSigil({ tableRadius }: TrialSigilProps) {
     const ctx = canvas.getContext("2d");
     if (ctx) {
       // Dark gothic woodcut theme background
-      ctx.fillStyle = "#110b15";
+      ctx.fillStyle = "#050308";
       ctx.fillRect(0, 0, 512, 512);
 
       // Heavy hand-drawn outlines
-      ctx.strokeStyle = "#a855f7"; // purple glow
+      ctx.strokeStyle = isMurderAlert ? "#ef4444" : (isNight ? "#c084fc" : "#fbbf24"); // bright red or bright purple vs bright gold
+      ctx.shadowColor = isMurderAlert ? "#dc2626" : (isNight ? "#a855f7" : "#d97706");
+      ctx.shadowBlur = 15;
       ctx.lineWidth = 6;
 
       // Outer trial boundaries
@@ -103,24 +200,27 @@ function TrialSigil({ tableRadius }: TrialSigilProps) {
       ctx.arc(256, 256, 220, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.strokeStyle = "#3b0764";
+      ctx.strokeStyle = isMurderAlert ? "#991b1b" : (isNight ? "#4c1d95" : "#92400e");
       ctx.lineWidth = 14;
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.arc(256, 256, 240, 0, Math.PI * 2);
       ctx.stroke();
 
       // Double ring inner border
-      ctx.strokeStyle = "#ec4899"; // pink neon highlights
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = isMurderAlert ? "#fca5a5" : (isNight ? "#f472b6" : "#fef08a"); // light red/pink vs light yellow
+      ctx.shadowColor = isMurderAlert ? "#ef4444" : (isNight ? "#ec4899" : "#facc15");
+      ctx.shadowBlur = 12;
+      ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.arc(256, 256, 170, 0, Math.PI * 2);
       ctx.stroke();
 
       // Star of David / Hexagram trial pattern
-      ctx.strokeStyle = "#a855f7";
-      ctx.lineWidth = 4;
-      ctx.shadowColor = "#a855f7";
-      ctx.shadowBlur = 10;
+      ctx.strokeStyle = isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#f59e0b");
+      ctx.lineWidth = 5;
+      ctx.shadowColor = isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#f59e0b");
+      ctx.shadowBlur = 20;
 
       // Triangle 1
       ctx.beginPath();
@@ -139,8 +239,9 @@ function TrialSigil({ tableRadius }: TrialSigilProps) {
       ctx.stroke();
 
       // Ink engravings, mystical runes matching gamestate
-      ctx.fillStyle = "#facc15"; // neon yellow glow
-      ctx.shadowBlur = 5;
+      ctx.fillStyle = isMurderAlert ? "#fee2e2" : (isNight ? "#fde047" : "#ffedd5"); // neon yellow glow vs white-gold
+      ctx.shadowColor = isMurderAlert ? "#fca5a5" : (isNight ? "#facc15" : "#fed7aa");
+      ctx.shadowBlur = 15;
       ctx.font = "italic bold 18px 'Courier New', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -174,7 +275,7 @@ function TrialSigil({ tableRadius }: TrialSigilProps) {
       textureRef.current.needsUpdate = true;
     }
     canvasRef.current = canvas;
-  }, []);
+  }, [isNight, isMurderAlert]);
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.46, 0]}>
@@ -238,7 +339,7 @@ function ChestGem({ color }: { color: string }) {
   );
 }
 
-// Outer custom Hooded Figure component to render instead of the simple tablet
+// High quality Chess Piece component to render instead of the hooded figure
 interface HoodedFigureProps {
   isSpeaking: boolean;
   isUser: boolean;
@@ -246,175 +347,92 @@ interface HoodedFigureProps {
   playerId: number;
 }
 
-function HoodedFigure({ isSpeaking, isUser, isAlive, playerId }: HoodedFigureProps) {
+function ChessPiece({ isSpeaking, isUser, isAlive, playerId }: HoodedFigureProps) {
   const theme = getPlayerVisualTheme(playerId);
 
-  // Robe and cowl colors: User is indigo/purple, speaking is dark crimson wine, inactive is very dark charcoal
-  const robeColor = isSpeaking
-    ? "#3f0d1a" // dark speaking burgundy
-    : isUser
-      ? "#1e1145" // dark purple for user
-      : "#141416"; // dark slate charcoal for AI
+  const points = React.useMemo(() => {
+    const pts = [];
+    // Base
+    pts.push(new THREE.Vector2(0.001, 0));
+    for (let i = 0; i <= 5; i++) {
+      pts.push(new THREE.Vector2(0.4 + Math.cos((Math.PI / 2) * (i / 5)) * 0.03 - 0.03, 0.04 * (i / 5)));
+    }
+    pts.push(new THREE.Vector2(0.4, 0.08));
+    pts.push(new THREE.Vector2(0.32, 0.15));
+    pts.push(new THREE.Vector2(0.32, 0.2));
+    pts.push(new THREE.Vector2(0.24, 0.25));
+    
+    // Stem
+    pts.push(new THREE.Vector2(0.2, 0.4));
+    pts.push(new THREE.Vector2(0.16, 0.6));
+    pts.push(new THREE.Vector2(0.16, 0.7));
+    
+    // Collar
+    pts.push(new THREE.Vector2(0.26, 0.75));
+    pts.push(new THREE.Vector2(0.26, 0.82));
+    pts.push(new THREE.Vector2(0.14, 0.86));
+    
+    // Head Sphere
+    for (let i = 0; i <= 16; i++) {
+      const a = -Math.PI / 2 + (i / 16) * Math.PI;
+      const x = Math.max(0.001, Math.cos(a) * 0.22);
+      pts.push(new THREE.Vector2(x, 1.08 + Math.sin(a) * 0.22));
+    }
+    
+    // Finial (crown/nub)
+    pts.push(new THREE.Vector2(0.08, 1.3));
+    pts.push(new THREE.Vector2(0.08, 1.38));
+    pts.push(new THREE.Vector2(0.001, 1.4));
+    return pts;
+  }, []);
 
-  const glowColor = isSpeaking
-    ? "#10b981" // emerald green speak glow
+  const baseColor = isSpeaking 
+    ? theme.primaryAccent 
     : isUser
-      ? "#a855f7" // purple user accent
-      : "#ef4444"; // red warning eyes for default spectators
+      ? "#2e1065" // deep violet
+      : "#0f0f11"; // glossy dark slate
+
+  const materialProps = {
+    color: baseColor,
+    roughness: isSpeaking ? 0.05 : 0.1,
+    metalness: isSpeaking ? 0.4 : 0.8,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
+    transmission: isSpeaking ? 0.2 : 0, 
+    emissive: theme.primaryAccent,
+    emissiveIntensity: isSpeaking ? 0.7 : (isUser ? 0.2 : 0.05),
+  };
 
   return (
-    <group>
-      {/* Soft atmospheric breathing self-illuminated glow light source */}
-      <pointLight
-        position={[0, 0.65, 0.35]}
-        distance={2.4}
-        intensity={isSpeaking ? 0.8 : 0.45}
+    <group position={[0, 0.4, 0]}>
+       <pointLight
+        position={[0, 1.5, 0]}
+        distance={4.0}
+        intensity={isSpeaking ? 1.5 : 0.3}
         color={theme.primaryAccent}
       />
-
-      {/* 1. Robe/Body (tapered cloak cylinder) */}
-      <mesh position={[0, 0.45, 0]}>
-        <cylinderGeometry args={[0.13, 0.36, 0.9, 16]} />
-        <meshStandardMaterial 
-          color={robeColor} 
-          roughness={0.8} 
-          metalness={0.15}
-          emissive={theme.primaryAccent}
-          emissiveIntensity={0.15}
-        />
+      {/* Main body lathe */}
+      <mesh>
+        <latheGeometry args={[points, 64]} />
+        <meshPhysicalMaterial {...materialProps} />
       </mesh>
-      {/* Outline block for hand-drawn anime look */}
-      <mesh position={[0, 0.45, 0]} scale={[1.03, 1.01, 1.03]}>
-        <cylinderGeometry args={[0.13, 0.36, 0.9, 16]} />
-        <meshBasicMaterial color="#000000" wireframe />
+      
+      {/* Wireframe overlay for stylized anime/cel-shaded look */}
+      <mesh scale={[1.01, 1.01, 1.01]}>
+        <latheGeometry args={[points, 32]} />
+        <meshBasicMaterial color={isSpeaking ? "#ffffff" : "#000000"} wireframe transparent opacity={Math.max(0.08, isSpeaking ? 0.2 : 0)} />
       </mesh>
 
-      {/* Decorative Waist Sash (腰带/封条裙摆) */}
-      <mesh position={[0, 0.32, 0]} rotation={[0.04, 0, 0]}>
-        <cylinderGeometry args={[0.26, 0.28, 0.08, 16]} />
-        <meshStandardMaterial color={theme.beltColor} roughness={0.6} metalness={0.3} />
-      </mesh>
-      <mesh position={[0, 0.32, 0]} rotation={[0.04, 0, 0]} scale={[1.03, 1.03, 1.03]}>
-        <cylinderGeometry args={[0.26, 0.28, 0.08, 16]} />
-        <meshBasicMaterial color="#000000" wireframe />
-      </mesh>
-
-      {/* Ornamental Belt Buckle Core (核心皮带扣) */}
-      <mesh position={[0, 0.32, 0.28]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshStandardMaterial color="#ffffff" emissive={theme.secondaryAccent} emissiveIntensity={1.0} roughness={0.2} />
-      </mesh>
-      <mesh position={[0, 0.32, 0.28]} scale={[1.15, 1.15, 1.15]}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshBasicMaterial color="#000000" wireframe />
-      </mesh>
-
-      {/* 2. Crossed arms / thick sleeve block in front */}
-      <mesh position={[0, 0.52, 0.16]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.06, 0.06, 0.32, 8]} />
-        <meshStandardMaterial color={robeColor} roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 0.52, 0.16]} rotation={[0, 0, Math.PI / 2]} scale={[1.04, 1.04, 1.04]}>
-        <cylinderGeometry args={[0.06, 0.06, 0.32, 8]} />
-        <meshBasicMaterial color="#000000" wireframe />
-      </mesh>
-
-      {/* Sleeve Cuffs detailing matching player's primary accent */}
-      <mesh position={[-0.14, 0.52, 0.16]} rotation={[0, Math.PI / 2, 0]}>
-        <torusGeometry args={[0.062, 0.015, 6, 12]} />
-        <meshStandardMaterial color={theme.primaryAccent} roughness={0.3} metalness={0.7} />
-      </mesh>
-      <mesh position={[0.14, 0.52, 0.16]} rotation={[0, Math.PI / 2, 0]}>
-        <torusGeometry args={[0.062, 0.015, 6, 12]} />
-        <meshStandardMaterial color={theme.primaryAccent} roughness={0.3} metalness={0.7} />
-      </mesh>
-
-      {/* 3. Cape over shoulders / Cowl Collar */}
-      <mesh position={[0, 0.76, 0]}>
-        <sphereGeometry args={[0.23, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={robeColor} roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 0.76, 0]} scale={[1.04, 1.04, 1.04]}>
-        <sphereGeometry args={[0.23, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshBasicMaterial color="#000000" wireframe />
-      </mesh>
-
-      {/* Decorative Golden/Colorful High-Priest Neck Ring / Collar */}
-      <mesh position={[0, 0.78, 0]} rotation={[Math.PI / 2 + 0.1, 0, 0]}>
-        <torusGeometry args={[0.22, 0.018, 8, 24]} />
-        <meshStandardMaterial color={theme.primaryAccent} metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[0, 0.78, 0]} rotation={[Math.PI / 2 + 0.1, 0, 0]} scale={[1.04, 1.04, 1.04]}>
-        <torusGeometry args={[0.22, 0.018, 8, 24]} />
-        <meshBasicMaterial color="#000000" wireframe />
-      </mesh>
-
-      {/* 4. Head/Black Void face inside the cowl */}
-      <mesh position={[0, 0.98, 0.03]}>
-        <sphereGeometry args={[0.16, 16, 16]} />
-        <meshStandardMaterial color="#040405" roughness={0.95} />
-      </mesh>
-
-      {/* Animated Floating Magic Core Jewel (Spins in front of chest) */}
+      {/* Floating Magic Core Jewel (Spins in front of chest/body) */}
       {isAlive && <ChestGem color={theme.secondaryAccent} />}
-
-      {/* 5. Glowing magical eyes */}
-      {isAlive && (
-        <group>
-          <mesh position={[-0.05, 1.0, 0.15]}>
-            <sphereGeometry args={[0.016, 8, 8]} />
-            <meshStandardMaterial
-              color={glowColor}
-              emissive={glowColor}
-              emissiveIntensity={1.8}
-            />
-          </mesh>
-          <mesh position={[0.05, 1.0, 0.15]}>
-            <sphereGeometry args={[0.016, 8, 8]} />
-            <meshStandardMaterial
-              color={glowColor}
-              emissive={glowColor}
-              emissiveIntensity={1.8}
-            />
-          </mesh>
-        </group>
+      
+      {/* Halo/Ring above head if speaking */}
+      {isSpeaking && (
+        <mesh position={[0, 1.6, 0]} rotation={[Math.PI/2, 0, 0]}>
+          <torusGeometry args={[0.35, 0.015, 16, 64]} />
+          <meshBasicMaterial color={theme.secondaryAccent} />
+        </mesh>
       )}
-
-      {/* 6. Cowl / Hood shell surrounding head with custom inner lining color */}
-      <mesh position={[0, 0.98, 0.01]}>
-        <torusGeometry args={[0.16, 0.042, 8, 24]} />
-        <meshStandardMaterial 
-          color={robeColor} 
-          roughness={0.8}
-          emissive={theme.primaryAccent}
-          emissiveIntensity={0.1}
-        />
-      </mesh>
-      <mesh position={[0, 0.98, 0.01]} scale={[1.03, 1.03, 1.03]}>
-        <torusGeometry args={[0.16, 0.042, 8, 24]} />
-        <meshBasicMaterial color="#000000" wireframe />
-      </mesh>
-
-      {/* Contrast Edge Trim wrapping the cowl face opening */}
-      <mesh position={[0, 0.98, 0.02]}>
-        <torusGeometry args={[0.15, 0.01, 8, 24]} />
-        <meshBasicMaterial color={theme.primaryAccent} />
-      </mesh>
-
-      {/* Pointy tip of the hood at back */}
-      <mesh position={[0, 1.08, -0.09]} rotation={[Math.PI / 7, 0, 0]}>
-        <coneGeometry args={[0.13, 0.35, 12]} />
-        <meshStandardMaterial 
-          color={robeColor} 
-          roughness={0.8}
-          emissive={theme.primaryAccent}
-          emissiveIntensity={0.1}
-        />
-      </mesh>
-      <mesh position={[0, 1.08, -0.09]} rotation={[Math.PI / 7, 0, 0]} scale={[1.03, 1.03, 1.03]}>
-        <coneGeometry args={[0.13, 0.35, 12]} />
-        <meshBasicMaterial color="#000000" wireframe />
-      </mesh>
     </group>
   );
 }
@@ -465,26 +483,28 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPi
     <group position={[x, 0, z]}>
       {/* Stone Pillar / Obelisk Base */}
       <mesh position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[0.6, 0.7, 1.2, 6]} />
-        <meshStandardMaterial
+        <cylinderGeometry args={[0.6, 0.75, 1.2, 8]} />
+        <meshPhysicalMaterial
           color={stoneColor}
-          roughness={0.9}
-          metalness={0.1}
+          roughness={0.3}
+          metalness={0.8}
+          clearcoat={0.7}
+          clearcoatRoughness={0.1}
           wireframe={isSpeaking}
         />
       </mesh>
 
       {/* Heavy ink outline wireframe effect */}
       <mesh position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[0.61, 0.71, 1.21, 6]} />
-        <meshBasicMaterial color="#000000" wireframe />
+        <cylinderGeometry args={[0.61, 0.76, 1.21, 8]} />
+        <meshBasicMaterial color="#000000" wireframe transparent opacity={0.3} />
       </mesh>
 
       {/* Floating 3D Hooded Figure / Soul Sign of Life */}
       <group ref={ref}>
         {isAlive ? (
           <>
-            <HoodedFigure
+            <ChessPiece
               isSpeaking={isSpeaking}
               isUser={isUser}
               isAlive={isAlive}
@@ -522,7 +542,7 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPi
 }
 
 // Floating magical elements/embers colored by day/night setting
-function MagicalSparks({ isNight }: { isNight: boolean }) {
+function MagicalSparks({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
   const pointsRef = useRef<THREE.Points>(null);
   const count = 75;
   const positions = React.useMemo(() => {
@@ -535,7 +555,10 @@ function MagicalSparks({ isNight }: { isNight: boolean }) {
     return pos;
   }, []);
 
-  useFrame((state) => {
+  const targetColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#ef4444" : (isNight ? "#c084fc" : "#ff781f")), [isNight, isMurderAlert]);
+  const matRef = useRef<THREE.PointsMaterial>(null);
+
+  useFrame((state, delta) => {
     if (pointsRef.current) {
       const geo = pointsRef.current.geometry;
       const posAttr = geo.attributes.position as THREE.BufferAttribute;
@@ -543,7 +566,7 @@ function MagicalSparks({ isNight }: { isNight: boolean }) {
       for (let i = 0; i < count; i++) {
         let y = posAttr.getY(i);
         // Float upward with subtle speed
-        y += 0.02 + Math.sin(time + i) * 0.005;
+        y += delta * 1.5 + Math.sin(time + i) * delta * 0.5;
         if (y > 7.5) {
           y = -0.5; // Recycle from bottom
         }
@@ -551,14 +574,16 @@ function MagicalSparks({ isNight }: { isNight: boolean }) {
 
         // Gentle drift sideways
         let x = posAttr.getX(i);
-        x += Math.sin(time * 0.3 + i) * 0.008;
+        x += Math.sin(time * 0.3 + i) * delta * 0.5;
         posAttr.setX(i, x);
       }
       posAttr.needsUpdate = true;
     }
+    
+    if (matRef.current) {
+      matRef.current.color.lerp(targetColor, 1 - Math.exp(-3 * delta));
+    }
   });
-
-  const sparkColor = isNight ? "#c084fc" : "#ff781f"; // Magic Purple is Night, Hot Orange is Day!
 
   return (
     <points ref={pointsRef}>
@@ -569,7 +594,7 @@ function MagicalSparks({ isNight }: { isNight: boolean }) {
         />
       </bufferGeometry>
       <pointsMaterial
-        color={sparkColor}
+        ref={matRef}
         size={0.16}
         sizeAttenuation={true}
         transparent
@@ -581,13 +606,45 @@ function MagicalSparks({ isNight }: { isNight: boolean }) {
   );
 }
 
-// Glowing, rotating central core with pulsating light energy
-function CentralEnergyOrb({ isNight }: { isNight: boolean }) {
+function TableRim({ tableRadius, isNight, isMurderAlert }: { tableRadius: number, isNight: boolean, isMurderAlert?: boolean }) {
+  const targetWireColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#dc2626" : isNight ? "#a855f7" : "#ea580c"), [isNight, isMurderAlert]);
+  const targetSolidColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#ef4444" : isNight ? "#d946ef" : "#fbbf24"), [isNight, isMurderAlert]);
+  
+  const wireMatRef = useRef<THREE.MeshBasicMaterial>(null);
+  const solidMatRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  useFrame((state, delta) => {
+    const s = 1 - Math.exp(-3 * delta);
+    if (wireMatRef.current) wireMatRef.current.color.lerp(targetWireColor, s);
+    if (solidMatRef.current) solidMatRef.current.color.lerp(targetSolidColor, s);
+  });
+
+  return (
+    <>
+      <mesh position={[0, 0.2, 0]}>
+        <cylinderGeometry args={[tableRadius + 0.01, tableRadius + 0.21, 0.41, 64]} />
+        <meshBasicMaterial ref={wireMatRef} wireframe transparent opacity={0.3} />
+      </mesh>
+      <mesh position={[0, 0.4, 0]} rotation={[Math.PI/2, 0, 0]}>
+        <torusGeometry args={[tableRadius, 0.015, 16, 64]} />
+        <meshBasicMaterial ref={solidMatRef} />
+      </mesh>
+    </>
+  );
+}
+function CentralEnergyOrb({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const lightRef = useRef<THREE.PointLight>(null);
 
-  useFrame((state) => {
+  const targetLightColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#ff6a00")), [isNight, isMurderAlert]);
+  const targetMatColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#dc2626" : (isNight ? "#8b5cf6" : "#ea580c")), [isNight, isMurderAlert]);
+  const targetEmissiveColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#fca5a5" : (isNight ? "#f472b6" : "#fbbf24")), [isNight, isMurderAlert]);
+
+  const matRef = useRef<THREE.MeshStandardMaterial>(null);
+
+  useFrame((state, delta) => {
     const time = state.clock.getElapsedTime();
+    const s = 1 - Math.exp(-3 * delta); // Smooth lerp
     if (meshRef.current) {
       meshRef.current.rotation.x = time * 0.4;
       meshRef.current.rotation.y = time * 0.7;
@@ -596,21 +653,22 @@ function CentralEnergyOrb({ isNight }: { isNight: boolean }) {
       meshRef.current.scale.set(scale, scale, scale);
     }
     if (lightRef.current) {
-      // Extremely active glow pulsation
-      lightRef.current.intensity = (isNight ? 14.0 : 9.0) + Math.sin(time * 5) * 3.0;
+      // Extremely active glow pulsation combined with lerp
+      const targetIntensity = (isNight ? 14.0 : 9.0) + Math.sin(time * 5) * 3.0;
+      lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, targetIntensity, s);
+      lightRef.current.color.lerp(targetLightColor, s);
+    }
+    if (matRef.current) {
+      matRef.current.color.lerp(targetMatColor, s);
+      matRef.current.emissive.lerp(targetEmissiveColor, s);
     }
   });
-
-  const lightColorDef = isNight ? "#d946ef" : "#ff6a00";      // Amethyst Purple vs Lava Orange!
-  const matColorDef = isNight ? "#8b5cf6" : "#ea580c";        // Velvet Purple vs Hot Orange!
-  const emissiveColorDef = isNight ? "#f472b6" : "#fbbf24";   // Luminous Magenta vs Solar gold!
 
   return (
     <group position={[0, 1.2, 0]}>
       <pointLight
         ref={lightRef}
-        intensity={isNight ? 14.0 : 9.0}
-        color={lightColorDef}
+        intensity={10}
         distance={12}
         castShadow
         shadow-bias={-0.0005}
@@ -618,8 +676,7 @@ function CentralEnergyOrb({ isNight }: { isNight: boolean }) {
       <mesh ref={meshRef}>
         <dodecahedronGeometry args={[0.32, 1]} />
         <meshStandardMaterial
-          color={matColorDef}
-          emissive={emissiveColorDef}
+          ref={matRef}
           emissiveIntensity={3.5}
           roughness={0.1}
         />
@@ -633,16 +690,22 @@ function CentralEnergyOrb({ isNight }: { isNight: boolean }) {
 }
 
 const ThreeCanvas = React.memo(function ThreeCanvas() {
-  const phase = useGameStore((state) => state.state?.phase);
-  const currentSpeakerId = useGameStore((state) => state.state?.currentSpeakerId);
-  const players = useGameStore((state) => state.state?.players || []);
+  const gameState = useGameStore((state) => state.state);
+  const phase = gameState?.phase;
+  const currentSpeakerId = gameState?.currentSpeakerId;
+  const players = gameState?.players || [];
   const setupCount = useGameStore((state) => state.setupCount);
+  const victimId = gameState?.victimId;
 
+  // Track the most recent "isNight" from the server logs to correctly reflect narrative state
+  const lastLogIsNight = gameState?.speechLogs?.[gameState.speechLogs.length - 1]?.isNight;
   // Toggle ambient environment coloring depending on transition between day and night
-  const isNight = phase?.startsWith("NIGHT");
-  const fogColor = isNight ? "#0d0415" : "#1e0b02"; // Mystical deep purple mist vs Burning Terracotta gold-orange dust!
-  const lightColor = isNight ? "#7c3aed" : "#ea580c"; // Deep neon amethyst ambient vs Intense sunburst orange-gold ambient!
-  const ambientIntensity = isNight ? 0.15 : 0.38; // fine-tuned to make selective beams pop beautifully!
+  const isNight = phase?.startsWith("NIGHT") || lastLogIsNight || false;
+  const isMurderAlert = phase === "DAY_ANNOUNCEMENT" && victimId !== null && victimId !== undefined;
+  
+  const fogColor = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02"; // Mystical deep purple mist vs Burning Terracotta gold-orange dust!
+  const lightColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c"; // Deep neon amethyst ambient vs Intense sunburst orange-gold ambient!
+  const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38; // fine-tuned to make selective beams pop beautifully!
 
   // Dynamic preview array of seats during START_SCREEN configuration
   const previewPlayers = React.useMemo(() => {
@@ -719,35 +782,10 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
         camera={{ position: [0, 8.5, 12.0], fov: 45 }}
         style={{ pointerEvents: "auto" }}
       >
-        <color attach="background" args={[fogColor]} />
-        <fog attach="fog" args={[fogColor, 10, 24]} />
-
-        {/* Cinematic Gothic Lights */}
-        <ambientLight intensity={ambientIntensity} color={lightColor} />
+        <EnvironmentController isNight={isNight} isMurderAlert={isMurderAlert} />
 
         {/* Floating Sparks in the atmospheric space */}
-        <MagicalSparks isNight={isNight} />
-
-        {/* Day Mode Sunlight / Night Mode Bloodmoon Beam */}
-        {isNight ? (
-          <directionalLight
-            position={[-10, 14, -5]}
-            intensity={4.5}
-            color="#d946ef" // Deep Purple moonray
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-          />
-        ) : (
-          <directionalLight
-            position={[10, 15, 5]}
-            intensity={5.5}
-            color="#ff6a00" // Day mode fire orange sunray
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-          />
-        )}
+        <MagicalSparks isNight={isNight} isMurderAlert={isMurderAlert} />
 
         {/* Theatrical speaking spot highlight */}
         {speakerLight}
@@ -762,27 +800,26 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
               <>
                 <mesh receiveShadow position={[0, 0.2, 0]}>
                   <cylinderGeometry args={[tableRadius, tableRadius + 0.2, 0.4, 64]} />
-                  <meshStandardMaterial
-                    color="#0e0c12"
-                    roughness={0.8}
-                    metalness={0.2}
+                  <meshPhysicalMaterial
+                    color="#050505"
+                    roughness={0.05}
+                    metalness={0.9}
+                    clearcoat={1.0}
+                    clearcoatRoughness={0.05}
                   />
                 </mesh>
                 
-                {/* Black outlining ring */}
-                <mesh position={[0, 0.2, 0]}>
-                  <cylinderGeometry args={[tableRadius + 0.01, tableRadius + 0.21, 0.41, 64]} />
-                  <meshBasicMaterial color="#000000" wireframe />
-                </mesh>
+                {/* Glowing neon edge rim */}
+                <TableRim tableRadius={tableRadius} isNight={isNight} isMurderAlert={isMurderAlert} />
 
                 {/* Central Trial sigil / Magic trial floor decals */}
-                <TrialSigil tableRadius={tableRadius} />
+                <TrialSigil tableRadius={tableRadius} isNight={isNight} isMurderAlert={isMurderAlert} />
               </>
             );
           })()}
 
           {/* Central neon glowing magical orb of judgement */}
-          <CentralEnergyOrb isNight={isNight} />
+          <CentralEnergyOrb isNight={isNight} isMurderAlert={isMurderAlert} />
 
           {/* Render circular array of players sitting seats */}
           {previewPlayers.map((p, idx) => {
@@ -803,13 +840,6 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
 
         {/* Smooth camera interpolation assistant */}
         <CameraTracker />
-
-        <OrbitControls
-          enableZoom={true}
-          maxPolarAngle={Math.PI / 2 - 0.05}
-          minDistance={5}
-          maxDistance={18}
-        />
       </Canvas>
     </div>
   );

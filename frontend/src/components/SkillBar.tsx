@@ -19,6 +19,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
   const selectedCardId = useGameStore((state) => state.selectedCardId);
   const setSelectedCardId = useGameStore((state) => state.setSelectedCardId);
   const nightSkillAction = useGameStore((state) => state.nightSkillAction);
+  const setTargetingSkill = useGameStore((state) => state.setTargetingSkill);
 
   if (!gameState) return null;
 
@@ -61,8 +62,25 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
 
   // Quick action post handler for custom Hunter Shoot
   const executeHunterShoot = async (targetId: number) => {
+    // Show Hunter gunshot visual overlay!
+    const triggerCast = useGameStore.getState().triggerCast;
+    const targetPlayer = gameState.players.find(p => p.id === targetId);
+    if (triggerCast) {
+      triggerCast({
+        casterId: "USER",
+        casterName: "你 (玩家 1 号 - 猎人)",
+        role: "猎人",
+        skillName: "猎人开枪",
+        skillSub: "HUNTER GUNFIRE",
+        targetId,
+        targetName: targetPlayer ? targetPlayer.name : `玩家 ${targetId} 号`,
+        effectType: "shoot"
+      });
+    }
+
     try {
       useGameStore.setState({ isLoading: true });
+      await new Promise(resolve => setTimeout(resolve, 2400));
       const res = await fetch("/api/game/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,8 +181,6 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
       </div>
     );
   };
-
-  // Retrieve user skill components based on active role
   const renderSkills = () => {
     switch (userRole) {
       case "预言家":
@@ -172,13 +188,9 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
           <>
             {/* Skill 1: Divine Divination */}
             <SkillCard
-              title="天眼之瞳 ∙ 宿命查验"
-              subtitle="DIVINE INSPECT"
-              description={
-                selectedCardId === null 
-                  ? "🔍 请在桌上或左侧点选一名需要查验卡牌的席位..." 
-                  : `🔮 已锁定 [玩家 ${selectedCardId} 号]！点击右侧按钮启动法阵查验。`
-              }
+              title="预言查验"
+              subtitle="SEER INSPECT"
+              description="🔮 夜幕时刻，窥探星辰轨迹。开启此技能后可弹窗选择一名场上存活的玩家，直接窥视并查验其底牌属于恶狼还是好人。"
               type="主动"
               status={
                 phase !== "NIGHT_SEER" 
@@ -188,28 +200,26 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
               icon={Eye}
               glowColor="shadow-yellow-500/20"
               actionButton={
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <TargetDropdown
-                    currentVal={selectedCardId}
-                    onChange={(id) => setSelectedCardId(id)}
-                    filterFn={(p) => p.isAlive && !p.isUser}
-                  />
-                  <button
-                    onClick={() => selectedCardId && nightSkillAction("NIGHT_INSPECT", selectedCardId)}
-                    disabled={selectedCardId === null}
-                    className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-yellow-800 rounded font-sans font-black text-[9px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
-                  >
-                    窥探宿命
-                  </button>
-                </div>
+                <button
+                  onClick={() => setTargetingSkill({
+                    type: "NIGHT_INSPECT",
+                    title: "🔮 圣贤预言 ∙ 照亮夜裔",
+                    subtitle: "SEER DIVINATION EYE",
+                    description: "神庭命盘开始转动，请在下方点击挑选一名在阵的玩家查明其是恶狼（狼人）还是凡骨（好人）。"
+                  })}
+                  disabled={phase !== "NIGHT_SEER" || isSeerSkillUsed}
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-yellow-800 rounded font-sans font-black text-[9.5px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                >
+                  开启查验神眼
+                </button>
               }
             />
 
             {/* Skill 2: Cosmic Intuition */}
             <SkillCard
-              title="星轨预示 ∙ 烛光本源"
-              subtitle="ASTRAL INTUITION"
-              description="查验过的目标状态会同步追加于卡牌的私密札记上。知悉恶狼分布，并引导好人赢取胜局。"
+              title="查验备忘"
+              subtitle="SEER MEMO"
+              description="查验过的目标身份会同步记录在卡牌旁的私密札记上，辅助信息 analysis 与推理引导。"
               type="被动"
               status="恒驻"
               icon={Sparkles}
@@ -223,12 +233,12 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
           <>
             {/* Skill 1: Healing Dew */}
             <SkillCard
-              title="生机回转 ∙ 极光圣水"
-              subtitle="HEALING ELIXIR"
+              title="女巫解药"
+              subtitle="WITCH ANTIDOTE"
               description={
                 gameState.victimId !== null 
-                  ? `🧪 锁定了昨晚遇难的 [玩家 ${gameState.victimId} 号]，可驱散死神魔咒拯救生命！` 
-                  : "今晚暂无死者，或已消耗复活药水保护。"
+                  ? `🧪 昨晚遇难的玩家为 [ ${gameState.victimId} 号 ]，可施予圣水将其从死亡边缘救活。` 
+                  : "今夜暂无死者，或者解药已被消耗。"
               }
               type="主动"
               status={
@@ -240,23 +250,25 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
               glowColor="shadow-fuchsia-500/20"
               actionButton={
                 <button
-                  onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", gameState.victimId || 0, { saved: true, poisonTarget: null })}
-                  className="px-3 py-1.5 bg-fuchsia-600 hover:bg-fuchsia-500 border-2 border-fuchsia-800 rounded font-sans font-black text-[9px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  onClick={() => setTargetingSkill({
+                    type: "NIGHT_HEAL",
+                    title: "🧪 枯木逢春 ∙ 苏生圣水",
+                    subtitle: "WITCH LIFE ELIXIR",
+                    description: `昨晚落难的无辜凡人 (玩家 ${gameState.victimId} 号) 已被选定。倾注解药圣水可以净化利爪邪毒，逆转死生劫持。`
+                  })}
+                  disabled={phase !== "NIGHT_WITCH" || isWitchSaveUsed || gameState.victimId === null}
+                  className="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 border-2 border-fuchsia-800 rounded font-sans font-black text-[9.5px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
-                  圣水复苏
+                  使用苏生解药
                 </button>
               }
             />
 
             {/* Skill 2: Deadly Poison */}
             <SkillCard
-              title="荒芜枯萎 ∙ 见血封喉"
-              subtitle="BLACK COLD POISON"
-              description={
-                selectedCardId === null 
-                  ? "🧪 请选定一名你怀疑的卡牌席位，一滴极毒便可将其抹除..." 
-                  : `💀 瓶中剧毒已瞄准 [玩家 ${selectedCardId} 号]！点击施放赐予死寂。`
-              }
+              title="女巫毒药"
+              subtitle="WITCH POISON"
+              description="💀 在邪恶黑夜里调配强酸毒药。开启后弹窗选择一名场上怀疑对象，直接投掷毒汁，待黎明时分将其抹杀出局。"
               type="主动"
               status={
                 phase !== "NIGHT_WITCH" 
@@ -266,20 +278,18 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
               icon={Skull}
               glowColor="shadow-emerald-500/20"
               actionButton={
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <TargetDropdown
-                    currentVal={selectedCardId}
-                    onChange={(id) => setSelectedCardId(id)}
-                    filterFn={(p) => p.isAlive && !p.isUser}
-                  />
-                  <button
-                    onClick={() => selectedCardId && nightSkillAction("NIGHT_SAVED_OR_POISON", selectedCardId, { saved: false, poisonTarget: selectedCardId })}
-                    disabled={selectedCardId === null}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-emerald-800 rounded font-sans font-black text-[9px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
-                  >
-                    见血封喉
-                  </button>
-                </div>
+                <button
+                  onClick={() => setTargetingSkill({
+                    type: "NIGHT_POISON",
+                    title: "💀 万古枯尽 ∙ 天谴之毒",
+                    subtitle: "WITCH DEATH POTION",
+                    description: "选定一名场上的眼中钉。此毒一出，断绝一切护体神力与流转因果，今夜过后彻底淘汰。"
+                  })}
+                  disabled={phase !== "NIGHT_WITCH" || isWitchPoisonUsed}
+                  className="px-4 py-2 bg-emerald-650 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-emerald-800 rounded font-sans font-black text-[9.5px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                >
+                  投下致命剧毒
+                </button>
               }
             />
           </>
@@ -290,13 +300,9 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
           <>
             {/* Skill 1: Lycan Bite */}
             <SkillCard
-              title="暮色森罗 ∙ 獠牙狂噬"
-              subtitle="LYCAN INTENSE BITE"
-              description={
-                selectedCardId === null 
-                  ? "🐺 嗜血本能觉醒。请在桌上指定今晚要啃食的目标席位..." 
-                  : `🩸 狼爪已抵住 [玩家 ${selectedCardId} 号] 的咽喉！执行吞噬猎杀。`
-              }
+              title="狼人袭击"
+              subtitle="WEREWOLF ATTACK"
+              description="🐺 邪月当空。狼人在夜幕下相互低语低吟。点击后会弹窗选择场上一名怀疑者神职人员，进行狂暴啃食袭击。"
               type="主动"
               status={
                 phase !== "NIGHT_WOLF" 
@@ -306,28 +312,26 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
               icon={Flame}
               glowColor="shadow-red-500/20"
               actionButton={
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <TargetDropdown
-                    currentVal={selectedCardId}
-                    onChange={(id) => setSelectedCardId(id)}
-                    filterFn={(p) => p.isAlive && !p.isUser}
-                  />
-                  <button
-                    onClick={() => selectedCardId && nightSkillAction("NIGHT_KILL", selectedCardId)}
-                    disabled={selectedCardId === null}
-                    className="px-3 py-1.5 bg-red-650 hover:bg-red-600 border-2 border-red-900 rounded font-sans font-black text-[9px] text-[#f5f5f5] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
-                  >
-                    执行突袭
-                  </button>
-                </div>
+                <button
+                  onClick={() => setTargetingSkill({
+                    type: "NIGHT_KILL",
+                    title: "🐺 血月降临 ∙ 狂暴爪袭击",
+                    subtitle: "WEREWOLF RAIDING CLAW",
+                    description: "群狼自幽暗密林深处探出利爪。选定一席将其猎杀淘汰，粉碎凡尘议会的气运。此操作将触发夜里撕咬特效。"
+                  })}
+                  disabled={phase !== "NIGHT_WOLF" || isWolfBiteUsed}
+                  className="px-4 py-2 bg-red-650 hover:bg-red-600 disabled:opacity-40 border-2 border-red-900 rounded font-sans font-black text-[9.5px] text-[#f5f5f5] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                >
+                  集结狂嚎袭击
+                </button>
               }
             />
 
             {/* Skill 2: Bloodlust Instinct */}
             <SkillCard
-              title="残夜密言 ∙ 狂嗜渴血"
-              subtitle="WOLFPACK COMPACT"
-              description="同伴可在夜色中共享低语，集结票数，在暗夜猎杀中对同一位目标展开毁灭性伤害。"
+              title="狼人低语"
+              subtitle="WEREWOLF WHISPERS"
+              description="同伴间可以在夜色下共享并传达手势，集结袭击票数达成共识，刺杀好人目标。"
               type="被动"
               status="恒驻"
               icon={Moon}
@@ -344,42 +348,38 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
           <>
             {/* Skill 1: Vengeful Silver Bullet */}
             <SkillCard
-              title="怒膛轰击 ∙ 终局猎杀"
-              subtitle="VENGEFUL BULLET"
+              title="猎人开枪"
+              subtitle="HUNTER RETALIATION"
               description={
                 !isUserDead
-                  ? "🔫 当你在白天表决中被流放（或在夜间逝去）时，猎枪的最后一颗子弹将怒火出击，击穿一个仇敌。"
-                  : (selectedCardId === null 
-                    ? "☠️ 你已被清除！猎枪子弹在枪口通红闪烁！请在圆座上锁定一名陪葬卡牌，射杀他！"
-                    : `🎯 已校准准心：[玩家 ${selectedCardId} 号]！点击右侧按钮，扣动扳机送其上绞架！`)
+                  ? "🔫 当你在白天表决投票中被流放或在夜间被吞食时，可在出局瞬间开枪带走场上一名玩家作为陪葬。"
+                  : "☠️ 你的肉体已被撕咬或放逐。猎枪子弹在枪膛里怒嚎！点击右侧按钮锁定那名谋害者，扣下扳机一同拉入深渊！"
               }
               type="主动"
               status={isUserDead ? "就绪" : "锁定"}
               icon={Crosshair}
               glowColor="shadow-yellow-500/20"
               actionButton={
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <TargetDropdown
-                    currentVal={selectedCardId}
-                    onChange={(id) => setSelectedCardId(id)}
-                    filterFn={(p) => p.isAlive && !p.isUser}
-                  />
-                  <button
-                    onClick={() => selectedCardId && executeHunterShoot(selectedCardId)}
-                    disabled={selectedCardId === null}
-                    className="px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-red-800 rounded font-sans font-black text-[9px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
-                  >
-                    扣动扳机
-                  </button>
-                </div>
+                <button
+                  onClick={() => setTargetingSkill({
+                    type: "HUNTER_SHOOT",
+                    title: "🎯 临终反扑 ∙ 猎枪银弹",
+                    subtitle: "HUNTER RETALIATION ROUND",
+                    description: "胸口被撕咬/放逐。扳机已扣死！选定场上一名死敌，用最后一发驱邪银弹将其一同流放！"
+                  })}
+                  disabled={!isUserDead}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 border-2 border-red-800 rounded font-sans font-black text-[9.5px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                >
+                  扣下复仇扳机
+                </button>
               }
             />
 
             {/* Skill 2: Steel Will */}
             <SkillCard
-              title="铁骨精金 ∙ 誓约意志"
-              subtitle="STEEL RESILIENCE"
-              description="如果你遭受凶残狼人晚间撕咬，你依然处于武装威慑。若遭受女巫阴险的绝情毒药，则禁忌被锁孔，不可鸣枪。"
+              title="开枪威慑"
+              subtitle="HUNTER DETERRENCE"
+              description="若被狼人夜袭啃食，你仍可鸣枪。但若被女巫使用毒药淘汰，则因药性禁闭无法发枪带人。"
               type="被动"
               status="恒驻"
               icon={ShieldAlert}

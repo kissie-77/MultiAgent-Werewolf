@@ -1,7 +1,8 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Player, GameState } from "../types";
 import { useGameStore } from "../store";
-import { Trophy, Star, Skull, Heart, Shield, RefreshCw, Eye, Flame, ShieldAlert, Award, LogOut, Users } from "lucide-react";
+import { Trophy, Star, Skull, Heart, Shield, RefreshCw, Eye, Flame, ShieldAlert, Award, LogOut, Users, BrainCircuit } from "lucide-react";
 import { motion } from "motion/react";
 
 // Helper function to calculate MVP based on game events
@@ -14,10 +15,11 @@ function calculateMVP(gameState: GameState): Player {
     let score = 0;
 
     // 1. Faction victory points
-    const isGoodRole = player.role !== "狼人";
+    const WOLF_CAMP = ["狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼"];
+    const isGoodRole = !WOLF_CAMP.includes(player.role);
     if (isGoodWin && isGoodRole) {
       score += 45;
-    } else if (!isGoodWin && player.role === "狼人") {
+    } else if (!isGoodWin && WOLF_CAMP.includes(player.role)) {
       score += 45;
     }
 
@@ -49,7 +51,7 @@ function calculateMVP(gameState: GameState): Player {
       if (!player.isAlive) {
         score += 20; // Heroic shot threat / target
       }
-    } else if (player.role === "狼人") {
+    } else if (WOLF_CAMP.includes(player.role)) {
       // Did wolves kill successfully?
       if (gameState.wolfKilledTarget !== null) {
         score += 20;
@@ -241,8 +243,9 @@ export default function GameOverPanel({ gameState, onRestart, onExit }: GameOver
             {/* Players Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {gameState.players.map((player) => {
+                const WOLF_CAMP = ["狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼"];
                 const isMVP = player.id === mvp.id;
-                const isWolf = player.role === "狼人";
+                const isWolf = WOLF_CAMP.includes(player.role);
                 
                 return (
                   <motion.div
@@ -266,7 +269,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit }: GameOver
                       <span className={`text-[9px] font-serif font-black px-1.5 py-0.5 rounded border uppercase ${
                         isWolf 
                           ? "bg-red-950/60 text-red-400 border-red-900/40" 
-                          : player.role === "村民" 
+                          : (player.role === "村民" || player.role === "平民")
                             ? "bg-zinc-900 text-zinc-400 border-zinc-800" 
                             : "bg-indigo-950/60 text-indigo-300 border-indigo-900/40"
                       }`}>
@@ -365,6 +368,14 @@ export default function GameOverPanel({ gameState, onRestart, onExit }: GameOver
             <Flame className="w-3.5 h-3.5" />
             重铸星盘 ∙ 狼人开局
           </button>
+
+          <Link
+            to={`/replay/run-gameover-${gameState.winner?.toLowerCase()}`}
+            className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-950 bg-yellow-500 hover:bg-yellow-400 border border-yellow-600 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 text-center font-bold"
+          >
+            <BrainCircuit className="w-3.5 h-3.5 animate-pulse" />
+            查看本局高维深度复盘
+          </Link>
 
           <button
             onClick={onExit}

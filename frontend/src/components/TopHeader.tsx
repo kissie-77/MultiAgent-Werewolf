@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Clock, Flame, LogOut } from "lucide-react";
+import { Sun, Moon, Clock, Flame, LogOut, Home } from "lucide-react";
 import { useGameStore } from "../store";
 
 export default function TopHeader() {
@@ -7,6 +7,7 @@ export default function TopHeader() {
   const phase = gameState?.phase;
   const dayNumber = gameState?.dayNumber || 1;
   const isAutoPlaying = useGameStore((state) => state.isAutoPlaying);
+  const toggleAutoPlay = useGameStore((state) => state.toggleAutoPlay);
   const simulateNextAI = useGameStore((state) => state.simulateNextAI);
   const exitGame = useGameStore((state) => state.exitGame);
 
@@ -67,7 +68,7 @@ export default function TopHeader() {
   const isNight = phase?.startsWith("NIGHT");
 
   return (
-    <div className="w-full bg-black/45 backdrop-blur-md border-b border-zinc-900/60 px-6 py-1.5 shrink-0 flex items-center justify-between relative z-10 shadow-md">
+    <div className="w-full h-12 bg-black/45 backdrop-blur-md border-b border-zinc-900/60 px-6 py-1.5 shrink-0 flex items-center justify-between relative z-10 shadow-md">
       
       {/* Dynamic logo / indicator */}
       <div className="flex items-center gap-1">
@@ -125,10 +126,47 @@ export default function TopHeader() {
             00:{localSecondsLeft < 10 ? `0${localSecondsLeft}` : localSecondsLeft}
           </span>
         </div>
+
+        {/* Separator */}
+        <div className="w-px h-6 bg-zinc-700 mx-1" />
+
+        {/* Play/Pause Button */}
+        <button
+          onClick={toggleAutoPlay}
+          className={`h-6 px-2 rounded border text-[10px] font-sans font-bold tracking-wider cursor-pointer flex items-center justify-center transition-all duration-200 ${
+            isAutoPlaying 
+              ? "border-amber-500/50 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]" 
+              : "border-emerald-500/50 bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+          }`}
+          title={isAutoPlaying ? "暂停游戏自动播放" : "继续游戏自动播放"}
+        >
+          {isAutoPlaying ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          )}
+        </button>
       </div>
 
       {/* Right-side Quick statistics */}
       <div className="flex items-center gap-4">
+        {/* Go back  */}
+        <button
+          onClick={() => window.history.back()}
+          className="h-7 px-2.5 rounded border border-zinc-800 transition-all duration-200 bg-zinc-950/30 hover:bg-zinc-900/50 text-zinc-400 text-[10px] font-mono hover:text-zinc-200 uppercase tracking-widest cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+        >
+          返回上一级
+        </button>
+
+        {/* Go to rules / Dashboard */}
+        <button
+          onClick={() => window.location.href = '/home'}
+          className="h-7 px-2.5 rounded border border-indigo-900/60 transition-all duration-200 bg-indigo-950/30 hover:bg-indigo-900/40 text-blue-200 text-[10px] font-mono hover:text-white uppercase tracking-widest cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+        >
+          <Home className="w-3.5 h-3.5" />
+          回到主界面
+        </button>
+
         {/* Count survivors vs count deceased */}
         <div className="text-right font-mono text-[9.5px] leading-tight hidden xs:block">
           <div className="text-yellow-500 font-extrabold uppercase tracking-wider">

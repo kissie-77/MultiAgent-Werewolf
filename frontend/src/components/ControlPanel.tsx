@@ -1,8 +1,224 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useGameStore } from "../store";
-import { Send, Play, RefreshCw, Skull, Shield, Eye, Flame, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
-import { motion } from "motion/react";
+import { Send, Play, RefreshCw, Skull, Shield, Eye, Flame, ChevronDown, ChevronUp, BookOpen, X, Crown, EyeOff } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { getRoleImage } from "../utils/roles";
 import SkillBar from "./SkillBar";
+import { SkillReleaseModal } from "./SkillReleaseModal";
+
+const TombstoneButton = ({ onClick, children, disabled }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`stone-btn relative px-4 py-1.5 font-sans font-black text-[#f5f5f5] uppercase tracking-widest transition-all duration-300 rounded shadow-lg flex items-center gap-2 ${
+      disabled
+        ? "opacity-45 cursor-not-allowed select-none saturate-50"
+        : "hover:scale-105 active:translate-y-1"
+    }`}
+    style={{
+      clipPath: "polygon(5% 0%, 95% 0%, 100% 15%, 100% 100%, 0% 100%, 0% 15%)",
+    }}
+  >
+    <div className="absolute inset-x-0 top-0 h-1 bg-zinc-500/30" />
+    <span className="absolute top-1 left-2 text-[8px] text-zinc-400 select-none">🕀</span>
+    <span className="absolute bottom-1 right-2 text-[8px] text-zinc-400 select-none">✝</span>
+    {children}
+  </button>
+);
+
+const ParchmentButton = ({ onClick, children, disabled }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`relative px-4 py-1.5 font-mono font-bold text-zinc-950 bg-amber-100/90 border-2 border-amber-900 transition-all duration-300 rounded shadow-[3px_3px_0px_#451a03] flex items-center gap-1.5 ${
+      disabled
+        ? "opacity-50 cursor-not-allowed bg-zinc-800 text-zinc-600 border-zinc-950"
+        : "hover:bg-amber-50 hover:shadow-[1px_1px_0px_#451a03] hover:translate-x-0.5 hover:translate-y-0.5 active:translate-y-1"
+    }`}
+    style={{
+      borderRadius: "4px 12px 4px 12px"
+    }}
+  >
+    <span className="absolute -top-1 left-4 text-[8px] opacity-40">〰</span>
+    <span className="absolute bottom-0 right-3 text-[10px] opacity-30">∿</span>
+    {children}
+  </button>
+);
+
+const ActionTargetSelector = ({ 
+  actionName, 
+  actionIcon, 
+  eligiblePlayers, 
+  onConfirm,
+  onClose,
+  themeColor = "yellow",
+  actionPrefix = "释放技能",
+  actionPrompt = "请在下方悬赏序列选取您的目标："
+}: { 
+  actionName: string, 
+  actionIcon: React.ReactNode, 
+  eligiblePlayers: any[], 
+  onConfirm: (targetId: number) => void,
+  onClose?: () => void,
+  themeColor?: "yellow" | "fuchsia" | "emerald" | "red" | "amber",
+  actionPrefix?: string,
+  actionPrompt?: string
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedCardId = useGameStore((state) => state.selectedCardId);
+
+  const handleSelect = (id: number) => {
+    useGameStore.getState().setSelectedCardId(id);
+  };
+
+  const buttonActiveThemes = {
+    yellow: "bg-yellow-500 text-black border-yellow-500",
+    fuchsia: "bg-fuchsia-600 text-white border-fuchsia-500",
+    emerald: "bg-emerald-600 text-white border-emerald-500",
+    red: "bg-red-600 text-white border-red-500",
+    amber: "bg-gradient-to-b from-amber-600 to-amber-800 text-amber-50 border-amber-500/50 hover:brightness-110"
+  };
+
+  // Compute Tarot logic
+  const sessionRole = useGameStore((state) => state.state)?.players?.find((p: any) => p.isUser)?.role || "村民";
+  const imageSrc = getRoleImage(sessionRole);
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className={`flex items-center gap-2 px-4 py-2 font-sans font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 rounded border-2 shadow-lg hover:scale-105 active:scale-95 ${buttonActiveThemes[themeColor]} mix-blend-screen opacity-90 hover:opacity-100`}
+      >
+        {actionIcon} {actionPrefix}: {actionName}
+      </button>
+
+      {createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 bg-black/80 backdrop-blur-md pointer-events-auto overflow-y-auto">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                className="flex flex-col items-center relative w-full max-w-xl !overflow-visible my-auto"
+              >
+                <button 
+                  onClick={() => {
+                    setIsOpen(false);
+                    if(onClose) onClose();
+                  }}
+                  className="absolute -top-6 right-0 md:-right-6 text-amber-900/60 hover:text-amber-500 transition-colors z-[110] hover:rotate-90 duration-300"
+                >
+                  <X className="w-8 h-8" />
+                </button>
+
+                {/* Full Tarot Card Image */}
+                <div className="w-[180px] h-[306px] sm:w-[220px] sm:h-[374px] relative rounded-lg shadow-[0_0_60px_rgba(245,158,11,0.2)] flex flex-col items-center justify-center overflow-hidden z-20 mb-4 border border-amber-900/50 flex-shrink-0">
+                    <img 
+                      src={imageSrc}
+                      alt={sessionRole}
+                      className="w-full h-full object-cover object-center filter contrast-[1.1] saturate-75"
+                    />
+                    {/* Subtle overlay glare */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
+                </div>
+                
+                <div className="text-center mb-4 relative z-20 flex-shrink-0">
+                   <div className="flex items-center justify-center gap-2 mb-1.5 opacity-80">
+                     <div className="w-1 h-1 bg-amber-500/60 rotate-45" />
+                     <span className="font-serif text-[9px] uppercase tracking-[0.25em] text-amber-500/80">
+                       ARCANA DECISION
+                     </span>
+                     <div className="w-1 h-1 bg-amber-500/60 rotate-45" />
+                   </div>
+                   
+                   <h2 className="font-serif text-2xl lg:text-3xl font-medium text-transparent bg-clip-text bg-gradient-to-b from-amber-100 via-amber-300 to-amber-700 tracking-[0.1em] drop-shadow-md mb-1">
+                     [ {actionPrefix} : {actionName} ]
+                   </h2>
+                   <span className="text-[10px] text-amber-900/60 font-mono tracking-widest">{actionPrompt}</span>
+                </div>
+                
+                <div className="flex flex-wrap items-center justify-center gap-3 w-full mb-6 relative z-20 flex-shrink-0">
+                  {eligiblePlayers.length === 0 ? (
+                    <span className="text-amber-900/50 text-sm font-serif italic py-4 tracking-[0.2em]">— 没有可用灵魂 —</span>
+                  ) : (
+                    eligiblePlayers.map(p => {
+                      const isSelected = p.id === selectedCardId;
+                      
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => handleSelect(p.id)}
+                          className={`flex flex-col items-center justify-center w-[64px] h-[86px] rounded transition-all duration-300 cursor-pointer font-serif border-2 overflow-hidden relative group transform-gpu ${
+                            isSelected 
+                              ? "bg-amber-600/20 text-white border-amber-500/80 shadow-[0_0_15px_rgba(245,158,11,0.4)] scale-105" 
+                              : "bg-[#0c0808] border-amber-900/30 text-amber-700/60 hover:border-amber-600/50 hover:bg-[#150d0d] hover:-translate-y-1 hover:shadow-lg hover:text-amber-500"
+                          }`}
+                        >
+                          <div className="absolute inset-0 bg-woodcut-dark opacity-30 group-hover:opacity-40 transition-opacity" />
+                          <span className={`text-xl font-black leading-none mb-1 relative z-10 ${isSelected ? "drop-shadow-md text-amber-100" : ""}`}>
+                            {p.id}
+                          </span>
+                          <span className={`text-[8px] truncate max-w-[50px] tracking-widest relative z-10 ${isSelected ? "text-amber-200" : "opacity-60"}`}>{p.name}</span>
+                          {isSelected && (
+                             <div className="absolute bottom-0 w-full h-1 bg-amber-500/80" />
+                          )}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+                
+                <div className="w-full flex justify-center relative z-20 flex-shrink-0 pb-4">
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      onConfirm(selectedCardId!);
+                    }}
+                    disabled={!selectedCardId || !eligiblePlayers.find(p => p.id === selectedCardId)}
+                    className={`relative px-12 py-3.5 font-black font-serif text-xs tracking-[0.3em] uppercase rounded transition-all duration-300 flex items-center justify-center overflow-hidden border ${
+                      !selectedCardId || !eligiblePlayers.find(p => p.id === selectedCardId)
+                        ? "bg-[#0c0808] text-amber-900/30 cursor-not-allowed border-amber-900/20"
+                        : "bg-gradient-to-r from-[#201008] via-[#3a1d0f] to-[#201008] text-amber-500 border-amber-500/50 hover:scale-105 hover:shadow-[0_0_20px_rgba(245,158,11,0.3)] shadow-lg hover:text-amber-300 active:scale-95 cursor-pointer"
+                    }`}
+                  >
+                    <div className="absolute inset-0 bg-woodcut pointer-events-none opacity-20" />
+                    <span className="relative z-10 flex items-center gap-2">确 认 执 行</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
+  )
+}
+
+const SealButton = ({ onClick, children, disabled }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`relative w-28 h-28 flex flex-col items-center justify-center font-sans font-black text-center text-red-100 rounded-full bg-red-800 border-4 border-red-950 shadow-[0_6px_14px_rgba(239,68,68,0.3)] transition-all duration-300 transform ${
+      disabled
+        ? "opacity-40 cursor-not-allowed scale-95 saturate-50"
+        : "hover:scale-110 hover:bg-red-700 hover:rotate-6 active:scale-95"
+    }`}
+  >
+    {/* Wax drip circles */}
+    <div className="absolute -inset-1 rounded-full border border-red-500/30 pointer-events-none" />
+    <div className="absolute bottom-2 inset-x-4 h-1.5 bg-red-900/60 rounded-full blur-xs" />
+    <span className="text-xl leading-none">⛧</span>
+    <span className="text-[10px] tracking-widest font-extrabold uppercase mt-1">
+      {children}
+    </span>
+    <span className="text-[7.5px] text-red-300/80 font-mono tracking-tighter uppercase mt-0.5">
+      Seal Fate
+    </span>
+  </button>
+);
 
 export default function ControlPanel() {
   const gameState = useGameStore((state) => state.state);
@@ -17,9 +233,47 @@ export default function ControlPanel() {
   const resetGame = useGameStore((state) => state.resetGame);
   const isAutoPlaying = useGameStore((state) => state.isAutoPlaying);
   const toggleAutoPlay = useGameStore((state) => state.toggleAutoPlay);
+  const setTargetingSkill = useGameStore((state) => state.setTargetingSkill);
 
-  const [chosenRole, setChosenRole] = useState<"预言家" | "女巫" | "猎人" | "狼人">("预言家");
-  const [isSkillsExpanded, setIsSkillsExpanded] = useState(true);
+  const WOLF_CAMP = ["狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼"];
+
+  const [chosenRole, setChosenRole] = useState<string>("预言家");
+  const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
+  const [skillModalOpen, setSkillModalOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (!gameState) return;
+    
+    // Auto playing logic trigger, but with a slight delay
+    const timer = setTimeout(() => {
+      if (!isAutoPlaying) return; // Wait if paused
+
+      const { phase, currentSpeakerId, players } = gameState;
+      
+      const user = players.find(p => p.isUser);
+      const isDead = user ? !user.isAlive : true; // In LLM mode, user is technically undefined thus "isDead" will be true
+      
+      if (typeof currentSpeakerId === "number" && currentSpeakerId !== 1 && (phase === "DAY_DEBATE" || phase === "DAY_SHERIFF_RUN")) {
+        simulateNextAI();
+      } else if (phase === "DAY_VOTE" && (!user || isDead)) {
+        // If llm mode or user is dead, automatically pass vote
+        castVote();
+      } else if (phase === "DAY_SHERIFF_VOTE" && (!user || isDead)) {
+        useGameStore.getState().castSheriffVote(null);
+      } else if (phase === "NIGHT_WOLF" && (!user || !WOLF_CAMP.includes(user.role) || isDead)) {
+        nightSkillAction("NIGHT_KILL", 0);
+      } else if (phase === "NIGHT_SEER" && (!user || user.role !== "预言家" || isDead)) {
+        nightSkillAction("NIGHT_INSPECT", 0);
+      } else if (phase === "NIGHT_WITCH" && (!user || user.role !== "女巫" || isDead)) {
+        nightSkillAction("NIGHT_SAVED_OR_POISON", 0, { saved: false, poisonTarget: null });
+      } else if (phase === "DAY_ANNOUNCEMENT") {
+        transitionToDebate();
+      }
+
+    }, 3500); // Wait 3.5s to let the user reading the texts
+
+    return () => clearTimeout(timer);
+  }, [gameState, isAutoPlaying, simulateNextAI, castVote, nightSkillAction, transitionToDebate]);
 
   if (!gameState) return null;
 
@@ -28,74 +282,24 @@ export default function ControlPanel() {
   const isDead = user ? !user.isAlive : true;
   const victimId = gameState.victimId;
 
-  // Render Stone Tombstone-style Button (石碑风格按钮)
-  const TombstoneButton = ({ onClick, children, disabled }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`stone-btn relative px-6 py-3 font-sans font-black text-[#f5f5f5] uppercase tracking-widest transition-all duration-300 rounded shadow-lg flex items-center gap-2 ${
-        disabled
-          ? "opacity-45 cursor-not-allowed select-none saturate-50"
-          : "hover:scale-105 active:translate-y-1"
-      }`}
-      style={{
-        clipPath: "polygon(5% 0%, 95% 0%, 100% 15%, 100% 100%, 0% 100%, 0% 15%)",
-      }}
-    >
-      <div className="absolute inset-x-0 top-0 h-1 bg-zinc-500/30" />
-      {/* Tiny cracks effect */}
-      <span className="absolute top-1 left-2 text-[8px] text-zinc-400 select-none">🕀</span>
-      <span className="absolute bottom-1 right-2 text-[8px] text-zinc-400 select-none">✝</span>
-      {children}
-    </button>
-  );
+  // Determine Skill State
+  const isNightWolf = phase === "NIGHT_WOLF" && !isDead && WOLF_CAMP.includes(user?.role || "");
+  const isNightSeer = phase === "NIGHT_SEER" && !isDead && user?.role === "预言家";
+  const isNightWitch = phase === "NIGHT_WITCH" && !isDead && user?.role === "女巫";
+  const isDeadHunter = isDead && user?.role === "猎人" && !(gameState as any).hunterHasShot;
 
-  // Render Parchment Scroll Button (羊皮纸风格按钮)
-  const ParchmentButton = ({ onClick, children, disabled }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`relative px-5 py-3 font-mono font-bold text-zinc-950 bg-amber-100/90 border-2 border-amber-900 transition-all duration-300 rounded shadow-[5px_5px_0px_#451a03] flex items-center gap-1.5 ${
-        disabled
-          ? "opacity-50 cursor-not-allowed bg-zinc-800 text-zinc-600 border-zinc-950"
-          : "hover:bg-amber-50 hover:shadow-[2px_2px_0px_#451a03] hover:translate-x-0.5 hover:translate-y-0.5 active:translate-y-1"
-      }`}
-      style={{
-        borderRadius: "4px 12px 4px 12px"
-      }}
-    >
-      {/* Parchment scroll marks */}
-      <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-amber-900 rounded-sm" />
-      <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-amber-900 rounded-sm" />
-      {children}
-    </button>
-  );
+  const canUseSkill = isNightWolf || isNightSeer || isNightWitch || isDeadHunter;
 
-  // Render Wax Seal Stamp Button (封印印章风格)
-  const SealButton = ({ onClick, children, disabled }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`relative w-28 h-28 flex flex-col items-center justify-center font-sans font-black text-center text-red-100 rounded-full bg-red-800 border-4 border-red-950 shadow-[0_6px_14px_rgba(239,68,68,0.3)] transition-all duration-300 transform ${
-        disabled
-          ? "opacity-40 cursor-not-allowed scale-95 saturate-50"
-          : "hover:scale-110 hover:bg-red-700 hover:rotate-6 active:scale-95"
-      }`}
-    >
-      {/* Wax drip circles */}
-      <div className="absolute -inset-1 rounded-full border border-red-500/30 pointer-events-none" />
-      <div className="absolute bottom-2 inset-x-4 h-1.5 bg-red-900/60 rounded-full blur-xs" />
-      <span className="text-xl leading-none">⛧</span>
-      <span className="text-[10px] tracking-widest font-extrabold uppercase mt-1">
-        {children}
-      </span>
-      <span className="text-[7.5px] text-red-300/80 font-mono tracking-tighter uppercase mt-0.5">
-        Seal Fate
-      </span>
-    </button>
-  );
+  // Skill Mapping for Modal
+  const getSkillConfig = () => {
+    if (isNightWolf) return { actionName: "袭击目标", icon: "🐺", confirm: (id: number) => nightSkillAction("NIGHT_KILL", id) };
+    if (isNightSeer) return { actionName: "预言查验", icon: "🔮", confirm: (id: number) => nightSkillAction("NIGHT_INSPECT", id) };
+    if (isNightWitch) return { actionName: "投设毒药", icon: "💀", confirm: (id: number) => nightSkillAction("NIGHT_SAVED_OR_POISON", id, { saved: false, poisonTarget: id }) };
+    if (isDeadHunter) return { actionName: "猎人开枪", icon: "🎯", confirm: (id: number) => nightSkillAction("HUNTER_SHOOT", id) };
+    return { actionName: "无技能可用", icon: "🔥", confirm: () => {} };
+  };
 
-  // Render Potion Bottle Button (药剂瓶风格)
+  const skillConfig = getSkillConfig();
   const PotionButton = ({ onClick, type, children, disabled }: { onClick: () => void; type: "elixir" | "poison"; children: React.ReactNode; disabled?: boolean }) => {
     // Poison is glowing green/fluorescent yellow, elixir is glowing neon violet/pink
     const glowColor = type === "elixir" ? "shadow-fuchsia-500/40 border-fuchsia-500" : "shadow-emerald-500/40 border-emerald-500";
@@ -135,8 +339,46 @@ export default function ControlPanel() {
   };
 
   return (
-    <div className="bg-transparent border-t border-zinc-900/35 px-6 py-4 flex flex-col gap-4 relative z-10 shrink-0 select-none min-h-[140px] justify-center">
-      
+    <div className="bg-transparent px-6 py-2 flex flex-col gap-2 relative z-10 shrink-0 select-none justify-center">
+
+      {/* Dynamic Interactive Skill & Spell Modal Overlay */}
+      {createPortal(
+        <AnimatePresence>
+          {isSkillModalOpen && phase !== "ROLE_CHOICE" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm pointer-events-auto select-none"
+            >
+              <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                className="bg-slate-900 border border-indigo-500/30 bg-woodcut-dark backdrop-blur-md shadow-[0_0_40px_rgba(30,58,138,0.3)] rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto relative flex flex-col"
+              >
+                <button 
+                   onClick={() => setIsSkillModalOpen(false)}
+                   className="absolute top-3 right-3 text-zinc-500 hover:text-red-400 bg-zinc-900 hover:bg-red-950 border border-zinc-800 p-2 rounded-full transition-colors z-20"
+                >
+                   <X className="w-4 h-4" />
+                </button>
+                <div className="p-4 sm:p-8">
+                    <SkillBar hideHeader={false} />
+                    
+                    <div className="mt-8 flex justify-center">
+                      <TombstoneButton onClick={() => setIsSkillModalOpen(false)}>
+                         关闭祈祷席
+                      </TombstoneButton>
+                    </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
       {/* Night and dead actions notification banner */}
       {isDead && phase !== "GAME_OVER" && (
         <div className="p-3 bg-red-950/15 border border-red-500/35 rounded text-center my-1 leading-relaxed">
@@ -147,55 +389,14 @@ export default function ControlPanel() {
         </div>
       )}
 
-      {/* Dynamic Interactive Skill & Spell deck Bar */}
-      {phase !== "ROLE_CHOICE" && (
-        <div className="w-full bg-transparent border border-zinc-900/40 rounded mb-2 overflow-hidden transition-all duration-300">
-          {/* Header Toggle Toggle Bar */}
-          <button 
-            type="button"
-            onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
-            className="w-full px-4 py-2 flex items-center justify-between bg-transparent hover:bg-white/5 transition-all border-b border-zinc-900/40 text-left cursor-pointer select-none"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-yellow-500 font-extrabold text-[11px] font-mono tracking-widest uppercase flex items-center gap-2">
-                <span className="animate-pulse">🔮</span> 专属命象卡牌技能契约 (Divine Spellbook & Spells)
-              </span>
-              <span className="text-[9.5px] px-2 py-0.5 rounded-full border border-zinc-800 bg-zinc-950 text-yellow-500/95 font-black tracking-wider">
-                {gameState.players.find(p => p.isUser)?.role || "村民"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-zinc-400 hover:text-white font-mono font-bold transition-colors">
-              <span>{isSkillsExpanded ? "收起面板" : "展开技能书"}</span>
-              <span className="inline-block transition-transform duration-300" style={{ transform: isSkillsExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                ▼
-              </span>
-            </div>
-          </button>
-          
-          <motion.div
-            initial={false}
-            animate={{ 
-              height: isSkillsExpanded ? "auto" : 0, 
-              opacity: isSkillsExpanded ? 1 : 0 
-            }}
-            transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className="overflow-hidden"
-          >
-            <div className="p-3">
-              <SkillBar hideHeader />
-            </div>
-          </motion.div>
-        </div>
-      )}
-
       {/* CORE CONTROLLER STACK BASED ON GAME STATES */}
-      <div className="flex flex-wrap items-center justify-center gap-6">
+      <div className="w-full flex flex-col items-stretch mt-1">
 
         {/* State: Role selection start */}
         {phase === "ROLE_CHOICE" && (
           <div className="flex flex-col items-center gap-4">
             <span className="font-mono text-[10px] text-yellow-500 font-bold uppercase tracking-widest">
-              — 在开始审判前 决定你的宿命卡牌职业 —
+              — 在开始前决定你的底牌身份 —
             </span>
             <div className="flex items-center gap-4">
               <select
@@ -203,10 +404,27 @@ export default function ControlPanel() {
                 onChange={(e) => setChosenRole(e.target.value as any)}
                 className="bg-black border-4 border-black text-[#e0e0e0] px-4 py-2 text-xs font-sans font-bold select-none focus:outline-none focus:border-yellow-500"
               >
-                <option value="预言家">预言神官 (Seer Apprentice)</option>
-                <option value="女巫">猩红女巫 (Night Witch)</option>
-                <option value="猎人">钢枪猎人 (Gunslinging Hunter)</option>
-                <option value="狼人">荒野巨狼 (Werewolf Beast)</option>
+                <option value="预言家">预言家 (Seer)</option>
+                <option value="女巫">女巫 (Witch)</option>
+                <option value="猎人">猎人 (Hunter)</option>
+                <option value="狼人">狼人 (Werewolf)</option>
+                <option value="狼王">狼王 (Alpha Wolf)</option>
+                <option value="白狼">白狼 (White Wolf)</option>
+                <option value="狼美人">狼美人 (Wolf Beauty)</option>
+                <option value="守卫狼">守卫狼 (Guardian Wolf)</option>
+                <option value="隐狼">隐狼 (Hidden Wolf)</option>
+                <option value="血月使徒">血月使徒 (Blood Moon Apostle)</option>
+                <option value="梦魇狼">梦魇狼 (Nightmare Wolf)</option>
+                <option value="守卫">守卫 (Guard)</option>
+                <option value="白痴">白痴 (Idiot)</option>
+                <option value="长老">长老 (Elder)</option>
+                <option value="骑士">骑士 (Knight)</option>
+                <option value="魔术师">魔术师 (Magician)</option>
+                <option value="丘比特">丘比特 (Cupid)</option>
+                <option value="乌鸦">乌鸦 (Raven)</option>
+                <option value="守墓人">守墓人 (Graveyard Keeper)</option>
+                <option value="盗贼">盗贼 (Thief)</option>
+                <option value="村民">村民 (Villager)</option>
               </select>
               
               <TombstoneButton onClick={() => resetGame(chosenRole)}>
@@ -219,28 +437,57 @@ export default function ControlPanel() {
 
         {/* State: NIGHT WEREWOLF ACTION */}
         {phase === "NIGHT_WOLF" && (
-          <div className="flex items-center gap-6">
-            {user?.role === "狼人" && !isDead ? (
-              <>
-                <div className="text-zinc-400 font-mono text-xs font-medium max-w-sm">
-                  📢 <span className="text-red-500 font-bold uppercase">[ 狼牙出鞘 ]</span> 你是凶残的狼人！请在左侧列表中点击选择你要撕咬啃食的目标，按下印章封死他！
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full px-2">
+            {WOLF_CAMP.includes(user?.role || "") && !isDead ? (
+              <div className="flex-grow flex items-center gap-3 w-full">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    disabled
+                    value=""
+                    placeholder="狼人袭杀阶段：请点击右侧释放技能选取目标..."
+                    className="w-full bg-transparent border border-zinc-900/80 text-[#e0e0e0] px-4 py-2 text-xs font-sans font-medium focus:outline-none rounded text-zinc-500 cursor-not-allowed"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
                 </div>
-                <SealButton
-                  disabled={selectedCardId === null}
-                  onClick={() => selectedCardId && nightSkillAction("NIGHT_KILL", selectedCardId)}
+                
+                <button
+                  type="button"
+                  onClick={() => setSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-600 border border-amber-500 text-black hover:bg-amber-500 transition-all font-sans font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(245,158,11,0.5)] z-10 whitespace-nowrap cursor-pointer shrink-0"
                 >
-                  獠牙处决
-                </SealButton>
-              </>
+                  <Flame className="w-3.5 h-3.5" />
+                  释放技能
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#1f1a2e]/60 border border-indigo-900/60 text-[10px] text-indigo-300 hover:bg-[#a5b4fc] transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  查看图鉴
+                </button>
+              </div>
             ) : (
               /* Dormant / AI werewolf is deciding */
-              <div className="flex items-center gap-4">
-                <div className="text-zinc-500 font-sans text-xs italic">
-                  🌒 夜深了... 月隐迷雾，群兽在荒野嘶吼，狼人正在圆形厅柱阴影里低声抉择...
+              <div className="flex items-center justify-between w-full">
+                <div className="text-zinc-550 font-sans text-xs italic">
+                  🌒 夜深了... 狼人正在夜色中讨论并选择袭杀目标...
                 </div>
-                <TombstoneButton onClick={() => nightSkillAction("NIGHT_KILL", 2)}>
-                  跳过黑夜等待 (Skip Night)
-                </TombstoneButton>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsSkillModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-950/40 border border-indigo-900/50 text-[10px] text-indigo-300 hover:bg-indigo-900 hover:text-indigo-100 transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 cursor-pointer shrink-0"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    查看神职
+                  </button>
+                  <TombstoneButton onClick={() => nightSkillAction("NIGHT_KILL", 2)}>
+                    跳过等待 (Skip Night)
+                  </TombstoneButton>
+                </div>
               </div>
             )}
           </div>
@@ -248,28 +495,56 @@ export default function ControlPanel() {
 
         {/* State: NIGHT SEER ACTION */}
         {phase === "NIGHT_SEER" && (
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full px-2">
             {user?.role === "预言家" && !isDead ? (
-              <>
-                <div className="text-zinc-400 font-mono text-xs font-medium max-w-sm">
-                  🔮 <span className="text-yellow-500 font-bold uppercase">[ 烛照本真 ]</span> 你是法力强大的真预言家。请在卡卡牌列表中触碰可疑目标，点击石碑开启照妖镜！
+              <div className="flex-grow flex items-center gap-3 w-full">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    disabled
+                    value=""
+                    placeholder="预言家真视阶段：请点击右侧释放技能查验身份..."
+                    className="w-full bg-transparent border border-zinc-900/80 text-[#e0e0e0] px-4 py-2 text-xs font-sans font-medium focus:outline-none rounded text-zinc-500 cursor-not-allowed"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
                 </div>
-                <TombstoneButton
-                  disabled={selectedCardId === null}
-                  onClick={() => selectedCardId && nightSkillAction("NIGHT_INSPECT", selectedCardId)}
+                
+                <button
+                  type="button"
+                  onClick={() => setSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-600 border border-amber-500 text-black hover:bg-amber-500 transition-all font-sans font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(245,158,11,0.5)] z-10 whitespace-nowrap cursor-pointer shrink-0"
                 >
-                  <Eye className="w-4 h-4 text-[#eab308]" />
-                  窥其宿命 (Inspect Alignment)
-                </TombstoneButton>
-              </>
+                  <Flame className="w-3.5 h-3.5" />
+                  释放技能
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#1f1a2e]/60 border border-indigo-900/60 text-[10px] text-indigo-300 hover:bg-[#a5b4fc] transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  查看图鉴
+                </button>
+              </div>
             ) : (
-              <div className="flex items-center gap-4">
-                <div className="text-zinc-500 font-sans text-xs italic">
-                  🌟 漫天幽星，预言神官正在擦拭明镜，推算星轨底牌...
+              <div className="flex items-center justify-between w-full">
+                <div className="text-zinc-550 font-sans text-xs italic">
+                  🌟 漫天繁星，预言家正在进行夜间查验，推算真实底牌...
                 </div>
-                <TombstoneButton onClick={() => nightSkillAction("NIGHT_INSPECT", 4)}>
-                  跳过星盘查验 (Skip Inspect)
-                </TombstoneButton>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsSkillModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-950/40 border border-indigo-900/50 text-[10px] text-indigo-300 hover:bg-indigo-900 hover:text-indigo-100 transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 cursor-pointer shrink-0"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    查看神职
+                  </button>
+                  <TombstoneButton onClick={() => nightSkillAction("NIGHT_INSPECT", 4)}>
+                    跳过查验 (Skip Inspect)
+                  </TombstoneButton>
+                </div>
               </div>
             )}
           </div>
@@ -277,45 +552,71 @@ export default function ControlPanel() {
 
         {/* State: NIGHT WITCH ACTION */}
         {phase === "NIGHT_WITCH" && (
-          <div className="flex items-center gap-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full px-2">
             {user?.role === "女巫" && !isDead ? (
-              <>
-                <div className="text-zinc-400 font-mono text-xs max-w-md">
-                  🧪 <span className="text-green-400 font-bold uppercase">[ 毒药与圣水 ]</span> 你是掌控生死的女巫。
-                  昨晚被杀害的是 {victimId !== null ? `玩家 ${victimId} 号` : "无"}。你是否救人或赐人死亡？
+              <div className="flex-grow flex items-center gap-3 w-full">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    disabled
+                    value=""
+                    placeholder={victimId ? `女巫秘药阶段：昨夜 ${victimId} 号倒牌，点击释放技能使用遗忘录/毒药...` : "女巫秘药阶段：昨夜平安，点击释放技能使用毒药..."}
+                    className="w-full bg-transparent border border-zinc-900/80 text-[#e0e0e0] px-4 py-2 text-xs font-sans font-medium focus:outline-none rounded text-zinc-500 cursor-not-allowed"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                 </div>
                 
-                {/* Healing potion (If casualty exists) */}
-                <PotionButton
-                  type="elixir"
-                  disabled={victimId === null}
-                  onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", victimId || 0, { saved: true, poisonTarget: null })}
+                {victimId && (
+                  <button 
+                    type="button" 
+                    onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", victimId, { saved: true, poisonTarget: null })} 
+                    className="px-3 py-1.5 font-bold font-sans text-[10px] text-fuchsia-300 border border-fuchsia-900/50 bg-fuchsia-950/40 rounded uppercase tracking-widest hover:bg-fuchsia-900 transition-all shadow-md shrink-0 whitespace-nowrap active:scale-95"
+                  >
+                    解药援救
+                  </button>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => setSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-600 border border-amber-500 text-black hover:bg-amber-500 transition-all font-sans font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(245,158,11,0.5)] z-10 whitespace-nowrap cursor-pointer shrink-0"
                 >
-                  圣水复苏
-                </PotionButton>
+                  <Flame className="w-3.5 h-3.5" />
+                  释放技能
+                </button>
 
-                {/* Poison potion bottle */}
-                <PotionButton
-                  type="poison"
-                  disabled={selectedCardId === null}
-                  onClick={() => selectedCardId && nightSkillAction("NIGHT_SAVED_OR_POISON", selectedCardId, { saved: false, poisonTarget: selectedCardId })}
+                <button
+                  type="button"
+                  onClick={() => setIsSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#1f1a2e]/60 border border-indigo-900/60 text-[10px] text-indigo-300 hover:bg-[#a5b4fc] transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
                 >
-                  见血封喉
-                </PotionButton>
-
+                  <BookOpen className="w-3.5 h-3.5" />
+                  查看图鉴
+                </button>
+                
                 {/* Dry Skip */}
-                <TombstoneButton onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", 0, { saved: false, poisonTarget: null })}>
-                  静观其变 (Skip)
-                </TombstoneButton>
-              </>
+                <button onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", 0, { saved: false, poisonTarget: null })} className="px-4 py-2 font-mono text-[10px] text-zinc-400 border border-zinc-700 hover:bg-zinc-800 rounded shrink-0 transition-all font-bold tracking-widest">
+                  跳过
+                </button>
+              </div>
             ) : (
-              <div className="flex items-center gap-4">
-                <div className="text-zinc-500 font-sans text-xs italic">
+              <div className="flex items-center justify-between w-full">
+                <div className="text-zinc-550 font-sans text-xs italic">
                   ⚗ 实验台上，女巫正在将邪恶毒草与幽冥圣水在大釜里秘密搅拌调混...
                 </div>
-                <TombstoneButton onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", 0, { saved: false, poisonTarget: null })}>
-                  跳过来药调配 (Skip Potions)
-                </TombstoneButton>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsSkillModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-950/40 border border-indigo-900/50 text-[10px] text-indigo-300 hover:bg-indigo-900 hover:text-indigo-100 transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 cursor-pointer shrink-0"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    查看神职
+                  </button>
+                  <TombstoneButton onClick={() => nightSkillAction("NIGHT_SAVED_OR_POISON", 0, { saved: false, poisonTarget: null })}>
+                    跳过来药调配 (Skip Potions)
+                  </TombstoneButton>
+                </div>
               </div>
             )}
           </div>
@@ -324,49 +625,204 @@ export default function ControlPanel() {
         {/* State: DAY CASUALTY ANNOUNCEMENT */}
         {phase === "DAY_ANNOUNCEMENT" && (
           <div className="flex flex-col items-center gap-3">
-            <span className="font-mono text-xs text-yellow-500 tracking-wider uppercase font-black">旭日已升，圆形议席的烛光熄灭。</span>
-            <TombstoneButton onClick={transitionToDebate}>
-              <Shield className="w-4.5 h-4.5 text-yellow-500 animate-pulse" />
-              进入白昼大辩论 (Enter Debate Arena)
-            </TombstoneButton>
+            <span className="font-mono text-xs text-yellow-500 tracking-wider uppercase font-black text-center">旭日已升，圆形议席的烛光熄灭。</span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSkillModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-950/40 border border-indigo-900/50 text-[10px] text-indigo-300 hover:bg-indigo-900 hover:text-indigo-100 transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 cursor-pointer"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                查看图鉴
+              </button>
+              <TombstoneButton onClick={transitionToDebate}>
+                <Shield className="w-4.5 h-4.5 text-yellow-500 animate-pulse" />
+                前往广场
+              </TombstoneButton>
+            </div>
+          </div>
+        )}
+
+        {/* State: DAY SHERIFF ELECTION */}
+        {phase === "DAY_SHERIFF_RUN" && (
+          <div className="flex flex-col items-center gap-4 py-3 w-full max-w-[480px] mx-auto select-none">
+            <div className="flex flex-col items-center text-center">
+              <span className="font-serif text-lg text-amber-500 tracking-widest font-black uppercase drop-shadow-[0_0_8px_rgba(245,158,11,0.6)] flex items-center justify-center gap-2">
+                <Crown className="w-5 h-5 flex-shrink-0" />
+                警长竞选
+                <Crown className="w-5 h-5 flex-shrink-0" />
+              </span>
+              <div className="w-32 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent mt-1.5 mb-1.5"></div>
+              <span className="font-sans text-[10px] text-zinc-400 max-w-[300px] leading-relaxed">
+                群居之巅，号令裁决之权。<br />当选者将戴上桂冠，享有 1.5 倍神圣归票权。<br />
+                <span className="text-zinc-500 italic mt-1 block">您是否踏入此局？</span>
+              </span>
+            </div>
+
+            <div className="flex items-stretch justify-center gap-5 mt-2 w-full px-2 relative">
+              <button
+                type="button"
+                onClick={() => setIsSkillModalOpen(true)}
+                title="查看技能"
+                className="absolute left-[-20px] top-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-1 w-10 h-10 rounded-full bg-indigo-950/40 border border-indigo-900/50 hover:bg-indigo-900 hover:text-indigo-100 transition-all shadow-md z-10 active:scale-95 cursor-pointer text-indigo-300 hidden sm:flex"
+              >
+                <BookOpen className="w-4 h-4" />
+              </button>
+
+              {/* Card: Run */}
+              <button
+                onClick={() => useGameStore.getState().sheriffRunResolve(true)} disabled={isDead}
+                className="relative flex-1 group overflow-hidden rounded border border-amber-900/60 bg-zinc-950/80 py-3 px-2 hover:border-amber-500/80 hover:bg-zinc-900 transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] max-w-[150px] cursor-pointer shadow-lg"
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--tw-gradient-stops))] from-amber-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                
+                <div className="relative z-10 flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full border border-amber-700/50 flex items-center justify-center bg-zinc-900/80 group-hover:bg-amber-950/60 transition-colors shadow-[0_0_15px_rgba(245,158,11,0.1)] group-hover:shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                    <Shield className="w-4 h-4 text-amber-500 drop-shadow-md" />
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="font-serif text-sm font-black text-amber-100 tracking-widest drop-shadow mt-1">上警竞选</span>
+                    <span className="font-serif text-[9px] text-amber-500/70 tracking-widest uppercase mt-0.5 scale-90 opacity-80">The Emperor</span>
+                  </div>
+                </div>
+                {/* Decorative corners */}
+                <div className="absolute top-1 left-1 w-2 h-2 border-t border-l border-amber-700/50 pointer-events-none"></div>
+                <div className="absolute top-1 right-1 w-2 h-2 border-t border-r border-amber-700/50 pointer-events-none"></div>
+                <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-amber-700/50 pointer-events-none"></div>
+                <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r border-amber-700/50 pointer-events-none"></div>
+              </button>
+
+              {/* Card: Withdraw */}
+              <button
+                onClick={() => useGameStore.getState().sheriffRunResolve(false)} disabled={isDead}
+                className="relative flex-1 group overflow-hidden rounded border border-zinc-800/80 bg-zinc-950/80 py-3 px-2 hover:border-zinc-500/80 hover:bg-zinc-900 transition-all duration-500 min-w-[120px] max-w-[150px] cursor-pointer shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--tw-gradient-stops))] from-zinc-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                
+                <div className="relative z-10 flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full border border-zinc-700/50 flex items-center justify-center bg-zinc-900/80 group-hover:bg-zinc-800/60 transition-colors grayscale group-hover:grayscale-0">
+                    <EyeOff className="w-4 h-4 text-zinc-400 group-hover:text-zinc-300 drop-shadow-md" />
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="font-serif text-sm font-black text-zinc-300 tracking-widest drop-shadow mt-1">退水旁观</span>
+                    <span className="font-serif text-[9px] text-zinc-500 tracking-widest uppercase mt-0.5 scale-90 opacity-80">The Hermit</span>
+                  </div>
+                </div>
+                {/* Decorative corners */}
+                <div className="absolute top-1 left-1 w-2 h-2 border-t border-l border-zinc-700/40 pointer-events-none"></div>
+                <div className="absolute top-1 right-1 w-2 h-2 border-t border-r border-zinc-700/40 pointer-events-none"></div>
+                <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-zinc-700/40 pointer-events-none"></div>
+                <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r border-zinc-700/40 pointer-events-none"></div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* State: DAY SHERIFF VOTING */}
+        {phase === "DAY_SHERIFF_VOTE" && (
+          <div className="flex flex-col items-center gap-4 py-2 w-full max-w-[500px] mx-auto select-none">
+            <div className="flex flex-col items-center text-center">
+              <span className="font-serif text-lg text-amber-500 tracking-widest font-black uppercase drop-shadow-[0_0_8px_rgba(245,158,11,0.6)] flex items-center justify-center gap-2">
+                <Crown className="w-5 h-5 flex-shrink-0" />
+                警徽授受
+                <Crown className="w-5 h-5 flex-shrink-0" />
+              </span>
+              <div className="w-32 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent mt-1.5 mb-2"></div>
+              {!isDead ? (
+                gameState.sheriffCandidates?.includes(user?.id || -1) ? (
+                  <span className="font-sans text-[10px] text-zinc-400 mt-1 max-w-[300px] text-center italic">
+                    您已踏入权力的角逐，退水的信徒正在为您与他们投下选票...
+                  </span>
+                ) : (
+                  <span className="font-sans text-[10px] text-zinc-400 mt-1 max-w-[300px] text-center italic">
+                    请在下方序列选取您支持的候选人，授其荣光。
+                  </span>
+                )
+              ) : (
+                <span className="font-sans text-[10px] text-zinc-500 mt-1 max-w-[300px] text-center italic">
+                  您已长眠沉沦，命运交由生者裁决。
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              {!isDead ? (
+                gameState.sheriffCandidates?.includes(user?.id || -1) ? (
+                  <button
+                    onClick={() => useGameStore.getState().castSheriffVote(null)}
+                    className="relative px-6 py-2 bg-zinc-950 border border-zinc-800 rounded text-yellow-500/80 font-serif font-black tracking-widest uppercase hover:bg-zinc-900 transition-colors shadow-lg group overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--tw-gradient-stops))] from-yellow-700/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <span className="relative z-10 flex items-center gap-2 text-[11px]">
+                      <Shield className="w-4 h-4 animate-pulse" />
+                      等待裁决 (Skip)
+                    </span>
+                  </button>
+                ) : (
+                  <div className="bg-zinc-950/50 border border-zinc-800/80 rounded-md p-2">
+                    <ActionTargetSelector 
+                       actionName="授受荣光"
+                       actionIcon="👑"
+                       themeColor="yellow"
+                       actionPrefix="公开授位"
+                       actionPrompt=""
+                       eligiblePlayers={gameState.players.filter(p => p.isAlive && gameState.sheriffCandidates?.includes(p.id))}
+                       onConfirm={() => useGameStore.getState().castSheriffVote()}
+                    />
+                  </div>
+                )
+              ) : (
+                  <button disabled className="px-6 py-2 bg-zinc-950/50 border border-zinc-800/50 rounded text-zinc-600 font-serif font-black tracking-widest uppercase cursor-not-allowed flex items-center gap-2 text-[11px]">
+                    <Skull className="w-4 h-4" /> 幽灵旁观
+                  </button>
+              )}
+            </div>
           </div>
         )}
 
         {/* State: DAY PLAYERS DEBATE (AI OR USER) */}
         {phase === "DAY_DEBATE" && (
-          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 px-2">
             
-            {/* Auto Play simulator switch on left */}
-            <div className="flex items-center gap-3 bg-zinc-950/30 px-4 py-2 rounded border border-zinc-900/50 shadow-[1px_1px_4px_rgba(0,0,0,0.5)]">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isAutoPlaying}
-                  onChange={toggleAutoPlay}
-                  className="w-4 h-4 accent-red-600"
-                />
-                <span className="font-mono text-xs text-zinc-300 font-bold tracking-wider uppercase">
-                  🎬 AI 自动轮流演讲 (Auto Debate)
-                </span>
-              </label>
-              <span className={`w-2 h-2 rounded-full ${isAutoPlaying ? "bg-emerald-500 animate-ping" : "bg-zinc-700"}`} />
-            </div>
-
             {/* Speaking execution */}
             {gameState.currentSpeakerId === 1 ? (
               /* It is User speaking! Show input console and Parchment confirm button */
-              <div className="flex-grow flex items-center gap-3 max-w-2xl w-full">
+              <div className="flex-grow flex items-center gap-3 w-full">
                 <div className="relative flex-grow">
                   <input
                     type="text"
                     value={userSpeechText}
                     onChange={(e) => setUserSpeechText(e.target.value)}
                     placeholder="轮到你的表述时间！请用犀利的逻辑反击狼人，争取好人信任..."
-                    className="w-full bg-zinc-950/30 border border-zinc-900/60 text-[#e0e0e0] px-4 py-2.5 text-xs font-sans font-medium focus:outline-none focus:border-red-650 rounded placeholder-zinc-550"
+                    className="w-full bg-transparent border border-zinc-800/40 text-[#e0e0e0] px-4 py-2 text-xs font-sans font-medium focus:outline-none focus:border-red-650 rounded placeholder-zinc-500"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                 </div>
                 
+                <button
+                  type="button"
+                  onClick={() => isDeadHunter ? setSkillModalOpen(true) : undefined}
+                  disabled={!isDeadHunter}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 whitespace-nowrap shrink-0 ${
+                    isDeadHunter 
+                      ? "bg-amber-600 border border-amber-500 text-black hover:bg-amber-500 cursor-pointer shadow-[0_0_10px_rgba(245,158,11,0.5)]" 
+                      : "bg-red-950/40 border border-red-900/50 text-[10px] text-red-300/50 cursor-not-allowed"
+                  }`}
+                  title={isDeadHunter ? "释放技能" : "非技能释放阶段"}
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  释放技能
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#1f1a2e]/60 border border-indigo-900/60 text-[10px] text-indigo-300 hover:bg-indigo-900 hover:text-[#fff] transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  查看图鉴
+                </button>
+
                 <ParchmentButton onClick={submitUserSpeech} disabled={!userSpeechText.trim()}>
                   <Send className="w-3.5 h-3.5" />
                   确认发言
@@ -374,10 +830,35 @@ export default function ControlPanel() {
               </div>
             ) : (
               /* It's an AI speaking. Provide step triggers */
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 shrink-0">
                 <span className="font-sans text-[11px] text-zinc-400 font-bold mr-1">
                   正在请听：卡牌 {gameState.currentSpeakerId} 号的质询和推理。
                 </span>
+                
+                <button
+                  type="button"
+                  onClick={() => isDeadHunter ? setSkillModalOpen(true) : undefined}
+                  disabled={!isDeadHunter}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 whitespace-nowrap shrink-0 ${
+                    isDeadHunter 
+                      ? "bg-amber-600 border border-amber-500 text-black hover:bg-amber-500 cursor-pointer shadow-[0_0_10px_rgba(245,158,11,0.5)]" 
+                      : "bg-red-950/40 border border-red-900/50 text-[10px] text-red-300/50 cursor-not-allowed"
+                  }`}
+                  title={isDeadHunter ? "释放技能" : "非技能释放阶段"}
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  释放技能
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#1f1a2e]/60 border border-indigo-900/60 text-[10px] text-indigo-300 hover:bg-[#a5b4fc] transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 whitespace-nowrap cursor-pointer shrink-0"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  查看图鉴
+                </button>
+
                 <ParchmentButton onClick={simulateNextAI}>
                   <Play className="w-3.5 h-3.5" />
                   下一步发言
@@ -389,22 +870,45 @@ export default function ControlPanel() {
 
         {/* State: DAY VOTING DECISION */}
         {phase === "DAY_VOTE" && (
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full px-2">
             {!isDead ? (
               <>
-                <div className="text-zinc-400 font-mono text-xs max-w-md antialiased font-semibold">
-                  🗳️ <span className="text-yellow-400 font-bold uppercase">[ 最后的审判 ]</span> 辩论大门闭合！请在左侧触碰你最怀疑的恶狼卡牌，按下底部的红色印章印记，施放神圣处的制裁！
+                <div className="text-zinc-400 font-mono text-xs max-w-xl antialiased font-semibold">
+                  🗳️ <span className="text-yellow-400 font-bold uppercase">[ 最后的审判 ]</span> 辩论大门已经紧闭。点击在座所有人生杀大权完全呈现，对可疑者投下流放印章！
                 </div>
-                <SealButton
-                  disabled={selectedCardId === null}
-                  onClick={castVote}
-                >
-                  封印流放
-                </SealButton>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsSkillModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-950/40 border border-indigo-900/50 text-[10px] text-indigo-300 hover:bg-indigo-900 hover:text-indigo-100 transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 cursor-pointer"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    查看神职
+                  </button>
+                  <ActionTargetSelector 
+                     actionName="流放投票"
+                     actionIcon="🗳️"
+                     themeColor="amber"
+                     actionPrefix="法庭公投"
+                     actionPrompt="请在下方序列选取您要流放的目标："
+                     eligiblePlayers={gameState.players.filter(p => p.isAlive && !p.isUser)}
+                     onConfirm={() => castVote()}
+                  />
+                </div>
               </>
             ) : (
-              <div className="text-zinc-500 font-sans text-xs italic">
-                🗳️ 村民正在圆形议事桌案前投出各自的石制印章，决选流放疑犯。宿命轮转中...
+              <div className="flex items-center justify-between w-full">
+                <div className="text-zinc-550 font-sans text-xs italic">
+                  🗳️ 村民正在圆形议事桌案前投出各自的石制印章，决选流放疑犯。宿命轮转中...
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSkillModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-950/40 border border-indigo-900/50 text-[10px] text-indigo-300 hover:bg-indigo-900 hover:text-indigo-100 transition-all font-sans font-bold uppercase tracking-widest shadow-md z-10 active:scale-95 cursor-pointer shrink-0"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  查看神职
+                </button>
               </div>
             )}
           </div>
@@ -413,7 +917,7 @@ export default function ControlPanel() {
         {/* State: GAME OVER AND RESTART */}
         {phase === "GAME_OVER" && (
           <div className="flex flex-col items-center gap-4">
-            <span className="font-mono text-xs tracking-widest text-[#ef4444] font-extrabold uppercase animate-bounce ink-shadow">
+            <span className="font-mono text-xs tracking-widest text-[#ef4444] font-extrabold uppercase animate-bounce ink-shadow text-center">
               ♛ 审判法阵归于平静。尘埃落定 ♛
             </span>
             <TombstoneButton onClick={() => resetGame("预言家")}>
@@ -423,7 +927,18 @@ export default function ControlPanel() {
           </div>
         )}
 
+        <SkillReleaseModal 
+          isOpen={skillModalOpen} 
+          onClose={() => setSkillModalOpen(false)}
+          actionName={skillConfig.actionName}
+          actionIcon={skillConfig.icon}
+          eligiblePlayers={gameState.players.filter(p => p.isAlive && !p.isUser)}
+          onConfirm={skillConfig.confirm}
+          userRole={user?.role || "村民"}
+        />
+
       </div>
     </div>
   );
 }
+

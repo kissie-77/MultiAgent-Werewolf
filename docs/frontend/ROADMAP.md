@@ -40,6 +40,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-06 | 人机座位视图修复：后端脱敏名单（6 卡牌 + 本人徽标 + 他人秘匿）+ reducer 事件时间线/公开发言气泡 + 全 22 角色立绘（material/tarot 部署 PascalCase + 映射）；真机回归通过；spec/plan 见 `docs/superpowers/{specs,plans}/2026-06-06-human-seat-view-and-role-art*` |
 | 2026-06-06 | B 档内容页接后端 + M3 人机对战座位输入 + 结算页/立绘修复；详见 [前后端打通与人机对战报告](../reports/前后端打通与人机对战-2026-06-06.md) |
 | 2026-06-05 | 前端联调：Router + Vite 代理 + SpectatePanel + 6 页 API 对接 |
 | 2026-05-23 | 初始化 DESIGN / ROADMAP，消除 README 死链 |

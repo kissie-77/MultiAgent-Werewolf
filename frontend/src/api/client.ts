@@ -12,7 +12,9 @@ import {
   HowToPlayPageData,
   NightPhasePageData,
   StrategyPageData,
-  RunListPageData
+  RunListPageData,
+  StartGameRequest,
+  StartGameResponse
 } from "./types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -42,6 +44,29 @@ export class ApiClient {
       throw new Error(`API error fetching ${url}: ${response.statusText}`);
     }
     return unwrap<T>(await response.json());
+  }
+
+  private static async post<T>(url: string, body: unknown): Promise<T> {
+    const response = await fetch(`${API_BASE}${url}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      let detail = response.statusText;
+      try {
+        const j = await response.json();
+        detail = (j && (j.detail || j.message)) || detail;
+      } catch {
+        // non-JSON error body; keep statusText
+      }
+      throw new Error(`API error POST ${url}: ${detail}`);
+    }
+    return unwrap<T>(await response.json());
+  }
+
+  static async startGame(req: StartGameRequest): Promise<StartGameResponse> {
+    return this.post<StartGameResponse>("/api/v1/games/start", req);
   }
 
   static async getHomePageData(): Promise<HomePageData> {

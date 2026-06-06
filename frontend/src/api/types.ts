@@ -408,5 +408,25 @@ export interface RunListPageData {
   runs: Paginated<RunSummary>;
 }
 
+// --- Start game (mirrors backend StartGameRequest / StartGameResponse) ---
+export interface StartGameRequest {
+  config_id?: string;
+  participation?: string;
+  rules?: string;
+  player_count?: number;
+  badge_flow?: boolean;
+}
 
+export interface StartGameResponse {
+  run_id: string;
+  source: string;
+  status: string;
+  config_id: string;
+  run_dir: string;
+  game_page_path: string;
+  status_path: string;
+  replay_page_path: string;
+  player_count?: number | null;
+  badge_flow?: boolean;
+}
 

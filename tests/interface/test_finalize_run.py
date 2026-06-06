@@ -44,7 +44,7 @@ def test_persist_run_artifacts_writes_beliefs(tmp_path) -> None:
     run_dir.mkdir()
 
     from llm_werewolf.strategy.belief.state import BeliefLog, BeliefSnapshotRecord
-    from llm_werewolf.strategy.wolf.camp_mind import init_wolf_camp_mind, merge_wolf_camp_delta
+    from llm_werewolf.strategy.wolf.camp_mind import init_private_wolf_camp_mind, merge_wolf_camp_delta
     from llm_werewolf.strategy.contracts.decisions import WolfCampDelta, GodRoleDelta
 
     belief_log = BeliefLog()
@@ -62,7 +62,7 @@ def test_persist_run_artifacts_writes_beliefs(tmp_path) -> None:
             second_order=[],
         )
     )
-    wolf_model = init_wolf_camp_mind([])
+    wolf_model = init_private_wolf_camp_mind(3)
     merge_wolf_camp_delta(
         wolf_model,
         WolfCampDelta(god_role_intel=[GodRoleDelta(target_seat=2, delta={"Seer": 1.0})]),
@@ -74,7 +74,7 @@ def test_persist_run_artifacts_writes_beliefs(tmp_path) -> None:
     engine.event_logger.events = []
     engine.game_state.vote_intention_tracker = None
     engine.game_state.belief_log = belief_log
-    engine.game_state.wolf_camp_mind = wolf_model
+    engine.game_state.wolf_camp_minds = {3: wolf_model}
 
     mod.persist_run_artifacts(engine, run_dir)
     assert (run_dir / "beliefs.jsonl").is_file()

@@ -47,7 +47,7 @@ PhaseInteraction（游戏引擎接口）
 | PromptAgentMixin | Prompt 注入 Mixin，提供角色提示词和策略 |
 | WerewolfAdapterBridge | 统一适配层：解析 LLM 输出、驱动 Agent 调用、转换决策 |
 | MessageRouter | 消息路由器：根据通道和游戏状态决定谁能听到什么 |
-| InformationHub | 信息中枢：MsgHub 隔离、私有决策 context 组装、信念 Skill refresh |
+| InformationHub | 信息中枢：MsgHub 隔离、私有决策 context 组装、信念 Skill refresh；狼人 W 面板按 `wolf_camp_minds[seat]` 注入本人上下文 |
 | RuntimeMemoryManager | 运行时记忆管理器：协调四层记忆 |
 | WorkingMemory | 工作记忆：短期上下文，按轮次压缩 |
 | EpisodicMemory | 情景记忆：关键事件记录 |
@@ -109,7 +109,7 @@ Bridge 层负责将 LLM 输出解析为结构化决策。启用 structured outpu
 | VoteIntentionDecision | 投票意向 | `seat`（0=观望）+ `reason` |
 | YesNoDecision | 是否用药等 | `value` bool；回退 `[[1]]` / `[[0]]` |
 | WitchNightDecision | 女巫夜间决策 | `action` + `seat` |
-| MindStateDecision | 信念矩阵更新 | B1/B2 + 意向 + 可选 wolf_camp_delta |
+| MindStateDecision | 信念矩阵更新 | B1/B2 + 意向 + 可选 `wolf_camp_delta`（merge 至该狼 `wolf_camp_minds[seat]`） |
 
 流程文案（`strategy/prompts/phase/`）以 Schema 字段描述为主，不再要求「放在 `[[]]` 里」；解析兼容仍在 Bridge。
 

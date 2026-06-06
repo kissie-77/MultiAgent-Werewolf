@@ -132,11 +132,11 @@ class GameEngineBase:
         from llm_werewolf.strategy.belief.state import BeliefLog
         from llm_werewolf.strategy.belief.format import sync_all_belief_memories
         from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
-        from llm_werewolf.strategy.wolf.camp_mind import init_wolf_camp_mind
+        from llm_werewolf.strategy.wolf.camp_mind import init_wolf_camp_minds
 
         self.game_state.belief_log = BeliefLog()
         wolves = [p for p in self.game_state.players if participates_in_wolf_team(p)]
-        self.game_state.wolf_camp_mind = init_wolf_camp_mind(wolves)
+        self.game_state.wolf_camp_minds = init_wolf_camp_minds(wolves)
         alive = self.game_state.get_alive_players()
         for player in alive:
             if player.agent is not None:
@@ -144,12 +144,12 @@ class GameEngineBase:
         sync_all_belief_memories(
             alive,
             alive=alive,
-            wolf_camp_mind=self.game_state.wolf_camp_mind,
+            wolf_camp_minds=self.game_state.wolf_camp_minds,
         )
         if self.information_hub is not None:
             self.information_hub.configure_belief_tracking(
                 self.game_state.belief_log,
-                self.game_state.wolf_camp_mind,
+                self.game_state.wolf_camp_minds,
                 on_belief_batch=self._log_belief_batch,
             )
 
@@ -407,7 +407,7 @@ class GameEngineBase:
         sync_all_belief_memories(
             self.game_state.players,
             alive=self.game_state.get_alive_players(),
-            wolf_camp_mind=self.game_state.wolf_camp_mind,
+            wolf_camp_minds=self.game_state.wolf_camp_minds,
         )
 
     def _on_round_end(self, round_number: int) -> None:

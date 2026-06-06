@@ -59,7 +59,7 @@ class GameState:
         self.track_vote_intentions = False
         self.vote_intention_tracker = None
         self.belief_log = None
-        self.wolf_camp_mind = None
+        self.wolf_camp_minds = None
 
         self.night_timeout: int | None = None
         self.day_timeout: int | None = None

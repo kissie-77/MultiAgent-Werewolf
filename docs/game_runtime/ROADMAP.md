@@ -18,7 +18,7 @@
 | 胜负判定 | ✅ Done | VictoryChecker |
 | 配置系统 | ✅ Done | GameConfig、预设、序列化 |
 | 夜间调度 | ✅ Done | NightScheduler、超时处理 |
-| 信念矩阵 | 🔄 In Progress | B1/B2/狼队 W 面板运行时接入 |
+| 信念矩阵 | 🔄 In Progress | B1/B2 + 狼人私有 W 面板（`wolf_camp_minds`） |
 | 扩展角色规则完善 | ✅ Done | 狼美人魅惑跨轮状态修复；白狼**白天自爆** |
 | 更多中立角色 | 📋 Planned | 乌鸦、吹笛者等 |
 | 目录重组 | ✅ Done | `rules/` `interaction/` `scheduling/` `i18n/` `support/` 子包 |
@@ -51,7 +51,8 @@
 
 ## 进行中
 
-- [ ] 信念矩阵（B1/B2/狼队 W 面板）与 strategy 运行时对齐
+- [ ] 信念矩阵（B1/B2）与 strategy 运行时持续对齐
+- [x] 狼人 W 面板改为按座位私有（`wolf_camp_minds`，2026-06-06）
 
 ## 计划中
 
@@ -64,6 +65,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-06 | `wolf_camp_mind` → `wolf_camp_minds`：每位狼人独立维护 W-G/W-E，狼间信息隔离 |
 | 2026-06-05 | `GameConfig.role_shuffle_seed`：`setup_game` 角色洗牌可复现；评测/CLI 透传种子 |
 | 2026-06-05 | `_handle_vote_tie` 改为迭代收尾（`_append_vote_tie_no_elimination`），消除自我递归 |
 | 2026-06-05 | `phase_interaction` 超时匹配改用 `GamePhase` 枚举 |

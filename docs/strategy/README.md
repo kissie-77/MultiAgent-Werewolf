@@ -38,8 +38,8 @@ strategy/
 ├── voting/                  # 投票意向
 │   ├── intention.py
 │   └── seat.py
-├── wolf/                    # 狼队阵营心智
-│   ├── camp_mind.py
+├── wolf/                    # 狼人私有战术雷达（W-G / W-E，按座位隔离）
+│   ├── camp_mind.py         # WolfCampMindModel、init_wolf_camp_minds、merge
 │   └── team.py
 └── prompts/                 # Prompt 资产（YAML / Markdown，非 Python）
     ├── roles/<role>/<version>/

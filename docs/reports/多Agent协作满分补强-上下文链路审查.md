@@ -194,12 +194,12 @@ InformationHub 采集投票意向/信念
 
 ### 3.5 信念矩阵是内心状态，不是公开事件
 
-当前 `format_belief_context()` 标题写明“仅自己可见”，并由 `WorkingMemory` 作为 `【内心信念】` 注入。狼人共享面板 `wolf_camp` 也只对狼人有意义。  
+当前 `format_belief_context()` 标题写明“仅自己可见”，并由 `WorkingMemory` 作为 `【内心信念】` 注入。狼人私有战术雷达 `wolf_camp`（`wolf_camp_minds[seat]`）同样仅注入该狼本人决策上下文，狼间不共享。  
 
 后续要继续防两类误用：
 
 - 把 `BELIEF_SNAPSHOT` 当作普通可见事件进入 observation。
-- 把某个 Agent 的 `BeliefState` 或狼队面板同步给非狼人或人类 UI 输入界面。
+- 把某个 Agent 的 `BeliefState` 或**其他狼的** W 面板同步给非狼人、其他狼或人类 UI 输入界面。
 
 ### 3.6 `collect_speech()` 的调用者要承担上下文拼接责任
 

@@ -176,7 +176,7 @@ class ActionProcessorMixin:
             sync_player_belief_memory(
                 action.actor,
                 alive=alive,
-                wolf_camp_mind=getattr(self.game_state, "wolf_camp_mind", None),
+                wolf_camp_minds=getattr(self.game_state, "wolf_camp_minds", None),
             )
 
     def _log_cupid_action(self, action: CupidLinkAction) -> None:

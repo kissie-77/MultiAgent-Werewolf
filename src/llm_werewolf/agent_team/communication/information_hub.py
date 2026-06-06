@@ -30,8 +30,10 @@ from llm_werewolf.strategy.belief.format import (
 )
 from llm_werewolf.strategy.belief.updater import merge_llm_beliefs, ensure_agent_belief_state
 from llm_werewolf.strategy.wolf.camp_mind import (
+    WolfCampMindMap,
     WolfCampMindModel,
     is_wolf_player,
+    get_wolf_camp_mind,
     merge_wolf_camp_delta,
 )
 from llm_werewolf.game_runtime.support.seat import get_player_seat
@@ -65,7 +67,7 @@ class InformationHub:
         self._get_alive_players: Callable[[], list[PlayerProtocol]] | None = None
         self._vote_intention_concurrency = 1
         self._belief_log: BeliefLog | None = None
-        self._wolf_camp_mind: WolfCampMindModel | None = None
+        self._wolf_camp_minds: WolfCampMindMap | None = None
         self._on_belief_batch: Callable[..., None] | None = None
         self._night_step_timeout: float | None = None
         self._day_step_timeout: float | None = None
@@ -113,13 +115,13 @@ class InformationHub:
     def configure_belief_tracking(
         self,
         belief_log: BeliefLog | None,
-        wolf_camp_mind: WolfCampMindModel | None = None,
+        wolf_camp_minds: WolfCampMindMap | None = None,
         *,
         on_belief_batch: Callable[..., None] | None = None,
     ) -> None:
-        """Wire god-view belief log and wolf-team shared panel."""
+        """Wire god-view belief log and per-wolf private radar panels."""
         self._belief_log = belief_log
-        self._wolf_camp_mind = wolf_camp_mind
+        self._wolf_camp_minds = wolf_camp_minds
         self._on_belief_batch = on_belief_batch
 
     def set_context_provider(
@@ -170,7 +172,7 @@ class InformationHub:
         refresh_player_belief_skills(
             actor,
             alive=self._get_alive_players(),
-            wolf_camp_mind=self._wolf_camp_mind,
+            wolf_camp_minds=self._wolf_camp_minds,
         )
 
     def _merge_private_context(self, actor: PlayerProtocol, additional_context: str) -> str:
@@ -393,8 +395,9 @@ class InformationHub:
                 if use_mind_state:
                     state = ensure_agent_belief_state(obs, alive)
                     wolf_camp_context = ""
-                    if is_wolf_player(obs) and self._wolf_camp_mind is not None:
-                        wolf_camp_context = format_wolf_camp_context(self._wolf_camp_mind)
+                    own_panel = get_wolf_camp_mind(self._wolf_camp_minds, obs)
+                    if own_panel is not None:
+                        wolf_camp_context = format_wolf_camp_context(own_panel)
                     entry, mind = await WerewolfAdapterBridge.request_mind_state(
                         obs.agent,
                         obs.get_role_name(),
@@ -415,29 +418,30 @@ class InformationHub:
                         alive_seats=alive_seats,
                     )
                     state.last_vote_seat = mind.vote_seat
+                    obs_seat = get_player_seat(obs) or 0
                     if (
                         is_wolf_player(obs)
-                        and self._wolf_camp_mind is not None
+                        and self._wolf_camp_minds is not None
                         and mind.wolf_camp_delta is not None
                     ):
-                        merge_wolf_camp_delta(
-                            self._wolf_camp_mind,
-                            mind.wolf_camp_delta,
-                            contributor_seat=get_player_seat(obs) or 0,
-                            round_number=round_number,
-                        )
+                        own_model = self._wolf_camp_minds.get(obs_seat)
+                        if own_model is not None:
+                            merge_wolf_camp_delta(
+                                own_model,
+                                mind.wolf_camp_delta,
+                                contributor_seat=obs_seat,
+                                round_number=round_number,
+                            )
                         sync_all_belief_memories(
                             alive,
                             alive=alive,
-                            wolf_camp_mind=self._wolf_camp_mind,
+                            wolf_camp_minds=self._wolf_camp_minds,
                         )
                     else:
                         sync_player_belief_memory(
                             obs,
                             alive=alive,
-                            wolf_camp_mind=(
-                                self._wolf_camp_mind if is_wolf_player(obs) else None
-                            ),
+                            wolf_camp_minds=self._wolf_camp_minds,
                         )
                     return entry, mind
                 entry = await WerewolfAdapterBridge.request_vote_intention(

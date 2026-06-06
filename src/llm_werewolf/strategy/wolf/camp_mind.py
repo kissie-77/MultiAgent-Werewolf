@@ -1,4 +1,8 @@
-"""Wolf-team shared tactical belief panel (W-G / W-E)."""
+"""Per-wolf private tactical belief panel (W-G / W-E).
+
+Each werewolf maintains an isolated radar — updates from one wolf are never
+merged into teammates' panels.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +16,8 @@ from llm_werewolf.strategy.voting.seat import get_player_seat
 
 if TYPE_CHECKING:
     from llm_werewolf.strategy.contracts.decisions import WolfCampDelta
+
+WolfCampMindMap = dict[int, "WolfCampMindModel"]
 
 _GOD_ROLES = ("Seer", "Witch", "Guard", "Hunter", "Villager")
 _THREAT_WEIGHTS = {"Seer": 0.45, "Witch": 0.30, "Guard": 0.15, "Hunter": 0.05, "Villager": 0.05}
@@ -59,6 +65,7 @@ class WolfExposureProfile:
 
 @dataclass
 class WolfCampMindModel:
+    owner_seat: int = 0
     wolf_seats: list[int] = field(default_factory=list)
     god_role_intel: dict[int, GodRoleBelief] = field(default_factory=dict)
     exposure_radar: dict[int, WolfExposureProfile] = field(default_factory=dict)
@@ -110,18 +117,48 @@ def _merge_role_distribution(existing: dict[str, float], incoming: dict[str, flo
     return _normalize_role_distribution(merged)
 
 
-def init_wolf_camp_mind(wolf_players: list[Any], *, round_number: int = 0) -> WolfCampMindModel:
-    model = WolfCampMindModel()
+def init_private_wolf_camp_mind(owner_seat: int, *, round_number: int = 0) -> WolfCampMindModel:
+    """Create an empty private panel for a single werewolf seat."""
+    model = WolfCampMindModel(owner_seat=owner_seat, wolf_seats=[owner_seat])
+    model.exposure_radar[owner_seat] = WolfExposureProfile(wolf_seat=owner_seat)
+    model.revision = 1
+    _ = round_number
+    return model
+
+
+def init_wolf_camp_minds(wolf_players: list[Any], *, round_number: int = 0) -> WolfCampMindMap:
+    """Initialize one isolated panel per werewolf player."""
+    minds: WolfCampMindMap = {}
     for player in wolf_players:
         seat = get_player_seat(player)
         if seat is None:
             continue
-        model.wolf_seats.append(seat)
-        model.exposure_radar[seat] = WolfExposureProfile(wolf_seat=seat)
-    model.wolf_seats.sort()
-    model.revision = 1 if model.wolf_seats else 0
-    _ = round_number
-    return model
+        minds[seat] = init_private_wolf_camp_mind(seat, round_number=round_number)
+    return minds
+
+
+def init_wolf_camp_mind(wolf_players: list[Any], *, round_number: int = 0) -> WolfCampMindModel:
+    """Initialize a private panel for the first wolf (tests / single-wolf helpers)."""
+    for player in wolf_players:
+        seat = get_player_seat(player)
+        if seat is not None:
+            return init_private_wolf_camp_mind(seat, round_number=round_number)
+    return init_private_wolf_camp_mind(0, round_number=round_number)
+
+
+def get_wolf_camp_mind(
+    minds: WolfCampMindMap | WolfCampMindModel | None,
+    player: Any,
+) -> WolfCampMindModel | None:
+    """Resolve the private panel visible to ``player``."""
+    if minds is None or not is_wolf_player(player):
+        return None
+    if isinstance(minds, WolfCampMindModel):
+        return minds
+    seat = get_player_seat(player)
+    if seat is None:
+        return None
+    return minds.get(seat)
 
 
 def merge_wolf_camp_delta(
@@ -156,14 +193,16 @@ def merge_wolf_camp_delta(
             existing.priority = _priority_from_threat(existing.threat_score)
             if item.reason:
                 existing.evidence = ([*existing.evidence, item.reason])[-5:]
-            if contributor_seat not in existing.contributors:
-                existing.contributors.append(contributor_seat)
+            existing.contributors = [contributor_seat]
             existing.updated_round = round_number
 
     for item in delta.exposure_radar:
-        profile = model.exposure_radar.get(item.wolf_seat)
-        if profile is None:
+        if item.wolf_seat != contributor_seat:
             continue
+        profile = model.exposure_radar.get(contributor_seat)
+        if profile is None:
+            profile = WolfExposureProfile(wolf_seat=contributor_seat)
+            model.exposure_radar[contributor_seat] = profile
         profile.cells[item.observer_seat] = max(
             profile.cells.get(item.observer_seat, 0.0),
             min(1.0, float(item.suspicion)),
@@ -180,6 +219,7 @@ def merge_wolf_camp_delta(
         {
             "round": round_number,
             "contributor_seat": contributor_seat,
+            "owner_seat": model.owner_seat,
             "god_role_intel": {str(k): v.to_dict() for k, v in model.god_role_intel.items()},
             "exposure_radar": {str(k): v.to_dict() for k, v in model.exposure_radar.items()},
         }
@@ -191,7 +231,12 @@ def format_wolf_camp_board(model: WolfCampMindModel) -> str:
     if model.revision == 0:
         return ""
 
-    lines = [f"【狼队共享战术面板 · revision {model.revision} · 仅狼队可见】", "", "■ 神职定位"]
+    owner = model.owner_seat or (model.wolf_seats[0] if model.wolf_seats else 0)
+    lines = [
+        f"【个人战术雷达 · {owner}号狼 · 仅本人可见 · revision {model.revision}】",
+        "",
+        "■ 神职定位（本人推断）",
+    ]
     ranked = sorted(model.god_role_intel.values(), key=lambda b: b.threat_score, reverse=True)
     if not ranked:
         lines.append("  （暂无）")
@@ -204,13 +249,14 @@ def format_wolf_camp_board(model: WolfCampMindModel) -> str:
                 f"Guard={roles.get('Guard', 0):.0%} → {belief.priority}"
             )
 
-    lines.extend(["", "■ 暴露雷达"])
-    for seat in sorted(model.exposure_radar):
-        profile = model.exposure_radar[seat]
+    lines.extend(["", "■ 暴露雷达（本人）"])
+    profile = model.exposure_radar.get(owner)
+    if profile is None:
+        lines.append("  （暂无）")
+    else:
         top = profile.top_suspectors[0]["seat"] if profile.top_suspectors else "—"
         lines.append(
-            f"  {seat}号狼: 综合={profile.overall_exposure:.2f} "
-            f"最疑={top} 建议={profile.suggested_stance}"
+            f"  综合={profile.overall_exposure:.2f} 最疑={top} 建议={profile.suggested_stance}"
         )
     return "\n".join(lines)
 
@@ -220,8 +266,30 @@ def save_wolf_camp_history(model: WolfCampMindModel, path: str | Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8") as handle:
         for item in model.history:
-            handle.write(json.dumps({"schema": "wolf_camp_mind_v1", **item}, ensure_ascii=False))
+            handle.write(
+                json.dumps(
+                    {"schema": "wolf_camp_mind_v2", "owner_seat": model.owner_seat, **item},
+                    ensure_ascii=False,
+                )
+            )
             handle.write("\n")
+
+
+def save_all_wolf_camp_histories(minds: WolfCampMindMap, path: str | Path) -> None:
+    """Persist per-wolf private panel histories to a single JSONL file."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("w", encoding="utf-8") as handle:
+        for owner_seat in sorted(minds):
+            model = minds[owner_seat]
+            for item in model.history:
+                handle.write(
+                    json.dumps(
+                        {"schema": "wolf_camp_mind_v2", "owner_seat": owner_seat, **item},
+                        ensure_ascii=False,
+                    )
+                )
+                handle.write("\n")
 
 
 def is_wolf_player(player: Any) -> bool:

@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 from dataclasses import field, dataclass
 
 from llm_werewolf.strategy.wolf.camp_mind import (
+    WolfCampMindMap,
     WolfCampMindModel,
+    get_wolf_camp_mind,
     is_wolf_player,
     format_wolf_camp_board,
 )
@@ -106,7 +108,7 @@ def build_agent_belief_context(
     player: PlayerProtocol,
     *,
     alive: list[PlayerProtocol],
-    wolf_camp_mind: WolfCampMindModel | None = None,
+    wolf_camp_minds: WolfCampMindMap | WolfCampMindModel | None = None,
 ) -> str:
     from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
 
@@ -115,8 +117,9 @@ def build_agent_belief_context(
     belief_ctx = format_belief_context(state)
     if belief_ctx:
         parts.append(belief_ctx)
-    if is_wolf_player(player) and wolf_camp_mind is not None:
-        wolf_ctx = format_wolf_camp_context(wolf_camp_mind)
+    own_panel = get_wolf_camp_mind(wolf_camp_minds, player)
+    if own_panel is not None:
+        wolf_ctx = format_wolf_camp_context(own_panel)
         if wolf_ctx:
             parts.append(wolf_ctx)
     return "\n\n".join(parts)
@@ -126,9 +129,9 @@ def sync_player_belief_memory(
     player: PlayerProtocol,
     *,
     alive: list[PlayerProtocol],
-    wolf_camp_mind: WolfCampMindModel | None = None,
+    wolf_camp_minds: WolfCampMindMap | WolfCampMindModel | None = None,
 ) -> None:
-    """Write latest B1/B2 (+ wolf panel) into the player's WorkingMemory."""
+    """Write latest B1/B2 (+ private wolf panel) into the player's WorkingMemory."""
     from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state
 
     agent = player.agent
@@ -140,8 +143,9 @@ def sync_player_belief_memory(
 
     state = ensure_agent_belief_state(player, alive)
     wolf_text = ""
-    if is_wolf_player(player) and wolf_camp_mind is not None:
-        wolf_text = format_wolf_camp_context(wolf_camp_mind)
+    own_panel = get_wolf_camp_mind(wolf_camp_minds, player)
+    if own_panel is not None:
+        wolf_text = format_wolf_camp_context(own_panel)
     memory_manager.sync_belief_context(state, wolf_camp_text=wolf_text)
 
 
@@ -149,12 +153,12 @@ def sync_all_belief_memories(
     players: list[PlayerProtocol],
     *,
     alive: list[PlayerProtocol],
-    wolf_camp_mind: WolfCampMindModel | None = None,
+    wolf_camp_minds: WolfCampMindMap | WolfCampMindModel | None = None,
 ) -> None:
     for player in players:
         if not player.is_alive():
             continue
-        sync_player_belief_memory(player, alive=alive, wolf_camp_mind=wolf_camp_mind)
+        sync_player_belief_memory(player, alive=alive, wolf_camp_minds=wolf_camp_minds)
 
 
 def append_working_memory_context(
@@ -177,7 +181,7 @@ def append_belief_context_fallback(
     player: PlayerProtocol,
     *,
     alive: list[PlayerProtocol],
-    wolf_camp_mind: WolfCampMindModel | None,
+    wolf_camp_minds: WolfCampMindMap | WolfCampMindModel | None,
     belief_enabled: bool,
 ) -> None:
     """Direct prompt injection when WorkingMemory is unavailable (e.g. DemoAgent)."""
@@ -185,7 +189,7 @@ def append_belief_context_fallback(
         return
     if player.agent and getattr(player.agent, "memory_manager", None):
         return
-    belief_ctx = build_agent_belief_context(player, alive=alive, wolf_camp_mind=wolf_camp_mind)
+    belief_ctx = build_agent_belief_context(player, alive=alive, wolf_camp_minds=wolf_camp_minds)
     if belief_ctx:
         parts.append(belief_ctx)
 
@@ -392,7 +396,7 @@ def refresh_player_belief_skills(
     player: PlayerProtocol,
     *,
     alive: list[PlayerProtocol],
-    wolf_camp_mind: WolfCampMindModel | None = None,
+    wolf_camp_minds: WolfCampMindMap | WolfCampMindModel | None = None,
 ) -> None:
     """Refresh belief-matched skills immediately before a speech/decision turn."""
     from llm_werewolf.strategy.belief.updater import ensure_agent_belief_state

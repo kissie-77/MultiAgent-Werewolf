@@ -80,11 +80,13 @@ class NightPhaseMixin:
             for_agent_decision=True,
         )
         wolf_panel = ""
-        wolf_camp_mind = getattr(self.game_state, "wolf_camp_mind", None)
-        if wolf_camp_mind is not None:
+        wolf_camp_minds = getattr(self.game_state, "wolf_camp_minds", None)
+        if wolf_camp_minds is not None:
             from llm_werewolf.strategy.belief.format import format_wolf_camp_context
+            from llm_werewolf.strategy.wolf.camp_mind import get_wolf_camp_mind
 
-            wolf_panel = format_wolf_camp_context(wolf_camp_mind)
+            own_panel = get_wolf_camp_mind(wolf_camp_minds, werewolf)
+            wolf_panel = format_wolf_camp_context(own_panel)
         body = (
             shared
             + "\n"

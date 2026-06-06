@@ -72,8 +72,8 @@ def test_merge_private_context_refreshes_belief_skills_first(
 
     call_order: list[str] = []
 
-    def fake_refresh(actor, *, alive, wolf_camp_mind) -> None:
-        del alive, wolf_camp_mind
+    def fake_refresh(actor, *, alive, wolf_camp_minds) -> None:
+        del alive, wolf_camp_minds
         call_order.append("refresh")
         actor.agent.memory_manager._belief_skill_context = "【信念匹配的对局经验 · 仅供参考】skill-block"
 
@@ -101,8 +101,8 @@ def test_collect_vote_intentions_refreshes_each_observer(
 
     refreshed_ids: list[str] = []
 
-    def fake_refresh(actor, *, alive, wolf_camp_mind) -> None:
-        del alive, wolf_camp_mind
+    def fake_refresh(actor, *, alive, wolf_camp_minds) -> None:
+        del alive, wolf_camp_minds
         refreshed_ids.append(actor.player_id)
 
     monkeypatch.setattr(

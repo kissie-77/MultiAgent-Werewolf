@@ -29,8 +29,10 @@ from llm_werewolf.strategy.contracts.decisions import (
 )
 from llm_werewolf.strategy.wolf.camp_mind import (
     init_wolf_camp_mind,
+    init_wolf_camp_minds,
     merge_wolf_camp_delta,
     format_wolf_camp_board,
+    get_wolf_camp_mind,
 )
 from llm_werewolf.evaluation.scoring.belief_calibration import compute_belief_brier_scores
 
@@ -77,7 +79,7 @@ def test_apply_revealed_role_and_public_elimination() -> None:
 
 def test_wolf_camp_merge_and_format() -> None:
     wolves = [_Player("player_3", wolf=True), _Player("player_4", wolf=True)]
-    model = init_wolf_camp_mind(wolves)
+    model = init_wolf_camp_mind([wolves[0]])
     delta = WolfCampDelta(
         god_role_intel=[GodRoleDelta(target_seat=1, delta={"Seer": 0.6, "Villager": 0.4})],
         exposure_radar=[ExposureRadarDelta(wolf_seat=3, observer_seat=1, suspicion=0.55)],
@@ -85,7 +87,42 @@ def test_wolf_camp_merge_and_format() -> None:
     merge_wolf_camp_delta(model, delta, contributor_seat=3, round_number=1)
     text = format_wolf_camp_board(model)
     assert "神职定位" in text
+    assert "个人战术雷达" in text
     assert model.revision >= 2
+
+
+def test_wolf_camp_minds_are_isolated_between_wolves() -> None:
+    wolves = [_Player("player_3", wolf=True), _Player("player_4", wolf=True)]
+    minds = init_wolf_camp_minds(wolves)
+    merge_wolf_camp_delta(
+        minds[3],
+        WolfCampDelta(god_role_intel=[GodRoleDelta(target_seat=1, delta={"Seer": 0.9})]),
+        contributor_seat=3,
+        round_number=1,
+    )
+    merge_wolf_camp_delta(
+        minds[4],
+        WolfCampDelta(god_role_intel=[GodRoleDelta(target_seat=2, delta={"Witch": 0.9})]),
+        contributor_seat=4,
+        round_number=1,
+    )
+    merge_wolf_camp_delta(
+        minds[3],
+        WolfCampDelta(
+            exposure_radar=[ExposureRadarDelta(wolf_seat=4, observer_seat=1, suspicion=0.9)],
+        ),
+        contributor_seat=3,
+        round_number=1,
+    )
+
+    panel_a = get_wolf_camp_mind(minds, wolves[0])
+    panel_b = get_wolf_camp_mind(minds, wolves[1])
+    assert panel_a is not None and panel_b is not None
+    assert 1 in panel_a.god_role_intel
+    assert 1 not in panel_b.god_role_intel
+    assert 2 in panel_b.god_role_intel
+    assert panel_a.exposure_radar[3].overall_exposure == 0.0
+    assert panel_b.exposure_radar[4].overall_exposure == 0.0
 
 
 def test_belief_log_jsonl_and_brier(tmp_path) -> None:
@@ -128,7 +165,7 @@ def test_build_agent_belief_context_for_wolf_includes_wolf_panel() -> None:
     wolves = [_Player("player_3", wolf=True), _Player("player_4", wolf=True)]
     wolf = wolves[0]
     wolf.agent.belief_state = init_belief_state(wolf, wolves)
-    model = init_wolf_camp_mind(wolves)
+    model = init_wolf_camp_mind([wolf])
     merge_wolf_camp_delta(
         model,
         WolfCampDelta(
@@ -138,7 +175,7 @@ def test_build_agent_belief_context_for_wolf_includes_wolf_panel() -> None:
         round_number=1,
     )
 
-    text = build_agent_belief_context(wolf, alive=wolves, wolf_camp_mind=model)
+    text = build_agent_belief_context(wolf, alive=wolves, wolf_camp_minds={3: model})
     assert "当前信念矩阵" in text
     assert "神职定位" in text
 

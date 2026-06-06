@@ -204,10 +204,15 @@ def _count_events(run_dir: Path) -> int:
 
 
 def _sse(event: dict) -> dict:
-    """Format an enriched event dict as an EventSourceResponse message."""
+    """Format an enriched event dict as an unnamed SSE message.
+
+    Intentionally omits a named ``event:`` field so the browser EventSource's
+    default ``onmessage`` handler receives every event. The ``snapshot`` and
+    ``end`` frames stay named so the client can hook them explicitly; the
+    ``event_type`` still travels inside the ``data`` JSON for the reducer.
+    """
     return {
         "id": str(event.get("event_id", "")),
-        "event": str(event.get("event_type", "message")),
         "data": json.dumps(event, ensure_ascii=False),
     }
 

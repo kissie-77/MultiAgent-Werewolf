@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import ThreeCanvas from "../components/ThreeCanvas";
 import CardDeck from "../components/CardDeck";
 import SpeechConsole from "../components/SpeechConsole";
@@ -21,10 +21,19 @@ export default function GameApp() {
   const exitGame = useGameStore((state) => state.exitGame);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
-  // Initialize game state on page load
+  const [searchParams] = useSearchParams();
+  const runId = searchParams.get("run_id");
+  const connectSpectate = useGameStore((s) => s.connectSpectate);
+  const disconnectSpectate = useGameStore((s) => s.disconnectSpectate);
+
+  // Initialize game state on page load: live spectate when ?run_id=, else local game
   useEffect(() => {
+    if (runId) {
+      connectSpectate(runId);
+      return () => disconnectSpectate();
+    }
     fetchState();
-  }, [fetchState]);
+  }, [runId, connectSpectate, disconnectSpectate, fetchState]);
 
   if (!gameState) {
     return (

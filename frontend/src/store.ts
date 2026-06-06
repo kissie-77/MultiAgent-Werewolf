@@ -53,6 +53,11 @@ interface GameStore {
   setUserSpeechText: (text: string) => void;
   toggleAutoPlay: () => void;
   setSetupCount: (count: number | null) => void;
+
+  // Live spectate (SSE god-view)
+  spectateSource: EventSource | null;
+  connectSpectate: (runId: string) => void;
+  disconnectSpectate: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -362,5 +367,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setSelectedCardId: (id) => set({ selectedCardId: id }),
   setUserSpeechText: (text) => set({ userSpeechText: text }),
-  toggleAutoPlay: () => set((state) => ({ isAutoPlaying: !state.isAutoPlaying }))
+  toggleAutoPlay: () => set((state) => ({ isAutoPlaying: !state.isAutoPlaying })),
+
+  spectateSource: null,
+  connectSpectate: (runId) => {
+    get().disconnectSpectate();
+    // lazy import to avoid circular deps at module load
+    import("./lib/gameReducer").then(({ initialSpectateState, reduceEvent }) => {
+      import("./api/sse").then(({ streamUrl }) => {
+        set({ state: initialSpectateState(), isLoading: false });
+        const es = new EventSource(streamUrl(runId, "god"));
+        const onMsg = (e: MessageEvent) => {
+          try {
+            const ev = JSON.parse(e.data);
+            const cur = get().state ?? initialSpectateState();
+            set({ state: reduceEvent(cur, ev) });
+          } catch (err) { console.error("bad sse event", err); }
+        };
+        es.addEventListener("snapshot", onMsg);
+        es.onmessage = onMsg; // default (unnamed events carry event_type in data)
+        es.addEventListener("end", () => { get().disconnectSpectate(); });
+        es.onerror = () => { /* EventSource auto-reconnects; nothing to do */ };
+        set({ spectateSource: es });
+      });
+    });
+  },
+  disconnectSpectate: () => {
+    const es = get().spectateSource;
+    if (es) es.close();
+    set({ spectateSource: null });
+  },
 }));

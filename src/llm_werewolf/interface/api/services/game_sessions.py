@@ -70,6 +70,33 @@ def _has_human_player(players_config: PlayersConfig) -> bool:
     return any(player.model == "human" for player in players_config.players)
 
 
+def _write_god_roster(run_dir: Path, engine: object) -> None:
+    """Persist the god-view roster (seat -> role/camp/alive) for spectate.
+
+    Best-effort: never let roster I/O break a game run.
+    """
+    try:
+        players = list(getattr(getattr(engine, "game_state", None), "players", []) or [])
+        roster = []
+        for idx, p in enumerate(players, start=1):
+            role = getattr(p, "role", None)
+            cfg = role.get_config() if role is not None and hasattr(role, "get_config") else None
+            alive_attr = getattr(p, "is_alive", True)
+            is_alive = alive_attr() if callable(alive_attr) else alive_attr
+            roster.append({
+                "seat": idx,
+                "name": getattr(p, "name", f"Player{idx}"),
+                "role": getattr(cfg, "name", None) or getattr(role, "name", None) or "Unknown",
+                "camp": getattr(getattr(cfg, "camp", None), "value", None),
+                "is_alive": bool(is_alive),
+            })
+        (run_dir / "god_roster.json").write_text(
+            json.dumps(roster, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception as exc:  # pragma: no cover - best effort
+        logger.warning("Failed to write god_roster for %s: %s", run_dir.name, exc)
+
+
 class GameSessionStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
@@ -242,6 +269,7 @@ class GameSessionManager:
 
             engine.on_event = _on_event
             engine.setup_game(players=players, roles=roles)
+            _write_god_roster(session.run_dir, engine)
             wire_agentscope_after_setup(engine, players_config)
 
             result = await engine.play_game()

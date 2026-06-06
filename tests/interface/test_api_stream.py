@@ -69,6 +69,33 @@ def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):
     assert resp.status_code == 404
 
 
+def test_god_snapshot_includes_roster_when_present(tmp_path, monkeypatch):
+    import json
+    from fastapi.testclient import TestClient
+    from llm_werewolf.interface.api.app import create_app
+
+    monkeypatch.chdir(tmp_path)
+    run_id = "demo-roster"
+    run_dir = tmp_path / "artifacts" / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+    (run_dir / "run_meta.json").write_text(json.dumps({"run_id": run_id, "status": "completed"}), encoding="utf-8")
+    (run_dir / "god_roster.json").write_text(
+        json.dumps([{"seat": 1, "name": "Player1", "role": "Seer", "camp": "villager", "is_alive": True}]),
+        encoding="utf-8",
+    )
+    client = TestClient(create_app())
+    with client.stream("GET", f"/api/v1/games/{run_id}/stream?view=god") as resp:
+        body = "".join(chunk for chunk in resp.iter_text())
+    assert '"roster"' in body
+    assert "Seer" in body
+
+    # seat view must NOT leak the roster
+    with client.stream("GET", f"/api/v1/games/{run_id}/stream?view=seat&seat=1") as resp:
+        body2 = "".join(chunk for chunk in resp.iter_text())
+    assert "Seer" not in body2
+
+
 async def test_engine_run_publishes_to_broadcaster(tmp_path, monkeypatch):
     """A real (demo) game wired through GameSessionManager's composite on_event
     both writes events.jsonl and fans out to a live subscriber."""

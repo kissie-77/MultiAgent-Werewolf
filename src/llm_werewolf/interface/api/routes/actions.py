@@ -212,6 +212,30 @@ def _sse(event: dict) -> dict:
     }
 
 
+def _load_god_roster(run_dir: Path) -> object | None:
+    """Read the persisted god-view roster, or None when absent/unreadable."""
+    roster_path = run_dir / "god_roster.json"
+    if not roster_path.is_file():
+        return None
+    try:
+        return json.loads(roster_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _initial_snapshot(run_dir: Path, view: str) -> dict:
+    """Build the snapshot first-frame payload, enriched with roster for god view."""
+    try:
+        snap = extract_game_snapshot(run_dir).model_dump()
+    except Exception:  # pragma: no cover - snapshot best-effort
+        snap = {}
+    if view == "god":
+        roster = _load_god_roster(run_dir)
+        if roster is not None:
+            snap["roster"] = roster
+    return snap
+
+
 async def _stream_events(
     run_id: str,
     run_dir: Path,
@@ -223,11 +247,8 @@ async def _stream_events(
     last_event_id: int,
 ) -> AsyncIterator[dict]:
     """Yield SSE frames: snapshot, replayed events, then live events until close."""
-    # 1) first frame: coarse snapshot
-    try:
-        snap = extract_game_snapshot(run_dir).model_dump()
-    except Exception:  # pragma: no cover - snapshot best-effort
-        snap = {}
+    # 1) first frame: coarse snapshot (god view also carries the roster)
+    snap = _initial_snapshot(run_dir, view)
     yield {"event": "snapshot", "data": json.dumps(snap, ensure_ascii=False)}
 
     # 2) replay already-persisted events after last_event_id

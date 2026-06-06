@@ -514,6 +514,41 @@ export interface BackendReplayPageData {
   belief_heatmap?: any;
 }
 
+// --- Models page backend INPUT type (mirror /api/v1/pages/models ModelListPageData) ---
+// `modelsMap.ts` reshapes this into the front-end `ModelsPageData`: the page reads
+// `usage_stats` (not `models`), `win_rate` is a 0..1 fraction (page wants a percent),
+// and `avg_mvp` can be null (page calls `.toFixed`).
+export interface BackendModelUsageStat {
+  model_id: string;
+  display_name: string;
+  run_count: number;
+  win_rate: number | null; // 0..1 fraction, or null when no runs
+  avg_mvp: number | null;
+}
+
+export interface BackendModelsPageData {
+  title?: string;
+  usage_stats?: BackendModelUsageStat[];
+  configs?: unknown[];
+  by_provider?: Record<string, unknown>;
+  recommended_config_ids?: string[];
+}
+
+// --- Share replay backend INPUT type (mirror /api/v1/pages/share-replay) ---
+// `shareMap.ts` reshapes this into the front-end `ShareReplayPageData`: mvp_winner
+// uses snake_case (player_name/role_name) and carries no citation, winner_camp is
+// lowercase ("werewolf"/"villager"), and key_moments is a list of plain strings.
+export interface BackendShareReplayData {
+  run_id: string;
+  share_title: string;
+  share_summary: string;
+  winner_camp: string | null; // lowercase "werewolf" | "villager" | null
+  mvp_winner: BackendMvpRankItem | null;
+  key_moments?: string[];
+  highlight_players?: BackendPlayerBrief[];
+  stats_line: string;
+}
+
 // --- Start game (mirrors backend StartGameRequest / StartGameResponse) ---
 export interface StartGameRequest {
   config_id?: string;

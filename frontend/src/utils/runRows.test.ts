@@ -19,6 +19,12 @@ describe("mapRunRow", () => {
     expect(mapRunRow({ ...base, winner_camp: "werewolf" }).winnerCamp).toBe("WEREWOLF");
   });
 
+  it("maps the backend's villager camp to GOOD (real backend emits villager/werewolf)", () => {
+    expect(mapRunRow({ ...base, winner_camp: "villager" }).winnerCamp).toBe("GOOD");
+    expect(mapRunRow({ ...base, winner_camp: "villagers" }).winnerCamp).toBe("GOOD");
+    expect(mapRunRow({ ...base, winner_camp: "wolves" }).winnerCamp).toBe("WEREWOLF");
+  });
+
   it("falls back to UNKNOWN for null/unexpected winner_camp", () => {
     expect(mapRunRow({ ...base, winner_camp: null }).winnerCamp).toBe("UNKNOWN");
     expect(mapRunRow({ ...base, winner_camp: "??" }).winnerCamp).toBe("UNKNOWN");

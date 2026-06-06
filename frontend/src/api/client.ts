@@ -16,9 +16,13 @@ import {
   StartGameRequest,
   StartGameResponse,
   GameStatusResponse,
-  BackendReplayPageData
+  BackendReplayPageData,
+  BackendModelsPageData,
+  BackendShareReplayData
 } from "./types";
 import { mapReplayPage } from "../lib/replayMap";
+import { mapModelsPage } from "../lib/modelsMap";
+import { mapSharePage } from "../lib/shareMap";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -91,7 +95,10 @@ export class ApiClient {
   }
 
   static async getModelsPageData(): Promise<ModelsPageData> {
-    return this.get<ModelsPageData>("/api/v1/pages/models");
+    // Backend returns ModelListPageData (usage_stats, fractional win_rate); the
+    // mapper reshapes it into the page's ModelsPageData (models[], percent).
+    const raw = await this.get<BackendModelsPageData>("/api/v1/pages/models");
+    return mapModelsPage(raw);
   }
 
   static async getModelDetail(modelId: string): Promise<ModelDetail> {
@@ -116,7 +123,12 @@ export class ApiClient {
   }
 
   static async getShareReplayData(runId: string): Promise<ShareReplayPageData> {
-    return this.get<ShareReplayPageData>(`/api/v1/pages/share-replay?run_id=${encodeURIComponent(runId)}`);
+    // Backend mvp_winner is snake_case with no citation and winner_camp is
+    // lowercase; the mapper reshapes it into what SharePage renders.
+    const raw = await this.get<BackendShareReplayData>(
+      `/api/v1/pages/share-replay?run_id=${encodeURIComponent(runId)}`
+    );
+    return mapSharePage(raw);
   }
 
   static async getAboutPageData(): Promise<AboutPageData> {

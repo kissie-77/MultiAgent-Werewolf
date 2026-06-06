@@ -11,9 +11,14 @@ export interface RunRow {
 }
 
 export function mapRunRow(s: RunSummary): RunRow {
-  const wc = (s.winner_camp ?? "").toUpperCase();
-  const winnerCamp: WinnerCamp =
-    wc === "GOOD" || wc === "WEREWOLF" || wc === "DRAW" ? (wc as WinnerCamp) : "UNKNOWN";
+  // The real backend emits lowercase camps ("werewolf" / "villager"), not the
+  // "GOOD"/"WEREWOLF" tokens; map the good camp (villager) to GOOD so good-camp
+  // wins don't render as "未结算".
+  const c = (s.winner_camp ?? "").toLowerCase();
+  let winnerCamp: WinnerCamp = "UNKNOWN";
+  if (c.includes("wolf") || c.includes("wolv")) winnerCamp = "WEREWOLF"; // "werewolf" & "wolves"
+  else if (c === "good" || c.includes("villager")) winnerCamp = "GOOD";
+  else if (c.includes("draw") || c.includes("平")) winnerCamp = "DRAW";
   return {
     runId: s.run_id,
     winnerCamp,

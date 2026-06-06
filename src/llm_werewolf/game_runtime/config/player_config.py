@@ -14,6 +14,11 @@ from llm_werewolf.strategy.registry.role_version_manifest import (
 )
 
 
+# Builtin (non-LLM) player models: they need no base_url / api_key and must not
+# be resolved through model_env. "web-human" is the M3 web-driven human seat.
+_BUILTIN_MODELS = frozenset({"human", "demo", "web-human"})
+
+
 class RoleVersionConfig(BaseModel):
     """Per-role prompt/skill version map; unset roles use defaults."""
 
@@ -94,7 +99,7 @@ class PlayerConfig(BaseModel):
         """校验 LLM 模型是否提供了 base_url。"""
         model = info.data.get("model") or ""
         model_env = info.data.get("model_env")
-        is_builtin = model in {"human", "demo"}
+        is_builtin = model in _BUILTIN_MODELS
         is_llm = not is_builtin and (bool(model) or bool(model_env))
         if is_llm and not v:
             label = model or model_env
@@ -105,7 +110,7 @@ class PlayerConfig(BaseModel):
     @model_validator(mode="after")
     def resolve_model_from_env(self) -> Self:
         """从 model_env 解析 endpoint / model id（密钥类配置不进 YAML）。"""
-        if self.model in {"human", "demo"}:
+        if self.model in _BUILTIN_MODELS:
             return self
         if self.model_env:
             resolved = os.getenv(self.model_env, "").strip()

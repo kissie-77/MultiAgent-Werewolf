@@ -7,7 +7,7 @@ import { getCustomApiKey, setCustomApiKey, getOpenAIApiKey, setOpenAIApiKey, get
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from "lucide-react";
 
-import { getRoleImage } from "../utils/roles";
+import { getTarotImage } from "../utils/roles";
 
 export default function GameSetup() {
   const setSetupCount = useGameStore((state) => state.setSetupCount);
@@ -472,7 +472,7 @@ export default function GameSetup() {
                     {/* Tarot preview portrait */}
                     <div className="w-1/3 max-w-[140px] shrink-0 border-2 border-amber-900/40 rounded overflow-hidden shadow-inner relative">
                         <img 
-                          src={getRoleImage(userRole)} 
+                          src={getTarotImage(userRole)}
                           alt={userRole} 
                           className="w-full h-full object-cover object-top mix-blend-luminosity hover:mix-blend-normal transition-all"
                         />

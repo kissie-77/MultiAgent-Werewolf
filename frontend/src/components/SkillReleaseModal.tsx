@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { useGameStore } from "../store";
+import { getTarotImage } from "../utils/roles";
 
 interface Player {
   id: number;
@@ -36,16 +37,8 @@ export const SkillReleaseModal = ({
 }: SkillReleaseModalProps) => {
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
 
-  // Map roles to their tarot images
-  const roleImageMap: Record<string, string> = {
-    "预言家": "/tarot/seer.png",
-    "女巫": "/tarot/witch.png",
-    "猎人": "/tarot/hunter.png",
-    "狼人": "/tarot/wolf.png",
-    "村民": "/tarot/villager.png"
-  };
-
-  const imageSrc = roleImageMap[userRole] || "/tarot/villager.png";
+  // Per-role tarot card for the skill overlay (all 22 roles, English + Chinese).
+  const imageSrc = getTarotImage(userRole);
 
   const handleSelect = (id: number) => {
     setSelectedCardId(id);

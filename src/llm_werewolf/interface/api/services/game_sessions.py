@@ -35,6 +35,10 @@ from llm_werewolf.interface.cli.runtime.bootstrap import (
 )
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
+from llm_werewolf.interface.api.services.event_stream import (
+    remove_broadcaster,
+    get_or_create_broadcaster,
+)
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
 from llm_werewolf.interface.api.services.roster_customize import (
@@ -93,6 +97,7 @@ class GameSession:
     human_seats: list[int] = field(default_factory=list)
     post_game_status: str | None = None
     alert_count: int = 0
+    broadcaster: Any | None = None
 
 
 class IncrementalEventWriter:
@@ -228,7 +233,14 @@ class GameSessionManager:
                 information_hub=create_information_hub(),
             )
             writer = IncrementalEventWriter(session.run_dir)
-            engine.on_event = writer
+            broadcaster = get_or_create_broadcaster(session.run_id)
+            session.broadcaster = broadcaster
+
+            def _on_event(event: object) -> None:
+                writer(event)
+                broadcaster.publish(event_to_dict(event))
+
+            engine.on_event = _on_event
             engine.setup_game(players=players, roles=roles)
             wire_agentscope_after_setup(engine, players_config)
 
@@ -269,6 +281,9 @@ class GameSessionManager:
                 logger.warning("Alert dispatch failed for %s: %s", session.run_id, alert_exc)
         finally:
             detach_run_log_handler()
+            if session.broadcaster is not None:
+                session.broadcaster.close()
+            remove_broadcaster(session.run_id)
             session.completed_at = datetime.now().isoformat(timespec="seconds")
             self._write_meta(session)
 

@@ -206,6 +206,11 @@ def create_agent(
 
         return HumanInteractiveAgent(name=config.name, model="human")
 
+    if model == "web-human":
+        from llm_werewolf.agent_team.agents.web_human_agent import WebHumanAgent
+
+        return WebHumanAgent(name=config.name, model="web-human")
+
     if model == "demo":
         return DemoAgent(
             name=config.name,

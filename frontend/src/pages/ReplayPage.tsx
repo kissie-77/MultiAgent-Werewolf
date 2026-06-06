@@ -88,6 +88,16 @@ export default function ReplayPage() {
 
   const { run, timeline, phase_summary, turning_points, mvp_ranking, scores, report_markdown, coach_excerpt, belief_snapshots, wolf_camp_snapshots, belief_heatmap, belief_matrix_anchors, vote_swing_summary } = data;
 
+  // Day options for the belief/wolf snapshot selector — derive from the real
+  // timeline (and any belief snapshot days) instead of a hardcoded [1, 2].
+  const snapshotDays: number[] = (() => {
+    const days = new Set<number>();
+    timeline.forEach((e) => { if (e.day > 0) days.add(e.day); });
+    belief_snapshots.forEach((s) => { if (s.day > 0) days.add(s.day); });
+    const sorted = Array.from(days).sort((a, b) => a - b);
+    return sorted.length > 0 ? sorted : [1];
+  })();
+
   // Tiny custom styled Markdown renderer to support clean syntax without adding untrusted dependencies
   const renderMarkdown = (md: string) => {
     const lines = md.split("\n");
@@ -330,7 +340,7 @@ export default function ReplayPage() {
             <div className="flex items-center gap-3">
               <span className="text-xs font-mono text-zinc-500 tracking-wider">审判日期切变: </span>
               <div className="flex bg-zinc-950 border border-zinc-900 p-1 rounded">
-                {[1, 2].map((day) => {
+                {snapshotDays.map((day) => {
                   const isSel = selectedSnapshotDay === day;
                   return (
                     <button

@@ -5,12 +5,18 @@ import {
   mapMvpRanking,
   mapTurningPoints,
   mapReplayPage,
+  mapPlayerScores,
+  mapVoteSwing,
+  mapBeliefAnchors,
+  mapBeliefColumns,
+  mapWolfCampSnapshots,
 } from "./replayMap";
 import type {
   BackendRunDetail,
   BackendReplayEventItem,
   BackendMvpRankItem,
   BackendReplayPageData,
+  BackendScoreBlock,
 } from "../api/types";
 
 function run(overrides: Partial<BackendRunDetail> = {}): BackendRunDetail {
@@ -161,13 +167,293 @@ describe("mapMvpRanking", () => {
   it("maps the remaining MvpRankItem fields (role/score/name)", () => {
     const out = mapMvpRanking([mvp({ role_name: "Witch", total_score: 0, player_name: "Player5" })]);
     expect(out[0].role).toBe("Witch");
-    expect(out[0].score).toBe(0); // known backend bug: total_score is 0.0; filled in a later slice
+    expect(out[0].score).toBe(0); // known backend bug: total_score is 0.0; falls back when no mvp block
     expect(out[0].playerName).toBe("Player5");
+  });
+
+  it("uses mvp_total from the mvp score players (fixes the 0.0 total_score bug) when provided", () => {
+    const players = [
+      { player_id: "player_5", mvp_total: 87.5 },
+      { player_id: "player_2", mvp_total: 64 },
+    ];
+    const out = mapMvpRanking(
+      [mvp({ player_id: "player_5", total_score: 0 }), mvp({ rank: 2, player_id: "player_2", total_score: 0 })],
+      players,
+    );
+    expect(out[0].score).toBe(87.5);
+    expect(out[1].score).toBe(64);
+  });
+
+  it("falls back to total_score when the player has no mvp_total entry", () => {
+    const out = mapMvpRanking([mvp({ player_id: "player_9", total_score: 3.3 })], [
+      { player_id: "player_5", mvp_total: 87.5 },
+    ]);
+    expect(out[0].score).toBe(3.3);
   });
 
   it("tolerates null/undefined input", () => {
     expect(mapMvpRanking(null)).toEqual([]);
     expect(mapMvpRanking(undefined)).toEqual([]);
+  });
+});
+
+// --- Slice C: scores / vote-swing / belief ------------------------------
+
+function mvpScoreBlock(overrides: any = {}): BackendScoreBlock {
+  return {
+    kind: "mvp",
+    title: "MVP 评分",
+    payload: {
+      data: {
+        schema: "mvp_scores_v2",
+        players: [
+          {
+            player_id: "player_5",
+            player_name: "Player5",
+            role_name: "Witch",
+            camp: "villager",
+            mvp_total: 87.5,
+            breakdown_norm: { persuasion: 12, strategy: 8, outcome: 20, wolf_night: 0 },
+            rank: 1,
+          },
+          {
+            player_id: "player_2",
+            player_name: "Player2",
+            role_name: "Werewolf",
+            camp: "werewolf",
+            mvp_total: 64,
+            breakdown_norm: { persuasion: 5, strategy: 10, outcome: 3, wolf_night: 15 },
+            rank: 2,
+          },
+        ],
+        ...overrides,
+      },
+    },
+  };
+}
+
+function swingScoreBlock(overrides: any = {}): BackendScoreBlock {
+  return {
+    kind: "swing",
+    title: "投票摇摆",
+    payload: {
+      data: {
+        schema: "vote_swing_v1",
+        speeches: [
+          {
+            speaker_id: "player_2",
+            speaker_name: "Player2",
+            round_number: 1,
+            phase: "day_discussion",
+            channel: "public",
+            public_speech: "出五号",
+            swing_count: 1,
+            influence_score: 10,
+            before_summary: "before",
+            after_summary: "after",
+            swings: [
+              {
+                player_id: "player_1",
+                player_name: "A",
+                from_seat: 0,
+                to_seat: 5,
+                from_target_name: "B",
+                to_target_name: "C",
+              },
+            ],
+          },
+        ],
+        ...overrides,
+      },
+    },
+  };
+}
+
+function beliefRow(overrides: any = {}): any {
+  return {
+    round: 1,
+    phase: "day_discussion",
+    anchor: "initial",
+    observer_id: "player_1",
+    observer_seat: 1,
+    vote_intention: { seat: 4, reason: "r" },
+    first_order: [{ target_seat: 2, wolf_probability: 0.5, reason: "sus", note: null }],
+    ...overrides,
+  };
+}
+
+describe("mapPlayerScores", () => {
+  it("maps breakdown_norm dims, mvp_total and the roster alive join", () => {
+    const backend = {
+      run: run({
+        roster: [
+          { player_id: "player_5", player_name: "Player5", is_alive: false },
+          { player_id: "player_2", player_name: "Player2", is_alive: true },
+        ] as any,
+      }),
+      scores: [mvpScoreBlock()],
+    };
+    const out = mapPlayerScores(backend);
+    expect(out).toHaveLength(2);
+    const p5 = out[0];
+    expect(p5.playerId).toBe(5);
+    expect(p5.playerName).toBe("Player5");
+    expect(p5.role).toBe("Witch");
+    expect(p5.isAlive).toBe(false);
+    expect(p5.logicSpeechScore).toBe(12); // persuasion
+    expect(p5.cooperationRate).toBe(8); // strategy
+    expect(p5.gameSurvivalScore).toBe(20); // outcome
+    expect(p5.deceptionMisleaderScore).toBe(0); // wolf_night
+    expect(p5.totalScore).toBe(87.5); // mvp_total
+  });
+
+  it("defaults isAlive to true when the player is not in the roster", () => {
+    const backend = { run: run({ roster: [] }), scores: [mvpScoreBlock()] };
+    const out = mapPlayerScores(backend);
+    expect(out[0].isAlive).toBe(true);
+  });
+
+  it("returns [] when there is no mvp score block", () => {
+    expect(mapPlayerScores({ run: run(), scores: [swingScoreBlock()] })).toEqual([]);
+    expect(mapPlayerScores({ run: run(), scores: [] })).toEqual([]);
+  });
+
+  it("tolerates null/undefined input", () => {
+    expect(mapPlayerScores(null)).toEqual([]);
+    expect(mapPlayerScores(undefined)).toEqual([]);
+  });
+});
+
+describe("mapVoteSwing", () => {
+  it("maps id/round/edges and joins speaker role+camp from the mvp players", () => {
+    const out = mapVoteSwing({ scores: [mvpScoreBlock(), swingScoreBlock()] });
+    expect(out).toHaveLength(1);
+    const s = out[0];
+    expect(s.id).toBe("player_2-1");
+    expect(s.round).toBe(1);
+    expect(s.speaker_id).toBe("player_2");
+    expect(s.speaker_role).toBe("Werewolf"); // joined from mvp players
+    expect(s.speaker_camp).toBe("werewolf");
+    expect(s.influence_score).toBe(10);
+    expect(s.swing_count).toBe(1);
+    expect(s.before_summary).toBe("before");
+    expect(s.after_summary).toBe("after");
+    expect(s.public_speech).toBe("出五号");
+    expect(s.swings).toEqual([{ voter_id: "player_1", from_target: "B", to_target: "C" }]);
+  });
+
+  it("defaults speaker role/camp to empty string when no mvp join is available", () => {
+    const out = mapVoteSwing({ scores: [swingScoreBlock()] });
+    expect(out[0].speaker_role).toBe("");
+    expect(out[0].speaker_camp).toBe("");
+  });
+
+  it("returns [] when there is no swing score block", () => {
+    expect(mapVoteSwing({ scores: [mvpScoreBlock()] })).toEqual([]);
+    expect(mapVoteSwing({ scores: [] })).toEqual([]);
+  });
+
+  it("tolerates null/undefined input", () => {
+    expect(mapVoteSwing(null)).toEqual([]);
+    expect(mapVoteSwing(undefined)).toEqual([]);
+  });
+});
+
+describe("mapBeliefAnchors", () => {
+  it("groups rows by anchor and rebuilds observers/targets with P{n} seats", () => {
+    const rows = [
+      beliefRow({ anchor: "initial", observer_seat: 1 }),
+      beliefRow({ anchor: "initial", observer_seat: 2, first_order: [{ target_seat: 1, wolf_probability: 0.8, reason: null, note: "已死" }] }),
+      beliefRow({ anchor: "after_speech", observer_seat: 1 }),
+    ];
+    const out = mapBeliefAnchors(rows);
+    expect(out).toHaveLength(2);
+    const initial = out.find((a) => a.anchor_id === "initial")!;
+    expect(initial.round).toBe(1);
+    expect(initial.observers.map((o) => o.observer_id)).toEqual(["P1", "P2"]);
+    const p1 = initial.observers.find((o) => o.observer_id === "P1")!;
+    expect(p1.targets[0].target_seat).toBe("P2");
+    expect(p1.targets[0].wolf_probability).toBe(0.5); // kept 0..1
+    expect(p1.targets[0].reason).toBe("sus");
+    const p2 = initial.observers.find((o) => o.observer_id === "P2")!;
+    expect(p2.targets[0].note).toBe("已死");
+  });
+
+  it("tolerates null/undefined input", () => {
+    expect(mapBeliefAnchors(null)).toEqual([]);
+    expect(mapBeliefAnchors(undefined)).toEqual([]);
+  });
+});
+
+describe("mapBeliefColumns", () => {
+  it("groups by day(round), builds playerBeliefs per observer and scales prob to 0..100", () => {
+    const rows = [
+      beliefRow({ round: 1, observer_seat: 1, first_order: [{ target_seat: 2, wolf_probability: 0.5, reason: null, note: null }] }),
+      beliefRow({ round: 1, observer_seat: 2, first_order: [{ target_seat: 1, wolf_probability: 0.8, reason: null, note: null }] }),
+      beliefRow({ round: 2, observer_seat: 1, first_order: [{ target_seat: 3, wolf_probability: 1.0, reason: null, note: null }] }),
+    ];
+    const out = mapBeliefColumns(rows);
+    const d1 = out.find((d) => d.day === 1)!;
+    expect(d1.playerBeliefs).toHaveLength(2);
+    const obs1 = d1.playerBeliefs.find((p) => p.playerId === 1)!;
+    expect(obs1.playerName).toBe("P1");
+    expect(obs1.targetBeliefs[0]).toEqual({
+      targetPlayerId: 2,
+      targetPlayerName: "P2",
+      wolfProbability: 50,
+    });
+    const obs2 = d1.playerBeliefs.find((p) => p.playerId === 2)!;
+    expect(obs2.targetBeliefs[0].wolfProbability).toBe(80);
+    const d2 = out.find((d) => d.day === 2)!;
+    expect(d2.playerBeliefs).toHaveLength(1);
+  });
+
+  it("keeps the last anchor per observer within a day", () => {
+    const rows = [
+      beliefRow({ round: 1, anchor: "initial", observer_seat: 1, first_order: [{ target_seat: 2, wolf_probability: 0.3, reason: null, note: null }] }),
+      beliefRow({ round: 1, anchor: "after_speech", observer_seat: 1, first_order: [{ target_seat: 2, wolf_probability: 0.9, reason: null, note: null }] }),
+    ];
+    const out = mapBeliefColumns(rows);
+    const d1 = out.find((d) => d.day === 1)!;
+    expect(d1.playerBeliefs).toHaveLength(1);
+    expect(d1.playerBeliefs[0].targetBeliefs[0].wolfProbability).toBe(90);
+  });
+
+  it("tolerates null/undefined input", () => {
+    expect(mapBeliefColumns(null)).toEqual([]);
+    expect(mapBeliefColumns(undefined)).toEqual([]);
+  });
+});
+
+describe("mapWolfCampSnapshots", () => {
+  it("is degraded to an empty array (no backend source in M2b)", () => {
+    expect(mapWolfCampSnapshots()).toEqual([]);
+    expect(mapWolfCampSnapshots([{ anything: true }] as any)).toEqual([]);
+  });
+});
+
+describe("mapReplayPage (Slice C enriched panels)", () => {
+  it("composes scores, vote_swing_summary and belief panels from the backend blocks", () => {
+    const out = mapReplayPage({
+      run: run({
+        roster: [{ player_id: "player_5", player_name: "Player5", is_alive: true }] as any,
+      }),
+      timeline: [],
+      mvp_ranking: [
+        { rank: 1, player_id: "player_5", player_name: "Player5", total_score: 0, role_name: "Witch" },
+      ],
+      scores: [mvpScoreBlock(), swingScoreBlock()],
+      belief_snapshots: [beliefRow()],
+    } as Partial<BackendReplayPageData>);
+
+    expect(out.scores).toHaveLength(2);
+    expect(out.scores[0].totalScore).toBe(87.5);
+    expect(out.vote_swing_summary).toHaveLength(1);
+    expect(out.belief_matrix_anchors).toHaveLength(1);
+    expect(out.belief_snapshots).toHaveLength(1);
+    expect(out.wolf_camp_snapshots).toEqual([]);
+    // mvp_ranking.score must now read mvp_total (0.0 bug fixed)
+    expect(out.mvp_ranking[0].score).toBe(87.5);
   });
 });
 

@@ -41,8 +41,13 @@ from llm_werewolf.interface.api.services.event_stream import (
 )
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
+from llm_werewolf.interface.api.services.human_input import (
+    remove_input_broker,
+    get_or_create_input_broker,
+)
 from llm_werewolf.interface.api.services.roster_customize import (
     resolve_start_rules,
+    _rebuild_players_config,
     has_roster_customizations,
     prepare_start_players_config,
 )
@@ -68,6 +73,28 @@ def _read_alert_count(run_dir: Path) -> int:
 
 def _has_human_player(players_config: PlayersConfig) -> bool:
     return any(player.model == "human" for player in players_config.players)
+
+
+def _override_seat_to_web_human(players_config: PlayersConfig, seat: int) -> PlayersConfig:
+    """Return a copy with ``seat`` (1-based) switched to the ``web-human`` builtin model.
+
+    Clears any LLM credentials (model_env/api_key_env/base_url) so the seat stays builtin
+    and no key is ever resolved or persisted for it.
+    """
+    roster = list(players_config.players)
+    index = seat - 1
+    if index < 0 or index >= len(roster):
+        msg = f"human seat {seat} is out of range for {len(roster)} players"
+        raise ValueError(msg)
+    roster[index] = roster[index].model_copy(
+        update={
+            "model": "web-human",
+            "model_env": None,
+            "api_key_env": None,
+            "base_url": None,
+        }
+    )
+    return _rebuild_players_config(players_config, roster)
 
 
 def _write_god_roster(run_dir: Path, engine: object) -> None:
@@ -125,6 +152,9 @@ class GameSession:
     post_game_status: str | None = None
     alert_count: int = 0
     broadcaster: Any | None = None
+    player_token: str | None = None
+    human_seat: int | None = None
+    input_broker: Any | None = None
 
 
 class IncrementalEventWriter:
@@ -171,6 +201,13 @@ class GameSessionManager:
         if _has_human_player(effective_players_config):
             msg = "Web human-player games are not supported yet; use the CLI werewolf command for human mixed games."
             raise ValueError(msg)
+        human_seat: int | None = None
+        if request.human is not None:
+            human_seat = request.human.seat
+            # Override the requested seat to the builtin web-human model and persist the
+            # effective config so _run_game / launch_roster.json reflect it.
+            players_config = _override_seat_to_web_human(effective_players_config, human_seat)
+            effective_players_config = players_config
         custom_roster = has_roster_customizations(request)
         badge_flow = bool(request.badge_flow)
         human_seats = list(request.human_seats or [])
@@ -181,6 +218,9 @@ class GameSessionManager:
         run_id = f"{label}-{ts}"
         run_dir = runs_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
+
+        # Stable per-seat token (not auth): lets the browser claim the seat stream + /input.
+        player_token = f"seat{human_seat}-{run_id}" if human_seat is not None else None
 
         meta = {
             "run_id": run_id,
@@ -219,6 +259,8 @@ class GameSessionManager:
             participation=participation,
             rules=rules,
             human_seats=human_seats,
+            human_seat=human_seat,
+            player_token=player_token,
         )
 
         async with self._lock:
@@ -245,6 +287,8 @@ class GameSessionManager:
             human_seats=human_seats,
             badge_flow=badge_flow,
             custom_roster=custom_roster,
+            player_token=player_token,
+            stream_path=f"/api/v1/games/{run_id}/stream" if human_seat is not None else None,
         )
 
     async def _run_game(self, session: GameSession) -> None:
@@ -262,6 +306,17 @@ class GameSessionManager:
             writer = IncrementalEventWriter(session.run_dir)
             broadcaster = get_or_create_broadcaster(session.run_id)
             session.broadcaster = broadcaster
+
+            # Wire the web-human seat to its input broker (must run after the broadcaster
+            # exists so awaiting_input events can fan out to the seat stream).
+            if session.human_seat is not None:
+                broker = get_or_create_input_broker(
+                    session.run_id, session.human_seat, broadcaster
+                )
+                agent = players[session.human_seat - 1]
+                agent.seat = session.human_seat
+                agent.broker = broker
+                session.input_broker = broker
 
             def _on_event(event: object) -> None:
                 writer(event)
@@ -312,6 +367,7 @@ class GameSessionManager:
             if session.broadcaster is not None:
                 session.broadcaster.close()
             remove_broadcaster(session.run_id)
+            remove_input_broker(session.run_id)
             session.completed_at = datetime.now().isoformat(timespec="seconds")
             self._write_meta(session)
 

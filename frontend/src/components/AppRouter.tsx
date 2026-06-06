@@ -24,7 +24,9 @@ export default function AppRouter() {
       <Routes>
         {/* Full screen gameplay route doesn't use standard AppLayout navigation */}
         <Route path="/" element={<GameApp />} />
-        <Route path="/game" element={<Navigate to="/" replace />} />
+        {/* /game renders GameApp directly (NOT a redirect) so ?run_id= survives —
+            the backend's start_game returns game_page_path="/game?run_id=..." */}
+        <Route path="/game" element={<GameApp />} />
 
         {/* Roles pages wrapped inside standard interactive AppLayout */}
         <Route

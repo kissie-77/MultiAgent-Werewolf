@@ -240,9 +240,12 @@ class GameSessionManager:
 
         label = (request.run_label or stem).replace("llm-", "")
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-        run_id = f"{label}-{ts}"
+        instance_tag = os.environ.get("WEREWOLF_INSTANCE_TAG") or None
+        run_id = build_run_id(
+            label, ts, tag=instance_tag, exists=lambda rid: (runs_dir / rid).exists()
+        )
         run_dir = runs_dir / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
+        run_dir.mkdir(parents=True, exist_ok=False)
 
         # Stable per-seat token (not auth): lets the browser claim the seat stream + /input.
         player_token = f"seat{human_seat}-{run_id}" if human_seat is not None else None

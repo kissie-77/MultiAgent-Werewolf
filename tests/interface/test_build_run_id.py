@@ -35,3 +35,30 @@ def test_tag_and_collision_compose() -> None:
     taken = {"demo-20260607-101500-i1"}
     rid = build_run_id("demo", "20260607-101500", tag="i1", exists=lambda r: r in taken)
     assert rid == "demo-20260607-101500-i1-2"
+
+
+from pathlib import Path
+
+from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
+from llm_werewolf.interface.api.models.actions import StartGameRequest
+
+_CONFIGS_DIR = Path(__file__).resolve().parents[2] / "configs"
+
+
+async def test_start_game_applies_instance_tag(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("WEREWOLF_INSTANCE_TAG", "i7")
+    mgr = GameSessionManager()
+    runs_dir = tmp_path / "artifacts" / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    resp = await mgr.start_game(
+        configs_dir=_CONFIGS_DIR,
+        runs_dir=runs_dir,
+        request=StartGameRequest(config_id="demo-6"),
+    )
+    try:
+        assert resp.run_id.endswith("-i7")
+        assert (runs_dir / resp.run_id).is_dir()
+    finally:
+        await mgr.cancel_game(resp.run_id)

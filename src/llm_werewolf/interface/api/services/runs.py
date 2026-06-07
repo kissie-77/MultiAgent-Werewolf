@@ -179,48 +179,129 @@ def get_run_detail(
     )
 
 
+# Human-controlled seats are not AI models; they must not pollute the leaderboard.
+_HUMAN_SEAT_MODELS = frozenset({"human", "web-human"})
+
+
+def _launch_roster_models(run_dir: Path) -> dict[str, str]:
+    """Map both ``player_{seat}`` ids and player names -> model from launch_roster.json.
+
+    This is the per-seat model source for runs (the engine roster carries no model).
+    It is the data source ``aggregate_model_usage`` previously failed to read, which
+    left the model leaderboard empty.
+    """
+    path = run_dir / "launch_roster.json"
+    out: dict[str, str] = {}
+    if not path.is_file():
+        return out
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return out
+    players = data.get("players") if isinstance(data, dict) else None
+    if not isinstance(players, list):
+        return out
+    for seat, player in enumerate(players, start=1):
+        if not isinstance(player, dict):
+            continue
+        model = player.get("model")
+        if not model:
+            continue
+        out[f"player_{seat}"] = str(model)
+        name = player.get("name")
+        if name:
+            out.setdefault(str(name), str(model))
+    return out
+
+
+def _resolve_seat_model(
+    player_id: str, player_name: str | None, launch_models: dict[str, str]
+) -> str | None:
+    """Resolve a seat's AI model, skipping human-controlled seats."""
+    model = launch_models.get(player_id)
+    if not model and player_name:
+        model = launch_models.get(str(player_name))
+    if not model or model in _HUMAN_SEAT_MODELS:
+        return None
+    return model
+
+
+def _mvp_rows(run_dir: Path) -> list[dict]:
+    """Read mvp_scores.json rows, tolerating both list and {players|rankings} shapes."""
+    path = run_dir / "mvp_scores.json"
+    if not path.is_file():
+        return []
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    if isinstance(raw, list):
+        return [r for r in raw if isinstance(r, dict)]
+    if isinstance(raw, dict):
+        rows = raw.get("players") or raw.get("rankings") or []
+        return [r for r in rows if isinstance(r, dict)]
+    return []
+
+
 def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | None = None) -> list[ModelUsageStat]:
-    """Aggregate model usage from saved run rosters (best-effort)."""
+    """Aggregate per-model usage across saved runs (best-effort).
+
+    The per-seat model is read from ``launch_roster.json`` (the engine roster does
+    not carry it); MVP averages come from ``mvp_scores.json`` (``mvp_total``). Wins
+    are counted once per run so the win rate stays in ``[0, 1]``, and human-controlled
+    seats are excluded — they are not AI models.
+    """
     if runs_dir is None:
         runs_dir = Path("artifacts/runs")
     if eval_runs_dir is None:
         eval_runs_dir = Path("artifacts/eval_runs")
 
     stats: dict[str, dict] = {}
+
+    def _bucket(model: str) -> dict:
+        return stats.setdefault(model, {"runs": 0, "wins": 0, "mvp": []})
+
     for summary in list_run_dirs(runs_dir, eval_runs_dir):
         path = Path(summary.path)
         try:
             ctx = load_run_context(path)
         except Exception:
             continue
+        launch_models = _launch_roster_models(path)
         winner_camp = ctx.winner_camp
+
+        models_in_run: set[str] = set()
+        winners_in_run: set[str] = set()
         for entry in ctx.roster.values():
-            model = getattr(entry, "ai_model", None)
-            if not model:
+            model = getattr(entry, "ai_model", None) or _resolve_seat_model(
+                entry.player_id, entry.player_name, launch_models
+            )
+            if not model or model in _HUMAN_SEAT_MODELS:
                 continue
-            bucket = stats.setdefault(model, {"runs": set(), "wins": 0})
-            bucket["runs"].add(summary.run_id)
+            models_in_run.add(model)
             if winner_camp and entry.camp == winner_camp:
+                winners_in_run.add(model)
+        for model in models_in_run:
+            bucket = _bucket(model)
+            bucket["runs"] += 1
+            if model in winners_in_run:
                 bucket["wins"] += 1
 
-        mvp_path = path / "mvp_scores.json"
-        if mvp_path.is_file():
-            try:
-                mvp_data = json.loads(mvp_path.read_text(encoding="utf-8"))
-                for row in mvp_data if isinstance(mvp_data, list) else []:
-                    if not isinstance(row, dict):
-                        continue
-                    model = row.get("ai_model") or row.get("model")
-                    score = row.get("total") or row.get("score")
-                    if model and isinstance(score, (int, float)):
-                        bucket = stats.setdefault(str(model), {"runs": set(), "wins": 0, "mvp": []})
-                        bucket.setdefault("mvp", []).append(float(score))
-            except json.JSONDecodeError:
-                pass
+        for row in _mvp_rows(path):
+            model = (
+                row.get("ai_model")
+                or row.get("model")
+                or _resolve_seat_model(str(row.get("player_id", "")), row.get("player_name"), launch_models)
+            )
+            score = row.get("mvp_total")
+            if score is None:
+                score = row.get("total") or row.get("score")
+            if model and model not in _HUMAN_SEAT_MODELS and isinstance(score, (int, float)):
+                _bucket(str(model))["mvp"].append(float(score))
 
     result: list[ModelUsageStat] = []
     for model_id, bucket in stats.items():
-        run_count = len(bucket.get("runs", set()))
+        run_count = bucket.get("runs", 0)
         wins = bucket.get("wins", 0)
         mvp_scores = bucket.get("mvp", [])
         result.append(

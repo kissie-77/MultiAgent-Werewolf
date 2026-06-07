@@ -33,6 +33,7 @@ export default function GameApp() {
   const connectSeat = useGameStore((s) => s.connectSeat);
   const disconnectSpectate = useGameStore((s) => s.disconnectSpectate);
   const spectateError = useGameStore((s) => s.spectateError);
+  const insightEnabled = useGameStore((s) => s.insightEnabled);
 
   const isLiveRun = Boolean(runId);
   const isSeatView =
@@ -78,7 +79,7 @@ export default function GameApp() {
   if (isLiveRun && spectateError) {
     return (
       <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center text-zinc-300 font-sans gap-4 px-6 text-center">
-        <p className="text-amber-500/90 font-mono text-xs uppercase tracking-widest">观战不可用</p>
+        <p className="text-amber-500/90 font-sans text-xs">观战不可用</p>
         <p className="text-sm text-zinc-400 max-w-md">{spectateError}</p>
         <div className="flex gap-3">
           <button
@@ -147,7 +148,7 @@ export default function GameApp() {
               <span className="text-2xl font-black tracking-widest">
                 {gameState.winner === "WOLVES" ? "狼人阵营获胜" : "好人阵营获胜"}
               </span>
-              <span className="font-mono text-xs text-zinc-500">结算面板渲染异常，已安全兜底。</span>
+              <span className="font-sans text-xs text-zinc-500">结算面板渲染异常，已安全兜底。</span>
               <button onClick={handleExitGame} className="px-5 py-2 bg-zinc-800 border border-zinc-700 rounded text-xs hover:border-zinc-500">
                 退出游戏
               </button>
@@ -222,7 +223,7 @@ export default function GameApp() {
             )}
           </div>
 
-          <InsightDock runId={runId} />
+          {insightEnabled && <InsightDock runId={runId} />}
         </div>
       </div>
 

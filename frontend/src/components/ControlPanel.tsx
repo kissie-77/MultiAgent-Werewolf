@@ -80,7 +80,7 @@ const ActionTargetSelector = ({
     amber: "bg-gradient-to-b from-amber-600 to-amber-800 text-amber-50 border-amber-500/50 hover:brightness-110"
   };
 
-  // Compute Tarot logic
+  // 计算塔罗牌逻辑
   const sessionRole = useGameStore((state) => state.state)?.players?.find((p: any) => p.isUser)?.role || "村民";
   const imageSrc = getRoleImage(sessionRole);
 
@@ -244,19 +244,19 @@ export default function ControlPanel() {
   React.useEffect(() => {
     if (!gameState) return;
     
-    // Auto playing logic trigger, but with a slight delay
+    // 自动播放逻辑触发，但带有轻微延迟
     const timer = setTimeout(() => {
-      if (!isAutoPlaying) return; // Wait if paused
+      if (!isAutoPlaying) return; // 暂停时等待
 
       const { phase, currentSpeakerId, players } = gameState;
       
       const user = players.find(p => p.isUser);
-      const isDead = user ? !user.isAlive : true; // In LLM mode, user is technically undefined thus "isDead" will be true
+      const isDead = user ? !user.isAlive : true; // LLM 模式下用户未定义，因此 isDead 为 true
       
       if (typeof currentSpeakerId === "number" && currentSpeakerId !== 1 && (phase === "DAY_DEBATE" || phase === "DAY_SHERIFF_RUN")) {
         simulateNextAI();
       } else if (phase === "DAY_VOTE" && (!user || isDead)) {
-        // If llm mode or user is dead, automatically pass vote
+        // 如果是 LLM 模式或用户已死亡，自动跳过投票
         castVote();
       } else if (phase === "DAY_SHERIFF_VOTE" && (!user || isDead)) {
         useGameStore.getState().castSheriffVote(null);
@@ -270,7 +270,7 @@ export default function ControlPanel() {
         transitionToDebate();
       }
 
-    }, 3500); // Wait 3.5s to let the user reading the texts
+    }, 3500); // 等待 3.5 秒让用户阅读文本
 
     return () => clearTimeout(timer);
   }, [gameState, isAutoPlaying, simulateNextAI, castVote, nightSkillAction, transitionToDebate]);
@@ -282,7 +282,7 @@ export default function ControlPanel() {
   const isDead = user ? !user.isAlive : false;
   const victimId = gameState.victimId;
 
-  // Determine Skill State
+  // 确定技能状态
   const isNightWolf = phase === "NIGHT_WOLF" && !isDead && WOLF_CAMP.includes(user?.role || "");
   const isNightSeer = phase === "NIGHT_SEER" && !isDead && user?.role === "预言家";
   const isNightWitch = phase === "NIGHT_WITCH" && !isDead && user?.role === "女巫";
@@ -290,7 +290,7 @@ export default function ControlPanel() {
 
   const canUseSkill = isNightWolf || isNightSeer || isNightWitch || isDeadHunter;
 
-  // Skill Mapping for Modal
+  // 技能映射用于弹窗
   const getSkillConfig = () => {
     if (isNightWolf) return { actionName: "袭击目标", icon: "🐺", confirm: (id: number) => nightSkillAction("NIGHT_KILL", id) };
     if (isNightSeer) return { actionName: "预言查验", icon: "🔮", confirm: (id: number) => nightSkillAction("NIGHT_INSPECT", id) };
@@ -301,7 +301,7 @@ export default function ControlPanel() {
 
   const skillConfig = getSkillConfig();
   const PotionButton = ({ onClick, type, children, disabled }: { onClick: () => void; type: "elixir" | "poison"; children: React.ReactNode; disabled?: boolean }) => {
-    // Poison is glowing green/fluorescent yellow, elixir is glowing neon violet/pink
+    // 毒药发出绿色/荧光黄光芒，解药发出霓虹紫/粉色光芒
     const glowColor = type === "elixir" ? "shadow-fuchsia-500/40 border-fuchsia-500" : "shadow-emerald-500/40 border-emerald-500";
     const liquidColor = type === "elixir" ? "bg-fuchsia-600" : "bg-emerald-600";
     const hoverColor = type === "elixir" ? "hover:bg-fuchsia-100/10" : "hover:bg-emerald-100/10";
@@ -625,7 +625,7 @@ export default function ControlPanel() {
         {/* State: DAY CASUALTY ANNOUNCEMENT */}
         {phase === "DAY_ANNOUNCEMENT" && (
           <div className="flex flex-col items-center gap-3">
-            <span className="font-mono text-xs text-yellow-500 tracking-wider uppercase font-black text-center">旭日已升，圆形议席的烛光熄灭。</span>
+            <span className="font-sans text-xs text-yellow-500 tracking-wider text-center">旭日已升，圆形议席的烛光熄灭。</span>
             <div className="flex items-center gap-3">
               <button
                 type="button"

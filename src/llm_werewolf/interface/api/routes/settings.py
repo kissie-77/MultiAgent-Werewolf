@@ -18,18 +18,33 @@ from llm_werewolf.interface.api.models.settings import (
     UpdateApiKeysResponse,
     ProvidersListResponse,
     ProviderFieldSchema,
+    AvailableModelOption,
+    AvailableModelsResponse,
 )
 from llm_werewolf.interface.api.services.env_store import (
     read_api_key_status,
     read_provider_env_status,
     build_providers_schema,
+    build_available_models,
     upsert_api_keys,
     slot_updates_from_request,
 )
 
 router = APIRouter(tags=["settings"])
 
-_LOCAL_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+_LOCAL_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient", "0.0.0.0"})
+
+
+def _is_local_client(host: str) -> bool:
+    """Accept loopback and IPv4-mapped loopback (common on Windows)."""
+    normalized = (host or "").strip().lower()
+    if not normalized:
+        return False
+    if normalized in _LOCAL_HOSTS:
+        return True
+    if normalized.startswith("::ffff:"):
+        return normalized.removeprefix("::ffff:") in {"127.0.0.1", "localhost"}
+    return False
 
 
 def _settings_token_configured() -> str | None:
@@ -59,7 +74,7 @@ def verify_settings_access(
             raise HTTPException(status_code=403, detail="Invalid or missing X-Settings-Token")
         return
     host = _client_host(request)
-    if host not in _LOCAL_HOSTS:
+    if not _is_local_client(host):
         raise HTTPException(
             status_code=403,
             detail="Settings API is restricted to localhost; set WEREWOLF_SETTINGS_TOKEN for remote access",
@@ -81,6 +96,21 @@ def list_providers(
     return ApiResponse(
         data=ProvidersListResponse(
             providers=providers,
+            default_provider_id=DEFAULT_PROVIDER_ID,
+        )
+    )
+
+
+@router.get("/settings/available-models")
+def list_available_models(
+    _access: Annotated[None, Depends(verify_settings_access)],
+    env_path=Depends(get_env_file_path),
+) -> ApiResponse[AvailableModelsResponse]:
+    raw = build_available_models(env_path=env_path)
+    models = [AvailableModelOption(**item) for item in raw]
+    return ApiResponse(
+        data=AvailableModelsResponse(
+            models=models,
             default_provider_id=DEFAULT_PROVIDER_ID,
         )
     )

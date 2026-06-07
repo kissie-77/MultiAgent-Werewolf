@@ -20,7 +20,7 @@ export default function SpeechConsole({
 
   const listEndRef = useRef<HTMLDivElement>(null);
   
-  // Track which logs have their thinking process expanded
+  // 跟踪哪些日志的思考过程已展开
   const [expandedThoughts, setExpandedThoughts] = useState<Record<number, boolean>>({});
   const [showPureTextHistory, setShowPureTextHistory] = useState(false);
   
@@ -33,7 +33,7 @@ export default function SpeechConsole({
     }));
   };
 
-  // Auto-scroll logs to bottom when something changes
+  // 日志变化时自动滚动到底部
   useEffect(() => {
     if (!showPureTextHistory) {
       setTimeout(() => {
@@ -43,7 +43,7 @@ export default function SpeechConsole({
   }, [speechLogs.length, currentSpeakerId, expandedThoughts, showPureTextHistory]);
 
 
-  // Map roles to specific border colors and shadows for their dialogue boxes
+  // 为不同角色对话框映射特定边框颜色和阴影
   const roleStyles: Record<string, string> = {
     "预言家": "border-cyan-600/70 shadow-[4px_4px_0px_0px_rgba(8,145,178,0.25)]",
     "女巫": "border-purple-600/70 shadow-[4px_4px_0px_0px_rgba(147,51,234,0.25)]",
@@ -124,7 +124,7 @@ export default function SpeechConsole({
         {speechLogs.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-zinc-600 gap-2 py-8">
             <span className="font-serif text-4xl text-zinc-800 animate-pulse">☠</span>
-            <span className="font-mono text-xs tracking-widest text-zinc-700 uppercase font-black">风平浪静 虚无之地</span>
+            <span className="font-sans text-xs text-zinc-700">风平浪静 虚无之地</span>
           </div>
         ) : (
           <AnimatePresence initial={false}>

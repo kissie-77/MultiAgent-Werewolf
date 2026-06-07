@@ -19,6 +19,11 @@ import {
   HumanInputRequest,
   HumanInputResponse,
   GameStatusResponse,
+  ProvidersListResponse,
+  ApiKeysStatusResponse,
+  UpdateApiKeysRequest,
+  UpdateApiKeysResponse,
+  AvailableModelsResponse,
   BackendReplayPageData,
   BackendModelsPageData,
   BackendShareReplayData,
@@ -59,7 +64,17 @@ export class ApiClient {
   private static async get<T>(url: string): Promise<T> {
     const response = await fetch(`${API_BASE}${url}`);
     if (!response.ok) {
-      throw new Error(`API error fetching ${url}: ${response.statusText}`);
+      let detail = response.statusText;
+      try {
+        const j = await response.json();
+        detail = (j && (j.detail || j.message)) || detail;
+      } catch {
+        // non-JSON error body
+      }
+      if (response.status >= 500) {
+        detail += "（请确认后端已启动：uv run werewolf-api --port 8010）";
+      }
+      throw new Error(`API error fetching ${url}: ${detail}`);
     }
     return unwrap<T>(await response.json());
   }
@@ -101,9 +116,8 @@ export class ApiClient {
   }
 
   static async getHomePageData(): Promise<HomePageData> {
-    // Backend returns {hero, stats_cards, recent_runs, ...}; the mapper reshapes it
-    // into the page's HomePageData ({title, stats:{...}, highlights[]}) with defensive
-    // defaults so a missing field can't white-screen the dashboard.
+    // 后端返回 {hero, stats_cards, recent_runs, ...}；映射器重塑为前端形状
+    // 使用防御性默认值，缺失字段不会让仪表盘白屏
     const raw = await this.get<BackendHomePageData>("/api/v1/pages/home");
     return mapHomePage(raw);
   }
@@ -121,8 +135,8 @@ export class ApiClient {
   }
 
   static async getModelsPageData(): Promise<ModelsPageData> {
-    // Backend returns ModelListPageData (usage_stats, fractional win_rate); the
-    // mapper reshapes it into the page's ModelsPageData (models[], percent).
+    // 后端返回 ModelListPageData（usage_stats，小数 win_rate）；映射器
+    // 将其重塑为页面的 ModelsPageData（models[]，百分比）。
     const raw = await this.get<BackendModelsPageData>("/api/v1/pages/models");
     return mapModelsPage(raw);
   }
@@ -138,9 +152,9 @@ export class ApiClient {
   }
 
   static async getReplayData(runId: string, source = "runs"): Promise<ReplayPageData> {
-    // Always request the enriched per-run replay under the god view: belief /
-    // heatmap blocks are only populated for view=god, and the mapper filters the
-    // god-injected belief/vote snapshot events back out of the timeline.
+    // 始终在上帝视角下请求丰富的每局复盘：信念 /
+    // 热力图块仅在 view=god 时填充，映射器会将
+    // 上帝注入的信念/投票快照事件从时间线中过滤掉。
     const params = new URLSearchParams({ run_id: runId, source, view: "god" });
     const raw = await this.get<BackendReplayPageData>(
       `/api/v1/pages/replay?${params.toString()}`
@@ -149,8 +163,8 @@ export class ApiClient {
   }
 
   static async getShareReplayData(runId: string): Promise<ShareReplayPageData> {
-    // Backend mvp_winner is snake_case with no citation and winner_camp is
-    // lowercase; the mapper reshapes it into what SharePage renders.
+    // 后端 mvp_winner 是 snake_case 且无引用，winner_camp 是
+    // 小写；映射器重塑为 SharePage 渲染的格式。
     const raw = await this.get<BackendShareReplayData>(
       `/api/v1/pages/share-replay?run_id=${encodeURIComponent(runId)}`
     );
@@ -190,6 +204,22 @@ export class ApiClient {
     return this.get<RunListPageData>(
       `/api/v1/runs?page=${page}&page_size=${pageSize}&replay_only=true`
     );
+  }
+
+  static async getProviders(): Promise<ProvidersListResponse> {
+    return this.get<ProvidersListResponse>("/api/v1/settings/providers");
+  }
+
+  static async getApiKeysStatus(): Promise<ApiKeysStatusResponse> {
+    return this.get<ApiKeysStatusResponse>("/api/v1/settings/api-keys");
+  }
+
+  static async updateApiKeys(body: UpdateApiKeysRequest): Promise<UpdateApiKeysResponse> {
+    return this.post<UpdateApiKeysResponse>("/api/v1/settings/api-keys", body);
+  }
+
+  static async getAvailableModels(): Promise<AvailableModelsResponse> {
+    return this.get<AvailableModelsResponse>("/api/v1/settings/available-models");
   }
 }
 

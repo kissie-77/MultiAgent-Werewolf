@@ -9,7 +9,7 @@ export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) 
 
   const activeAnchor = anchors[cursor];
 
-  // Helper to determine color based on wolf_probability
+  // 根据 wolf_probability 决定颜色的辅助函数
   const getCellColor = (prob: number | undefined, note?: string) => {
     if (note === "已死") return "bg-zinc-900 border-zinc-800 text-zinc-600";
     if (prob === undefined) return "bg-zinc-950 border-zinc-900";
@@ -26,7 +26,7 @@ export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) 
     return prob.toFixed(2).replace(/^0+/, "");
   };
 
-  // Players
+  // 玩家列表
   const seats = ["P1", "P2", "P3", "P4", "P5", "P6"];
 
   return (
@@ -67,7 +67,7 @@ export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) 
       <div className="flex overflow-x-auto pb-4 items-center justify-center">
         <div className="min-w-max">
            <div className="flex items-center h-8 mb-2">
-             <div className="w-20 shrink-0 font-mono text-xs text-zinc-600 text-right pr-4">观察者 ↓</div>
+             <div className="w-20 shrink-0 font-sans text-xs text-zinc-600 text-right pr-4">观察者 ↓</div>
              <div className="flex gap-1">
                {seats.map(s => (
                  <div key={s} className="w-12 text-center font-mono text-xs text-zinc-500">
@@ -75,7 +75,7 @@ export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) 
                  </div>
                ))}
              </div>
-             <div className="text-xs font-mono text-zinc-600 pl-4 w-24">←目标</div>
+             <div className="text-xs font-sans text-zinc-600 pl-4 w-24">←目标</div>
            </div>
 
            <div className="space-y-1">

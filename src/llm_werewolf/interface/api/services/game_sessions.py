@@ -321,6 +321,7 @@ class GameSession:
     human_seat: int | None = None
     human_role: str | None = None
     input_broker: Any | None = None
+    track_vote_intentions: bool | None = None
 
 
 class IncrementalEventWriter:
@@ -439,6 +440,7 @@ class GameSessionManager:
             human_seat=human_seat,
             human_role=human_role,
             player_token=player_token,
+            track_vote_intentions=request.track_vote_intentions,
         )
 
         async with self._lock:
@@ -485,6 +487,10 @@ class GameSessionManager:
             players, roles, game_config = prepare_game_roster(players_config)
             if session.badge_flow:
                 game_config = game_config.model_copy(update={"enable_sheriff": True})
+            if session.track_vote_intentions is not None:
+                game_config = game_config.model_copy(
+                    update={"track_vote_intentions": session.track_vote_intentions}
+                )
             if session.human_seat is not None:
                 relaxed = WEB_HUMAN_RELAXED_TIMEOUT_S
                 game_config = game_config.model_copy(

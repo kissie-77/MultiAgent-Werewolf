@@ -33,8 +33,8 @@ export function mapSharePage(
 ): ShareReplayPageData {
   const r = raw ?? ({} as BackendShareReplayData);
   const mvp = r.mvp_winner ?? null;
-  // The backend share payload carries no per-MVP citation; fall back to the most
-  // telling line available so the share card's quote is never empty.
+  // 后端分享载荷没有每局 MVP 引用；回退到最
+  // 可用的关键信息行，使分享卡片的引用永不为空。
   const citation =
     (Array.isArray(r.key_moments) && r.key_moments.find((m) => !!m)) ||
     r.share_summary ||

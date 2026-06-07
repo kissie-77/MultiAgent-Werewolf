@@ -26,7 +26,7 @@ function gs(p: Partial<GameState>): GameState {
   };
 }
 
-// Minimal backend replay with a villager-2 MVP and a wolf-5 (the bug case).
+// 最小后端复盘，villager-2 为 MVP，wolf-5 为狼人（bug 案例）
 const backend = {
   run: { winner_camp: "VILLAGERS" },
   mvp_ranking: [

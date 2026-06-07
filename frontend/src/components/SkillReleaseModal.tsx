@@ -37,7 +37,7 @@ export const SkillReleaseModal = ({
 }: SkillReleaseModalProps) => {
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
 
-  // Per-role tarot card for the skill overlay (all 22 roles, English + Chinese).
+  // 每个角色的塔罗牌技能覆盖层（全部 22 个角色，中英文）
   const imageSrc = getTarotImage(userRole);
 
   const handleSelect = (id: number) => {
@@ -47,7 +47,7 @@ export const SkillReleaseModal = ({
   const handleConfirm = () => {
     if (selectedCardId) {
       onConfirm(selectedCardId);
-      // Wait a moment then close
+      // 等待片刻后关闭
       setTimeout(() => {
         onClose();
         setSelectedCardId(null);

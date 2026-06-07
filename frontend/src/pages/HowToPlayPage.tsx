@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ApiClient } from "../api/client";
 import { HowToPlayPageData } from "../api/types";
 import { motion } from "motion/react";
@@ -7,50 +7,45 @@ import {
   Compass,
   ShieldCheck,
   ShieldAlert,
-  Loader2,
   Sparkles,
 } from "lucide-react";
+import PageLoadState from "../components/PageLoadState";
 
 export default function HowToPlayPage() {
   const [data, setData] = useState<HowToPlayPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    setError(null);
     ApiClient.getHowToPlayPageData()
       .then((res) => {
-        if (active) {
-          setData(res);
-          setLoading(false);
-        }
+        setData(res);
+        setLoading(false);
       })
       .catch((err) => {
-        if (active) {
-          console.error(err);
-          setError("规则内容加载失败，请稍后重试。");
-          setLoading(false);
-        }
+        console.error(err);
+        setError("规则内容加载失败，请稍后重试。");
+        setLoading(false);
       });
-    return () => {
-      active = false;
-    };
   }, []);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-zinc-400">
-        <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mb-2" />
-        <span className="font-mono text-xs tracking-widest uppercase">加载游戏规则...</span>
-      </div>
-    );
+    return <PageLoadState variant="loading" loadingText="加载游戏规则..." />;
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-4">
-        <p className="text-sm font-mono text-stone-500 tracking-wider mb-2">{error || "数据载入失败"}</p>
-      </div>
+      <PageLoadState
+        variant="error"
+        errorText={error || "数据载入失败"}
+        onRetry={fetchData}
+      />
     );
   }
 

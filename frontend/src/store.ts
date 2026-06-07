@@ -27,7 +27,7 @@ interface GameStore {
   isAutoPlaying: boolean;
   setupCount: number | null;
   
-  // Skill casting overlay states
+  // 技能释放覆盖层状态
   activeCast: {
     casterId: number | "USER";
     casterName: string;
@@ -41,7 +41,7 @@ interface GameStore {
   triggerCast: (castDetails: any) => void;
   clearCast: () => void;
   
-  // Custom skill target picking dialog state
+  // 自定义技能目标选择对话框状态
   targetingSkill: {
     type: "NIGHT_KILL" | "NIGHT_INSPECT" | "NIGHT_POISON" | "NIGHT_HEAL" | "USER_VOTE" | "HUNTER_SHOOT";
     title: string;
@@ -55,7 +55,7 @@ interface GameStore {
     description: string;
   } | null) => void;
   
-  // Actions
+  // 操作
   fetchState: () => Promise<void>;
   resetGame: (userRole?: string, playerCount?: number, gameMode?: "llmOnly" | "humanVsAI", startImmediately?: boolean, hasSheriff?: boolean) => Promise<void>;
   submitUserSpeech: () => Promise<void>;
@@ -70,8 +70,10 @@ interface GameStore {
   setUserSpeechText: (text: string) => void;
   toggleAutoPlay: () => void;
   setSetupCount: (count: number | null) => void;
+  insightEnabled: boolean;
+  setInsightEnabled: (enabled: boolean) => void;
 
-  // Live spectate (SSE god-view)
+  // 实时观战（SSE 上帝视角）
   spectateSource: EventSource | null;
   spectateError: string | null;
   insightBeliefs: import("./api/insightTypes").BeliefSnapshot[] | null;
@@ -80,7 +82,7 @@ interface GameStore {
   connectSpectate: (runId: string) => void;
   disconnectSpectate: () => void;
 
-  // Human-vs-AI seat view (SSE seat stream + awaiting_input bridge)
+  // 人类 vs AI 座位视角（SSE 座位流 + awaiting_input 桥接）
   pendingInput: AwaitingInputEvent | null;
   playerToken: string | null;
   humanSeat: number | null;
@@ -98,7 +100,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   userSpeechText: "",
   isAutoPlaying: false,
   setupCount: null,
-  
+  insightEnabled: true,
+
   activeCast: null,
   triggerCast: (castDetails) => set({ activeCast: castDetails }),
   clearCast: () => set({ activeCast: null }),
@@ -107,6 +110,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setTargetingSkill: (skill) => set({ targetingSkill: skill }),
   
   setSetupCount: (count) => set({ setupCount: count }),
+  setInsightEnabled: (enabled) => set({ insightEnabled: enabled }),
 
   fetchState: async () => {
     try {
@@ -163,7 +167,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (isLoading) return;
     if (selectedCardId === null) return;
     
-    // Skill Cast Trigger before Vote Action goes live!
+    // 投票行动上线前触发技能释放动画
     const state = get().state;
     if (state) {
       const userPlayer = state.players.find(p => p.isUser);
@@ -210,7 +214,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      // Small visual delay to appreciate the overlay animation!
+      // 短暂视觉延迟以展示覆盖层动画
       await new Promise(resolve => setTimeout(resolve, 2400));
       const res = await fetch("/api/game/action", {
         method: "POST",
@@ -231,7 +235,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (isLoading) return;
     if (!state) return;
     
-    // Allow override for skipping
+    // 允许覆盖以跳过投票
     const finalTargetId = overrideTargetId !== undefined ? overrideTargetId : selectedCardId;
 
     const userPlayer = state.players.find(p => p.isUser);
@@ -289,7 +293,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   nightSkillAction: async (actionType, targetId, additional) => {
     if (get().isLoading) return;
-    // Skill Cast trigger before Night Skill Action goes live!
+    // 夜间技能行动上线前触发技能释放动画
     const state = get().state;
     if (state) {
       const userPlayer = state.players.find(p => p.isUser);
@@ -338,7 +342,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      // Delay slightly for the cinematic effect to render smoothly
+      // 短暂延迟以使电影效果动画平滑渲染
       await new Promise(resolve => setTimeout(resolve, 2400));
       const res = await fetch("/api/game/action", {
         method: "POST",
@@ -391,11 +395,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   exitGame: async () => {
-    // Legacy /api/game/exit is gone (404). Exit cleanly: stop autoplay, drop the
-    // live SSE stream and hard-navigate to the setup screen. Never POST to the dead
-    // mock — its 404 body used to be written into `state` and white-screen the app.
-    // A hard nav (vs. a local setState) guarantees no in-flight SSE event can
-    // repopulate the game view after exit.
+    // 旧版 /api/game/exit 已废弃（404）。干净退出：停止自动播放，断开
+    // 实时 SSE 流并硬导航到设置界面。绝不 POST 到已废弃的模拟端点——
+    // 其 404 响应体会被写入 `state` 导致白屏。
+    // 硬导航（而非本地 setState）保证退出后不会有飞行中的 SSE 事件
+    // 重新填充游戏视图。
     set({ isAutoPlaying: false, isLoading: false, pendingInput: null });
     get().disconnectSpectate();
     window.location.href = "/";
@@ -418,8 +422,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ state: initialSpectateState(), isLoading: false });
         const es = new EventSource(streamUrl(runId, "god"));
 
-        // Named "snapshot" frame: inject event_type so the reducer's snapshot
-        // case fires (roster -> seats), and stash the god roster for insight.
+        // 命名 "snapshot" 帧：注入 event_type 以触发 reducer 的 snapshot
+        // 分支（roster -> seats），并缓存上帝视角阵容用于洞察。
         es.addEventListener("snapshot", (e: MessageEvent) => {
           try {
             const snap = JSON.parse(e.data);
@@ -431,7 +435,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           } catch (err) { console.error("bad snapshot frame", err); }
         });
 
-        // Unnamed game/insight events (event_type lives inside data JSON).
+        // 未命名游戏/洞察事件（event_type 位于 data JSON 内部）
         es.onmessage = (e: MessageEvent) => {
           try {
             const ev = JSON.parse(e.data);
@@ -462,8 +466,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   humanSeat: null,
   seatRunId: null,
 
-  // Capture the awaiting_input bridge events on the seat stream. Returns true
-  // when the event was consumed (so the caller skips the normal reducer).
+  // 捕获座位流上的 awaiting_input 桥接事件。当事件被消费时返回 true
+  //（调用方跳过正常的 reducer）。
   ingestSeatEvent: (ev) => {
     const t = ev?.event_type;
     if (t === "awaiting_input") {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import { RoleDetail } from "../api/types";
@@ -8,12 +8,12 @@ import {
   BookOpen,
   Flame,
   Compass,
-  Skull,
   Sparkles,
   Layers,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { getRoleImage } from "../utils/roles";
+import PageLoadState from "../components/PageLoadState";
 
 export default function RoleDetailPage() {
   const { roleKey } = useParams<{ roleKey: string }>();
@@ -21,29 +21,25 @@ export default function RoleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     if (!roleKey) return;
-    let active = true;
-
+    setLoading(true);
+    setError(null);
     ApiClient.getRoleDetail(roleKey)
       .then((data) => {
-        if (active) {
-          setRole(data);
-          setLoading(false);
-        }
+        setRole(data);
+        setLoading(false);
       })
       .catch((err) => {
-        if (active) {
-          console.error(err);
-          setError("命运卷宗残破，可能星盘中并无此角色印记，或审判传输错误。");
-          setLoading(false);
-        }
+        console.error(err);
+        setError("命运卷宗残破，可能星盘中并无此角色印记，或审判传输错误。");
+        setLoading(false);
       });
-
-    return () => {
-      active = false;
-    };
   }, [roleKey]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const getAlignmentBadge = (align?: RoleDetail["alignment"]) => {
     switch (align) {
@@ -91,30 +87,24 @@ export default function RoleDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-zinc-400 font-sans text-xs tracking-widest gap-2">
-        <div className="w-6 h-6 border-2 border-t-yellow-500 border-zinc-900 rounded-full animate-spin" />
-        <span>翻阅圣约古籍中...</span>
-      </div>
-    );
+    return <PageLoadState variant="loading" loadingText="翻阅圣约古籍中..." />;
   }
 
   if (error || !role) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 gap-6 relative">
-        <div className="absolute inset-10 border border-red-500/10 pointer-events-none rounded" />
-        <Skull className="w-14 h-14 text-red-500/80 animate-pulse" />
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold font-sans tracking-widest text-zinc-200">卷宗已被黑夜吞噬</h2>
-          <p className="text-zinc-500 font-sans text-xs max-w-sm">{error || "找不到该角色的古老事迹。"}</p>
-        </div>
-        <Link
-          to="/roles"
-          className="px-5 py-2.5 bg-zinc-950 border border-zinc-800 text-xs font-sans text-zinc-300 hover:border-yellow-500 hover:text-white rounded"
-        >
-          返回圣约主廊 (BACK)
-        </Link>
-      </div>
+      <PageLoadState
+        variant="error"
+        errorText={error || "找不到该角色的古老事迹。"}
+        onRetry={fetchData}
+        action={
+          <Link
+            to="/roles"
+            className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500 hover:text-yellow-500 text-xs font-mono tracking-widest text-zinc-300 rounded transition-colors"
+          >
+            返回角色刻印主廊
+          </Link>
+        }
+      />
     );
   }
 

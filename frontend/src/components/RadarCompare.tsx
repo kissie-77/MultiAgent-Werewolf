@@ -6,7 +6,7 @@ interface RadarCompareProps {
 }
 
 export default function RadarCompare({ selectedIds }: RadarCompareProps) {
-  // Dummy data for radar
+  // 雷达图模拟数据
   const data = [
     { subject: '逻辑说服', A: 90, B: 85, C: 70, fullMark: 100 },
     { subject: '狼夜诡策', A: 95, B: 75, C: 60, fullMark: 100 },

@@ -20,7 +20,7 @@ interface GameOverPanelProps {
   userSeat?: number | null;
 }
 
-// Epic title per MVP role (covers Chinese display names; unknown -> generic).
+// 根据 MVP 角色生成史诗级标题（覆盖中文显示名；未知则用通用标题）
 function getMVPTitle(role: string) {
   switch (role) {
     case "预言家":
@@ -44,10 +44,10 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
   const [postGameReady, setPostGameReady] = useState(false);
   const [backendReplay, setBackendReplay] = useState<ReplayPageData | null>(null);
 
-  // For backend-backed runs, poll game status until post-game artifacts land,
-  // then enable the real deep-replay link AND pull the authoritative MVP/board
-  // (the seat SSE path has no client roster, and the client MVP recompute is
-  // wrong — see lib/gameOver). Local games (no runId) skip this.
+  // 对于后端支持的对局，轮询游戏状态直到对局产物就位
+  // 然后启用真正的深度复盘链接并拉取权威的 MVP/排行榜
+  //（座位 SSE 路径没有客户端阵容，且客户端 MVP 重新计算是
+  // 错误的 — 见 lib/gameOver。本地对局（无 runId）跳过此步骤）
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
@@ -209,7 +209,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
               <span className="text-[11px] font-mono tracking-widest uppercase text-zinc-400">
                 {settlementPending ? "结算评选生成中…" : "MVP 评选生成中…"}
               </span>
-              <span className="text-[10px] font-mono text-zinc-600">深度复盘就绪后自动填充本局 MVP 与底牌</span>
+              <span className="text-[10px] font-sans text-zinc-600">深度复盘就绪后自动填充本局 MVP 与底牌</span>
             </div>
           )}
         </motion.div>
@@ -293,14 +293,14 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
             ) : (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-zinc-500">
                 <Loader2 className="w-6 h-6 animate-spin text-zinc-600" />
-                <span className="text-[10px] font-mono uppercase tracking-widest">底牌曝白生成中…</span>
+                <span className="text-[10px] font-sans tracking-widest">底牌曝白生成中…</span>
               </div>
             )}
           </div>
 
           {/* Interactive Logs timeline drawer summary for context */}
           <div className="border-t border-zinc-900/80 pt-4 mt-6">
-            <h4 className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">本局法阵辩论要项摘要 (SPEECH BRIEFING LOGS)</h4>
+            <h4 className="text-[10px] font-sans text-zinc-500 tracking-widest mb-2">本局法阵辩论要项摘要</h4>
             <div className="max-h-24 overflow-y-auto border border-zinc-900 rounded p-2.5 bg-zinc-950/60 flex flex-col gap-1.5 relative scroll-thin">
               {gameState.speechLogs.map((log, index) => (
                 <div key={index} className="text-[9.5px] font-mono text-zinc-400 leading-normal border-b border-zinc-900/40 pb-1 flex gap-2">
@@ -309,7 +309,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
                 </div>
               ))}
               {gameState.speechLogs.length === 0 && (
-                <span className="text-zinc-600 text-[10px] font-mono italic">未留下显著星盘神言。</span>
+                <span className="text-zinc-600 text-[10px] font-sans italic">未留下显著星盘神言。</span>
               )}
             </div>
           </div>

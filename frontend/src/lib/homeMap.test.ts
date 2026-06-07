@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { mapHomePage, type BackendHomePageData } from "./homeMap";
 
-// The real backend GET /api/v1/pages/home payload shape (snake_case).
+// 真实后端 GET /api/v1/pages/home 载荷形状（snake_case）
 const raw: BackendHomePageData = {
   hero: { title: "AI 狼人杀", subtitle: "多智能体狼人杀博弈平台", cta_label: "开始对局", cta_path: "/game" },
   stats_cards: [
@@ -27,7 +27,7 @@ describe("mapHomePage", () => {
 
   it("always returns a defined stats object (the white-screen regression)", () => {
     const out = mapHomePage(raw);
-    // HomePage reads data.stats.activeGames — stats must never be undefined.
+    // HomePage 读取 data.stats.activeGames — stats 绝不能为 undefined
     expect(out.stats).toBeDefined();
     expect(typeof out.stats.activeGames).toBe("number");
     expect(out.stats.totalMatchesPlayed).toBe(26); // label "历史对局"

@@ -13,10 +13,10 @@ interface MvpTabProps {
 }
 
 export default function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdown, runModel }: MvpTabProps) {
-  // Merge MVP and Scores
+  // 合并 MVP 和得分数据
   const mergedPlayers = scores.map(score => {
     const mvpInfo = mvpRanking.find(m => m.playerName === score.playerName);
-    // Determine camp roughly based on role if no camp field exists
+    // 若无阵营字段，根据角色粗略判断阵营
     const camp = ['狼人', 'Werewolf', 'Wolf'].some(w => score.role.includes(w)) ? 'WEREWOLF' : 'GOOD';
     return {
       ...score,
@@ -70,7 +70,7 @@ export default function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdo
               </div>
               <div className="ml-auto text-right">
                 <div className="font-mono text-3xl font-black text-amber-500">{overallMvp?.totalScore.toFixed(1)}</div>
-                <div className="text-[10px] font-mono text-zinc-500 uppercase">综合得分 (Score)</div>
+                <div className="text-[10px] font-sans text-zinc-500 tracking-widest">综合得分</div>
               </div>
             </div>
             
@@ -85,13 +85,13 @@ export default function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdo
 
         {/* TOP-RIGHT: Camp MVP */}
         <div className="border border-zinc-900 bg-zinc-950/60 rounded p-6 flex flex-col justify-center space-y-6">
-          <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest text-center">阵营破局者 (Camp MVPs)</div>
+          <div className="text-xs font-sans text-zinc-500 tracking-widest text-center">阵营破局者</div>
           
           <div className="flex items-center justify-between border border-blue-500/20 bg-blue-500/5 p-4 rounded">
              <div className="flex items-center gap-3">
                <ShieldCheck className="w-5 h-5 text-blue-400" />
                <div>
-                  <div className="text-[10px] font-mono text-blue-400/70 mb-0.5">好人阵营 🥇</div>
+                  <div className="text-[10px] font-sans text-blue-400/70 mb-0.5">好人阵营</div>
                   <div className="font-bold text-blue-100 flex items-center gap-1.5 font-sans">
                     {goodMvp?.playerName} <span className="text-xs text-blue-400/80 font-normal">({goodMvp?.role})</span>
                   </div>
@@ -106,7 +106,7 @@ export default function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdo
              <div className="flex items-center gap-3">
                <ShieldAlert className="w-5 h-5 text-red-500" />
                <div>
-                  <div className="text-[10px] font-mono text-red-500/70 mb-0.5">狼人阵营 🥇</div>
+                  <div className="text-[10px] font-sans text-red-500/70 mb-0.5">狼人阵营</div>
                   <div className="font-bold text-red-100 flex items-center gap-1.5 font-sans">
                     {wolfMvp?.playerName} <span className="text-xs text-red-400/80 font-normal">({wolfMvp?.role})</span>
                   </div>

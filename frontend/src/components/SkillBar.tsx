@@ -28,7 +28,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
   const isDead = user ? !user.isAlive : true;
   const userRole = user?.role || "村民";
 
-  // Inner target dropdown helper for casting skills directly on selection
+  // 技能释放时内部目标下拉选择辅助组件
   const TargetDropdown = ({ 
     currentVal, 
     onChange, 
@@ -60,9 +60,9 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
     );
   };
 
-  // Quick action post handler for custom Hunter Shoot
+  // 猎人自定义射击的快速操作后置处理
   const executeHunterShoot = async (targetId: number) => {
-    // Show Hunter gunshot visual overlay!
+    // 显示猎人枪击视觉覆盖层
     const triggerCast = useGameStore.getState().triggerCast;
     const targetPlayer = gameState.players.find(p => p.id === targetId);
     if (triggerCast) {
@@ -94,13 +94,13 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
     }
   };
 
-  // Check if skills have been exhausted based on gameState
+  // 根据 gameState 检查技能是否已耗尽
   const isSeerSkillUsed = gameState.seerVerifiedTarget !== null;
   const isWitchSaveUsed = gameState.witchSaved;
   const isWitchPoisonUsed = gameState.witchPoisonedTarget !== null;
   const isWolfBiteUsed = gameState.wolfKilledTarget !== null;
 
-  // Render a specific skill card
+  // 渲染特定技能卡牌
   const SkillCard = ({
     title,
     subtitle,
@@ -120,7 +120,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
     glowColor: string; // e.g., "border-yellow-500 shadow-yellow-500/20"
     actionButton?: React.ReactNode;
   }) => {
-    // Styling based on status
+    // 根据状态设置样式
     const getStatusStyle = () => {
       switch (status) {
         case "就绪":
@@ -167,7 +167,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                 {status}
               </span>
             </div>
-            <span className="text-[10.5px] text-zinc-400 font-mono mt-1">{subtitle} ∙ <span className="text-zinc-500 font-sans">{type}技能</span></span>
+            <span className="text-[10.5px] text-zinc-400 font-sans mt-1">{subtitle} ∙ {type}技能</span>
             <span className="text-[12px] text-zinc-300 font-sans leading-6 mt-2 max-w-[240px]">{description}</span>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
         );
 
       case "猎人":
-        // Hunter reactive logic: triggers when dead (voted out)
+        // 猎人反应逻辑：死亡（被投票出局）时触发
         const isUserDead = user ? !user.isAlive : true;
         
         return (

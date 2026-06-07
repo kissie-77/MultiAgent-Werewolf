@@ -34,7 +34,7 @@ export default function SharePage() {
   useEffect(() => {
     if (data) {
       document.title = `${data.share_title} - 狼人杀战报`;
-      // We would normally inject og tags here for a real SPA with helmet
+      // 实际 SPA 中应在此注入 og 标签（使用 helmet）
     }
   }, [data]);
 
@@ -43,7 +43,7 @@ export default function SharePage() {
       <div className="min-h-screen bg-[#07050d] text-zinc-100 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-zinc-500">
            <Hexagon className="w-8 h-8 animate-spin text-amber-500" />
-           <p className="font-mono text-xs uppercase tracking-widest">提取灵能战报中...</p>
+           <p className="font-sans text-xs text-zinc-400">提取灵能战报中...</p>
         </div>
       </div>
     );
@@ -53,8 +53,8 @@ export default function SharePage() {
     return (
       <div className="min-h-screen bg-[#07050d] text-zinc-100 flex items-center justify-center pb-20">
         <div className="text-center">
-          <p className="text-zinc-500 font-mono text-sm tracking-wider">星盘残影流失，无此战报存库</p>
-          <Link to="/runs" className="mt-4 block hover:text-amber-500 font-mono text-xs text-zinc-400">返回战绩中心</Link>
+          <p className="text-zinc-500 font-sans text-sm">星盘残影流失，无此战报存库</p>
+          <Link to="/runs" className="mt-4 block hover:text-amber-500 font-sans text-xs text-zinc-400">返回战绩中心</Link>
         </div>
       </div>
     );

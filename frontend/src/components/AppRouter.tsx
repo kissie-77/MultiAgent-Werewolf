@@ -5,12 +5,12 @@ import ErrorBoundary from "./ErrorBoundary";
 import HomePage from "../pages/HomePage";
 import GameApp from "../pages/GameApp";
 
-// Full-screen fallback so a GameApp render crash (e.g. a corrupted game state)
-// shows a recoverable screen instead of an all-white page.
+// 全屏回退组件，防止 GameApp 渲染崩溃（例如损坏的游戏状态）
+// 显示可恢复界面而非白屏
 const gameErrorFallback = (
   <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center gap-4 text-zinc-200 text-center px-6">
     <span className="text-2xl font-black tracking-widest">对局界面渲染异常</span>
-    <span className="font-mono text-xs text-zinc-500">已安全兜底，未白屏。</span>
+    <span className="font-sans text-xs text-zinc-500">已安全兜底，未白屏。</span>
     <div className="flex gap-3">
       <button onClick={() => window.location.reload()} className="px-4 py-2 bg-zinc-800 border border-zinc-700 rounded text-xs hover:border-zinc-500">重新加载</button>
       <a href="/home" className="px-4 py-2 bg-blue-900/30 border border-blue-700/50 rounded text-xs text-blue-200 hover:border-blue-400">回到主界面</a>

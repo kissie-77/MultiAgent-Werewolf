@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import { ReplayPageData } from "../api/types";
@@ -30,6 +30,7 @@ import {
   Flame,
   Grid
 } from "lucide-react";
+import PageLoadState from "../components/PageLoadState";
 
 export default function ReplayPage() {
   const { runId } = useParams<{ runId: string }>();
@@ -39,57 +40,55 @@ export default function ReplayPage() {
   const [activeTab, setActiveTab] = useState<"timeline" | "mvp_report" | "report" | "belief" | "vote_swing">("timeline");
   const [viewScope, setViewScope] = useState<string>("ALL");
 
-  // Selected Day state for belief and wolf snapshots
-  const [selectedSnapshotDay, setSelectedSnapshotDay] = useState<number>(1);
-
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     if (!runId) return;
     setLoading(true);
+    setErr(null);
     ApiClient.getReplayData(runId)
       .then((res) => {
         setData(res);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error(err);
+      .catch((e) => {
+        console.error(e);
         setErr("真意星流无法检索此局复盘，或虚境网络波动，请稍后再试。");
         setLoading(false);
       });
   }, [runId]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // 信念/狼人快照的日期选择器 — 从真实时间线（和信念快照日期）推导，
+  // 而非硬编码的 [1, 2]。
+  const [selectedSnapshotDay, setSelectedSnapshotDay] = useState<number>(1);
+
   if (loading) {
-    return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center text-[#eae5db]">
-        <motion.div 
-          animate={{ rotate: 360 }} 
-          transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-          className="w-12 h-12 border-2 border-yellow-600/30 border-t-yellow-500 rounded-full mb-4"
-        />
-        <p className="font-mono text-xs tracking-widest uppercase animate-pulse">正在点燃烛火，召回审判镜像...</p>
-      </div>
-    );
+    return <PageLoadState variant="loading" loadingText="正在点燃烛火，召回审判镜像..." />;
   }
 
   if (err || !data) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 max-w-md mx-auto">
-        <ShieldAlert className="w-12 h-12 text-red-500 mb-4" />
-        <h3 className="font-serif text-lg tracking-wider mb-2">审判封卷迷失</h3>
-        <p className="text-xs text-zinc-400 mb-6 leading-relaxed">{err || "无法检索指定的复盘档案"}</p>
-        <Link 
-          to="/" 
-          className="px-5 py-2.5 text-[10px] font-mono tracking-widest text-zinc-950 bg-[#eae5db] hover:bg-yellow-500 rounded transition-all shadow-md uppercase"
-        >
-          返回首殿 (HOME)
-        </Link>
-      </div>
+      <PageLoadState
+        variant="error"
+        errorText={err || "无法检索指定的复盘档案"}
+        onRetry={fetchData}
+        action={
+          <Link
+            to="/"
+            className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500 hover:text-yellow-500 text-xs font-mono tracking-widest text-zinc-300 rounded transition-colors"
+          >
+            返回首页
+          </Link>
+        }
+      />
     );
   }
 
   const { run, timeline, phase_summary, turning_points, mvp_ranking, scores, report_markdown, coach_excerpt, belief_snapshots, wolf_camp_snapshots, belief_heatmap, belief_matrix_anchors, vote_swing_summary } = data;
 
-  // Day options for the belief/wolf snapshot selector — derive from the real
-  // timeline (and any belief snapshot days) instead of a hardcoded [1, 2].
+  // 日期选项 — 从真实时间线（和信念快照日期）推导，而非硬编码的 [1, 2]。
   const snapshotDays: number[] = (() => {
     const days = new Set<number>();
     timeline.forEach((e) => { if (e.day > 0) days.add(e.day); });
@@ -98,9 +97,9 @@ export default function ReplayPage() {
     return sorted.length > 0 ? sorted : [1];
   })();
 
-  // Per-seat view options must match the real player count, not a hardcoded P1–P6
-  // (which made every 9/12-player replay look like a 6-player game). Prefer the
-  // run's player count; fall back to the highest seat seen in the timeline.
+  // 每个座位的视角选项必须匹配真实玩家数量，而非硬编码 P1–P6
+  //（这会让 9/12 人复盘看起来像 6 人游戏）。优先使用对局的玩家数；
+  // 回退到时间线中出现的最高座位号。
   const seatCount: number = (() => {
     if (run.initial_players && run.initial_players > 0) return run.initial_players;
     let max = 0;
@@ -112,7 +111,7 @@ export default function ReplayPage() {
   })();
   const seatNumbers: number[] = Array.from({ length: seatCount }, (_, i) => i + 1);
 
-  // Tiny custom styled Markdown renderer to support clean syntax without adding untrusted dependencies
+  // 轻量自定义 Markdown 渲染器，支持简洁语法而无需引入不受信任的依赖
   const renderMarkdown = (md: string) => {
     const lines = md.split("\n");
     return (
@@ -121,7 +120,7 @@ export default function ReplayPage() {
           const trimmed = line.trim();
           if (!trimmed) return <div key={idx} className="h-2" />;
 
-          // Headers
+          // 标题
           if (trimmed.startsWith("# ")) {
             return (
               <h1 key={idx} className="font-serif text-xl md:text-2xl font-black text-[#eae5db] tracking-wider border-b border-zinc-800/80 pb-2 mt-8 mb-4">
@@ -144,21 +143,21 @@ export default function ReplayPage() {
             );
           }
 
-          // Tables
+          // 表格
           if (trimmed.startsWith("|") && lines[idx + 1]?.startsWith("| :---")) {
-            // Next is header separator, parse table
+            // 下一行是表头分隔符，解析表格
             const tableRows: string[][] = [];
             let i = idx;
-            // Scan down to accumulate all rows of this table
+            // 向下扫描以累积此表格的所有行
             while (i < lines.length && lines[i].trim().startsWith("|")) {
               const cells = lines[i].split("|").map(col => col.trim()).filter((_, index, arr) => index > 0 && index < arr.length - 1);
               tableRows.push(cells);
               i++;
             }
-            // Skip index forward since we processed table rows
-            lines.splice(idx, i - idx); // remove from array so they aren't double processed
+            // 跳过已处理的表格行索引
+            lines.splice(idx, i - idx); // 从数组中移除，避免重复处理
             const headers = tableRows[0];
-            const dataRows = tableRows.slice(2); // index 1 is separator
+            const dataRows = tableRows.slice(2); // 索引 1 是分隔符行
 
             return (
               <div key={idx} className="overflow-x-auto my-4 border border-zinc-900 rounded bg-zinc-950/40">
@@ -188,15 +187,15 @@ export default function ReplayPage() {
             );
           }
 
-          // Separator line
+          // 分隔线
           if (trimmed === "---") {
             return <hr key={idx} className="border-t border-zinc-800 my-4" />;
           }
 
-          // Bullet points
+          // 列表项
           if (trimmed.startsWith("- ")) {
             const content = trimmed.replace("- ", "");
-            // Split bold
+            // 拆分加粗
             const pParts = content.split("**");
             return (
               <ul key={idx} className="list-disc pl-5 my-1.5 space-y-1">
@@ -209,7 +208,7 @@ export default function ReplayPage() {
             );
           }
 
-          // Standard paragraph with bold formatting
+          // 标准段落（含加粗格式）
           const parts = line.split("**");
           return (
             <p key={idx} className="text-xs text-zinc-400 leading-relaxed">
@@ -349,7 +348,7 @@ export default function ReplayPage() {
           >
             {/* Interactive Day selector for snapshot view */}
             <div className="flex items-center gap-3">
-              <span className="text-xs font-mono text-zinc-500 tracking-wider">审判日期切变: </span>
+              <span className="text-xs font-sans text-zinc-500 tracking-wider">审判日期切变: </span>
               <div className="flex bg-zinc-950 border border-zinc-900 p-1 rounded">
                 {snapshotDays.map((day) => {
                   const isSel = selectedSnapshotDay === day;
@@ -432,7 +431,7 @@ export default function ReplayPage() {
                   .map((wolfSnap, wIdx) => (
                     <div key={wIdx} className="space-y-4">
                       <div className="p-4 bg-red-950/5 border border-red-900/10 rounded">
-                        <span className="text-[10px] font-mono tracking-widest text-red-500 uppercase block mb-1">狼队核心战术战略</span>
+                        <span className="text-[10px] font-sans tracking-widest text-red-500/90 block mb-1">狼队核心战术战略</span>
                         <p className="text-xs text-zinc-300 font-sans leading-relaxed">
                           {wolfSnap.campStrategy}
                         </p>
@@ -440,12 +439,12 @@ export default function ReplayPage() {
 
                       <div className="p-4 bg-zinc-900/10 border border-zinc-900 rounded text-xs space-y-3.5">
                         <div className="flex justify-between items-center pb-2 border-b border-zinc-900/60">
-                          <span className="text-zinc-500 font-mono text-[10px] uppercase">夜猎首要指定目标:</span>
+                          <span className="text-zinc-500 font-sans text-[10px]">夜猎首要指定目标:</span>
                           <span className="font-serif text-sm font-bold text-[#eae5db]">{wolfSnap.targetSelectionName}</span>
                         </div>
 
                         <div className="space-y-2">
-                          <span className="text-zinc-500 block font-mono text-[10px] uppercase mb-1">夜里狼队最终投票倾向：</span>
+                          <span className="text-zinc-500 block font-sans text-[10px] mb-1">夜里狼队最终投票倾向：</span>
                           {wolfSnap.wolfVotes.map((wv, wvIdx) => (
                             <div key={wvIdx} className="flex justify-between font-mono text-[11px] bg-zinc-950/40 p-2 rounded">
                               <span className="text-zinc-400">暗桩 【{wv.wolfPlayerName}】 投</span>

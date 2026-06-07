@@ -1,18 +1,17 @@
-// Role art is served from `frontend/public/{material,tarot}/<PascalCase>.png`
-// (canonical stems matching the backend role names). Reference as plain absolute
-// URLs — do NOT `import` from `public/` (Vite returns SPA-fallback HTML).
-// `material` = in-game portrait, `tarot` = setup arcana card.
+// 角色艺术图从 `frontend/public/{material,tarot}/<PascalCase>.png` 提供服务
+//（与后端角色名匹配的规范词干）。作为纯绝对 URL 引用 — 不要从 `public/` 导入（Vite 会返回 SPA 回退 HTML）。
+// `material` = 对局内肖像，`tarot` = 开局塔罗牌。
 
-// role string (English roster name, space-stripped, OR Chinese display name) -> canonical stem
+// 角色字符串（英文阵容角色名，去除空格，或中文显示名）-> 规范词干
 const ROLE_STEM: Record<string, string> = {
-  // --- English (backend roster role_name, spaces stripped by stemFor) ---
+  // --- 英文（后端阵容角色名，stemFor 已去除空格）---
   Werewolf: "Werewolf", AlphaWolf: "AlphaWolf", WhiteWolf: "WhiteWolf", WolfBeauty: "WolfBeauty",
   GuardianWolf: "GuardianWolf", HiddenWolf: "HiddenWolf", BloodMoonApostle: "BloodMoonApostle",
   NightmareWolf: "NightmareWolf",
   Villager: "Villager", Seer: "Seer", Witch: "Witch", Hunter: "Hunter", Guard: "Guard",
   Idiot: "Idiot", Elder: "Elder", Knight: "Knight", Magician: "Magician", Cupid: "Cupid",
   Raven: "Raven", GraveyardKeeper: "GraveyardKeeper", Thief: "Thief", Lover: "Lover",
-  // --- Chinese (in-UI display names / setup dropdown values) ---
+  // --- 中文（UI 显示名 / 设置下拉值）---
   狼人: "Werewolf", 狼王: "AlphaWolf", 白狼: "WhiteWolf", 狼美人: "WolfBeauty", 守卫狼: "GuardianWolf",
   隐狼: "HiddenWolf", 血月使徒: "BloodMoonApostle", 梦魇狼: "NightmareWolf",
   村民: "Villager", 平民: "Villager", 预言家: "Seer", 女巫: "Witch", 猎人: "Hunter", 守卫: "Guard",

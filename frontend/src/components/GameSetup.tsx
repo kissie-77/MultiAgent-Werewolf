@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useGameStore } from "../store";
 import { ApiClient } from "../api/client";
-import { getCustomApiKey, setCustomApiKey, getOpenAIApiKey, setOpenAIApiKey, getGeminiApiKey, setGeminiApiKey, getClaudeApiKey, setClaudeApiKey, getDoubaoApiKey, setDoubaoApiKey } from "../lib/config";
+import { nearestStandardConfigId } from "../lib/boardConfig";
 import { motion, AnimatePresence } from "motion/react";
-import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from "lucide-react";
+import { Users, Shield, Cpu, Zap, Eye, Skull, Settings, Play, BrainCircuit, SlidersHorizontal } from "lucide-react";
+import ApiKeysSettingsModal from "./ApiKeysSettingsModal";
+import type { AvailableModelOption } from "../api/types";
 
 import { getTarotImage } from "../utils/roles";
 import { mapRunRow, type RunRow } from "../utils/runRows";
 
 export default function GameSetup() {
   const setSetupCount = useGameStore((state) => state.setSetupCount);
+  const setInsightEnabled = useGameStore((state) => state.setInsightEnabled);
   const navigate = useNavigate();
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  // setupStep represents the startup screen flow phase
   const [setupStep, setSetupStep] = useState<"landing" | "settings">("landing");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [gameMode, setGameMode] = useState<"llmOnly" | "humanVsAI">("humanVsAI");
@@ -24,59 +25,26 @@ export default function GameSetup() {
   const [userRole, setUserRole] = useState<string>("预言家");
   const [humanSeat, setHumanSeat] = useState<number>(1);
   const [hasSheriff, setHasSheriff] = useState<boolean>(true);
-  const [apiKey, setApiKey] = useState<string>("");
-  const [openaiKey, setOpenaiKey] = useState<string>("");
-  const [geminiKey, setGeminiKey] = useState<string>("");
-  const [claudeKey, setClaudeKey] = useState<string>("");
-  const [doubaoKey, setDoubaoKey] = useState<string>("");
+  const [enableDeepGame, setEnableDeepGame] = useState(true);
+  const [customizeModels, setCustomizeModels] = useState(false);
+  const [availableModels, setAvailableModels] = useState<AvailableModelOption[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [seatProviders, setSeatProviders] = useState<string[]>([]);
   const [spectatableRuns, setSpectatableRuns] = useState<RunRow[]>([]);
   const [spectateRunId, setSpectateRunId] = useState<string>("");
   const [spectateRunsLoading, setSpectateRunsLoading] = useState(false);
   const [spectateRunsError, setSpectateRunsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setApiKey(getCustomApiKey());
-    setOpenaiKey(getOpenAIApiKey());
-    setGeminiKey(getGeminiApiKey());
-    setClaudeKey(getClaudeApiKey());
-    setDoubaoKey(getDoubaoApiKey());
-  }, []);
-
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setApiKey(val);
-    setCustomApiKey(val);
-  };
-
-  const handleOpenaiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setOpenaiKey(val);
-    setOpenAIApiKey(val);
-  };
-
-  const handleGeminiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setGeminiKey(val);
-    setGeminiApiKey(val);
-  };
-
-  const handleClaudeKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setClaudeKey(val);
-    setClaudeApiKey(val);
-  };
-
-  const handleDoubaoKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setDoubaoKey(val);
-    setDoubaoApiKey(val);
-  };
+  const defaultProviderId =
+    availableModels.find((m) => m.provider_id === "doubao")?.provider_id
+    ?? availableModels[0]?.provider_id
+    ?? "doubao";
 
   React.useEffect(() => {
     setSetupCount(playerCount);
   }, [playerCount, setSetupCount]);
 
-  // Keep the human seat within the current player-count range.
+  // 确保人类座位在当前玩家数量范围内
   React.useEffect(() => {
     setHumanSeat((seat) => Math.min(Math.max(1, seat), playerCount));
   }, [playerCount]);
@@ -86,6 +54,31 @@ export default function GameSetup() {
       setSetupCount(null);
     };
   }, [setSetupCount]);
+
+  useEffect(() => {
+    if (setupStep !== "settings") return;
+    let cancelled = false;
+    setModelsLoading(true);
+    ApiClient.getAvailableModels()
+      .then((data) => {
+        if (cancelled) return;
+        setAvailableModels(data.models);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableModels([]);
+      })
+      .finally(() => !cancelled && setModelsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [setupStep]);
+
+  useEffect(() => {
+    setSeatProviders((prev) => {
+      const next = Array.from({ length: playerCount }, (_, i) => prev[i] ?? defaultProviderId);
+      return next.length === playerCount ? next : next.slice(0, playerCount);
+    });
+  }, [playerCount, defaultProviderId]);
 
   useEffect(() => {
     if (setupStep !== "settings" || gameMode !== "llmOnly") return;
@@ -115,15 +108,24 @@ export default function GameSetup() {
     setStartError(null);
     setStarting(true);
     setSetupCount(null);
+    setInsightEnabled(enableDeepGame);
     try {
+      const rosterPayload = customizeModels
+        ? {
+            players: Array.from({ length: playerCount }, (_, index) => {
+              const seat = index + 1;
+              if (gameMode === "humanVsAI" && seat === humanSeat) return {};
+              return { provider: seatProviders[index] ?? defaultProviderId };
+            }),
+          }
+        : { defaults: { provider: defaultProviderId } };
+
       const res = await ApiClient.startGame({
-        config_id: "llm-6p-deepseek",
-        // 把用户选的座位数传给后端（后端 resize_players_config 会按模板扩/缩到 N 座）；
-        // 不传则永远只开 config 自带的 6 人局。范围对齐后端校验 6–20。
+        config_id: nearestStandardConfigId(playerCount),
         player_count: playerCount,
         badge_flow: hasSheriff,
-        // 人机模式下占用一个人类座位 + 把所选角色传给后端（后端会把该角色换到本座位）；
-        // 纯观战模式不传 human。
+        track_vote_intentions: enableDeepGame,
+        ...rosterPayload,
         ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat, role: userRole } } : {}),
       });
       // 人机模式：用后端返回的座位令牌进入本人座位视角；否则进上帝观战。
@@ -148,7 +150,7 @@ export default function GameSetup() {
     if (count === 4) return "1 狼人 | 1 预言家 | 1 女巫 | 1 村民";
     
     const wolves = count <= 6 ? 2 : count <= 11 ? 3 : 4;
-    const citizens = count - 3 - wolves; // Seer, Witch, Hunter = 3 special roles
+    const citizens = count - 3 - wolves; // 预言家、女巫、猎人 = 3个神职
     return `${wolves} 狼人 | 1 预言家 | 1 女巫 | 1 猎人 ${citizens > 0 ? `| ${citizens} 村民` : ""}`;
   };
 
@@ -435,10 +437,105 @@ export default function GameSetup() {
                   </div>
                 </div>
 
-                {/* Ⅳ. 警长选举 */}
+                {/* Ⅳ. 深度对局 / 模型编排 */}
                 <div className="flex flex-col gap-3">
                   <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
-                    <span className="font-gothic text-amber-700 text-sm">IV.</span> 警长竞选 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Sheriff</span>
+                    <span className="font-gothic text-amber-700 text-sm">IV.</span> 智脑深度 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Insight</span>
+                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEnableDeepGame((v) => !v)}
+                    className={`flex items-center justify-between p-3 rounded border transition-all duration-300 ${
+                      enableDeepGame
+                        ? "bg-violet-900/20 border-violet-500/40 text-violet-300"
+                        : "bg-black/40 border-slate-800 text-slate-500"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-[11px] font-sans font-bold tracking-widest">
+                      <BrainCircuit className="w-4 h-4" />
+                      开启深度对局（信念矩阵 / 投票意向）
+                    </span>
+                    <span className={`text-[10px] font-mono ${enableDeepGame ? "text-violet-400" : "text-zinc-600"}`}>
+                      {enableDeepGame ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                  <p className="text-[9px] text-zinc-500 font-sans leading-relaxed px-1">
+                    关闭后观战界面不展示信念矩阵与投票意向面板，对局也不会采集相关数据。
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
+                    <span className="font-gothic text-amber-700 text-sm">V.</span> 模型编排 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Models</span>
+                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCustomizeModels((v) => !v)}
+                    className={`flex items-center justify-between p-3 rounded border transition-all duration-300 ${
+                      customizeModels
+                        ? "bg-cyan-900/20 border-cyan-500/40 text-cyan-300"
+                        : "bg-black/40 border-slate-800 text-slate-500"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-[11px] font-sans font-bold tracking-widest">
+                      <SlidersHorizontal className="w-4 h-4" />
+                      自定义各席位 AI 模型
+                    </span>
+                    <span className={`text-[10px] font-mono ${customizeModels ? "text-cyan-400" : "text-zinc-600"}`}>
+                      {customizeModels ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                  {!customizeModels && (
+                    <p className="text-[9px] text-zinc-500 font-sans px-1">
+                      默认全部使用豆包（需在设置中配置 ARK_API_KEY / ARK_EP）。
+                    </p>
+                  )}
+                  {customizeModels && (
+                    <div className="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar bg-black/40 border border-slate-800 rounded p-3">
+                      {modelsLoading ? (
+                        <span className="text-[10px] text-zinc-500 font-sans">加载可用模型…</span>
+                      ) : availableModels.length === 0 ? (
+                        <span className="text-[10px] text-amber-600/80 font-sans">
+                          尚未检测到已配置的供应商，请先点击右上角设置写入 .env。
+                        </span>
+                      ) : (
+                        Array.from({ length: playerCount }, (_, index) => {
+                          const seat = index + 1;
+                          if (gameMode === "humanVsAI" && seat === humanSeat) return null;
+                          return (
+                            <div key={seat} className="flex items-center gap-2">
+                              <span className="text-[10px] text-zinc-500 font-sans w-10 shrink-0">{seat} 号</span>
+                              <select
+                                value={seatProviders[index] ?? defaultProviderId}
+                                onChange={(e) =>
+                                  setSeatProviders((prev) => {
+                                    const next = [...prev];
+                                    next[index] = e.target.value;
+                                    return next;
+                                  })
+                                }
+                                className="flex-1 bg-black/60 border border-slate-700 text-amber-100 text-[10px] font-sans px-2 py-1.5 rounded outline-none focus:border-amber-500/50"
+                              >
+                                {availableModels.map((m) => (
+                                  <option key={m.provider_id} value={m.provider_id}>
+                                    {m.display_name} ({m.provider_label})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Ⅵ. 警长选举 */}
+                <div className="flex flex-col gap-3">
+                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
+                    <span className="font-gothic text-amber-700 text-sm">VI.</span> 警长竞选 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Sheriff</span>
                     <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
                   </span>
                   
@@ -601,131 +698,17 @@ export default function GameSetup() {
         <Settings className="w-5 h-5 md:w-6 md:h-6" />
       </button>
 
-      {/* Settings Modal */}
-      {createPortal(
-        <AnimatePresence>
-          {showSettingsModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="w-full max-w-md bg-slate-950 bg-woodcut-dark border border-amber-900/40 p-6 md:p-8 rounded-xl relative shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
-              >
-              {/* Corner Ornaments */}
-              <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-amber-600/40" />
-              <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-amber-600/40" />
-              <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-amber-600/40" />
-              <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-amber-600/40" />
-
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="absolute top-4 right-4 text-slate-500 hover:text-amber-500 transition-colors p-1 z-10"
-              >
-                ✕
-              </button>
-              
-              <h2 className="text-lg font-serif font-black text-amber-500 uppercase tracking-widest mb-6 border-b border-amber-900/30 pb-3 flex items-center gap-2 relative z-10 drop-shadow-md">
-                <Settings className="w-5 h-5 text-amber-600" />
-                枢纽引擎 ∙ 密钥档案
-              </h2>
-
-              <div className="flex flex-col gap-5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar relative z-10">
-                <div className="flex flex-col gap-2">
-                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Key className="w-4 h-4 text-amber-500/80" /> DEEPSEEK API KEY
-                  </label>
-                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
-                    <input 
-                      type="password"
-                      placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
-                      value={apiKey}
-                      onChange={handleApiKeyChange}
-                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Key className="w-4 h-4 text-green-500/80" /> OPENAI API KEY
-                  </label>
-                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
-                    <input 
-                      type="password"
-                      placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
-                      value={openaiKey}
-                      onChange={handleOpenaiKeyChange}
-                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Key className="w-4 h-4 text-blue-500/80" /> GEMINI API KEY
-                  </label>
-                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
-                    <input 
-                      type="password"
-                      placeholder="AIza-xxxxxxxxxxxxxxxxxxxxxxxx"
-                      value={geminiKey}
-                      onChange={handleGeminiKeyChange}
-                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Key className="w-4 h-4 text-purple-500/80" /> CLAUDE API KEY
-                  </label>
-                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
-                    <input 
-                      type="password"
-                      placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx"
-                      value={claudeKey}
-                      onChange={handleClaudeKeyChange}
-                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Key className="w-4 h-4 text-red-500/80" /> DOUBAO API KEY
-                  </label>
-                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
-                    <input 
-                      type="password"
-                      placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
-                      value={doubaoKey}
-                      onChange={handleDoubaoKeyChange}
-                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
-                    />
-                  </div>
-                </div>
-
-                <p className="text-[10px] text-slate-500 leading-relaxed font-sans mt-3 border-l-2 border-amber-900/50 pl-3">
-                  配置各平台密钥以供大模型法阵运转。<br/>
-                  * 符文信息仅存于本地浏览器，隐秘且安全。
-                </p>
-              </div>
-
-              <div className="mt-8 pt-4 border-t border-amber-900/30 flex justify-end relative z-10">
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="px-6 py-2.5 bg-amber-950/40 border border-amber-600/50 text-amber-500 font-sans font-black text-xs uppercase tracking-widest hover:bg-amber-900/60 hover:text-amber-400 transition-all rounded"
-                >
-                  铭刻设定 (SAVE)
-                </button>
-              </div>
-            </motion.div>
-          </div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+      <ApiKeysSettingsModal
+        open={showSettingsModal}
+        onClose={() => {
+          setShowSettingsModal(false);
+          if (setupStep === "settings") {
+            ApiClient.getAvailableModels()
+              .then((data) => setAvailableModels(data.models))
+              .catch(() => setAvailableModels([]));
+          }
+        }}
+      />
     </div>
     </div>
   );

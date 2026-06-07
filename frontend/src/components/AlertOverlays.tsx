@@ -11,7 +11,7 @@ export default function AlertOverlays() {
   const [showSheriffAlert, setShowSheriffAlert] = useState(false);
   const [newSheriff, setNewSheriff] = useState<number | null>(null);
 
-  // We use a ref to track the last processed sheriff to prevent infinite loops and premature timeout cancellation
+  // 使用 ref 跟踪上次处理的警长，防止无限循环和过早取消超时
   const lastProcessedSheriffRef = React.useRef<number | null | undefined>(null);
 
   useEffect(() => {

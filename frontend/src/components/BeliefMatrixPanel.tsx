@@ -15,10 +15,10 @@ const ROLE_ICONS: Record<string, string> = {
 };
 
 export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope, showIdentities = false }: BeliefMatrixPanelProps) {
-  // Sort players by seat
+  // 按座位排序玩家
   const sortedPlayers = [...players].sort((a, b) => a.seat - b.seat);
   
-  // Alive observers
+  // 存活的观察者
   const observers = sortedPlayers.filter(p => p.alive);
   
   const getBelief = (observerSeat: number, targetSeat: number) => {
@@ -30,14 +30,14 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
   const getHeatColor = (p: number) => {
     if (p <= 0.5) {
       const ratio = p * 2; // 0 to 1
-      // Deep Blue (0.0) to Bright Amber (0.5) for max contrast
+      // 深蓝 (0.0) 到亮琥珀 (0.5) 以获取最大对比度
       const r = Math.round(15 + ratio * (217 - 15));
       const g = Math.round(50 + ratio * (119 - 50));
       const b = Math.round(100 + ratio * (6 - 100));
       return `rgb(${r},${g},${b})`;
     } else {
       const ratio = (p - 0.5) * 2; // 0 to 1
-      // Bright Amber (0.5) to Deep Crimson (1.0)
+      // 亮琥珀 (0.5) 到深猩红 (1.0)
       const r = Math.round(217 + ratio * (153 - 217));
       const g = Math.round(119 + ratio * (27 - 119));
       const b = Math.round(6 + ratio * (27 - 6));
@@ -46,8 +46,8 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
   };
 
   const isLatestSpeaker = (seat: number) => {
-    // For now randomly mock speaker if needed, or get from prop. Assume seat 2 for mock highlights.
-    // In our mock, observer 2 is speaking? "live speaker" is passed differently, let's just highlight 2.
+    // 目前随机模拟发言者，或从属性获取。假设座位 2 用于模拟高亮
+    // 在模拟中，观察者 2 正在发言？"实时发言者"以不同方式传入，这里仅高亮 2
     return seat === 2; 
   };
 
@@ -60,7 +60,7 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
         <div className="flex items-center gap-2 text-amber-500">
           <Eye className="w-3.5 h-3.5" />
           <span className="font-serif font-black tracking-widest text-[#d4af37] drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]">信念矩阵</span>
-          <span className="text-amber-500/80 text-[10px] font-mono border-l border-amber-900/50 pl-2">谁认为谁是狼</span>
+          <span className="text-amber-500/80 text-[10px] font-sans border-l border-amber-900/50 pl-2">谁认为谁是狼</span>
         </div>
         <div className="font-mono text-amber-500/90 font-bold tracking-widest bg-amber-950/30 px-1.5 py-0.5 rounded border border-amber-900/40">{roundLabel}</div>
       </div>
@@ -119,7 +119,7 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
                     const p = cellData.wolf_probability;
                     bgCol = getHeatColor(p);
                     borderCol = "rgba(245, 158, 11, 0.2)";
-                    // Decide content purely on value if we want block characters, but req said "color + number"
+                    // 根据值决定内容，需求要求"颜色 + 数字"
                     content = p.toFixed(2).replace('0.', '.');
                     if (p === 1 || p === 0) content = p.toFixed(0);
                     cls = "text-white font-mono drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.9)] font-bold";

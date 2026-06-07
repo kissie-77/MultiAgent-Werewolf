@@ -27,17 +27,17 @@ export default function VoteIntentionPanel({ snapshot, players, showIdentities =
     return p ? { icon: ROLE_ICONS[p.role], text: `P${seat}` } : { icon: "", text: "未知" };
   };
 
-  // Convert before/after object maps into array
+  // 将 before/after 对象映射为数组
   const voterIds = Object.keys(snapshot.after);
 
-  // For tally
+  // 用于统计
   const tally: Record<number, number> = {};
   voterIds.forEach(vid => {
     const seat = snapshot.after[vid].seat;
     tally[seat] = (tally[seat] || 0) + 1;
   });
   
-  // Sort tally entries
+  // 排序统计条目
   const tallyEntries = Object.entries(tally).sort((a, b) => b[1] - a[1]);
 
   return (

@@ -21,7 +21,7 @@ export default function ModelsPage() {
     ApiClient.getModelsPageData()
       .then((data) => {
         if (active) {
-          // Expected data structure to now return models of type ModelUsageStat[]
+          // 预期数据结构现在返回 ModelUsageStat[] 类型的模型
           setModels((data.models as unknown as ModelUsageStat[]) || []);
           setIntroTitle(data.introTitle || "模型排行榜");
           setIntroText(data.introText || "");
@@ -97,7 +97,7 @@ export default function ModelsPage() {
 
       <div className="bg-zinc-950/60 border border-zinc-900 rounded-lg overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-zinc-900 flex justify-between items-center bg-zinc-950">
-           <h3 className="text-sm font-mono tracking-widest text-[#eae5db] uppercase font-bold">全网出战模型总序</h3>
+           <h3 className="text-sm font-sans tracking-widest text-[#eae5db] font-bold">全网出战模型总序</h3>
            <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
              排位依据:
              <select 

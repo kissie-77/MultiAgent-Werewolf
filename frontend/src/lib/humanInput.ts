@@ -1,8 +1,7 @@
-// Pure payload mapper: folds a human UI selection into the normalized text
-// the backend bridge expects. This MIRRORS the stdin human contract produced
-// by HumanInteractiveAgent._normalize (Python), so the bridge's text-parsing
-// path needs zero changes:
-//   seat  -> "3"            (skip / abstain -> "0")
+// 纯载荷映射器：将人类 UI 选择折叠为规范化文本
+// 后端桥接期望的格式。这镜像了 HumanInteractiveAgent._normalize（Python）生成的 stdin 人类协议，
+// 因此桥接的文本解析路径无需任何更改：
+//   seat  -> "3"            （跳过/弃权 -> "0"）
 //   witch -> "救" (save) | "毒 [[3]]" (poison seat 3) | "none" (no action)
 //   yesno -> "1" (yes) | "0" (no)
 //   multi -> "3 5"          (space-joined seats)

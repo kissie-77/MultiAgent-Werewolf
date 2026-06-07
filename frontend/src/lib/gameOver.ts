@@ -15,9 +15,9 @@ import type { ReplayPageData } from "../api/types";
  */
 
 const WOLF_ROLES = new Set([
-  // Chinese display names
+  // 中文显示名
   "狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼",
-  // English roster role names
+  // 英文阵容角色名
   "Werewolf", "AlphaWolf", "WhiteWolf", "WolfBeauty", "GuardianWolf", "HiddenWolf",
   "BloodMoonApostle", "NightmareWolf",
 ]);

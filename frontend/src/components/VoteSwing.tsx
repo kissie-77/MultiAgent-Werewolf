@@ -80,7 +80,7 @@ export default function VoteSwing({ swings, timeline }: { swings: VoteSwingSpeec
                         <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-700 mx-auto flex items-center justify-center font-mono text-xs text-zinc-400 font-bold">
                           {swing.voter_id}
                         </div>
-                        <div className="text-[10px] font-mono text-zinc-500 uppercase">{swing.from_target || '无'}</div>
+                        <div className="text-[10px] font-sans text-zinc-500">{swing.from_target || '无'}</div>
                       </div>
 
                       {/* Line */}
@@ -94,7 +94,7 @@ export default function VoteSwing({ swings, timeline }: { swings: VoteSwingSpeec
                         <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/50 mx-auto flex items-center justify-center font-mono text-xs text-amber-500 font-bold ring-2 ring-amber-500/20">
                           {swing.to_target}
                         </div>
-                        <div className="text-[10px] font-mono text-amber-500/50 uppercase">改投</div>
+                        <div className="text-[10px] font-sans text-amber-500/50">改投</div>
                       </div>
                     </div>
                   ))}

@@ -74,9 +74,8 @@ export function mapHomePage(raw: BackendHomePageData | null | undefined): HomePa
   const runs = Array.isArray(d.recent_runs) ? d.recent_runs : [];
   const actions = Array.isArray(d.quick_actions) ? d.quick_actions : [];
 
-  // Stat semantics differ between backend (历史对局/角色数量/可用配置/含复盘) and the
-  // page's four slots; map best-effort by label substring with safe 0 defaults so a
-  // missing/renamed card can never crash the render.
+  // 后端统计卡片（历史对局/角色数量/可用配置/含复盘）与前端
+  // 四个槽位不同；按标签子串尽力映射，缺失/重命名卡片不会导致渲染崩溃
   const rating = statValue(cards, ["评分", "胜率"]);
 
   return {

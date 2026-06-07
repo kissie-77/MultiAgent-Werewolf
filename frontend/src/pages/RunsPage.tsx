@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Shield, Search, ChevronDown, Play, Share, Trophy, Users, AlertCircle } from "lucide-react";
+import { Shield, Search, ChevronDown, Play, Share, Trophy, Users } from "lucide-react";
 import { motion } from "motion/react";
 import { ApiClient } from "../api/client";
 import { mapRunRow, type RunRow } from "../utils/runRows";
+import PageLoadState from "../components/PageLoadState";
 
 export default function RunsPage() {
   const [loading, setLoading] = useState(true);
@@ -11,26 +12,34 @@ export default function RunsPage() {
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [campFilter, setCampFilter] = useState("ALL");
   const [countFilter, setCountFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchData = useCallback(() => {
     setLoading(true);
+    setError(null);
     ApiClient.getRunsPageData(1, 50)
       .then((data) => {
-        if (cancelled) return;
         setRuns(data.runs.items.map(mapRunRow));
         setError(null);
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const filteredRuns = runs.filter((run) => {
     if (campFilter !== "ALL" && run.winnerCamp !== campFilter) return false;
     if (countFilter !== "ALL" && run.playerCount.toString() !== countFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const matchId = run.runId.toLowerCase().includes(q);
+      const matchDate = run.createdAt.toLowerCase().includes(q);
+      if (!matchId && !matchDate) return false;
+    }
     return true;
   });
 
@@ -90,34 +99,68 @@ export default function RunsPage() {
               </select>
               <ChevronDown className="w-3 h-3 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-600 group-hover:text-zinc-400" />
             </div>
-            <button className="h-[34px] w-[34px] flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded hover:border-yellow-500 hover:text-yellow-500 transition-colors text-zinc-400">
-              <Search className="w-3.5 h-3.5" />
-            </button>
+
+            {showSearch ? (
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Escape" && (setShowSearch(false), setSearchQuery(""))}
+                  placeholder="搜索对局 ID / 日期..."
+                  autoFocus
+                  className="w-48 bg-zinc-950 border border-yellow-500/50 text-xs font-mono text-zinc-300 pl-9 pr-8 py-2 rounded outline-none placeholder:text-zinc-600 focus:border-yellow-500"
+                />
+                <button
+                  onClick={() => { setShowSearch(false); setSearchQuery(""); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs font-mono"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowSearch(true)}
+                className="h-[34px] w-[34px] flex items-center justify-center bg-zinc-900 border border-zinc-800 rounded hover:border-yellow-500 hover:text-yellow-500 transition-colors text-zinc-400"
+              >
+                <Search className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-40 bg-zinc-900/40 rounded-lg border border-zinc-800/50 animate-pulse" />
-            ))}
-          </div>
+          <PageLoadState variant="loading" loadingText="加载对局卷宗..." />
         ) : error ? (
-          <div className="py-20 flex flex-col items-center justify-center text-red-400/80 gap-4 text-center">
-            <AlertCircle className="w-12 h-12 text-red-700" />
-            <p className="font-mono text-xs">加载对局卷宗失败：{error}</p>
-          </div>
+          <PageLoadState
+            variant="error"
+            errorText={`加载对局卷宗失败：${error}`}
+            onRetry={fetchData}
+            action={
+              <Link
+                to="/"
+                className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500 hover:text-yellow-500 text-xs font-mono tracking-widest text-zinc-300 rounded transition-colors"
+              >
+                返回首页
+              </Link>
+            }
+          />
         ) : filteredRuns.length === 0 ? (
-          <div className="py-20 flex flex-col items-center justify-center text-zinc-500 gap-4 text-center">
-            <AlertCircle className="w-12 h-12 text-zinc-700" />
-            <div className="space-y-1">
-              <p className="font-sans text-sm">虚境内尚未窥见相应的对局卷宗</p>
-              <p className="font-mono text-xs opacity-60">尝试其他筛选条件，或去推案大厅新开一局。</p>
-            </div>
-            <Link to="/" className="mt-4 px-6 py-2 bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 border border-yellow-600/50 rounded text-xs font-mono tracking-widest uppercase transition-colors">
-              新开对局
-            </Link>
-          </div>
+          <PageLoadState
+            variant="empty"
+            emptyText="虚境内尚未窥见相应的对局卷宗"
+            emptyHint="尝试其他筛选条件，或去推案大厅新开一局。"
+            onRetry={runs.length === 0 ? undefined : undefined}
+            action={
+              <Link
+                to="/"
+                className="px-5 py-2.5 bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/30 border border-yellow-600/50 rounded text-xs font-mono tracking-widest uppercase transition-colors"
+              >
+                新开对局
+              </Link>
+            }
+          />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {filteredRuns.map((run, idx) => (
@@ -154,7 +197,7 @@ export default function RunsPage() {
                         <Play className="w-3 h-3" /> 复盘
                       </Link>
                     ) : (
-                      <span className="text-[10px] text-zinc-600 font-mono">无回放</span>
+                      <span className="text-[10px] text-zinc-600 font-sans">无回放</span>
                     )}
                     <Link
                       to={`/share/${run.runId}`}

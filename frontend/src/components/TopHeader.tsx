@@ -29,17 +29,17 @@ export default function TopHeader({
     }
   }, [confirmExit]);
 
-  // Sync / Reset local countdown timer when phase changes
+  // 阶段变化时同步/重置本地倒计时
   useEffect(() => {
     setLocalSecondsLeft(30);
   }, [phase, dayNumber]);
 
-  // Live countdown ticker
+  // 实时倒计时计时器
   useEffect(() => {
     const interval = setInterval(() => {
       setLocalSecondsLeft((prev) => {
         if (prev <= 1) {
-          return 30; // Auto recycle countdown
+          return 30; // 自动循环倒计时
         }
         return prev - 1;
       });
@@ -48,7 +48,7 @@ export default function TopHeader({
     return () => clearInterval(interval);
   }, []);
 
-  // Safe check when countdown timer reaches zero
+  // 倒计时归零时的安全检查
   useEffect(() => {
     if (isLiveRun) return;
     if (localSecondsLeft === 1) {

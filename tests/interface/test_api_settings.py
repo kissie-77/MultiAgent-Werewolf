@@ -21,6 +21,27 @@ def settings_client(api_dirs, monkeypatch) -> TestClient:
         yield client
 
 
+def test_list_available_models_empty(settings_client: TestClient) -> None:
+    resp = settings_client.get("/api/v1/settings/available-models")
+    assert resp.status_code == 200
+    assert resp.json()["data"]["models"] == []
+    assert resp.json()["data"]["default_provider_id"] == "doubao"
+
+
+def test_list_available_models_with_doubao(settings_client: TestClient, api_dirs) -> None:
+    env_path = api_dirs["root"] / ".env"
+    env_path.write_text(
+        "ARK_API_KEY=ark-test\nARK_EP=ep-test-123\nARK_EP_DISPLAY=豆包测试模型\n",
+        encoding="utf-8",
+    )
+    resp = settings_client.get("/api/v1/settings/available-models")
+    assert resp.status_code == 200
+    models = resp.json()["data"]["models"]
+    assert len(models) == 1
+    assert models[0]["provider_id"] == "doubao"
+    assert models[0]["display_name"] == "豆包测试模型"
+
+
 def test_list_providers(settings_client: TestClient) -> None:
     resp = settings_client.get("/api/v1/settings/providers")
     assert resp.status_code == 200

@@ -9,6 +9,8 @@ from pathlib import Path
 from llm_werewolf.game_runtime.config.provider_registry import (
     DEFAULT_PROVIDER_ID,
     PROVIDER_REGISTRY,
+    is_provider_env_configured,
+    resolve_model_display_name,
 )
 from llm_werewolf.game_runtime.support.env import find_project_root
 
@@ -68,6 +70,24 @@ def read_provider_env_status(*, env_path: Path | None = None) -> dict[str, dict[
         for field in spec.env_fields:
             out[field.env_name] = _status_for_env(field.env_name, on_disk)
     return out
+
+
+def build_available_models(*, env_path: Path | None = None) -> list[dict[str, object]]:
+    """Providers with fully configured env credentials, for per-seat model pickers."""
+    path = env_path or default_env_file_path()
+    on_disk = _parse_env_file(path) if path.is_file() else {}
+    models: list[dict[str, object]] = []
+    for spec in PROVIDER_REGISTRY.values():
+        if not is_provider_env_configured(spec, on_disk=on_disk):
+            continue
+        models.append(
+            {
+                "provider_id": spec.provider_id,
+                "provider_label": spec.display_name,
+                "display_name": resolve_model_display_name(spec, on_disk=on_disk),
+            }
+        )
+    return models
 
 
 def build_providers_schema() -> list[dict[str, object]]:

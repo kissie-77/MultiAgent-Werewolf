@@ -44,7 +44,7 @@ export default function StrategyPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-zinc-400">
         <Loader2 className="w-8 h-8 animate-spin text-yellow-500 mb-2" />
-        <span className="font-mono text-xs tracking-widest uppercase">召来智武巅峰战策卷...</span>
+        <span className="font-sans text-xs text-zinc-400">召来智武巅峰战策卷...</span>
       </div>
     );
   }
@@ -52,7 +52,7 @@ export default function StrategyPage() {
   if (error || !data) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-4">
-        <p className="text-sm font-mono text-stone-500 tracking-wider mb-2">{error || "数据载入失败"}</p>
+        <p className="text-sm font-sans text-stone-500 mb-2">{error || "数据载入失败"}</p>
       </div>
     );
   }

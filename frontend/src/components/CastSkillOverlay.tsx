@@ -17,11 +17,11 @@ export default function CastSkillOverlay() {
   const clearCast = useGameStore((state) => state.clearCast);
   const [particleList, setParticleList] = useState<{ id: number; x: number; y: number; speed: number; size: number }[]>([]);
 
-  // Trigger audio on cast update
+  // 技能释放时触发音效
   useEffect(() => {
     if (!activeCast) return;
     
-    // Play SFX matching effect type
+    // 播放与效果类型匹配的音效
     switch (activeCast.effectType) {
       case "inspect":
         playInspectSFX();
@@ -44,7 +44,7 @@ export default function CastSkillOverlay() {
         break;
     }
 
-    // Auto generate floating particle details
+    // 自动生成浮动粒子细节
     const list = Array.from({ length: 25 }).map((_, i) => ({
       id: i,
       x: Math.random() * 100,
@@ -54,7 +54,7 @@ export default function CastSkillOverlay() {
     }));
     setParticleList(list);
 
-    // Auto clear overlay after animation finishes (approx 2.5s)
+    // 动画完成后自动清除覆盖层（约 2.5 秒）
     const timer = setTimeout(() => {
       clearCast?.();
     }, 2500);
@@ -66,7 +66,7 @@ export default function CastSkillOverlay() {
 
   const { role, skillName, skillSub, casterName, targetName, effectType, targetId } = activeCast;
 
-  // Decide colors and visual attributes depending on skill cast type
+  // 根据技能释放类型决定颜色和视觉属性
   const getThemeConfig = () => {
     switch (effectType) {
       case "inspect":
@@ -120,7 +120,7 @@ export default function CastSkillOverlay() {
           titleIcon: Crosshair
         };
       default:
-        // Vote or generic
+        // 投票或通用
         return {
           glow: "shadow-[0_0_80px_rgba(59,130,246,0.3)]",
           border: "border-blue-500/50",
@@ -136,7 +136,7 @@ export default function CastSkillOverlay() {
   const theme = getThemeConfig();
   const TitleIconComp = theme.titleIcon;
 
-  // Extremely beautiful custom SVGs mirroring the requested illustration gothic designs
+  // 精美自定义 SVG，镜像请求的哥特风格插图设计
   const renderIllustrationCard = () => {
     switch (role) {
       case "预言家":

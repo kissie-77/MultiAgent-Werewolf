@@ -20,14 +20,14 @@ export function playInspectSFX() {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
 
-    // Root resonator node
+    // 根谐振节点
     const filter = ctx.createBiquadFilter();
     filter.type = "peaking";
     filter.frequency.value = 1200;
     filter.Q.value = 5;
     filter.connect(ctx.destination);
 
-    // Ethereal rising frequency oscillator
+    // 空灵上升频率振荡器
     const osc = ctx.createOscillator();
     osc.type = "sine";
     osc.frequency.setValueAtTime(440, now);
@@ -43,7 +43,7 @@ export function playInspectSFX() {
     osc.start(now);
     osc.stop(now + 1.5);
 
-    // Secondary sparkly modulation
+    // 二级闪烁调制
     const mod = ctx.createOscillator();
     mod.type = "triangle";
     mod.frequency.setValueAtTime(880, now);
@@ -78,7 +78,7 @@ export function playHealSFX() {
     feedback.connect(delay);
     delay.connect(ctx.destination);
 
-    // Harmonious major-triad chime sequence
+    // 和谐大三和弦钟声序列
     const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
@@ -107,20 +107,20 @@ export function playPoisonSFX() {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
 
-    // Low bubbling oscillator
+    // 低沉气泡振荡器
     const bOsc = ctx.createOscillator();
     bOsc.type = "sawtooth";
     bOsc.frequency.setValueAtTime(65, now);
     bOsc.frequency.linearRampToValueAtTime(45, now + 1.8);
 
-    // Acid bubbling bandpass swept filter
+    // 酸性气泡带通扫频滤波器
     const filter = ctx.createBiquadFilter();
     filter.type = "bandpass";
     filter.frequency.setValueAtTime(250, now);
     filter.Q.value = 8;
     filter.connect(ctx.destination);
 
-    // Bubble LFO
+    // 气泡 LFO
     const lfo = ctx.createOscillator();
     lfo.type = "sawtooth";
     lfo.frequency.setValueAtTime(14, now); // bubbling speed
@@ -145,7 +145,7 @@ export function playPoisonSFX() {
     lfo.stop(now + 2.1);
     bOsc.stop(now + 2.1);
 
-    // Death hiss
+    // 死亡嘶嘶声
     const bufferSize = ctx.sampleRate * 1.5;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -182,7 +182,7 @@ export function playBiteSFX() {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
 
-    // Sub roar
+    // 低沉咆哮
     const osc1 = ctx.createOscillator();
     osc1.type = "sawtooth";
     osc1.frequency.setValueAtTime(90, now);
@@ -203,7 +203,7 @@ export function playBiteSFX() {
     osc1.start(now);
     osc1.stop(now + 1.0);
 
-    // Flesh claw slice (filtered noise)
+    // 血肉撕裂声（滤波噪声）
     const bufferSize = ctx.sampleRate * 0.4;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -240,7 +240,7 @@ export function playShootSFX() {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
 
-    // White noise explosion
+    // 白噪声爆炸
     const bufferSize = ctx.sampleRate * 1.5;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -267,7 +267,7 @@ export function playShootSFX() {
     source.start(now);
     source.stop(now + 1.5);
 
-    // Initial metallic trigger "click" and low bullet thud
+    // 初始金属触发"咔嗒"声与低沉子弹撞击声
     const click = ctx.createOscillator();
     click.type = "triangle";
     click.frequency.setValueAtTime(180, now);
@@ -292,7 +292,7 @@ export function playVoteSFX() {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
 
-    // Resonant hum base
+    // 谐振低音基础
     const fundamental = 120; // 120Hz deep dome bell
     const overtones = [1, 1.5, 2, 2.5, 3.2, 4.1];
     

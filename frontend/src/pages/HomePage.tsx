@@ -56,10 +56,10 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-[#07050d] text-zinc-400 flex flex-col items-center justify-center p-4 text-center gap-4">
         <Shield className="w-12 h-12 text-red-500 animate-pulse" />
-        <p className="text-sm font-mono tracking-widest">{error || "数据载入失败"}</p>
+        <p className="text-sm font-sans">{error || "数据载入失败"}</p>
         <button 
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded font-mono text-xs text-zinc-200 hover:border-yellow-500 hover:text-white"
+          className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded font-sans text-xs text-zinc-200 hover:border-yellow-500 hover:text-white"
         >
           重新召唤 (RETRY)
         </button>
@@ -67,7 +67,7 @@ export default function HomePage() {
     );
   }
 
-  // Pick suitable Lucide icons for quick links based on label or path
+  // 根据标签或路径为快捷链接选择合适的 Lucide 图标
   const getLinkIcon = (path: string) => {
     if (path === "/" || path.includes("game")) return <Play className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform" />;
     if (path.includes("rules")) return <Scroll className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />;
@@ -119,22 +119,22 @@ export default function HomePage() {
           <div className="bg-zinc-950/95 border border-zinc-900/80 p-5 rounded-lg text-center relative overflow-hidden group hover:border-zinc-800 transition-colors">
             <div className="absolute top-1 right-1 text-[8px] font-mono text-zinc-800">ACTIVE_ARENAS</div>
             <div className="text-2xl font-mono font-black text-yellow-500">{data.stats.activeGames}</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono mt-1">当前存续对局</div>
+            <div className="text-[10px] text-zinc-500 tracking-widest font-sans mt-1">当前存续对局</div>
           </div>
           <div className="bg-zinc-950/95 border border-zinc-900/80 p-5 rounded-lg text-center relative overflow-hidden group hover:border-zinc-800 transition-colors">
             <div className="absolute top-1 right-1 text-[8px] font-mono text-zinc-800">TOTAL_RECORDS</div>
             <div className="text-2xl font-mono font-black text-indigo-400">{data.stats.totalMatchesPlayed}</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono mt-1">历史公投卷宗</div>
+            <div className="text-[10px] text-zinc-500 tracking-widest font-sans mt-1">历史公投卷宗</div>
           </div>
           <div className="bg-zinc-950/95 border border-zinc-900/80 p-5 rounded-lg text-center relative overflow-hidden group hover:border-zinc-800 transition-colors">
             <div className="absolute top-1 right-1 text-[8px] font-mono text-zinc-800">RUNNING_AGENTS</div>
             <div className="text-2xl font-mono font-black text-rose-500">{data.stats.onlineAIs}</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono mt-1">虚境智能棋子</div>
+            <div className="text-[10px] text-zinc-500 tracking-widest font-sans mt-1">虚境智能棋子</div>
           </div>
           <div className="bg-zinc-950/95 border border-zinc-900/80 p-5 rounded-lg text-center relative overflow-hidden group hover:border-zinc-800 transition-colors">
             <div className="absolute top-1 right-1 text-[8px] font-mono text-zinc-800">MODEL_SCORE</div>
             <div className="text-2xl font-mono font-black text-emerald-400">{data.stats.averageRating}</div>
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono mt-1">综合推理评分</div>
+            <div className="text-[10px] text-zinc-500 tracking-widest font-sans mt-1">综合推理评分</div>
           </div>
         </motion.div>
 

@@ -9,13 +9,13 @@ export default function ModelComparePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Read multiples "ids" from URL
+  // 从 URL 读取多个 "ids"
   const [ids, setIds] = useState<string[]>([]);
   const [compareData, setCompareData] = useState<ModelComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // In case user needs a selection guide, fetch full models list
+  // 用户需要选择引导时，获取完整模型列表
   const [allModels, setAllModels] = useState<ModelUsageStat[]>([]);
   const [loadingAll, setLoadingAll] = useState(false);
 
@@ -25,7 +25,7 @@ export default function ModelComparePage() {
   }, [searchParams]);
 
   useEffect(() => {
-    // Fetch full list of models in background for selection guide and dynamic checklist
+    // 后台获取完整模型列表用于选择引导和动态清单
     setLoadingAll(true);
     ApiClient.getModelsPageData()
       .then((data) => {
@@ -101,7 +101,7 @@ export default function ModelComparePage() {
     );
   }
 
-  // Guide Scenario: URL has fewer than 2 ids to compare
+  // 引导场景：URL 中少于 2 个 id 时显示选择引导
   const isFewerThanTwo = ids.length < 2;
 
   return (
@@ -143,7 +143,7 @@ export default function ModelComparePage() {
 
           <div className="space-y-3.5">
             {loadingAll ? (
-              <div className="text-[10px] font-mono text-zinc-650 tracking-wider">正在载入神圣席位...</div>
+              <div className="text-[10px] font-sans text-zinc-650 tracking-wider">正在载入神圣席位...</div>
             ) : (
               allModels.map((model) => {
                 const checked = ids.includes(model.model_id);
@@ -202,14 +202,14 @@ export default function ModelComparePage() {
                   星盘感应不足 (SELECTION REQUIRED)
                 </h2>
                 <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                  大天平左侧盘空无，我们需要至少 <span className="text-yellow-500 font-bold font-mono">2 款对弈模型</span> 方可施加星符刻印，解包多维度逻辑胜负比对。
+                  大天平左侧盘空无，我们需要至少 <span className="text-yellow-500 font-bold font-sans">2 款对弈模型</span> 方可施加星符刻印，解包多维度逻辑胜负比对。
                 </p>
               </div>
 
               <div className="w-10 h-px bg-zinc-850 mx-auto" />
 
               <div className="space-y-2 text-left max-w-md mx-auto bg-zinc-900/40 border border-zinc-900 p-4 rounded-lg">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block font-bold mb-2">如何开启对决：</span>
+                <span className="text-[10px] font-sans text-zinc-500 tracking-widest block font-bold mb-2">如何开启对决：</span>
                 <ul className="space-y-1.5 text-xs text-zinc-400">
                   <li className="flex items-start gap-1">
                     <span className="text-yellow-500 font-bold font-mono">①</span>

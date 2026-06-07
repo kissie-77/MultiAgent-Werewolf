@@ -20,14 +20,14 @@ const mockPlayers: PlayerData[] = [
 ];
 
 export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { timeline: TimelineEvent[], viewScope?: string }) {
-  // Start at the first event so the replay opens at the top of the chronicle and
-  // plays forward — initialising at the last event stranded the view at the bottom.
+  // 从第一个事件开始，让回放打开在编年史顶部并
+  // 向前播放 — 初始化在最后一个事件会让视图卡在底部。
   const [cursor, setCursor] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Playback effect
+  // 播放效果
   useEffect(() => {
     let timer: any;
     if (isPlaying) {
@@ -42,7 +42,7 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
     return () => clearInterval(timer);
   }, [isPlaying, speed, timeline.length]);
 
-  // Auto-scroll
+  // 自动滚动
   useEffect(() => {
     if (scrollRef.current) {
       const activeEl = scrollRef.current.querySelector('[data-active="true"]');
@@ -52,11 +52,11 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
     }
   }, [cursor]);
 
-  // Calculate live state up to cursor
+  // 计算光标位置之前的实时状态
   const currentEvent = timeline[cursor];
   const pastEvents = timeline.slice(0, cursor + 1);
 
-  // Live game state
+  // 实时游戏状态
   const deadPlayers = new Set<string>();
   const voteCount: Record<string, number> = {};
 
@@ -65,11 +65,11 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
       deadPlayers.add(ev.targetId);
     }
     if (ev.type === "vote" && ev.targetId && ev.phase !== "DAY_ANNOUNCE" /* Ensure we only count vote events */) {
-      // Just showing current vote count if it's a vote event
+      // 如果是投票事件，只显示当前票数
     }
   });
 
-  // Calculate if a player is speaking
+  // 计算玩家是否在发言
   const speakingPlayer = currentEvent?.type === "speech" ? currentEvent.playerId : null;
 
   const getCampColor = (camp: string, isDead: boolean) => {
@@ -95,10 +95,10 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
       
       {/* 1. Seat Ring (Left) */}
       <div className="col-span-1 border-r border-zinc-900 bg-[#0c0c0c] p-4 flex flex-col hidden lg:flex">
-        <h3 className="font-mono text-xs text-zinc-500 uppercase tracking-widest text-center mb-12">上帝视角</h3>
+        <h3 className="font-sans text-xs text-zinc-500 tracking-widest text-center mb-12">上帝视角</h3>
         <div className="relative w-full aspect-square max-w-[200px] mx-auto mt-4">
           {mockPlayers.map((p, idx) => {
-            const angle = (idx * 60) - 90; // Starting from top (-90deg)
+            const angle = (idx * 60) - 90; // 从顶部开始（-90度）
             const radius = 90;
             const x = Math.cos(angle * Math.PI / 180) * radius;
             const y = Math.sin(angle * Math.PI / 180) * radius;
@@ -115,7 +115,7 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
                   flex flex-col items-center justify-center w-12 h-12 rounded-full border-2 shadow-lg relative
                   ${viewScope === "ALL" || p.id === viewScope 
                     ? getCampColor(p.camp, isDead) 
-                    : getCampColor("NEUTRAL", isDead) // Hide camp for others
+                    : getCampColor("NEUTRAL", isDead) // 其他人隐藏阵营
                   }
                   ${isSpeaking ? "ring-4 ring-yellow-500/50 scale-110 z-10" : ""}
                 `}>
@@ -160,14 +160,14 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
             const isActive = idx === cursor;
             const isPast = idx < cursor;
 
-            // Visibility Logic
+            // 可见性逻辑
             const isPrivateEvent = ev.phase === "NIGHT" && ev.type !== "system";
             let canView = true;
             if (viewScope === "PUBLIC" && isPrivateEvent) canView = false;
             if (viewScope.startsWith("P") && isPrivateEvent) {
-              // Only see if this player was involved as the actor. 
-              // Wait, sometimes a player is the target. If they are target they might not know until morning.
-              // We'll just check if playerId matches or if they are Wolf and it's a kill?
+              // 只有当事件参与者才能看到 
+              // 有时玩家是目标，作为目标可能要到早上才知道
+              // 这里只检查 playerId 是否匹配，或者如果是狼人且是击杀事件
               if (ev.playerId && !ev.playerId.includes(viewScope)) canView = false;
             }
             
@@ -211,7 +211,7 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
                 <div className={`flex-1 rounded p-3 border ${isActive ? 'bg-zinc-900 border-zinc-700' : 'bg-zinc-950 border-zinc-900'}`}>
                   {ev.type === "speech" && (
                     <>
-                      <div className="text-[10px] font-mono text-zinc-500 mb-1 font-bold">{ev.playerId} 发言</div>
+                      <div className="text-[10px] font-sans text-zinc-500 mb-1 font-bold">{ev.playerId} 发言</div>
                       <p className={`text-sm ${isActive ? 'text-zinc-200' : 'text-zinc-400'}`}>"{ev.message}"</p>
                     </>
                   )}
@@ -272,10 +272,10 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
 
       {/* 3. Live State Menu (Right) */}
       <div className="col-span-1 border-l border-zinc-900 bg-[#0a0a0a] p-4 flex flex-col hidden lg:flex">
-        <h3 className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest mb-4">实时态视界 (LIVE STATE)</h3>
+        <h3 className="font-sans text-[10px] text-zinc-600 tracking-widest mb-4">实时态视界</h3>
         
         <div className="bg-zinc-950 border border-zinc-900 rounded p-3 mb-4">
-          <div className="text-[10px] font-mono text-zinc-500 mb-1">存活状况</div>
+          <div className="text-[10px] font-sans text-zinc-500 mb-1">存活状况</div>
           <div className="text-xl font-serif font-bold text-yellow-500">
             {mockPlayers.length - deadPlayers.size} <span className="text-sm text-zinc-600 font-sans font-normal">/ {mockPlayers.length}</span>
           </div>
@@ -283,7 +283,7 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
 
         {currentEvent?.type === "vote" && currentEvent.actions && (
           <div className="bg-zinc-950 border border-zinc-900 rounded p-3 mb-4">
-            <div className="text-[10px] font-mono text-zinc-500 mb-2">当前放逐票型</div>
+            <div className="text-[10px] font-sans text-zinc-500 mb-2">当前放逐票型</div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
                 <span className="text-zinc-300">{currentEvent.targetId} 号出局</span>
@@ -298,7 +298,7 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
         )}
 
         <div className="bg-zinc-950 border border-zinc-900 rounded p-3 mb-4 mt-auto">
-          <div className="text-[10px] font-mono text-zinc-500 mb-2">上帝视角全知</div>
+          <div className="text-[10px] font-sans text-zinc-500 mb-2">上帝视角全知</div>
           <p className="text-xs text-zinc-400 leading-tight">
             2026-06-04 15:16 录像 <br/>
             6人局，好人阵营最终获胜。

@@ -110,20 +110,20 @@ export default function ModelDetailPage() {
         {/* Dynamic specifications cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-zinc-900/40 border border-zinc-900 p-4 rounded">
-            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest block">推理硬核全参</span>
-            <span className="text-xs font-mono text-zinc-200 block font-bold mt-1">
+            <span className="text-[9px] font-sans text-zinc-500 tracking-widest block">推理硬核全参</span>
+            <span className="text-xs font-sans text-zinc-200 block font-bold mt-1">
               {model.parameters || "未知参数"}
             </span>
           </div>
           <div className="bg-zinc-900/40 border border-zinc-900 p-4 rounded">
-            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest block">高维多模感知 (VISION)</span>
-            <span className="text-xs font-mono block font-bold mt-1 uppercase text-zinc-200">
-              {model.visionSupport ? "解封 ∙ 触碰迷雾图像" : "封锁 ∙ 纯逻辑论述"}
+            <span className="text-[9px] font-sans text-zinc-500 tracking-widest block">高维多模感知</span>
+            <span className="text-xs font-sans block font-bold mt-1 text-zinc-200">
+              {model.visionSupport ? "解封 · 触碰迷雾图像" : "封锁 · 纯逻辑论述"}
             </span>
           </div>
           <div className="bg-zinc-900/40 border border-zinc-900 p-4 rounded">
-            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest block">黑夜最长鸣响</span>
-            <span className="text-xs font-mono text-zinc-200 block font-bold mt-1">
+            <span className="text-[9px] font-sans text-zinc-500 tracking-widest block">黑夜最长鸣响</span>
+            <span className="text-xs font-sans text-zinc-200 block font-bold mt-1">
               {model.maxTokens} Max Tokens
             </span>
           </div>
@@ -208,7 +208,7 @@ export default function ModelDetailPage() {
 
             {/* Temperament summary */}
             <div className="space-y-2 bg-zinc-900/30 p-4 border border-zinc-900 rounded">
-              <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">词锋脾性 (TEMPERAMENT)</span>
+              <span className="text-[9px] font-sans text-zinc-500 tracking-widest">词锋脾性</span>
               <p className="text-xs font-sans text-zinc-350 leading-relaxed font-semibold">
                 {model.temperament}
               </p>

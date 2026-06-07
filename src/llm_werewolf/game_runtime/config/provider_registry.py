@@ -14,6 +14,7 @@ Env naming convention
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 
@@ -76,6 +77,14 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 example="ep-xxxxxxxxxx-yyyy",
                 description="推理接入点 ID（model_env）；非 Key 本身",
             ),
+            ProviderEnvField(
+                env_name="ARK_EP_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="豆包 Seed 1.6 极速版",
+                description="开局界面显示用，避免直接展示 ep- 编号",
+            ),
         ),
         default_base_url="https://ark.cn-beijing.volces.com/api/v3",
         default_model=None,
@@ -98,6 +107,13 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 example="deepseek-v4-flash",
                 description="留空则使用默认模型",
             ),
+            ProviderEnvField(
+                env_name="DEEPSEEK_MODEL_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="DeepSeek V4 Flash",
+            ),
         ),
         default_base_url="https://api.deepseek.com/v1",
         default_model="deepseek-v4-flash",
@@ -117,6 +133,13 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 required=False,
                 secret=False,
                 example="gpt-4o",
+            ),
+            ProviderEnvField(
+                env_name="OPENAI_MODEL_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="GPT-4o",
             ),
         ),
         default_base_url="https://api.openai.com/v1",
@@ -138,6 +161,13 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 secret=False,
                 example="gemini-2.0-flash",
             ),
+            ProviderEnvField(
+                env_name="GEMINI_MODEL_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="Gemini 2.0 Flash",
+            ),
         ),
         default_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
         default_model="gemini-2.0-flash",
@@ -157,6 +187,13 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 required=False,
                 secret=False,
                 example="claude-sonnet-4-20250514",
+            ),
+            ProviderEnvField(
+                env_name="ANTHROPIC_MODEL_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="Claude Sonnet 4",
             ),
         ),
         default_base_url="https://api.anthropic.com/v1",
@@ -187,6 +224,13 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 secret=False,
                 example="kimi-k2.5",
             ),
+            ProviderEnvField(
+                env_name="KIMI_MODEL_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="Kimi K2.5",
+            ),
         ),
         default_base_url="https://api.moonshot.cn/v1",
         default_model="kimi-k2.5",
@@ -207,6 +251,13 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 required=False,
                 secret=False,
                 example="glm-4-flash",
+            ),
+            ProviderEnvField(
+                env_name="GLM_MODEL_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="GLM-4 Flash",
             ),
         ),
         default_base_url="https://open.bigmodel.cn/api/paas/v4",
@@ -235,6 +286,13 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                 secret=False,
                 example="abab6.5s-chat",
             ),
+            ProviderEnvField(
+                env_name="MINIMAX_MODEL_DISPLAY",
+                label="展示名称",
+                required=False,
+                secret=False,
+                example="MiniMax abab6.5s",
+            ),
         ),
         default_base_url="https://api.minimaxi.com/v1",
         default_model="abab6.5s-chat",
@@ -261,3 +319,76 @@ def all_env_var_names() -> frozenset[str]:
         for field in spec.env_fields:
             names.add(field.env_name)
     return frozenset(names)
+
+
+def model_display_env_name(model_env: str) -> str:
+    """Optional friendly label env var paired with a model/endpoint id."""
+    return f"{model_env}_DISPLAY"
+
+
+def provider_to_roster_fields(provider_id: str) -> dict[str, str | None]:
+    """Map ``provider_id`` to PlayerConfig LLM connection fields."""
+    spec = get_provider(provider_id)
+    fields: dict[str, str | None] = {
+        "base_url": spec.default_base_url,
+        "api_key_env": spec.api_key_env,
+    }
+    if spec.model_env:
+        fields["model_env"] = spec.model_env
+        fields["model"] = None
+    elif spec.default_model:
+        fields["model"] = spec.default_model
+        fields["model_env"] = None
+    return fields
+
+
+def is_provider_env_configured(
+    spec: ProviderSpec,
+    *,
+    environ: dict[str, str] | None = None,
+    on_disk: dict[str, str] | None = None,
+) -> bool:
+    """True when every required env field for the provider has a non-empty value."""
+    env = environ if environ is not None else os.environ
+    disk = on_disk or {}
+
+    def _value(env_name: str) -> str:
+        return (env.get(env_name) or disk.get(env_name) or "").strip()
+
+    for field in spec.env_fields:
+        if field.required and not _value(field.env_name):
+            return False
+    return True
+
+
+def resolve_model_display_name(
+    spec: ProviderSpec,
+    *,
+    environ: dict[str, str] | None = None,
+    on_disk: dict[str, str] | None = None,
+) -> str:
+    """Human-readable model label; never expose raw endpoint ids when DISPLAY is set."""
+    env = environ if environ is not None else os.environ
+    disk = on_disk or {}
+
+    def _value(env_name: str) -> str:
+        return (env.get(env_name) or disk.get(env_name) or "").strip()
+
+    if spec.model_env:
+        friendly = _value(model_display_env_name(spec.model_env))
+        if friendly:
+            return friendly
+        model_id = _value(spec.model_env)
+        if model_id and not model_id.startswith("ep-"):
+            return model_id
+    elif spec.default_model:
+        model_env = next(
+            (f.env_name for f in spec.env_fields if not f.secret and "MODEL" in f.env_name),
+            None,
+        )
+        if model_env:
+            friendly = _value(model_display_env_name(model_env))
+            if friendly:
+                return friendly
+        return spec.default_model
+    return spec.display_name

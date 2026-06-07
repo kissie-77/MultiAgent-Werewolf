@@ -5,9 +5,9 @@ import { getCustomApiKey } from "../lib/config";
 import { motion, AnimatePresence } from "motion/react";
 import { getRoleImage } from "../utils/roles";
 
-// Black and White high-contrast woodcut-themed SVGs for each role illustration
+// 黑白高对比度木刻风格 SVG 角色插图
 function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; role: string; isExposed: boolean }) {
-  // Hidden Identity Horizontal design
+  // 隐藏身份横向设计
   return (
     <svg viewBox="0 0 160 100" className="w-full h-full text-zinc-400 bg-zinc-950" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Woodcut frame border */}
@@ -43,12 +43,12 @@ export default function CardDeck() {
   const currentSpeakerId = gameState?.currentSpeakerId;
   const phase = gameState?.phase;
 
-  // Decide context colors
+  // 根据上下文决定颜色
   const isNight = phase?.startsWith("NIGHT");
 
-  // Clicking player card triggers high-focus highlights
+  // 点击玩家卡牌触发高亮聚焦
   const handleCardClick = (player: Player) => {
-    if (!player.isAlive) return; // dead players don't spark action inputs
+    if (!player.isAlive) return; // 已死亡玩家不会触发动作输入
 
     if (selectedCardId === player.id) {
       setSelectedCardId(null);
@@ -57,9 +57,9 @@ export default function CardDeck() {
     }
   };
 
-  // Show gothic woodcut illustration and trigger sound effect manually
+  // 显示哥特木刻插图并手动触发音效
   const handleShowArt = (e: React.MouseEvent, p: Player) => {
-    e.stopPropagation(); // prevent card selection trigger!
+    e.stopPropagation(); // 防止触发卡牌选择
     const triggerCast = useGameStore.getState().triggerCast;
     if (triggerCast) {
       const WOLF_CAMP = ["狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼"];
@@ -102,7 +102,7 @@ export default function CardDeck() {
     }
   };
 
-  // Check if skills have been exhausted based on gameState
+  // 根据 gameState 检查技能是否已耗尽
   const user = gameState?.players.find((p) => p.isUser);
   const isDead = user ? !user.isAlive : true;
   const userRole = user?.role || "村民";
@@ -137,12 +137,12 @@ export default function CardDeck() {
             const isSpeaking = currentSpeakerId === p.id;
             const isSelected = selectedCardId === p.id;
             
-            // Identity exposure: expose if it is the User themselves, OR if they are dead, OR if game is over!
-            // ...but only when we actually KNOW the role — a hidden seat (redacted role="") stays 秘匿.
+            // 身份暴露：用户自己、已死亡、或游戏结束时显示身份
+            // 但只有在确实知道角色时才暴露 — 隐藏座位（redacted role=""）保持隐匿
             const isExposed = (p.isUser || !p.isAlive || phase === "GAME_OVER" || (gameState?.gameMode === "llmOnly" && llmExposeAll)) && !!p.role;
 
   
-            // Color tags for role highlights
+            // 角色高亮颜色标签
             let roleColor = "text-zinc-400";
             if (isExposed) {
               const WOLF_CAMP = ["狼人", "狼王", "白狼", "狼美人", "守卫狼", "隐狼", "血月使徒", "梦魇狼"];

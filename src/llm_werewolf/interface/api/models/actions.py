@@ -12,6 +12,10 @@ from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePa
 
 
 class PlayerRosterDefaults(BaseModel):
+    provider: str | None = Field(
+        default=None,
+        description="Registry provider_id (e.g. doubao, deepseek); resolves base_url/api_key_env/model_env",
+    )
     model: str | None = Field(default=None, description="Default model for all non-human seats")
     base_url: str | None = Field(default=None, description="Default API base URL")
     api_key_env: str | None = Field(default=None, description="Env var name for API key")
@@ -20,6 +24,10 @@ class PlayerRosterDefaults(BaseModel):
 
 
 class PlayerRosterSlot(BaseModel):
+    provider: str | None = Field(
+        default=None,
+        description="Registry provider_id for this seat; resolves connection fields from env",
+    )
     name: str | None = Field(default=None, description="Seat display name")
     model: str | None = Field(default=None, description="Model name (clears model_env when set)")
     base_url: str | None = Field(default=None, description="API base URL for this seat")
@@ -79,6 +87,13 @@ class StartGameRequest(BaseModel):
     human: HumanSeatSpec | None = Field(
         default=None,
         description="Single human seat for human-vs-AI; None = pure-LLM spectate",
+    )
+    track_vote_intentions: bool | None = Field(
+        default=None,
+        description=(
+            "Enable belief matrix + vote-intention collection (Insight dock). "
+            "None = use YAML default (usually true)."
+        ),
     )
 
     @field_validator("human_seats")

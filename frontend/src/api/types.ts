@@ -607,9 +607,9 @@ export interface GameStatusResponse {
   alert_count: number | null;
 }
 
-// --- Replay page backend INPUT types (mirror models/pages.py ReplayPageData) ---
-// These describe the raw shape the backend `/api/v1/pages/replay` endpoint
-// returns. `replayMap.ts` maps them into the front-end `ReplayPageData` shape.
+// --- 复盘页面前端输入类型（镜像 models/pages.py ReplayPageData）---
+// 这些描述后端 `/api/v1/pages/replay` 端点返回的原始形状。
+// `replayMap.ts` 将它们映射为前端 `ReplayPageData` 形状。
 export interface BackendPlayerBrief {
   player_id: string;
   player_name: string;
@@ -723,10 +723,79 @@ export interface BackendShareReplayData {
   stats_line: string;
 }
 
+// --- Settings API (browser -> server .env) ---
+export interface ApiKeySlotStatus {
+  env_name: string;
+  configured: boolean;
+  masked?: string | null;
+}
+
+export interface ApiKeysStatusResponse {
+  keys: Record<string, ApiKeySlotStatus>;
+  env_fields: Record<string, ApiKeySlotStatus>;
+  env_file: string;
+  writable: boolean;
+}
+
+export interface ProviderFieldSchema {
+  env_name: string;
+  label: string;
+  required?: boolean;
+  secret?: boolean;
+  example?: string;
+  description?: string;
+}
+
+export interface ProviderSchema {
+  provider_id: string;
+  display_name: string;
+  fields: ProviderFieldSchema[];
+}
+
+export interface ProvidersListResponse {
+  providers: ProviderSchema[];
+  default_provider_id: string;
+}
+
+export interface UpdateApiKeysRequest {
+  deepseek?: string;
+  openai?: string;
+  gemini?: string;
+  claude?: string;
+  doubao?: string;
+  fields?: Record<string, string>;
+}
+
+export interface UpdateApiKeysResponse {
+  updated_env_names: string[];
+  keys: Record<string, ApiKeySlotStatus>;
+  message?: string;
+}
+
+export interface AvailableModelOption {
+  provider_id: string;
+  provider_label: string;
+  display_name: string;
+}
+
+export interface AvailableModelsResponse {
+  models: AvailableModelOption[];
+  default_provider_id: string;
+}
+
 // --- Start game (mirrors backend StartGameRequest / StartGameResponse) ---
 export interface HumanSeatSpec {
   seat: number;
   role?: string | null;
+}
+
+export interface PlayerRosterSlot {
+  provider?: string;
+  name?: string;
+}
+
+export interface PlayerRosterDefaults {
+  provider?: string;
 }
 
 export interface StartGameRequest {
@@ -736,6 +805,9 @@ export interface StartGameRequest {
   player_count?: number;
   badge_flow?: boolean;
   human?: HumanSeatSpec;
+  track_vote_intentions?: boolean;
+  defaults?: PlayerRosterDefaults;
+  players?: PlayerRosterSlot[];
 }
 
 export interface StartGameResponse {

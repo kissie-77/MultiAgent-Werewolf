@@ -4,7 +4,7 @@ import { useGameInsight } from "../hooks/useGameInsight";
 import { useGameStore } from "../store";
 import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import VoteIntentionPanel from "./VoteIntentionPanel";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function InsightDock({ runId }: { runId: string | null }) {
   const { beliefs, voteSnapshot, players } = useGameInsight(runId);
@@ -13,7 +13,22 @@ export default function InsightDock({ runId }: { runId: string | null }) {
   const [showIdentities, setShowIdentities] = useState(true);
 
   if (!beliefs || !voteSnapshot) {
-    return null; // Don't show while loading
+    return (
+      <div className="pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden bg-[#0c0a09]/95 hidden md:flex flex-col z-40 rounded-b-xl absolute right-6 top-12"
+        style={{ width: '320px', maxHeight: 'calc(100vh - 4rem)' }}
+      >
+        <div className="text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 h-[2.5rem] shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[14px]">👁</span> 观战读心
+          </div>
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500/60" />
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-zinc-500">
+          <Loader2 className="w-5 h-5 animate-spin text-amber-500/40" />
+          <span className="text-[10px] font-sans">洞察加载中...</span>
+        </div>
+      </div>
+    );
   }
 
   const roundLabel = beliefs.length > 0 ? `R${beliefs[0].round}·昼` : "-";
@@ -56,7 +71,7 @@ export default function InsightDock({ runId }: { runId: string | null }) {
            </div>
            
            <div className="flex items-center justify-center p-1 rounded hover:bg-amber-900/30 text-amber-500/70 hover:text-amber-400 transition-colors">
-             <span className="text-[10px] mr-1 font-mono">{isExpanded ? "收起" : "展开"}</span>
+             <span className="text-[10px] mr-1 font-sans">{isExpanded ? "收起" : "展开"}</span>
              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-500 ${isExpanded ? '' : 'rotate-180'}`}>
                 <path d="m18 15-6-6-6 6"/>
              </svg>

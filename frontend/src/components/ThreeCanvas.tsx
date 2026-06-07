@@ -38,9 +38,9 @@ function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, i
   }, [scene]);
 
   useFrame((state, delta) => {
-    const s = 1 - Math.exp(-3 * delta); // Smooth framerate independent decay
+    const s = 1 - Math.exp(-3 * delta); // 平滑帧率无关衰减
 
-    // Background & Fog Lerp
+    // 背景和雾效线性插值
     if (scene.background instanceof THREE.Color) {
       scene.background.lerp(theme.bg, s);
     }
@@ -48,13 +48,13 @@ function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, i
       (scene.fog as THREE.Fog).color.lerp(theme.bg, s);
     }
 
-    // Ambient Light Lerp
+    // 环境光线性插值
     if (ambientRef.current) {
       ambientRef.current.color.lerp(theme.ambientColor, s);
       ambientRef.current.intensity = THREE.MathUtils.lerp(ambientRef.current.intensity, theme.ambientIntensity, s);
     }
 
-    // Directional Light Lerp
+    // 方向光线性插值
     if (dirRef.current) {
       dirRef.current.color.lerp(theme.dirColor, s);
       dirRef.current.intensity = THREE.MathUtils.lerp(dirRef.current.intensity, theme.dirIntensity, s);
@@ -82,33 +82,33 @@ function CameraTracker() {
   const players = gameState?.players || [];
   const phase = gameState?.phase;
 
-  // Targets for camera position and target position
+  // 相机位置和目标位置的插值目标
   const targetCamPos = useRef(new THREE.Vector3(0, 8.5, 12.0));
   const targetLookAt = useRef(new THREE.Vector3(0, 0.4, 0));
   const currentLookAt = useRef(new THREE.Vector3(0, 0.4, 0));
 
   useEffect(() => {
     if (phase === "START_SCREEN") {
-      return; // Handled directly in useFrame for slow orbital motion
+      return; // 已在 useFrame 中直接处理缓慢轨道运动
     }
     if (currentSpeakerId) {
-      // Find speaker position
+      // 查找发言者位置
       const speakerIndex = players.findIndex((p) => p.id === currentSpeakerId);
       if (speakerIndex !== -1) {
         const total = Math.max(1, players.length);
         const angle = (speakerIndex / total) * Math.PI * 2;
-        const radius = Math.max(5, total * 0.72); // Dynamic radius
+        const radius = Math.max(5, total * 0.72); // 动态半径
 
-        // Set camera closer to the speaker
+        // 相机靠近发言者
         const sX = Math.sin(angle) * radius;
         const sZ = Math.cos(angle) * radius;
 
-        // Position camera closer to the active speaker hooded figure
+        // 相机定位到活跃发言者兜帽人偶附近
         targetCamPos.current.set(sX * 1.55, radius * 1.2, sZ * 1.55);
         targetLookAt.current.set(sX * 0.8, 0.8, sZ * 0.8);
       }
     } else {
-      // Return to overall view of the central roundtable
+      // 返回圆桌全景视角
       const radius = Math.max(5, players.length * 0.72);
       targetCamPos.current.set(0, radius * 1.5, radius * 2.2);
       targetLookAt.current.set(0, 0.4, 0);
@@ -116,13 +116,13 @@ function CameraTracker() {
   }, [currentSpeakerId, players, phase]);
 
   useFrame((state, delta) => {
-    // MathUtils.damp parameters: (current, target, lambda, dt)
-    // lambda: smoothing factor (higher = faster)
+    // MathUtils.damp 参数：(当前值, 目标值, lambda, dt)
+    // lambda：平滑因子（值越大越快）
     const dampingSpeedPos = 3.5;
     const dampingSpeedLookAt = 4.0;
     
     if (phase === "START_SCREEN") {
-      // Background orbital slow rotation motion
+      // 背景轨道缓慢旋转运动
       const time = state.clock.getElapsedTime();
       const orbitSpeed = 0.08;
       const pCount = setupCount !== null ? setupCount : (players.length || 6);
@@ -134,14 +134,14 @@ function CameraTracker() {
 
       targetCamPos.current.set(x, radius * 1.6, z);
       
-      // Calculate a local left-offset target based on camera vector 
-      // so the table visually shifts to the right of the screen
+      // 基于相机向量计算局部左偏移目标 
+      // 让圆桌视觉上偏移到屏幕右侧
       const dirVec = new THREE.Vector3().subVectors(new THREE.Vector3(0, 0.4, 0), targetCamPos.current).normalize();
       const upVec = new THREE.Vector3(0, 1, 0);
       const rightVec = new THREE.Vector3().crossVectors(dirVec, upVec).normalize();
       
-      // Shift lookTarget slightly to the local left (which moves the visual center to the right)
-      // Use window.innerWidth to scale the offset roughly. If width < height, no offset.
+      // 将注视目标稍微向左偏移（使视觉中心向右移动）
+      // 使用 window.innerWidth 缩放偏移量。如果宽度小于高度，则不偏移。
       let offsetScale = 0;
       if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
         offsetScale = radius * 0.8;
@@ -151,12 +151,12 @@ function CameraTracker() {
       targetLookAt.current.copy(lookTarget);
     } 
 
-    // Smoothly step position frame-rate independently
+    // 平滑步进位置，帧率无关
     camera.position.x = THREE.MathUtils.damp(camera.position.x, targetCamPos.current.x, dampingSpeedPos, delta);
     camera.position.y = THREE.MathUtils.damp(camera.position.y, targetCamPos.current.y, dampingSpeedPos, delta);
     camera.position.z = THREE.MathUtils.damp(camera.position.z, targetCamPos.current.z, dampingSpeedPos, delta);
 
-    // Smoothly step lookAt coordinate
+    // 平滑步进注视坐标
     currentLookAt.current.x = THREE.MathUtils.damp(currentLookAt.current.x, targetLookAt.current.x, dampingSpeedLookAt, delta);
     currentLookAt.current.y = THREE.MathUtils.damp(currentLookAt.current.y, targetLookAt.current.y, dampingSpeedLookAt, delta);
     currentLookAt.current.z = THREE.MathUtils.damp(currentLookAt.current.z, targetLookAt.current.z, dampingSpeedLookAt, delta);
@@ -167,7 +167,7 @@ function CameraTracker() {
   return null;
 }
 
-// Procedural texture for the trial array magic circle
+// 审判法阵的程序化纹理
 interface TrialSigilProps {
   tableRadius: number;
   isNight: boolean;
@@ -179,23 +179,23 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
 
   useEffect(() => {
-    // Draw woodcut magical array on a 512x512 canvas
+    // 在 512x512 画布上绘制木刻魔法阵
     const canvas = document.createElement("canvas");
     canvas.width = 512;
     canvas.height = 512;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      // Dark gothic woodcut theme background
+      // 暗黑哥特木刻主题背景
       ctx.fillStyle = "#050308";
       ctx.fillRect(0, 0, 512, 512);
 
-      // Heavy hand-drawn outlines
-      ctx.strokeStyle = isMurderAlert ? "#ef4444" : (isNight ? "#c084fc" : "#fbbf24"); // bright red or bright purple vs bright gold
+      // 厚重手绘轮廓线
+      ctx.strokeStyle = isMurderAlert ? "#ef4444" : (isNight ? "#c084fc" : "#fbbf24"); // 鲜红或鲜紫 vs 鲜金
       ctx.shadowColor = isMurderAlert ? "#dc2626" : (isNight ? "#a855f7" : "#d97706");
       ctx.shadowBlur = 15;
       ctx.lineWidth = 6;
 
-      // Outer trial boundaries
+      // 审判边界
       ctx.beginPath();
       ctx.arc(256, 256, 220, 0, Math.PI * 2);
       ctx.stroke();
@@ -207,8 +207,8 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.arc(256, 256, 240, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Double ring inner border
-      ctx.strokeStyle = isMurderAlert ? "#fca5a5" : (isNight ? "#f472b6" : "#fef08a"); // light red/pink vs light yellow
+      // 双环内边框
+      ctx.strokeStyle = isMurderAlert ? "#fca5a5" : (isNight ? "#f472b6" : "#fef08a"); // 浅红/粉 vs 浅黄
       ctx.shadowColor = isMurderAlert ? "#ef4444" : (isNight ? "#ec4899" : "#facc15");
       ctx.shadowBlur = 12;
       ctx.lineWidth = 4;
@@ -216,13 +216,13 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.arc(256, 256, 170, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Star of David / Hexagram trial pattern
+      // 大卫之星/六芒星审判图案
       ctx.strokeStyle = isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#f59e0b");
       ctx.lineWidth = 5;
       ctx.shadowColor = isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#f59e0b");
       ctx.shadowBlur = 20;
 
-      // Triangle 1
+      // 三角形 1
       ctx.beginPath();
       ctx.moveTo(256, 70);
       ctx.lineTo(410, 340);
@@ -230,7 +230,7 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.closePath();
       ctx.stroke();
 
-      // Triangle 2
+      // 三角形 2
       ctx.beginPath();
       ctx.moveTo(256, 442);
       ctx.lineTo(410, 172);
@@ -238,8 +238,8 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.closePath();
       ctx.stroke();
 
-      // Ink engravings, mystical runes matching gamestate
-      ctx.fillStyle = isMurderAlert ? "#fee2e2" : (isNight ? "#fde047" : "#ffedd5"); // neon yellow glow vs white-gold
+      // 墨水雕刻、与游戏状态匹配的神秘符文
+      ctx.fillStyle = isMurderAlert ? "#fee2e2" : (isNight ? "#fde047" : "#ffedd5"); // 霓虹黄光 vs 白金
       ctx.shadowColor = isMurderAlert ? "#fca5a5" : (isNight ? "#facc15" : "#fed7aa");
       ctx.shadowBlur = 15;
       ctx.font = "italic bold 18px 'Courier New', monospace";
@@ -258,7 +258,7 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
         ctx.restore();
       }
 
-      // Draw stylized high contrast wood scratches
+      // 绘制高对比度木刻划痕风格化图案
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 1;
       ctx.shadowBlur = 0;
@@ -295,16 +295,16 @@ interface PlayerVisualTheme {
 }
 
 function getPlayerVisualTheme(playerId: number): PlayerVisualTheme {
-  // Balanced color patterns based on seat id (1 to 8)
+  // 根据座位 ID（1 到 8）平衡颜色模式
   const themes: Record<number, PlayerVisualTheme> = {
-    1: { primaryAccent: "#fbbf24", secondaryAccent: "#fde047", cowlLining: "#713f12", beltColor: "#fbbf24" }, // Gold Seer
-    2: { primaryAccent: "#38bdf8", secondaryAccent: "#67e8f9", cowlLining: "#0b5394", beltColor: "#0284c7" }, // Celeste Blue
-    3: { primaryAccent: "#f43f5e", secondaryAccent: "#fda4af", cowlLining: "#6b001a", beltColor: "#be123c" }, // Rose-Red Werewolf
-    4: { primaryAccent: "#c084fc", secondaryAccent: "#e9d5ff", cowlLining: "#4c1d95", beltColor: "#7c3aed" }, // Cosmic Amethyst Witch
-    5: { primaryAccent: "#10b981", secondaryAccent: "#6ee7b7", cowlLining: "#064e3b", beltColor: "#047857" }, // Jade-Green Hunter
-    6: { primaryAccent: "#f472b6", secondaryAccent: "#fbcfe8", cowlLining: "#6d183f", beltColor: "#db2777" }, // Sunset Carnation pink
-    7: { primaryAccent: "#a855f7", secondaryAccent: "#c084fc", cowlLining: "#3b0764", beltColor: "#a855f7" }, // Amethyst Purple
-    8: { primaryAccent: "#f97316", secondaryAccent: "#fdba74", cowlLining: "#7c2d12", beltColor: "#f97316" }, // Sunset Copper Orange
+    1: { primaryAccent: "#fbbf24", secondaryAccent: "#fde047", cowlLining: "#713f12", beltColor: "#fbbf24" }, // 金色预言家
+    2: { primaryAccent: "#38bdf8", secondaryAccent: "#67e8f9", cowlLining: "#0b5394", beltColor: "#0284c7" }, // 天蓝色
+    3: { primaryAccent: "#f43f5e", secondaryAccent: "#fda4af", cowlLining: "#6b001a", beltColor: "#be123c" }, // 玫红狼人
+    4: { primaryAccent: "#c084fc", secondaryAccent: "#e9d5ff", cowlLining: "#4c1d95", beltColor: "#7c3aed" }, // 宇宙紫女巫
+    5: { primaryAccent: "#10b981", secondaryAccent: "#6ee7b7", cowlLining: "#064e3b", beltColor: "#047857" }, // 翡翠绿猎人
+    6: { primaryAccent: "#f472b6", secondaryAccent: "#fbcfe8", cowlLining: "#6d183f", beltColor: "#db2777" }, // 日落康乃馨粉
+    7: { primaryAccent: "#a855f7", secondaryAccent: "#c084fc", cowlLining: "#3b0764", beltColor: "#a855f7" }, // 紫水晶紫
+    8: { primaryAccent: "#f97316", secondaryAccent: "#fdba74", cowlLining: "#7c2d12", beltColor: "#f97316" }, // 日落铜橙
   };
   return themes[playerId] || { primaryAccent: "#94a3b8", secondaryAccent: "#cbd5e1", cowlLining: "#1e293b", beltColor: "#94a3b8" };
 }
@@ -339,7 +339,7 @@ function ChestGem({ color }: { color: string }) {
   );
 }
 
-// High quality Chess Piece component to render instead of the hooded figure
+// 高质量棋子组件，替代兜帽人偶
 interface HoodedFigureProps {
   isSpeaking: boolean;
   isUser: boolean;
@@ -352,7 +352,7 @@ function ChessPiece({ isSpeaking, isUser, isAlive, playerId }: HoodedFigureProps
 
   const points = React.useMemo(() => {
     const pts = [];
-    // Base
+    // 底座
     pts.push(new THREE.Vector2(0.001, 0));
     for (let i = 0; i <= 5; i++) {
       pts.push(new THREE.Vector2(0.4 + Math.cos((Math.PI / 2) * (i / 5)) * 0.03 - 0.03, 0.04 * (i / 5)));
@@ -362,24 +362,24 @@ function ChessPiece({ isSpeaking, isUser, isAlive, playerId }: HoodedFigureProps
     pts.push(new THREE.Vector2(0.32, 0.2));
     pts.push(new THREE.Vector2(0.24, 0.25));
     
-    // Stem
+    // 柱身
     pts.push(new THREE.Vector2(0.2, 0.4));
     pts.push(new THREE.Vector2(0.16, 0.6));
     pts.push(new THREE.Vector2(0.16, 0.7));
     
-    // Collar
+    // 衣领
     pts.push(new THREE.Vector2(0.26, 0.75));
     pts.push(new THREE.Vector2(0.26, 0.82));
     pts.push(new THREE.Vector2(0.14, 0.86));
     
-    // Head Sphere
+    // 头部球体
     for (let i = 0; i <= 16; i++) {
       const a = -Math.PI / 2 + (i / 16) * Math.PI;
       const x = Math.max(0.001, Math.cos(a) * 0.22);
       pts.push(new THREE.Vector2(x, 1.08 + Math.sin(a) * 0.22));
     }
     
-    // Finial (crown/nub)
+    // 顶部装饰（皇冠/小圆球）
     pts.push(new THREE.Vector2(0.08, 1.3));
     pts.push(new THREE.Vector2(0.08, 1.38));
     pts.push(new THREE.Vector2(0.001, 1.4));
@@ -437,7 +437,7 @@ function ChessPiece({ isSpeaking, isUser, isAlive, playerId }: HoodedFigureProps
   );
 }
 
-// Seat pillar representing each player spot
+// 代表每个玩家席位的石柱
 interface SpeakerPillarProps {
   id: number;
   name: string;
@@ -455,28 +455,28 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPi
   const x = Math.sin(angle) * radius;
   const z = Math.cos(angle) * radius;
 
-  // Track hover/bounce action on active speaking
+  // 跟踪活跃发言时的悬浮/弹跳动画
   const ref = useRef<THREE.Group>(null);
   useFrame((state) => {
     if (ref.current) {
       if (isSpeaking) {
-        // Levitate and rotate active card
+        // 活跃卡牌悬浮并旋转
         ref.current.position.y = 1.2 + Math.sin(state.clock.getElapsedTime() * 4) * 0.15;
         ref.current.rotation.y += 0.02;
       } else {
-        // Chill breathing cycle
+        // 平稳呼吸循环
         ref.current.position.y = 1.0 + Math.sin(state.clock.getElapsedTime() * 1.5 + id) * 0.05;
         ref.current.rotation.y = angle + Math.PI; // look inwards
       }
     }
   });
 
-  // Base rock colors: high contrast grayscale with rough borders
+  // 基础岩石颜色：高对比度灰度配粗糙边缘
   const stoneColor = isAlive ? "#262626" : "#0d0d0d";
   const neonGlowColor = isSpeaking 
-    ? "#3be8b0" // fluorescent green speak glow
+    ? "#3be8b0" // 荧光绿发言光晕
     : isUser
-      ? "#a855f7" // purple user accent
+      ? "#a855f7" // 紫色用户强调色
       : "#3b0764";
 
   return (
@@ -541,16 +541,16 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPi
   );
 }
 
-// Floating magical elements/embers colored by day/night setting
+// 悬浮魔法元素/余烬，颜色随昼夜设置变化
 function MagicalSparks({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
   const pointsRef = useRef<THREE.Points>(null);
   const count = 75;
   const positions = React.useMemo(() => {
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 12; // X
-      pos[i * 3 + 1] = Math.random() * 8; // Y
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 12; // Z
+      pos[i * 3] = (Math.random() - 0.5) * 12; // X 坐标
+      pos[i * 3 + 1] = Math.random() * 8; // Y 坐标
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 12; // Z 坐标
     }
     return pos;
   }, []);
@@ -565,14 +565,14 @@ function MagicalSparks({ isNight, isMurderAlert }: { isNight: boolean, isMurderA
       const time = state.clock.getElapsedTime();
       for (let i = 0; i < count; i++) {
         let y = posAttr.getY(i);
-        // Float upward with subtle speed
+        // 缓慢上浮
         y += delta * 1.5 + Math.sin(time + i) * delta * 0.5;
         if (y > 7.5) {
-          y = -0.5; // Recycle from bottom
+          y = -0.5; // 从底部重新循环
         }
         posAttr.setY(i, y);
 
-        // Gentle drift sideways
+        // 轻微侧向漂移
         let x = posAttr.getX(i);
         x += Math.sin(time * 0.3 + i) * delta * 0.5;
         posAttr.setX(i, x);
@@ -644,16 +644,16 @@ function CentralEnergyOrb({ isNight, isMurderAlert }: { isNight: boolean, isMurd
 
   useFrame((state, delta) => {
     const time = state.clock.getElapsedTime();
-    const s = 1 - Math.exp(-3 * delta); // Smooth lerp
+    const s = 1 - Math.exp(-3 * delta); // 平滑线性插值
     if (meshRef.current) {
       meshRef.current.rotation.x = time * 0.4;
       meshRef.current.rotation.y = time * 0.7;
-      // Pulse slightly
+      // 轻微脉动
       const scale = 1.0 + Math.sin(time * 3.5) * 0.12;
       meshRef.current.scale.set(scale, scale, scale);
     }
     if (lightRef.current) {
-      // Extremely active glow pulsation combined with lerp
+      // 极度活跃的光晕脉动结合线性插值
       const targetIntensity = (isNight ? 14.0 : 9.0) + Math.sin(time * 5) * 3.0;
       lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, targetIntensity, s);
       lightRef.current.color.lerp(targetLightColor, s);
@@ -697,17 +697,17 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   const setupCount = useGameStore((state) => state.setupCount);
   const victimId = gameState?.victimId;
 
-  // Track the most recent "isNight" from the server logs to correctly reflect narrative state
+  // 跟踪服务器日志中最近的 isNight 状态以正确反映叙事状态
   const lastLogIsNight = gameState?.speechLogs?.[gameState.speechLogs.length - 1]?.isNight;
-  // Toggle ambient environment coloring depending on transition between day and night
+  // 根据昼夜切换切换环境颜色
   const isNight = phase?.startsWith("NIGHT") || lastLogIsNight || false;
   const isMurderAlert = phase === "DAY_ANNOUNCEMENT" && victimId !== null && victimId !== undefined;
   
-  const fogColor = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02"; // Mystical deep purple mist vs Burning Terracotta gold-orange dust!
-  const lightColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c"; // Deep neon amethyst ambient vs Intense sunburst orange-gold ambient!
-  const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38; // fine-tuned to make selective beams pop beautifully!
+  const fogColor = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02"; // 神秘深紫雾 vs 燃烧赤陶金橙尘
+  const lightColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c"; // 深霓虹紫环境光 vs 强烈旭日橙金环境光
+  const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38; // 精细调优使选择性光束脱颖而出
 
-  // Dynamic preview array of seats during START_SCREEN configuration
+  // START_SCREEN 配置期间的座位动态预览数组
   const previewPlayers = React.useMemo(() => {
     if (phase === "START_SCREEN" && setupCount !== null) {
       return Array.from({ length: setupCount }, (_, idx) => ({
@@ -727,7 +727,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
     }));
   }, [phase, setupCount, players, currentSpeakerId]);
 
-  // Compute position of active speaker to focus dramatic lighting on them
+  // 计算活跃发言者位置以将戏剧性灯光聚焦于其上
   let speakerLight = null;
   if (currentSpeakerId !== null && currentSpeakerId !== undefined) {
     const speakerIndex = previewPlayers.findIndex((p) => p.id === currentSpeakerId);
@@ -744,8 +744,8 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
             position={[sX, 6.5, sZ]}
             angle={0.4}
             penumbra={0.7}
-            intensity={isNight ? 32.0 : 25.0} // Dynamic high power themed beam
-            color={isNight ? "#d946ef" : "#ff6a00"} // Royal Purple vs Blazing sunset orange
+            intensity={isNight ? 32.0 : 25.0} // 动态高功率主题光束
+            color={isNight ? "#d946ef" : "#ff6a00"} // 皇家紫 vs 炽烈日落橙
             castShadow
             shadow-mapSize-width={512}
             shadow-mapSize-height={512}
@@ -755,7 +755,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
             position={[sX, 1.8, sZ]}
             intensity={6.0}
             distance={6}
-            color={isNight ? "#a855f7" : "#ff781f"} // Neon amethyst purple vs Solar fire orange
+            color={isNight ? "#a855f7" : "#ff781f"} // 霓虹紫水晶紫 vs 太阳烈焰橙
           />
           {/* Volumetric Visual Light Cone Cylinder (Additive spectacular atmosphere beam!) */}
           <mesh position={[sX, 3.4, sZ]}>

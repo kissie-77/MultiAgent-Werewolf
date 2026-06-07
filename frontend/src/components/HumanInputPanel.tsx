@@ -25,7 +25,7 @@ export default function HumanInputPanel() {
   const requestId = pendingInput?.request_id;
   const deadlineSec = pendingInput?.deadline ?? 0;
 
-  // Reset transient choices + restart the countdown clock on a fresh request.
+  // 收到新请求时重置临时选择并重启倒计时
   useEffect(() => {
     setPoisonTarget(null);
     setMultiSel([]);
@@ -36,7 +36,7 @@ export default function HumanInputPanel() {
     setNowMs(t);
   }, [requestId]);
 
-  // Tick the clock once a second while a request with a deadline is pending.
+  // 有挂起请求时每秒倒计时
   useEffect(() => {
     if (!deadlineSec || deadlineSec <= 0) return;
     const id = setInterval(() => setNowMs(Date.now()), 500);
@@ -48,8 +48,8 @@ export default function HumanInputPanel() {
   const targets = pendingInput.valid_targets ?? [];
   const remaining = remainingSeconds(deadlineSec, startedAtMs, nowMs);
   const expired = deadlineSec > 0 && remaining <= 0;
-  // Buttons are inert while a submission is in flight OR the window has elapsed
-  // (the backend's input_timeout will clear this panel via the seat stream).
+  // 提交进行中或时间窗口已过期时按钮失效
+  //（后端的 input_timeout 会通过座位流清除此面板）
   const locked = submitting || expired;
 
   const submit = async (selection: HumanInputSelection) => {
@@ -110,7 +110,7 @@ export default function HumanInputPanel() {
                   {expired ? "0s" : `${remaining}s`}
                 </span>
               )}
-              <span className="font-mono text-[10px] text-slate-500">座位 {pendingInput.seat}</span>
+              <span className="font-sans text-[10px] text-slate-500">座位 {pendingInput.seat}</span>
             </div>
           </div>
 

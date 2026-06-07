@@ -54,3 +54,14 @@ class UpdateApiKeysResponse(BaseModel):
     updated_env_names: list[str]
     keys: dict[str, ApiKeySlotStatus]
     message: str = "API keys saved to server .env"
+
+
+class AvailableModelOption(BaseModel):
+    provider_id: str
+    provider_label: str
+    display_name: str
+
+
+class AvailableModelsResponse(BaseModel):
+    models: list[AvailableModelOption]
+    default_provider_id: str = "doubao"

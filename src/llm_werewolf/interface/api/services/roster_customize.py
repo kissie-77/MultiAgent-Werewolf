@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from llm_werewolf.interface.cli.runtime.overrides import apply_human_seats
 from llm_werewolf.game_runtime.config.player_config import PlayerConfig, PlayersConfig
+from llm_werewolf.game_runtime.config.provider_registry import provider_to_roster_fields
 from llm_werewolf.interface.cli.runtime.player_count import resize_players_config
 
 if TYPE_CHECKING:
@@ -20,6 +21,9 @@ _ROSTER_FIELDS = ("name", "model", "base_url", "api_key_env", "model_env", "plan
 
 def _extract_updates(source: PlayerRosterDefaults | PlayerRosterSlot) -> dict[str, object]:
     updates: dict[str, object] = {}
+    provider = getattr(source, "provider", None)
+    if provider:
+        updates.update(provider_to_roster_fields(provider))
     for key in _ROSTER_FIELDS:
         value = getattr(source, key, None)
         if value is not None:

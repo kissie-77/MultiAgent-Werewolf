@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 
 from llm_werewolf.game_runtime.support.utils import load_config
-from llm_werewolf.interface.api.models.actions import PlayerRosterSlot, StartGameRequest
+from llm_werewolf.interface.api.models.actions import (
+    PlayerRosterDefaults,
+    PlayerRosterSlot,
+    StartGameRequest,
+)
 from llm_werewolf.interface.api.services.roster_customize import (
     has_roster_customizations,
     apply_roster_customizations,
@@ -44,3 +48,31 @@ def test_prepare_start_players_config_returns_none_without_overrides(demo_config
     request = StartGameRequest(config_id="standard-6p")
     assert has_roster_customizations(request) is False
     assert prepare_start_players_config(demo_config, request) is None
+
+
+def test_apply_provider_defaults(demo_config) -> None:
+    updated = apply_roster_customizations(
+        demo_config,
+        defaults=PlayerRosterDefaults(provider="deepseek"),
+    )
+    llm = next(p for p in updated.players if p.model != "human")
+    assert llm.api_key_env == "DEEPSEEK_API_KEY"
+    assert llm.base_url == "https://api.deepseek.com/v1"
+
+
+def test_apply_provider_per_seat(demo_config) -> None:
+    updated = apply_roster_customizations(
+        demo_config,
+        players=[
+            PlayerRosterSlot(provider="doubao"),
+            PlayerRosterSlot(provider="openai"),
+        ],
+    )
+    assert updated.players[0].api_key_env == "ARK_API_KEY"
+    assert updated.players[0].model_env == "ARK_EP"
+    assert updated.players[1].api_key_env == "OPENAI_API_KEY"
+
+
+def test_defaults_provider_counts_as_customization() -> None:
+    request = StartGameRequest(config_id="standard-6p", defaults=PlayerRosterDefaults(provider="doubao"))
+    assert has_roster_customizations(request) is True

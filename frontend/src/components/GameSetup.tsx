@@ -94,8 +94,9 @@ export default function GameSetup() {
         // 不传则永远只开 config 自带的 6 人局。范围对齐后端校验 6–20。
         player_count: playerCount,
         badge_flow: hasSheriff,
-        // 人机模式下占用一个人类座位；纯观战模式不传 human。
-        ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat } } : {}),
+        // 人机模式下占用一个人类座位 + 把所选角色传给后端（后端会把该角色换到本座位）；
+        // 纯观战模式不传 human。
+        ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat, role: userRole } } : {}),
       });
       // 人机模式：用后端返回的座位令牌进入本人座位视角；否则进上帝观战。
       if (gameMode === "humanVsAI" && res.player_token) {
@@ -476,37 +477,21 @@ export default function GameSetup() {
                          className="bg-black/60 border border-amber-500/30 text-amber-100 px-4 py-3 text-sm font-bold select-none cursor-pointer focus:outline-none focus:border-amber-500 shadow-md transition-colors w-full break-words outline-none appearance-none"
                          style={{ boxShadow: "inset 0 0 10px rgba(0,0,0,0.8)" }}
                        >
+                          {/* Only roles that actually exist in the basic lineup the Web
+                              start uses (llm-6p-deepseek, resized 6–20). Picking a role
+                              outside the lineup can't be honored, so it isn't offered. */}
                           <optgroup label="好人阵营">
                             <option value="预言家">预言家 (Seer)</option>
                             <option value="女巫">女巫 (Witch)</option>
                             <option value="猎人">猎人 (Hunter)</option>
-                            <option value="守卫">守卫 (Guard)</option>
-                            <option value="白痴">白痴 (Idiot)</option>
-                            <option value="长老">长老 (Elder)</option>
-                            <option value="骑士">骑士 (Knight)</option>
-                            <option value="魔术师">魔术师 (Magician)</option>
-                            <option value="乌鸦">乌鸦 (Raven)</option>
-                            <option value="守墓人">守墓人 (Graveyard Keeper)</option>
                             <option value="村民">村民 (Villager)</option>
                           </optgroup>
                           <optgroup label="狼人阵营">
                             <option value="狼人">狼人 (Werewolf)</option>
-                            <option value="狼王">狼王 (Alpha Wolf)</option>
-                            <option value="白狼">白狼 (White Wolf)</option>
-                            <option value="狼美人">狼美人 (Wolf Beauty)</option>
-                            <option value="守卫狼">守卫狼 (Guardian Wolf)</option>
-                            <option value="隐狼">隐狼 (Hidden Wolf)</option>
-                            <option value="血月使徒">血月使徒 (Blood Moon Apostle)</option>
-                            <option value="梦魇狼">梦魇狼 (Nightmare Wolf)</option>
-                          </optgroup>
-                          <optgroup label="中立阵营">
-                            <option value="盗贼">盗贼 (Thief)</option>
-                            <option value="丘比特">丘比特 (Cupid)</option>
-                            <option value="恋人">恋人 (Lover)</option>
                           </optgroup>
                        </select>
                        <span className="text-[10px] text-zinc-500 mt-2 font-mono leading-relaxed">
-                         The engine will adapt to your chosen identity role automatically.
+                         你的身份将固定为所选角色；其余席位由 AI 扮演、身份随机发牌。
                        </span>
                     </div>
                   </div>

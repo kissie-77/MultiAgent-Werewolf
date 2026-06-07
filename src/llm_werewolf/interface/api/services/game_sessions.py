@@ -14,6 +14,7 @@ import contextlib
 from dataclasses import field, dataclass
 
 from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG
 from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.services.runs import get_run_detail
 from llm_werewolf.interface.api.models.actions import (
@@ -124,6 +125,67 @@ def _override_seat_to_web_human(players_config: PlayersConfig, seat: int) -> Pla
     return _rebuild_players_config(players_config, roster)
 
 
+def _canonical_role_name(requested: str) -> str | None:
+    """Resolve a zh display name ('狼人') or English key ('Werewolf') to the catalog key.
+
+    Dealt role *instances* expose only the English ``name`` (their ``RoleConfig`` has
+    no display name); the zh display name lives in the catalog. Canonicalizing here
+    lets the human pick a role by its Chinese name and still match the dealt role.
+    """
+    req = requested.strip().lower()
+    if not req:
+        return None
+    for definition in ROLE_CATALOG:
+        if req in (str(definition.name).strip().lower(), str(definition.display_name).strip().lower()):
+            return definition.name
+    return None
+
+
+def _role_matches(role: object, requested: str) -> bool:
+    """True if ``role`` (a dealt role instance) is the requested role."""
+    target = _canonical_role_name(requested)
+    if target is None:
+        return False
+    get_config = getattr(role, "get_config", None)
+    cfg = get_config() if callable(get_config) else None
+    role_name = str(getattr(cfg, "name", "") or getattr(role, "name", "") or "")
+    return role_name.strip().lower() == target.lower()
+
+
+def _force_human_seat_role(engine: GameEngine, seat: int | None, requested: str | None) -> None:
+    """Make the human seat actually get the role the player picked.
+
+    ``setup_game`` shuffles roles across seats, so a chosen role would otherwise be
+    random. Swap the human seat's role with whichever seat holds the requested role
+    (the role multiset — and thus board balance — is preserved). Best-effort: if the
+    role isn't in the dealt lineup, keep the random deal and log; never break the run.
+    """
+    if seat is None or not requested:
+        return
+    game_state = getattr(engine, "game_state", None)
+    players = list(getattr(game_state, "players", []) or [])
+    if seat < 1 or seat > len(players):
+        return
+    human = players[seat - 1]
+    if _role_matches(human.role, requested):
+        return
+    donor = next((p for p in players if p is not human and _role_matches(p.role, requested)), None)
+    if donor is None:
+        logger.warning(
+            "Requested human role %r is not in the lineup for seat %d; keeping random deal",
+            requested,
+            seat,
+        )
+        return
+    donor_seat = players.index(donor) + 1
+    human.role, donor.role = donor.role, human.role
+    # Re-bind both agents to their new roles (setup_game bound them to the old ones).
+    for player, seat_number in ((human, seat), (donor, donor_seat)):
+        agent = getattr(player, "agent", None)
+        if agent is not None and hasattr(agent, "bind_role"):
+            agent.bind_role(type(player.role), seat_number=seat_number)
+
+
 def _write_god_roster(run_dir: Path, engine: object) -> None:
     """Persist the god-view roster (seat -> role/camp/alive) for spectate.
 
@@ -181,6 +243,7 @@ class GameSession:
     broadcaster: Any | None = None
     player_token: str | None = None
     human_seat: int | None = None
+    human_role: str | None = None
     input_broker: Any | None = None
 
 
@@ -229,8 +292,10 @@ class GameSessionManager:
             msg = "Web human-player games are not supported yet; use the CLI werewolf command for human mixed games."
             raise ValueError(msg)
         human_seat: int | None = None
+        human_role: str | None = None
         if request.human is not None:
             human_seat = request.human.seat
+            human_role = request.human.role
             # Override the requested seat to the builtin web-human model and persist the
             # effective config so _run_game / launch_roster.json reflect it.
             players_config = _override_seat_to_web_human(effective_players_config, human_seat)
@@ -290,6 +355,7 @@ class GameSessionManager:
             rules=rules,
             human_seats=human_seats,
             human_seat=human_seat,
+            human_role=human_role,
             player_token=player_token,
         )
 
@@ -321,7 +387,7 @@ class GameSessionManager:
             stream_path=f"/api/v1/games/{run_id}/stream" if human_seat is not None else None,
         )
 
-    async def _run_game(self, session: GameSession) -> None:
+    async def _run_game(self, session: GameSession) -> None:  # noqa: C901, PLR0915
         attach_run_log_handler(session.run_dir)
         try:
             players_config = session.players_config or load_config(config_path=session.config_path)
@@ -354,6 +420,9 @@ class GameSessionManager:
 
             engine.on_event = _on_event
             engine.setup_game(players=players, roles=roles)
+            # Honor the human's chosen role (setup_game shuffles, so without this swap
+            # the picked role would be random — the long-standing "选狼人却进成预言家" bug).
+            _force_human_seat_role(engine, session.human_seat, session.human_role)
             _write_god_roster(session.run_dir, engine)
             wire_agentscope_after_setup(engine, players_config)
 

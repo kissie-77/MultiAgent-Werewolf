@@ -32,7 +32,10 @@ class HumanSeatSpec(BaseModel):
     seat: int = Field(..., ge=1, le=20, description="1-based seat for the single human player")
     role: str | None = Field(
         default=None,
-        description="Optional fixed role (ignored until Enhancement A8; random deal for now)",
+        description=(
+            "Optional fixed role for the human seat (zh display name like '狼人' or English "
+            "key like 'Werewolf'); honored via a post-deal role swap when present in the lineup"
+        ),
     )
 
 

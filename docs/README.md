@@ -23,7 +23,7 @@
 | `architecture/` | 跨模块方案；evaluation / memory 历史专题见 `architecture/evaluation/`、`architecture/memory/` |
 | `agent_team/memory/` | 记忆子模块三件套（README · DESIGN · ROADMAP） |
 | `evaluation/` | **仅** README · DESIGN · ROADMAP 三件套 |
-| `reports/` | 专项报告、排查过程稿；工程质量本轮记录见 [修复记录](./reports/工程代码质量修复记录-2026-06-04.md) 与 [总体计划](./reports/工程代码质量修复总体计划.md)；前后端打通与人机对战见 [前后端打通与人机对战报告](./reports/前后端打通与人机对战-2026-06-06.md) |
+| `reports/` | 专项报告、排查过程稿；工程质量本轮记录见 [修复记录](./reports/工程代码质量修复记录-2026-06-04.md) 与 [总体计划](./reports/工程代码质量修复总体计划.md)；前后端打通与人机对战见 [前后端打通与人机对战报告](./reports/前后端打通与人机对战-2026-06-06.md)；前端联调 2026-06-07 见 [前端联调问题修复记录](./reports/前端联调问题修复记录-2026-06-07.md) |
 | `archive/` | 已归档文档 |
 | 仓库根目录 | [项目评分报告.md](../项目评分报告.md)（模块评分、问题核实与修复状态，2026-06-05） |
 

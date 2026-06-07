@@ -21,13 +21,37 @@ const PHASE_MAP: Record<string, GameState["phase"]> = {
 };
 
 function seatOf(data: Record<string, any> | undefined): number | null {
-  const pid = data?.player_id;
+  const pid = data?.player_id ?? data?.shooter_id;
   if (typeof pid === "string") {
     const m = pid.match(/(\d+)$/);
     if (m) return Number(m[1]);
   }
   if (typeof data?.seat === "number") return data.seat;
   return null;
+}
+
+function upsertPlayer(s: GameState, seat: number, patch: Partial<Player>): void {
+  const idx = s.players.findIndex((p) => p.id === seat);
+  if (idx >= 0) {
+    s.players[idx] = { ...s.players[idx], ...patch };
+    return;
+  }
+  s.players.push({
+    id: seat,
+    name: patch.name ?? `P${seat}`,
+    role: patch.role ?? "",
+    isUser: false,
+    isAlive: patch.isAlive ?? true,
+    avatarSeed: patch.name ?? `P${seat}`,
+    lastSpeech: patch.lastSpeech ?? "",
+    statusNotes: "",
+  });
+}
+
+function speechContent(ev: SseEvent): string {
+  const speech = ev.data?.speech;
+  if (typeof speech === "string" && speech.trim()) return speech;
+  return ev.message ?? "";
 }
 
 export function initialSpectateState(): GameState {
@@ -58,18 +82,42 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       }
       break;
     }
+    case "role_acting":
+    case "role_revealed": {
+      const seat = seatOf(ev.data);
+      const role = ev.data?.role;
+      if (seat != null && role) {
+        upsertPlayer(s, seat, {
+          name: ev.data?.player_name ?? `P${seat}`,
+          role: String(role),
+        });
+      }
+      break;
+    }
     case "player_speech":
     case "player_discussion": {
       const seat = seatOf(ev.data);
-      if (seat != null) {
+      const content = speechContent(ev);
+      if (seat != null && content) {
         s.currentSpeakerId = seat;
+        const playerName = ev.data?.player_name ?? `P${seat}`;
+        upsertPlayer(s, seat, { name: playerName, lastSpeech: content });
         const p = s.players.find((x) => x.id === seat);
-        if (p) p.lastSpeech = ev.message ?? "";
         s.speechLogs.push({
-          playerId: seat, playerName: p?.name ?? `P${seat}`, role: p?.role ?? "",
-          content: ev.message ?? "", reasoning: ev.data?.reasoning,
+          playerId: seat, playerName: p?.name ?? playerName, role: p?.role ?? "",
+          content, reasoning: ev.data?.reasoning,
           day: ev.round_number ?? s.dayNumber, isNight: ev.phase === "night",
         });
+      }
+      break;
+    }
+    case "game_started": {
+      if (ev.message) s.narration = ev.message;
+      const count = ev.data?.player_count;
+      if (typeof count === "number" && count > 0 && s.players.length === 0) {
+        for (let i = 1; i <= count; i += 1) {
+          upsertPlayer(s, i, { name: `P${i}` });
+        }
       }
       break;
     }

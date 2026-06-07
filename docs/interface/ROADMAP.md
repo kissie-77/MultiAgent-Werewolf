@@ -46,8 +46,9 @@ interface/
 | API 回放功能 | 🔄 In Progress | replay / runs 页面 API |
 | 标准板子 YAML（4/6/8/12/16） | ✅ Done | `standard-*p.yaml`，默认豆包 |
 | 供应商 env 模板 | ✅ Done | 8 家 · [PROVIDERS.md](./PROVIDERS.md) |
-| 设置 API（浏览器写 `.env`） | ✅ Done | `GET/POST /settings/api-keys` |
+| 设置 API（浏览器写 `.env`） | ✅ Done | `GET/POST /settings/api-keys` + `GET /settings/providers` |
 | Web 人机 + 观战 SSE | ✅ Done | 座位 token、输入 reject_code、分享 `/share/{id}` |
+| 日志观战 / run 元数据 | ✅ Done | SSE 快照补 roster；`replay_only`；`_scan_run_metadata` |
 | 同台多模型（按座 provider） | 📋 Planned | Provider Registry 开局解析 |
 
 ## 已完成
@@ -78,21 +79,21 @@ interface/
 
 ## 进行中
 
-- [ ] 对局回放 API 完善
+- [ ] 对局回放 API 完善（信念矩阵在日志回放路径的聚合）
 - [ ] API 文档自动生成（OpenAPI/Swagger）
-- [ ] 游戏状态实时推送（WebSocket/SSE）
 
 ## 计划中
 
 - [ ] Web 前端对接（与 frontend 模块协作）
 - [ ] 多房间支持（并发多局游戏）
-- [ ] 观战模式（旁观者视角）
+- [x] 观战模式（旁观者视角：SSE live + 磁盘日志回放）
 - [ ] 对局录制与回放增强
 
 ## 变更记录
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-07 | 日志观战：`replay_only`、run 元数据推断、providers API、SSE 快照 roster 回退 |
 | 2026-06-05 | 目录重组：删除 10 个根目录 shim，`watch_cli.py→cli/watch.py`，17 处 import + pyproject.toml 同步更新 |
 | 2026-06-02 | 人机混战：显式配置优先级、极简人类输入提示、提交后等待提示 |
 | 2026-06-02 | 文档：TUI 移除、ARK 连通验证、12p 配置、产物路径；CLI 入口新增人数选择；人机混战按人数校验座位；修正 CORS 来源解析；默认模型配置切换为 `kimi-k2.5` |

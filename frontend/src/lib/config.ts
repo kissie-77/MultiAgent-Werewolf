@@ -9,21 +9,47 @@ function settingsHeaders(): Record<string, string> {
   return headers;
 }
 
-export type ApiKeySlot = "deepseek" | "openai" | "gemini" | "claude" | "doubao";
-
-export interface ApiKeySlotStatus {
+export interface EnvFieldStatus {
   env_name: string;
   configured: boolean;
   masked: string | null;
 }
 
+export interface ProviderFieldSchema {
+  env_name: string;
+  label: string;
+  required: boolean;
+  secret: boolean;
+  example: string;
+  description: string;
+}
+
+export interface ProviderSchema {
+  provider_id: string;
+  display_name: string;
+  fields: ProviderFieldSchema[];
+}
+
+export interface ProvidersListResponse {
+  providers: ProviderSchema[];
+  default_provider_id: string;
+}
+
 export interface ApiKeysStatusResponse {
-  keys: Record<ApiKeySlot, ApiKeySlotStatus>;
+  keys: Record<string, EnvFieldStatus>;
+  env_fields: Record<string, EnvFieldStatus>;
   env_file: string;
   writable: boolean;
 }
 
-export type UpdateApiKeysPayload = Partial<Record<ApiKeySlot, string>>;
+export async function fetchProviders(): Promise<ProvidersListResponse> {
+  const res = await fetch("/api/v1/settings/providers", { headers: settingsHeaders() });
+  if (!res.ok) {
+    throw new Error(`Failed to load providers: ${res.status} ${res.statusText}`);
+  }
+  const json = await res.json();
+  return (json.data ?? json) as ProvidersListResponse;
+}
 
 export async function fetchApiKeysStatus(): Promise<ApiKeysStatusResponse> {
   const res = await fetch("/api/v1/settings/api-keys", { headers: settingsHeaders() });
@@ -34,11 +60,13 @@ export async function fetchApiKeysStatus(): Promise<ApiKeysStatusResponse> {
   return (json.data ?? json) as ApiKeysStatusResponse;
 }
 
-export async function saveApiKeysToServer(payload: UpdateApiKeysPayload): Promise<ApiKeysStatusResponse> {
+export async function saveProviderFieldsToServer(
+  fields: Record<string, string>,
+): Promise<ApiKeysStatusResponse> {
   const res = await fetch("/api/v1/settings/api-keys", {
     method: "POST",
     headers: settingsHeaders(),
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ fields }),
   });
   if (!res.ok) {
     let detail = res.statusText;
@@ -50,8 +78,8 @@ export async function saveApiKeysToServer(payload: UpdateApiKeysPayload): Promis
     }
     throw new Error(detail);
   }
-  const json = await res.json();
-  return (json.data ?? json) as ApiKeysStatusResponse;
+  await res.json();
+  return fetchApiKeysStatus();
 }
 
 /** Legacy store.ts hooks; keys now live in server .env only. */

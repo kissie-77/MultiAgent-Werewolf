@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from datetime import datetime
 import contextlib
@@ -16,7 +17,12 @@ from llm_werewolf.interface.api.models.common import (
     PlayerBrief,
     PaginatedList,
 )
-from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.evaluation.post_game.run_context import (
+    _read_jsonl,
+    load_run_context,
+    roster_from_events,
+    winner_from_events,
+)
 
 
 def _dir_mtime_iso(path: Path) -> str | None:
@@ -26,22 +32,67 @@ def _dir_mtime_iso(path: Path) -> str | None:
         return None
 
 
+def _player_count_from_run_id(run_id: str) -> int | None:
+    match = re.search(r"(?:^|[-_])(\d+)p(?:[-_]|$)", run_id, re.IGNORECASE)
+    if not match:
+        return None
+    count = int(match.group(1))
+    return count if count > 0 else None
+
+
+def _player_count_from_files(run_dir: Path) -> int | None:
+    god_path = run_dir / "god_roster.json"
+    if god_path.is_file():
+        with contextlib.suppress(json.JSONDecodeError, OSError):
+            data = json.loads(god_path.read_text(encoding="utf-8"))
+            if isinstance(data, list) and data:
+                return len(data)
+
+    launch_path = run_dir / "launch_roster.json"
+    if launch_path.is_file():
+        with contextlib.suppress(json.JSONDecodeError, OSError):
+            raw = json.loads(launch_path.read_text(encoding="utf-8"))
+            players = raw.get("players") if isinstance(raw, dict) else None
+            if isinstance(players, list) and players:
+                return len(players)
+    return None
+
+
+def _scan_run_metadata(path: Path) -> tuple[int | None, str | None]:
+    """Best-effort player_count / winner_camp from on-disk logs (no live session)."""
+    events_path = path / "events.jsonl"
+    player_count: int | None = None
+    winner_camp: str | None = None
+
+    if events_path.is_file():
+        events = _read_jsonl(events_path)
+        roster = roster_from_events(events)
+        if roster:
+            player_count = len(roster)
+        winner_camp, _ = winner_from_events(events)
+
+    if player_count is None or player_count <= 0:
+        player_count = _player_count_from_files(path)
+    if player_count is None or player_count <= 0:
+        player_count = _player_count_from_run_id(path.name)
+
+    if winner_camp is None and events_path.is_file():
+        with contextlib.suppress(Exception):
+            ctx = load_run_context(path)
+            winner_camp = ctx.winner_camp
+            if not player_count and ctx.roster:
+                player_count = len(ctx.roster)
+
+    return player_count, winner_camp
+
+
 def _scan_run_dir(path: Path, *, source: str) -> RunSummary | None:
     if not path.is_dir():
         return None
     events_path = path / "events.jsonl"
-    has_replay = events_path.is_file()
+    has_replay = events_path.is_file() and events_path.stat().st_size > 0
     has_post_game = (path / "post_game_manifest.json").is_file()
-    winner_camp: str | None = None
-    player_count: int | None = None
-
-    if has_replay:
-        try:
-            ctx = load_run_context(path)
-            winner_camp = ctx.winner_camp
-            player_count = len(ctx.roster)
-        except Exception:
-            pass
+    player_count, winner_camp = _scan_run_metadata(path)
 
     return RunSummary(
         run_id=path.name,
@@ -87,10 +138,13 @@ def paginate_runs(
     page: int = 1,
     page_size: int = 20,
     source: str | None = None,
+    replay_only: bool = False,
 ) -> PaginatedList[RunSummary]:
     all_runs = list_run_dirs(runs_dir, eval_runs_dir)
     if source:
         all_runs = [r for r in all_runs if r.source == source]
+    if replay_only:
+        all_runs = [r for r in all_runs if r.has_replay]
     total = len(all_runs)
     start = max(page - 1, 0) * page_size
     end = start + page_size

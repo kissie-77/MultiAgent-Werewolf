@@ -168,6 +168,24 @@ export class ApiClient {
       `/api/v1/runs?page=${page}&page_size=${pageSize}`
     );
   }
+
+  /** Runs that have on-disk events.jsonl (spectate / log replay). */
+  static async getSpectatableRuns(page = 1, pageSize = 30): Promise<RunListPageData> {
+    return this.get<RunListPageData>(
+      `/api/v1/runs?page=${page}&page_size=${pageSize}&replay_only=true`
+    );
+  }
+
+  /** Raw replay timeline from server-side events.jsonl (before UI mapping). */
+  static async getReplayLogEvents(
+    runId: string,
+    source = "runs",
+  ): Promise<import("./types").BackendReplayPageData> {
+    const params = new URLSearchParams({ run_id: runId, source, view: "god" });
+    return this.get<import("./types").BackendReplayPageData>(
+      `/api/v1/pages/replay?${params.toString()}`
+    );
+  }
 }
 
 

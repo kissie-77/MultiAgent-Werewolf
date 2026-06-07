@@ -9,14 +9,20 @@ from fastapi import Header, Request, APIRouter, HTTPException, Depends
 
 from llm_werewolf.interface.api.deps import get_env_file_path
 from llm_werewolf.interface.api.models import ApiResponse
+from llm_werewolf.game_runtime.config.provider_registry import DEFAULT_PROVIDER_ID
 from llm_werewolf.interface.api.models.settings import (
     ApiKeySlotStatus,
+    ProviderSchema,
     UpdateApiKeysRequest,
     ApiKeysStatusResponse,
     UpdateApiKeysResponse,
+    ProvidersListResponse,
+    ProviderFieldSchema,
 )
 from llm_werewolf.interface.api.services.env_store import (
     read_api_key_status,
+    read_provider_env_status,
+    build_providers_schema,
     upsert_api_keys,
     slot_updates_from_request,
 )
@@ -60,6 +66,26 @@ def verify_settings_access(
         )
 
 
+@router.get("/settings/providers")
+def list_providers(
+    _access: Annotated[None, Depends(verify_settings_access)],
+) -> ApiResponse[ProvidersListResponse]:
+    providers = [
+        ProviderSchema(
+            provider_id=item["provider_id"],
+            display_name=item["display_name"],
+            fields=[ProviderFieldSchema(**field) for field in item["fields"]],
+        )
+        for item in build_providers_schema()
+    ]
+    return ApiResponse(
+        data=ProvidersListResponse(
+            providers=providers,
+            default_provider_id=DEFAULT_PROVIDER_ID,
+        )
+    )
+
+
 @router.get("/settings/api-keys")
 def get_api_keys_status(
     _access: Annotated[None, Depends(verify_settings_access)],
@@ -67,6 +93,8 @@ def get_api_keys_status(
 ) -> ApiResponse[ApiKeysStatusResponse]:
     raw = read_api_key_status(env_path=env_path)
     keys = {slot: ApiKeySlotStatus(**status) for slot, status in raw.items()}
+    env_raw = read_provider_env_status(env_path=env_path)
+    env_fields = {name: ApiKeySlotStatus(**status) for name, status in env_raw.items()}
     writable = True
     try:
         env_path.parent.mkdir(parents=True, exist_ok=True)
@@ -78,6 +106,7 @@ def get_api_keys_status(
     return ApiResponse(
         data=ApiKeysStatusResponse(
             keys=keys,
+            env_fields=env_fields,
             env_file=str(env_path.as_posix()),
             writable=writable,
         )
@@ -90,7 +119,7 @@ def update_api_keys(
     _access: Annotated[None, Depends(verify_settings_access)],
     env_path=Depends(get_env_file_path),
 ) -> ApiResponse[UpdateApiKeysResponse]:
-    updates = slot_updates_from_request(body.model_dump())
+    updates = slot_updates_from_request(body.model_dump(exclude_none=True))
     if not updates:
         raise HTTPException(status_code=400, detail="No API keys provided to save")
     try:

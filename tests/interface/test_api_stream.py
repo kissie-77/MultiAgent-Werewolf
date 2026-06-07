@@ -102,6 +102,34 @@ def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):
     assert resp.status_code == 404
 
 
+def test_god_snapshot_builds_roster_from_events_when_god_roster_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run_id = "6p-demo-events"
+    run_dir = tmp_path / "artifacts" / "runs" / run_id
+    _write_events(
+        run_dir,
+        [
+            {
+                "event_type": "role_acting",
+                "round_number": 1,
+                "phase": "night",
+                "data": {"player_id": "player_1", "player_name": "A", "role": "Seer"},
+            },
+            {
+                "event_type": "role_acting",
+                "round_number": 1,
+                "phase": "night",
+                "data": {"player_id": "player_2", "player_name": "B", "role": "Werewolf"},
+            },
+        ],
+    )
+    client = TestClient(create_app())
+    with client.stream("GET", f"/api/v1/games/{run_id}/stream?view=god") as resp:
+        body = "".join(chunk for chunk in resp.iter_text())
+    assert '"roster"' in body
+    assert "Seer" in body
+
+
 def test_god_snapshot_includes_roster_when_present(tmp_path, monkeypatch):
     import json
     from fastapi.testclient import TestClient

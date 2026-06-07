@@ -36,6 +36,15 @@ describe("mapRunRow", () => {
     expect(r.createdAt).toBe("");
   });
 
+  it("infers player_count from run_id when backend sends 0", () => {
+    const r = mapRunRow({
+      ...base,
+      run_id: "6p-deepseek-20260606-193213",
+      player_count: 0,
+    });
+    expect(r.playerCount).toBe(6);
+  });
+
   it("carries run_id and has_replay through", () => {
     const r = mapRunRow(base);
     expect(r.runId).toBe(base.run_id);

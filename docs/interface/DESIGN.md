@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-02
+> **最后更新**：2026-06-07
 > **关联代码**：`src/llm_werewolf/interface/`
 
 ## 1. 目标
@@ -204,9 +204,10 @@ uv run python scripts/test_ark_connectivity.py   # Doubao/ARK 连通性，期望
 | `/games/{run_id}/cancel` | POST | 取消对局 |
 | `/games/{run_id}/input` | POST | 人机座位决策提交（`player_token` + `request_id`） |
 | `/games/{run_id}/stream` | GET | SSE 直播（`view=god|seat`；人机座位需 `token`） |
-| `/settings/api-keys` | GET/POST | 查询/写入供应商 API Key 到 `.env` |
+| `/settings/api-keys` | GET/POST | 查询/写入供应商 API Key 到 `.env`（支持 `fields` 字典按槽位写入） |
+| `/settings/providers` | GET | 供应商注册表（`provider_id`、展示名、`fields[].env_name`） |
 | `/runs/{run_id}/post-game` | POST | 触发或重跑 PostGame |
-| `/runs` | GET | 对局列表（legacy page API） |
+| `/runs` | GET | 对局列表；`replay_only=true` 仅返回非空 `events.jsonl` |
 | `/runs/{run_id}` | GET | 对局详情 |
 | `/replay/{run_id}` | GET | 复盘页数据 |
 | `/actions/spec` | GET | 动作契约说明 |
@@ -232,6 +233,7 @@ API 服务层负责业务逻辑：
 - `roster_customize.py`：阵容定制
 - `start_modes.py`：启动模式
 - `replay.py`：对局回放
+- `runs.py`：扫描 `artifacts/runs`；`_scan_run_metadata` 从日志 / roster 文件 / `run_id` 推断 `player_count` 与 `winner_camp`
 - `runs.py`：对局管理
 - `board.py`：游戏面板
 - `content.py`：内容服务

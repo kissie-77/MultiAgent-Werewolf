@@ -300,6 +300,39 @@ def _load_god_roster(run_dir: Path) -> object | None:
         return None
 
 
+def _seat_from_player_id(player_id: str, fallback: int) -> int:
+    digits = "".join(ch for ch in player_id if ch.isdigit())
+    if digits:
+        return int(digits)
+    return fallback
+
+
+def _roster_from_run_logs(run_dir: Path) -> list[dict]:
+    """Rebuild god-view roster from events.jsonl when god_roster.json is missing."""
+    from llm_werewolf.evaluation.post_game.run_context import load_run_context
+
+    try:
+        ctx = load_run_context(run_dir)
+    except Exception:  # pragma: no cover - best effort
+        return []
+    roster: list[dict] = []
+    for idx, (player_id, entry) in enumerate(
+        sorted(ctx.roster.items(), key=lambda item: _seat_from_player_id(item[0], 0)),
+        start=1,
+    ):
+        seat = _seat_from_player_id(player_id, idx)
+        roster.append(
+            {
+                "seat": seat,
+                "name": entry.player_name or f"Player{seat}",
+                "role": entry.role_name or "Unknown",
+                "camp": entry.camp,
+                "is_alive": True,
+            }
+        )
+    return roster
+
+
 def _initial_snapshot(run_dir: Path, view: str) -> dict:
     """Build the snapshot first-frame payload, enriched with roster for god view."""
     try:
@@ -308,7 +341,9 @@ def _initial_snapshot(run_dir: Path, view: str) -> dict:
         snap = {}
     if view == "god":
         roster = _load_god_roster(run_dir)
-        if roster is not None:
+        if not roster:
+            roster = _roster_from_run_logs(run_dir)
+        if roster:
             snap["roster"] = roster
     return snap
 

@@ -5,6 +5,7 @@ import type {
   HomePageData,
   RunSummary,
 } from "../api/types";
+import { mapRunRow } from "../utils/runRows";
 
 function num(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
@@ -29,7 +30,8 @@ function winnerText(camp: string | null): string {
 }
 
 function mapRunHighlight(run: RunSummary, index: number): HomePageData["highlights"][number] {
-  const playerCount = run.player_count ?? "?";
+  const resolved = mapRunRow(run).playerCount;
+  const playerCount = resolved > 0 ? resolved : "?";
   const replayState = run.has_replay ? "可复盘" : "暂无复盘";
   return {
     id: run.run_id || `run-${index + 1}`,

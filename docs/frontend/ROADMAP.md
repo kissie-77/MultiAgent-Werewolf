@@ -2,7 +2,7 @@
 
 > **模块**：frontend
 > **状态**：draft
-> **最后更新**：2026-06-06
+> **最后更新**：2026-06-07
 
 ## 总览
 
@@ -11,6 +11,8 @@
 | Express + Three.js 原型 | ✅ Done | 本地 demo（port 3000） |
 | FastAPI 对接（直连 + 解信封） | ✅ Done | Vite 代理 + 废弃 mock |
 | 实时观战 M1/M2/M2b | ✅ Done | SSE god 流 + gameReducer + 信念/票型 + 结算/复盘 |
+| 日志观战（无 session） | ✅ Done | status 分流 + replay 时间线回放 + 历史对局下拉 |
+| 供应商设置 UI | ✅ Done | `GET /settings/providers` + 动态 env 字段 |
 | 内容页接后端（B 档：Runs/Models/Share） | ✅ Done | mapper 层吸收契约接缝 |
 | M3 人机对战（座位视图 + 真人输入） | ✅ Done | `HumanInputPanel` + `humanInput.ts` + 座位令牌；真机 2 局打通 |
 | Leaderboard 可视化 | 📋 Planned | 依赖 evaluation |
@@ -27,8 +29,9 @@
 
 ## 进行中
 
+- [ ] 日志回放模式下 InsightDock 信念/票型（当前仅 live SSE 有数据）
+- [ ] `gameReducer` 相位映射补全（`first_night` 等）
 - [ ] 3D 对局 UI 与引擎 snapshot 字段映射
-- [ ] 复盘页 `/replay/:runId` 对接
 
 ## 计划中
 
@@ -40,6 +43,7 @@
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-07 | 日志观战、run 元数据、供应商设置、战绩/分享人数兜底；详见 [前端联调问题修复记录](../reports/前端联调问题修复记录-2026-06-07.md) |
 | 2026-06-06 | B 档内容页接后端 + M3 人机对战座位输入 + 结算页/立绘修复；详见 [前后端打通与人机对战报告](../reports/前后端打通与人机对战-2026-06-06.md) |
 | 2026-06-05 | 前端联调：Router + Vite 代理 + SpectatePanel + 6 页 API 对接 |
 | 2026-05-23 | 初始化 DESIGN / ROADMAP，消除 README 死链 |

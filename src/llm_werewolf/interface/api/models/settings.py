@@ -13,6 +13,7 @@ class ApiKeySlotStatus(BaseModel):
 
 class ApiKeysStatusResponse(BaseModel):
     keys: dict[str, ApiKeySlotStatus]
+    env_fields: dict[str, ApiKeySlotStatus] = Field(default_factory=dict)
     env_file: str
     writable: bool = True
 
@@ -23,6 +24,30 @@ class UpdateApiKeysRequest(BaseModel):
     gemini: str | None = Field(default=None, description="Gemini API key")
     claude: str | None = Field(default=None, description="Anthropic Claude API key")
     doubao: str | None = Field(default=None, description="Volcengine Ark / Doubao API key")
+    fields: dict[str, str] | None = Field(
+        default=None,
+        description="Generic env_name -> value map (provider form)",
+    )
+
+
+class ProviderFieldSchema(BaseModel):
+    env_name: str
+    label: str
+    required: bool = True
+    secret: bool = True
+    example: str = ""
+    description: str = ""
+
+
+class ProviderSchema(BaseModel):
+    provider_id: str
+    display_name: str
+    fields: list[ProviderFieldSchema]
+
+
+class ProvidersListResponse(BaseModel):
+    providers: list[ProviderSchema]
+    default_provider_id: str = "doubao"
 
 
 class UpdateApiKeysResponse(BaseModel):

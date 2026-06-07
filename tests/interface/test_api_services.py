@@ -63,6 +63,35 @@ def service_dirs(tmp_path: Path) -> dict[str, Path]:
     }
 
 
+def test_scan_run_metadata_infers_player_count_from_run_id(tmp_path: Path) -> None:
+    from llm_werewolf.interface.api.services.runs import _scan_run_dir
+
+    run_dir = tmp_path / "6p-empty-meta-20260606-120000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+    summary = _scan_run_dir(run_dir, source="runs")
+    assert summary is not None
+    assert summary.has_replay is False
+    assert summary.player_count == 6
+
+
+def test_paginate_replay_only_filters_runs(service_dirs: dict[str, Path]) -> None:
+    empty_dir = service_dirs["runs_dir"] / "no-events-run"
+    empty_dir.mkdir()
+    (empty_dir / "events.jsonl").write_text("", encoding="utf-8")
+
+    page = paginate_runs(
+        service_dirs["runs_dir"],
+        service_dirs["eval_runs_dir"],
+        page=1,
+        page_size=20,
+        replay_only=True,
+    )
+    assert all(r.has_replay for r in page.items)
+    assert any(r.run_id == "svc-run" for r in page.items)
+    assert all(r.run_id != "no-events-run" for r in page.items)
+
+
 def test_list_run_dirs_and_paginate(service_dirs: dict[str, Path]) -> None:
     runs = list_run_dirs(service_dirs["runs_dir"], service_dirs["eval_runs_dir"])
     assert len(runs) == 1

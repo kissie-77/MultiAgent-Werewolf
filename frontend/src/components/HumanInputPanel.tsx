@@ -13,6 +13,8 @@ import type { HumanInputSelection } from "../lib/humanInput";
 export default function HumanInputPanel() {
   const pendingInput = useGameStore((s) => s.pendingInput);
   const submitHumanInput = useGameStore((s) => s.submitHumanInput);
+  const humanInputError = useGameStore((s) => s.humanInputError);
+  const clearHumanInputError = useGameStore((s) => s.clearHumanInputError);
 
   const [submitting, setSubmitting] = useState(false);
   const [poisonTarget, setPoisonTarget] = useState<number | null>(null);
@@ -25,7 +27,8 @@ export default function HumanInputPanel() {
     setMultiSel([]);
     setSpeech("");
     setSubmitting(false);
-  }, [pendingInput?.request_id]);
+    clearHumanInputError();
+  }, [pendingInput?.request_id, clearHumanInputError]);
 
   if (!pendingInput) return null;
 
@@ -35,7 +38,10 @@ export default function HumanInputPanel() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      await submitHumanInput(selection);
+      const result = await submitHumanInput(selection);
+      if (!result.ok) {
+        setSubmitting(false);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -80,6 +86,12 @@ export default function HumanInputPanel() {
           <p className="text-[12px] text-amber-100/90 leading-relaxed font-serif whitespace-pre-line mb-4">
             {pendingInput.prompt}
           </p>
+
+          {humanInputError && (
+            <p className="mb-3 px-3 py-2 rounded border border-red-500/40 bg-red-950/40 text-[11px] text-red-300 font-sans leading-relaxed">
+              {humanInputError}
+            </p>
+          )}
 
           {/* seat: pick one target (or abstain) */}
           {pendingInput.kind === "seat" && (

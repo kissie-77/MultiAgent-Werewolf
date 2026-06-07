@@ -37,6 +37,22 @@ describe("mapSharePage", () => {
     expect(mapSharePage({ ...raw, winner_camp: "werewolf" }).winner_camp).toBe("WOLVES");
   });
 
+  it("fixes 0-player stats_line using run_id", () => {
+    const out = mapSharePage({
+      ...raw,
+      stats_line: "0 人局 · 胜方：未知",
+    });
+    expect(out.stats_line).toContain("6 人局");
+  });
+
+  it("fixes 0-player share_summary using run_id", () => {
+    const out = mapSharePage({
+      ...raw,
+      share_summary: "0 人局 · 胜方：未知",
+    });
+    expect(out.share_summary).toBe("6 人局 · 胜方：未知");
+  });
+
   it("carries title / summary / stats_line through", () => {
     const out = mapSharePage(raw);
     expect(out.share_title).toBe(raw.share_title);

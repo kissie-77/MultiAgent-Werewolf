@@ -21,6 +21,28 @@ def settings_client(api_dirs, monkeypatch) -> TestClient:
         yield client
 
 
+def test_list_providers(settings_client: TestClient) -> None:
+    resp = settings_client.get("/api/v1/settings/providers")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    ids = {p["provider_id"] for p in data["providers"]}
+    assert "doubao" in ids
+    assert "deepseek" in ids
+    assert data["default_provider_id"] == "doubao"
+
+
+def test_post_provider_fields_writes_env(settings_client: TestClient, api_dirs) -> None:
+    env_path = api_dirs["root"] / ".env"
+    resp = settings_client.post(
+        "/api/v1/settings/api-keys",
+        json={"fields": {"ARK_API_KEY": "ark-test", "ARK_EP": "ep-test-123"}},
+    )
+    assert resp.status_code == 200
+    text = env_path.read_text(encoding="utf-8")
+    assert "ARK_API_KEY=ark-test" in text
+    assert "ARK_EP=ep-test-123" in text
+
+
 def test_get_api_keys_status_empty(settings_client: TestClient) -> None:
     resp = settings_client.get("/api/v1/settings/api-keys")
     assert resp.status_code == 200

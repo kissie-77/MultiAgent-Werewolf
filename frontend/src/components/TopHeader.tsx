@@ -2,7 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Sun, Moon, Clock, Flame, LogOut, Home } from "lucide-react";
 import { useGameStore } from "../store";
 
-export default function TopHeader() {
+export default function TopHeader({
+  onExit,
+  isLiveRun = false,
+}: {
+  onExit?: () => void | Promise<void>;
+  isLiveRun?: boolean;
+}) {
   const gameState = useGameStore((state) => state.state);
   const phase = gameState?.phase;
   const dayNumber = gameState?.dayNumber || 1;
@@ -44,24 +50,24 @@ export default function TopHeader() {
 
   // Safe check when countdown timer reaches zero
   useEffect(() => {
+    if (isLiveRun) return;
     if (localSecondsLeft === 1) {
       if (isAutoPlaying && phase === "DAY_DEBATE" && gameState?.currentSpeakerId !== 1) {
         simulateNextAI();
       }
     }
-  }, [localSecondsLeft, isAutoPlaying, phase, simulateNextAI, gameState?.currentSpeakerId]);
+  }, [localSecondsLeft, isAutoPlaying, phase, simulateNextAI, gameState?.currentSpeakerId, isLiveRun]);
 
-  // Automatic state progression loop for Autoplay mode in daytime debate
   useEffect(() => {
+    if (isLiveRun) return;
     let timeout: NodeJS.Timeout;
     if (isAutoPlaying && phase === "DAY_DEBATE" && gameState?.currentSpeakerId !== 1) {
-      // Trigger a speaker step every 5-6 seconds so the user can easily read the debate speeches!
       timeout = setTimeout(() => {
         simulateNextAI();
       }, 5500);
     }
     return () => clearTimeout(timeout);
-  }, [isAutoPlaying, phase, simulateNextAI, gameState?.currentSpeakerId]);
+  }, [isAutoPlaying, phase, simulateNextAI, gameState?.currentSpeakerId, isLiveRun]);
 
   if (!gameState) return null;
 
@@ -130,7 +136,7 @@ export default function TopHeader() {
         {/* Separator */}
         <div className="w-px h-6 bg-zinc-700 mx-1" />
 
-        {/* Play/Pause Button */}
+        {!isLiveRun && (
         <button
           onClick={toggleAutoPlay}
           className={`h-6 px-2 rounded border text-[10px] font-sans font-bold tracking-wider cursor-pointer flex items-center justify-center transition-all duration-200 ${
@@ -146,6 +152,7 @@ export default function TopHeader() {
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           )}
         </button>
+        )}
       </div>
 
       {/* Right-side Quick statistics */}
@@ -181,7 +188,11 @@ export default function TopHeader() {
         <button
           onClick={() => {
             if (confirmExit) {
-              exitGame();
+              if (onExit) {
+                void onExit();
+              } else {
+                void exitGame();
+              }
               setConfirmExit(false);
             } else {
               setConfirmExit(true);

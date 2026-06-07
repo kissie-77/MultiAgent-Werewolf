@@ -4,8 +4,14 @@ import { useGameStore } from "../store";
 import { motion, AnimatePresence } from "motion/react";
 import { getRoleImage } from "../utils/roles";
 
-export default function SpeechConsole() {
+export default function SpeechConsole({
+  highlightSelfSeat = false,
+}: {
+  /** True on human seat view — show 本人 badge for the seated player only. */
+  highlightSelfSeat?: boolean;
+}) {
   const gameState = useGameStore((state) => state.state);
+  const humanSeat = useGameStore((state) => state.humanSeat);
   const speechLogs = gameState?.speechLogs || [];
   const currentSpeakerId = gameState?.currentSpeakerId;
   const currentNarration = gameState?.narration || "幽暗城堡的丧钟敲响，所有人各就各位...";
@@ -122,7 +128,10 @@ export default function SpeechConsole() {
           <AnimatePresence initial={false}>
             {speechLogs.map((log, index) => {
               const isNarrator = log.role === "NARRATOR";
-              const isSelf = log.playerId === 1;
+              const isSelf =
+                highlightSelfSeat &&
+                humanSeat != null &&
+                log.playerId === humanSeat;
               const isActingSpeaker = currentSpeakerId === log.playerId;
               const isThoughtExpanded = expandedThoughts[index];
               

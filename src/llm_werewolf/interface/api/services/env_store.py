@@ -6,6 +6,10 @@ import os
 import tempfile
 from pathlib import Path
 
+from llm_werewolf.game_runtime.config.provider_registry import (
+    DEFAULT_PROVIDER_ID,
+    PROVIDER_REGISTRY,
+)
 from llm_werewolf.game_runtime.support.env import find_project_root
 
 # Frontend slot name -> process environment variable written to .env
@@ -32,19 +36,61 @@ def mask_secret(value: str) -> str:
     return f"{text[:3]}…{text[-4:]}"
 
 
+def _env_value(env_name: str, on_disk: dict[str, str]) -> str:
+    return (os.environ.get(env_name) or on_disk.get(env_name) or "").strip()
+
+
+def _status_for_env(env_name: str, on_disk: dict[str, str]) -> dict[str, object]:
+    value = _env_value(env_name, on_disk)
+    return {
+        "env_name": env_name,
+        "configured": bool(value),
+        "masked": mask_secret(value) if value else None,
+    }
+
+
 def read_api_key_status(*, env_path: Path | None = None) -> dict[str, dict[str, object]]:
     """Return per-slot ``configured`` + ``masked`` without exposing full values."""
     path = env_path or default_env_file_path()
     on_disk = _parse_env_file(path) if path.is_file() else {}
     out: dict[str, dict[str, object]] = {}
     for slot, env_name in API_KEY_ENV_MAP.items():
-        value = (os.environ.get(env_name) or on_disk.get(env_name) or "").strip()
-        out[slot] = {
-            "env_name": env_name,
-            "configured": bool(value),
-            "masked": mask_secret(value) if value else None,
-        }
+        out[slot] = _status_for_env(env_name, on_disk)
     return out
+
+
+def read_provider_env_status(*, env_path: Path | None = None) -> dict[str, dict[str, object]]:
+    """Status for every env var declared in :data:`PROVIDER_REGISTRY`."""
+    path = env_path or default_env_file_path()
+    on_disk = _parse_env_file(path) if path.is_file() else {}
+    out: dict[str, dict[str, object]] = {}
+    for spec in PROVIDER_REGISTRY.values():
+        for field in spec.env_fields:
+            out[field.env_name] = _status_for_env(field.env_name, on_disk)
+    return out
+
+
+def build_providers_schema() -> list[dict[str, object]]:
+    providers: list[dict[str, object]] = []
+    for spec in PROVIDER_REGISTRY.values():
+        providers.append(
+            {
+                "provider_id": spec.provider_id,
+                "display_name": spec.display_name,
+                "fields": [
+                    {
+                        "env_name": field.env_name,
+                        "label": field.label,
+                        "required": field.required,
+                        "secret": field.secret,
+                        "example": field.example,
+                        "description": field.description,
+                    }
+                    for field in spec.env_fields
+                ],
+            }
+        )
+    return providers
 
 
 def upsert_api_keys(
@@ -68,6 +114,17 @@ def upsert_api_keys(
 def slot_updates_from_request(payload: dict[str, str | None]) -> dict[str, str]:
     """Map frontend slot fields to env updates; skip empty/whitespace values."""
     out: dict[str, str] = {}
+    generic = payload.get("fields")
+    if isinstance(generic, dict):
+        allowed = {name for spec in PROVIDER_REGISTRY.values() for name in (f.env_name for f in spec.env_fields)}
+        for env_name, raw in generic.items():
+            if env_name not in allowed or raw is None:
+                continue
+            value = str(raw).strip()
+            if value:
+                out[env_name] = value
+        if out:
+            return out
     for slot, env_name in API_KEY_ENV_MAP.items():
         raw = payload.get(slot)
         if raw is None:

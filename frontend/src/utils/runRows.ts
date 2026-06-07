@@ -10,6 +10,19 @@ export interface RunRow {
   hasReplay: boolean;
 }
 
+function playerCountFromRunId(runId: string): number | null {
+  const m = runId.match(/(?:^|[-_])(\d+)p(?:[-_]|$)/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function resolvePlayerCount(s: RunSummary): number {
+  const raw = s.player_count ?? 0;
+  if (raw > 0) return raw;
+  return playerCountFromRunId(s.run_id) ?? 0;
+}
+
 export function mapRunRow(s: RunSummary): RunRow {
   // The real backend emits lowercase camps ("werewolf" / "villager"), not the
   // "GOOD"/"WEREWOLF" tokens; map the good camp (villager) to GOOD so good-camp
@@ -22,7 +35,7 @@ export function mapRunRow(s: RunSummary): RunRow {
   return {
     runId: s.run_id,
     winnerCamp,
-    playerCount: s.player_count ?? 0,
+    playerCount: resolvePlayerCount(s),
     createdAt: s.created_at ?? "",
     hasReplay: s.has_replay,
   };

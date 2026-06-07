@@ -404,6 +404,8 @@ ignore = [
     "PERF401",
     # Use `list` or `list.copy` to create a copy of a list
     "PERF402",
+    # try-except inside a loop (necessary for retry-with-backoff loops)
+    "PERF203",
     # constants ("magic") values in comparisons
     "PLR2004",
 ]

@@ -20,6 +20,7 @@ class BatchResult:
     backend_url: str
     run_id: str
     status: str
+    error: str | None = None
 
 
 class BatchClient(Protocol):
@@ -53,6 +54,29 @@ class HttpxBatchClient:
             return resp.json()["data"]["status"]
 
 
+async def _start_with_retry(
+    cl: BatchClient,
+    backend_url: str,
+    config_id: str,
+    *,
+    retries: int,
+    backoff_base: float,
+    sleep: Callable[[float], Any],
+) -> str:
+    """Start a game, retrying transient failures (429/timeout/connection) with
+    exponential backoff. Raises the last exception once ``retries`` is exhausted.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(max(1, retries)):
+        try:
+            return await cl.start_game(backend_url, config_id)
+        except Exception as exc:
+            last_exc = exc
+            if attempt + 1 < retries:
+                await sleep(backoff_base * (2**attempt))
+    raise last_exc if last_exc is not None else RuntimeError("start failed")
+
+
 async def run_batch(
     items: list[BatchItem],
     *,
@@ -61,9 +85,15 @@ async def run_batch(
     client: BatchClient | None = None,
     poll_interval: float = 2.0,
     sleep: Callable[[float], Any] = asyncio.sleep,
+    start_retries: int = 3,
+    backoff_base: float = 1.0,
 ) -> list[BatchResult]:
     """Start each item's game (respecting per-item stagger + a concurrency window)
     and poll its status until terminal. Returns one BatchResult per item.
+
+    Failures are isolated per item: a game that cannot be started (after retries)
+    or whose polling errors out is recorded as ``status="error"`` instead of
+    aborting the whole batch. This keeps a large batch resilient to provider 429s.
     """
     cl = client or HttpxBatchClient()
     sem = asyncio.Semaphore(concurrency)
@@ -73,13 +103,31 @@ async def run_batch(
         async with sem:
             if item.delay_s:
                 await sleep(item.delay_s)
-            run_id = await cl.start_game(item.backend_url, config_id)
-            status = "running"
-            while status not in _TERMINAL:
-                status = await cl.get_status(item.backend_url, run_id)
-                if status in _TERMINAL:
-                    break
-                await sleep(poll_interval)
+            run_id = ""
+            try:
+                run_id = await _start_with_retry(
+                    cl,
+                    item.backend_url,
+                    config_id,
+                    retries=start_retries,
+                    backoff_base=backoff_base,
+                    sleep=sleep,
+                )
+                status = "running"
+                while status not in _TERMINAL:
+                    status = await cl.get_status(item.backend_url, run_id)
+                    if status in _TERMINAL:
+                        break
+                    await sleep(poll_interval)
+            except Exception as exc:
+                results[item.seq] = BatchResult(
+                    seq=item.seq,
+                    backend_url=item.backend_url,
+                    run_id=run_id,
+                    status="error",
+                    error=str(exc) or type(exc).__name__,
+                )
+                return
             results[item.seq] = BatchResult(
                 seq=item.seq,
                 backend_url=item.backend_url,

@@ -76,16 +76,28 @@ def batch(
     backends: int = 2,
     concurrency: int = 2,
     stagger: float = 1.0,
+    start_retries: int = 3,
+    backoff: float = 1.0,
 ) -> None:
     """Distribute ``count`` games across already-running backends and poll to terminal.
 
     Targets backends at ``be_base + i`` for i in range(``backends``). Start a fleet first
-    with ``werewolf-fleet up --backends N`` (or point at any running backends).
+    with ``werewolf-fleet up --backends N`` (or point at any running backends). Failed
+    starts are retried (``start_retries`` with exponential ``backoff``) and, if still
+    failing, recorded as ``error`` in the summary rather than aborting the batch.
     """
     backend_urls = [f"http://127.0.0.1:{be_base + i}" for i in range(backends)]
     items = plan_batch(count=count, backend_urls=backend_urls, stagger=stagger)
     print(f"[batch] {count} games across {backends} backend(s), concurrency={concurrency}")
-    results = asyncio.run(run_batch(items, config_id=config, concurrency=concurrency))
+    results = asyncio.run(
+        run_batch(
+            items,
+            config_id=config,
+            concurrency=concurrency,
+            start_retries=start_retries,
+            backoff_base=backoff,
+        )
+    )
     summary = summarize(results)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_dir = build_log_dir(root=Path.cwd(), stamp=stamp)

@@ -184,6 +184,13 @@ export class ApiClient {
       `/api/v1/runs?page=${page}&page_size=${pageSize}`
     );
   }
+
+  /** Runs that have on-disk events.jsonl (spectate / log replay). */
+  static async getSpectatableRuns(page = 1, pageSize = 30): Promise<RunListPageData> {
+    return this.get<RunListPageData>(
+      `/api/v1/runs?page=${page}&page_size=${pageSize}&replay_only=true`
+    );
+  }
 }
 
 

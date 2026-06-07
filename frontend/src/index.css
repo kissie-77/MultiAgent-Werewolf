@@ -12,6 +12,12 @@
   font-family: var(--font-gothic);
 }
 
+html,
+body,
+#root {
+  font-family: var(--font-sans);
+}
+
 /* Sophisticated Dark Theme Specific classes */
 .manga-border { 
   border: 4px solid #1e293b; 

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from "lucide-react";
 
 import { getTarotImage } from "../utils/roles";
+import { mapRunRow, type RunRow } from "../utils/runRows";
 
 export default function GameSetup() {
   const setSetupCount = useGameStore((state) => state.setSetupCount);
@@ -28,6 +29,10 @@ export default function GameSetup() {
   const [geminiKey, setGeminiKey] = useState<string>("");
   const [claudeKey, setClaudeKey] = useState<string>("");
   const [doubaoKey, setDoubaoKey] = useState<string>("");
+  const [spectatableRuns, setSpectatableRuns] = useState<RunRow[]>([]);
+  const [spectateRunId, setSpectateRunId] = useState<string>("");
+  const [spectateRunsLoading, setSpectateRunsLoading] = useState(false);
+  const [spectateRunsError, setSpectateRunsError] = useState<string | null>(null);
 
   useEffect(() => {
     setApiKey(getCustomApiKey());

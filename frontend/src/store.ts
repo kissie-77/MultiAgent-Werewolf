@@ -73,6 +73,7 @@ interface GameStore {
 
   // Live spectate (SSE god-view)
   spectateSource: EventSource | null;
+  spectateError: string | null;
   insightBeliefs: import("./api/insightTypes").BeliefSnapshot[] | null;
   insightVote: import("./api/insightTypes").VoteIntentionSnapshot | null;
   spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
@@ -405,12 +406,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   toggleAutoPlay: () => set((state) => ({ isAutoPlaying: !state.isAutoPlaying })),
 
   spectateSource: null,
+  spectateError: null,
   insightBeliefs: null,
   insightVote: null,
   spectateRoster: null,
   connectSpectate: (runId) => {
     get().disconnectSpectate();
-    set({ insightBeliefs: null, insightVote: null, spectateRoster: null });
+    set({ insightBeliefs: null, insightVote: null, spectateRoster: null, spectateError: null });
     Promise.all([import("./lib/gameReducer"), import("./api/sse"), import("./lib/insightMap")]).then(
       ([{ initialSpectateState, reduceEvent }, { streamUrl }, { mapBeliefEvent, mapVoteEvent }]) => {
         set({ state: initialSpectateState(), isLoading: false });
@@ -441,7 +443,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         };
 
         es.addEventListener("end", () => { get().disconnectSpectate(); });
-        es.onerror = () => { /* EventSource auto-reconnects */ };
+        es.onerror = () => {
+          set({ spectateError: "观战连接中断，请检查对局是否仍在进行或稍后重试。" });
+        };
         set({ spectateSource: es });
       },
     );

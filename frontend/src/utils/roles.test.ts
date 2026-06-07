@@ -7,9 +7,9 @@ describe("role image resolution", () => {
     expect(getTarotImage("预言家")).toBe("/tarot/Seer.png");
     expect(getTarotImage("村民")).toBe("/tarot/Villager.png");
   });
-  it("English roster roles -> material", () => {
-    expect(getRoleImage("Witch")).toBe("/material/Witch.png");
-    expect(getRoleImage("Werewolf")).toBe("/material/Werewolf.png");
+  it("English roster roles -> material (legacy lowercase filenames)", () => {
+    expect(getRoleImage("Witch")).toBe("/material/witch.png");
+    expect(getRoleImage("Werewolf")).toBe("/material/wolf.png");
   });
   it("strips spaces in English names", () => {
     expect(getRoleImage("Alpha Wolf")).toBe("/material/AlphaWolf.png");
@@ -20,7 +20,7 @@ describe("role image resolution", () => {
     expect(getRoleImage("白痴")).toBe("/material/Idiot.png");
   });
   it("unknown wolf-ish -> Werewolf, else Villager", () => {
-    expect(getRoleImage("狼人")).toBe("/material/Werewolf.png");
+    expect(getRoleImage("狼人")).toBe("/material/wolf.png");
     expect(getRoleImage("???")).toBe("/material/Villager.png");
     expect(getRoleImage("")).toBe("/material/Villager.png");
   });

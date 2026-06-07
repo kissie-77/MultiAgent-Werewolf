@@ -56,8 +56,8 @@ describe("spectateLog", () => {
   });
 
   it("uses longer delay for speech events", () => {
-    expect(delayForLogEvent({ index: 1, event_type: "player_speech", message: "", data: {} })).toBeGreaterThan(
-      delayForLogEvent({ index: 2, event_type: "phase_changed", message: "", data: {} }),
+    expect(delayForLogEvent({ index: 1, event_type: "player_speech", round_number: 1, phase: "day_discussion", message: "", data: {} })).toBeGreaterThan(
+      delayForLogEvent({ index: 2, event_type: "phase_changed", round_number: 1, phase: "day_discussion", message: "", data: {} }),
     );
   });
 
@@ -86,7 +86,15 @@ describe("spectateLog", () => {
       ],
       initial: initialStateWithRoster(roster),
       isPaused: () => false,
-      mapBelief: () => [{ round: 1, seat: 1, beliefs: [] }],
+      mapBelief: () => [{
+        round: 1,
+        phase: "day_discussion",
+        anchor: "test",
+        observer_id: "player_1",
+        observer_seat: 1,
+        vote_intention: { seat: 1, reason: "" },
+        first_order: [],
+      }],
       mapVote: () => null,
       onStep: (state, insight) => {
         steps.push(insight?.beliefs ? "belief" : `speech:${state.speechLogs.length}`);

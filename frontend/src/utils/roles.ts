@@ -20,6 +20,14 @@ const ROLE_STEM: Record<string, string> = {
   守墓人: "GraveyardKeeper", 盗贼: "Thief", 恋人: "Lover",
 };
 
+/** Legacy lowercase filenames kept alongside PascalCase assets in `public/material`. */
+const MATERIAL_LEGACY_FILE: Record<string, string> = {
+  Seer: "seer",
+  Witch: "witch",
+  Hunter: "hunter",
+  Werewolf: "wolf",
+};
+
 function stemFor(role: string): string {
   const raw = role ?? "";
   const key = raw.replace(/\s+/g, ""); // "Alpha Wolf" -> "AlphaWolf"
@@ -29,5 +37,9 @@ function stemFor(role: string): string {
   return "Villager";
 }
 
-export const getRoleImage = (role: string) => `/material/${stemFor(role)}.png`;
+function materialFile(stem: string): string {
+  return MATERIAL_LEGACY_FILE[stem] ?? stem;
+}
+
+export const getRoleImage = (role: string) => `/material/${materialFile(stemFor(role))}.png`;
 export const getTarotImage = (role: string) => `/tarot/${stemFor(role)}.png`;

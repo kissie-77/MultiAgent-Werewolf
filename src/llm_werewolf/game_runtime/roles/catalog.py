@@ -131,8 +131,8 @@ ROLE_CATALOG: list[RoleDefinition] = [
         name="Cupid",
         display_name="丘比特",
         implementation="llm_werewolf.game_runtime.roles.villager:Cupid",
-        camp=C.VILLAGER,
-        victory_goal=V.VILLAGER_ELIMINATE_WEREWOLVES,
+        camp=C.NEUTRAL,
+        victory_goal=V.NEUTRAL_LOVER,
     ),
     R(
         name="Raven",

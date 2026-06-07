@@ -82,8 +82,8 @@ IDENTITY_PROMPTS: dict[str, dict[str, str]] = {
         "suggestion": "在关键轮次打乱狼人判断。",
     },
     "Cupid": {
-        "instruction": "你是丘比特。首夜连接两名玩家为恋人，恋人共生死、知彼此身份。",
-        "suggestion": "连接策略影响全局，可连强弱搭配。",
+        "instruction": "你是丘比特（中立第三方）。首夜连接两名玩家为恋人，恋人共生死、知彼此身份。",
+        "suggestion": "连接策略影响全局，可连强弱搭配；你不属于好人或狼人阵营。",
     },
     "Raven": {
         "instruction": "你是乌鸦。每晚可标记一名玩家，次日公投时其额外获得一票。",

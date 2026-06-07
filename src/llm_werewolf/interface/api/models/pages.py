@@ -136,9 +136,15 @@ class FeaturesPageData(ContentPageData):
     feature_cards: list[FeatureCard] = Field(default_factory=list)
 
 
+class VictoryConditionBlock(BaseModel):
+    camp: str
+    title: str
+    conditions: list[str] = Field(default_factory=list)
+
+
 class HowToPlayPageData(ContentPageData):
     phase_flow: list[PhaseFlowStep] = Field(default_factory=list)
-    victory_conditions: list[ContentSection] = Field(default_factory=list)
+    victory_conditions: list[VictoryConditionBlock] = Field(default_factory=list)
 
 
 class NightPhaseStep(BaseModel):
@@ -158,6 +164,29 @@ class NightPhasePageData(ContentPageData):
 # --- Roles ---
 
 
+class RolePromptEntry(BaseModel):
+    id: str
+    category: str
+    title: str
+    content: str
+    version: str = "v1"
+
+
+class RoleSkillEntry(BaseModel):
+    id: str
+    title: str
+    description: str
+    status: str = "active"
+    weight: float = 1.0
+    version: str = "v1"
+
+
+class RoleAbility(BaseModel):
+    name: str
+    description: str
+    timing: str = "PASSIVE"
+
+
 class RoleListItem(BaseModel):
     key: str
     display_name: str
@@ -165,13 +194,21 @@ class RoleListItem(BaseModel):
     camp_label: str
     victory_goal: str
     has_night_action: bool = False
+    runtime_name: str = ""
+    prompt_role_key: str = ""
+    tagline: str = ""
+    short_desc: str = ""
+    difficulty: str = "MEDIUM"
+    prompt_count: int = 0
+    skill_count: int = 0
+    prompt_version: str = "v1"
+    skill_version: str = "v1"
 
 
 class RoleDetail(RoleListItem):
-    runtime_name: str
-    instruction: str
-    suggestion: str
-    victory_text: str
+    instruction: str = ""
+    suggestion: str = ""
+    victory_text: str = ""
     tips: list[str] = Field(default_factory=list)
 
 
@@ -179,10 +216,18 @@ class RoleDetailPageData(RoleDetail):
     board_sizes: list[int] = Field(default_factory=list)
     related_roles: list[str] = Field(default_factory=list)
     night_action_order: int | None = None
+    prompt_version: str = "v1"
+    skill_version: str = "v1"
+    prompt_library: list[RolePromptEntry] = Field(default_factory=list)
+    skill_library: list[RoleSkillEntry] = Field(default_factory=list)
+    abilities: list[RoleAbility] = Field(default_factory=list)
+    strategies: list[str] = Field(default_factory=list)
 
 
 class RoleListPageData(BaseModel):
     title: str
+    intro_title: str = ""
+    intro_text: str = ""
     camps: dict[str, list[RoleListItem]]
     camp_stats: dict[str, int] = Field(default_factory=dict)
     board_presets: list[BoardPreset] = Field(default_factory=list)

@@ -5,15 +5,17 @@ status: active
 source: initial_curated
 camp: villager
 quality_passed: True
-weight: 0.95
+weight: 0.90
 win_count: 0
-use_count: 1
+use_count: 2
 when_to_use: 第1轮白天首次发言阶段，已获得夜间查验结果（查杀/金水）时；信念矩阵触发：对单一目标狼信≥0.7且投票意向已收敛到单一目标，或自身被他人狼信≥0.8存在被扛推风险时
 belief_pattern: concentrated
 belief_signals: b1_target_certain,b1_top_above_0_7,vote_intention_set
 created_at: 2026-06-07T08:59:26+00:00
-updated_at: 2026-06-07T08:59:26+00:00
+updated_at: 2026-06-07T10:20:41+00:00
 ---
+
+描述：第1轮白天首次发言阶段，已获得夜间查验结果（查杀/金水）时；信念矩阵触发：对单一目标狼信≥0.7且投票意向已收敛到单一目标，或自身被他人狼信≥0.8存在被扛推风险时的情况下，使用该 skill
 
 描述：第1轮白天首次发言阶段，已获得夜间查验结果（查杀/金水）时；信念矩阵触发：对单一目标狼信≥0.7且投票意向已收敛到单一目标，或自身被他人狼信≥0.8存在被扛推风险时的情况下，使用该 skill
 

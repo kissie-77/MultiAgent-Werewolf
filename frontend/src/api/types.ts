@@ -64,6 +64,23 @@ export interface BackendHomePageData {
   game_modes?: BackendGameMode[];
 }
 
+export interface RolePromptEntry {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+  version: string;
+}
+
+export interface RoleSkillEntry {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  weight: number;
+  version: string;
+}
+
 export interface RoleSummary {
   key: string;
   name: string;
@@ -72,10 +89,18 @@ export interface RoleSummary {
   difficulty: "EASY" | "MEDIUM" | "HEAVY";
   tagline: string;
   shortDesc: string;
+  promptCount?: number;
+  skillCount?: number;
+  promptVersion?: string;
+  skillVersion?: string;
+  promptRoleKey?: string;
+  hasNightAction?: boolean;
 }
 
 export interface RoleDetail extends RoleSummary {
   lore: string;
+  promptLibrary: RolePromptEntry[];
+  skillLibrary: RoleSkillEntry[];
   skills: {
     name: string;
     description: string;
@@ -87,12 +112,101 @@ export interface RoleDetail extends RoleSummary {
     description: string;
     type: "ALLIED" | "THREAT" | "NEUTRAL";
   }[];
+  victoryText?: string;
+  suggestion?: string;
+  boardSizes?: number[];
 }
 
 export interface RolesPageData {
   roles: RoleSummary[];
+  camps?: Record<string, BackendRoleListItem[]>;
+  campStats?: Record<string, number>;
   introTitle: string;
   introText: string;
+  total?: number;
+}
+
+export interface BackendRoleListItem {
+  key: string;
+  display_name: string;
+  camp: string;
+  camp_label: string;
+  victory_goal: string;
+  has_night_action?: boolean;
+  runtime_name?: string;
+  prompt_role_key?: string;
+  tagline?: string;
+  short_desc?: string;
+  difficulty?: string;
+  prompt_count?: number;
+  skill_count?: number;
+  prompt_version?: string;
+  skill_version?: string;
+}
+
+export interface BackendRolesPageData {
+  title: string;
+  intro_title?: string;
+  intro_text?: string;
+  camps: Record<string, BackendRoleListItem[]>;
+  camp_stats?: Record<string, number>;
+  board_presets?: unknown[];
+  total: number;
+}
+
+export interface BackendRoleDetailData extends BackendRoleListItem {
+  instruction?: string;
+  suggestion?: string;
+  victory_text?: string;
+  tips?: string[];
+  board_sizes?: number[];
+  related_roles?: string[];
+  night_action_order?: number | null;
+  prompt_version?: string;
+  skill_version?: string;
+  prompt_library?: Array<{
+    id: string;
+    category: string;
+    title: string;
+    content: string;
+    version?: string;
+  }>;
+  skill_library?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    status?: string;
+    weight?: number;
+    version?: string;
+  }>;
+  abilities?: Array<{
+    name: string;
+    description: string;
+    timing?: string;
+  }>;
+  strategies?: string[];
+}
+
+export interface BackendHowToPlayPageData {
+  title: string;
+  summary?: string;
+  sections?: Array<{
+    heading: string;
+    body: string;
+    bullets?: string[];
+  }>;
+  phase_flow?: Array<{
+    order: number;
+    phase_key: string;
+    title: string;
+    description: string;
+    icon?: string;
+  }>;
+  victory_conditions?: Array<{
+    camp: string;
+    title: string;
+    conditions: string[];
+  }>;
 }
 
 export interface ModelSummary {
@@ -322,12 +436,33 @@ export interface ContentSection {
   value: string;
 }
 
+export interface BackendAboutPageData {
+  title: string;
+  summary?: string;
+  sections?: Array<{
+    heading: string;
+    body: string;
+    bullets?: string[];
+  }>;
+  tech_stack?: string[];
+  architecture_layers?: Array<{
+    heading: string;
+    body: string;
+    bullets?: string[];
+  }>;
+  platform_stats?: Record<string, number | string>;
+}
+
 export interface AboutPageData {
   title: string;
   subtitle: string;
   description: string;
   sections: ContentSection[];
   design_principles: string[];
+  roleCount?: number;
+  configCount?: number;
+  techStack?: string[];
+  platformStats?: Record<string, number | string>;
 }
 
 export interface FeatureCard {

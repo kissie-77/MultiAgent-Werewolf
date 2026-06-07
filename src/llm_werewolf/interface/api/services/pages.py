@@ -196,17 +196,67 @@ def build_features_page() -> FeaturesPageData:
 
 
 def build_how_to_play_page() -> HowToPlayPageData:
+    from llm_werewolf.interface.api.models.pages import VictoryConditionBlock
+
     base = get_how_to_play_page()
     return HowToPlayPageData(
         **base.model_dump(),
         phase_flow=[
-            PhaseFlowStep(order=1, phase_key="night", title="夜晚", description="各角色按顺序私密行动", icon="moon"),
-            PhaseFlowStep(order=2, phase_key="day_discussion", title="白天讨论", description="存活玩家依次发言", icon="sun"),
-            PhaseFlowStep(order=3, phase_key="day_voting", title="白天投票", description="投票放逐，平票 PK", icon="vote"),
-            PhaseFlowStep(order=4, phase_key="sheriff", title="警长竞选", description="首夜后可选警长流程", icon="badge"),
+            PhaseFlowStep(
+                order=1,
+                phase_key="night",
+                title="夜晚",
+                description="狼队协商刀口，神职按序私密行动（查验、用药、守护等）。",
+                icon="moon",
+            ),
+            PhaseFlowStep(
+                order=2,
+                phase_key="day_discussion",
+                title="白天讨论",
+                description="公布昨夜死亡（若有），存活玩家依次发言、质询与归票。",
+                icon="sun",
+            ),
+            PhaseFlowStep(
+                order=3,
+                phase_key="day_voting",
+                title="白天投票",
+                description="投票放逐一名玩家；平票进入 PK 发言后再投，仍平票则无人出局。",
+                icon="vote",
+            ),
+            PhaseFlowStep(
+                order=4,
+                phase_key="sheriff",
+                title="警长竞选",
+                description="首夜后可开启警长竞选：上警发言、投票选警；警长拥有 1.5 票与归票权。",
+                icon="badge",
+            ),
         ],
         victory_conditions=[
-            base.sections[0],
+            VictoryConditionBlock(
+                camp="好人阵营",
+                title="好人胜利",
+                conditions=[
+                    "淘汰场上所有狼人及其特殊狼人角色",
+                    "部分板子需同时处理第三方（如恋人、盗贼）带来的变数",
+                ],
+            ),
+            VictoryConditionBlock(
+                camp="狼人阵营",
+                title="狼人胜利",
+                conditions=[
+                    "狼人存活数量 ≥ 好人存活数量（屠边/屠城规则以板子配置为准）",
+                    "可利用分票、对跳神职与夜间刀口节奏加快局势",
+                ],
+            ),
+            VictoryConditionBlock(
+                camp="第三方",
+                title="特殊胜利",
+                conditions=[
+                    "恋人：双方存活至最后两人",
+                    "盗贼：首夜选择身份后，随所选阵营获胜",
+                    "部分扩展角色拥有独立胜利条件，详见角色页",
+                ],
+            ),
         ],
     )
 
@@ -260,6 +310,8 @@ def build_roles_list_page() -> RoleListPageData:
     camp_stats = {camp: len(items) for camp, items in camps.items()}
     return RoleListPageData(
         title=base.title,
+        intro_title=base.intro_title,
+        intro_text=base.intro_text,
         camps=camps,
         camp_stats=camp_stats,
         board_presets=build_board_presets(),
@@ -268,6 +320,15 @@ def build_roles_list_page() -> RoleListPageData:
 
 
 def build_role_detail_page(role_key: str) -> RoleDetailPageData:
+    from llm_werewolf.interface.api.services.role_assets import (
+        catalog_prompt_role_key,
+        infer_abilities,
+        list_prompt_library,
+        list_skill_library,
+        resolve_prompt_version,
+        resolve_skill_version,
+    )
+
     detail = get_role_detail(role_key)
     defn = get_definition(role_key)
     related: list[str] = []
@@ -276,12 +337,39 @@ def build_role_detail_page(role_key: str) -> RoleDetailPageData:
             related.append(other.name)
         if len(related) >= 4:
             break
-    return RoleDetailPageData(
-        **detail.model_dump(),
-        board_sizes=board_sizes_for_role(role_key),
-        related_roles=related,
-        night_action_order=_NIGHT_ORDER.get(role_key),
+
+    prompt_key = catalog_prompt_role_key(role_key)
+    prompt_version = resolve_prompt_version(prompt_key)
+    skill_version = resolve_skill_version(prompt_key)
+    prompt_library = list_prompt_library(prompt_key)
+    skill_library = list_skill_library(prompt_key)
+    strategies: list[str] = []
+    for entry in prompt_library:
+        if entry.category in {"核心原则", "行动建议"}:
+            strategies.append(entry.content)
+        if len(strategies) >= 6:
+            break
+    if detail.suggestion and detail.suggestion not in strategies:
+        strategies.append(detail.suggestion)
+    payload = detail.model_dump()
+    payload.update(
+        {
+            "board_sizes": board_sizes_for_role(role_key),
+            "related_roles": related,
+            "night_action_order": _NIGHT_ORDER.get(role_key),
+            "prompt_version": prompt_version,
+            "skill_version": skill_version,
+            "prompt_library": prompt_library,
+            "skill_library": skill_library,
+            "abilities": infer_abilities(
+                role_key,
+                detail.instruction,
+                has_night_action=detail.has_night_action,
+            ),
+            "strategies": strategies,
+        }
     )
+    return RoleDetailPageData(**payload)
 
 
 def build_models_list_page(runs_dir: Path, eval_runs_dir: Path, configs_dir: Path) -> ModelListPageData:

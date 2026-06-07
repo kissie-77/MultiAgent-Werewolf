@@ -5,13 +5,17 @@ status: active
 source: initial_curated
 camp: villager
 quality_passed: True
-weight: 1.0
+weight: 0.95
 win_count: 0
-use_count: 0
+use_count: 1
 when_to_use: 丘比特首夜连线行动阶段（整局仅一次），需选择两名恋人时；信念矩阵触发：首夜信息空窗，宜制造跨阵营恋人以形成独立胜利条件
 belief_pattern: dispersed
 belief_signals: vote_watching
+created_at: 2026-06-07T10:20:41+00:00
+updated_at: 2026-06-07T10:20:41+00:00
 ---
+
+描述：丘比特首夜连线行动阶段（整局仅一次），需选择两名恋人时；信念矩阵触发：首夜信息空窗，宜制造跨阵营恋人以形成独立胜利条件的情况下，使用该 skill
 
 # 丘比特首夜连线目标选择
 

@@ -21,12 +21,19 @@ import {
   GameStatusResponse,
   BackendReplayPageData,
   BackendModelsPageData,
-  BackendShareReplayData
+  BackendShareReplayData,
+  BackendRolesPageData,
+  BackendRoleDetailData,
+  BackendHowToPlayPageData,
+  BackendAboutPageData,
 } from "./types";
 import { mapReplayPage } from "../lib/replayMap";
 import { mapModelsPage } from "../lib/modelsMap";
 import { mapSharePage } from "../lib/shareMap";
 import { mapHomePage } from "../lib/homeMap";
+import { mapRoleDetail, mapRolesPage } from "../lib/rolesMap";
+import { mapHowToPlayPage } from "../lib/howToPlayMap";
+import { mapAboutPage } from "../lib/aboutMap";
 import { fetchWithRetry } from "./retry";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -100,11 +107,15 @@ export class ApiClient {
   }
 
   static async getRolesPageData(): Promise<RolesPageData> {
-    return this.get<RolesPageData>("/api/v1/pages/roles");
+    const raw = await this.get<BackendRolesPageData>("/api/v1/pages/roles");
+    return mapRolesPage(raw);
   }
 
   static async getRoleDetail(roleKey: string): Promise<RoleDetail> {
-    return this.get<RoleDetail>(`/api/v1/pages/roles/${encodeURIComponent(roleKey)}`);
+    const raw = await this.get<BackendRoleDetailData>(
+      `/api/v1/pages/roles/${encodeURIComponent(roleKey)}`
+    );
+    return mapRoleDetail(raw);
   }
 
   static async getModelsPageData(): Promise<ModelsPageData> {
@@ -145,7 +156,8 @@ export class ApiClient {
   }
 
   static async getAboutPageData(): Promise<AboutPageData> {
-    return this.get<AboutPageData>("/api/v1/pages/about");
+    const raw = await this.get<BackendAboutPageData>("/api/v1/pages/about");
+    return mapAboutPage(raw);
   }
 
   static async getFeaturesPageData(): Promise<FeaturesPageData> {
@@ -153,7 +165,8 @@ export class ApiClient {
   }
 
   static async getHowToPlayPageData(): Promise<HowToPlayPageData> {
-    return this.get<HowToPlayPageData>("/api/v1/pages/how-to-play");
+    const raw = await this.get<BackendHowToPlayPageData>("/api/v1/pages/how-to-play");
+    return mapHowToPlayPage(raw);
   }
 
   static async getNightPhasePageData(): Promise<NightPhasePageData> {

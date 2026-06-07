@@ -5,13 +5,17 @@ status: active
 source: initial_curated
 camp: villager
 quality_passed: True
-weight: 1.0
+weight: 0.95
 win_count: 0
-use_count: 0
+use_count: 1
 when_to_use: 猎人死亡阶段（被刀或被投票出局），需要选择开枪目标时；信念矩阵触发：对单一目标狼信≥0.7且投票意向已收敛
 belief_pattern: concentrated
 belief_signals: b1_top_above_0_7,vote_intention_set
+created_at: 2026-06-07T10:20:41+00:00
+updated_at: 2026-06-07T10:20:41+00:00
 ---
+
+描述：猎人死亡阶段（被刀或被投票出局），需要选择开枪目标时；信念矩阵触发：对单一目标狼信≥0.7且投票意向已收敛的情况下，使用该 skill
 
 # 猎人死亡枪口选择
 

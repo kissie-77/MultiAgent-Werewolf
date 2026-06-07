@@ -5,14 +5,16 @@ status: active
 source: initial_curated
 camp: villager
 quality_passed: True
-weight: 0.80
+weight: 0.75
 win_count: 0
-use_count: 4
+use_count: 5
 when_to_use: 第1轮白天发言阶段，首夜被刀且已使用解药自救成功时；信念矩阵触发：场上狼信分散，自身暂未成为高怀疑目标时
 belief_pattern: dispersed
 created_at: 2026-06-07T06:06:53+00:00
-updated_at: 2026-06-07T08:59:26+00:00
+updated_at: 2026-06-07T10:20:41+00:00
 ---
+
+描述：第1轮白天发言阶段，首夜被刀且已使用解药自救成功时；信念矩阵触发：场上狼信分散，自身暂未成为高怀疑目标时的情况下，使用该 skill
 
 描述：第1轮白天发言阶段，首夜被刀且已使用解药自救成功时；信念矩阵触发：场上狼信分散，自身暂未成为高怀疑目标时的情况下，使用该 skill
 

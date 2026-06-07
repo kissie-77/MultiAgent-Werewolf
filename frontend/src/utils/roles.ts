@@ -1,64 +1,66 @@
-// Role portraits live in `frontend/public/material/` and are served by Vite at
-// the site root (`/material/*.png`). Do NOT `import` them from `public/` — Vite
-// does not bundle public assets and resolves such imports to an unserved
-// `/public/material/*.png` URL (SPA-fallback HTML, naturalWidth=0). Reference
-// them as plain absolute URLs instead.
-const seerImg = "/material/seer.png";
-const witchImg = "/material/witch.png";
-const hunterImg = "/material/hunter.png";
-const wolfImg = "/material/wolf.png";
-const villagerImg = "/material/villiger.png";
+// Role portraits: tarot deck in `frontend/public/tarot/` (served at `/tarot/*.png`).
+// Fallback to `public/material/` for legacy paths.
+const seerImg = "/tarot/seer.png";
+const witchImg = "/tarot/witch.png";
+const hunterImg = "/tarot/hunter.png";
+const wolfImg = "/tarot/wolf.png";
+const villagerImg = "/tarot/villager.png";
 
-// Keyed by BOTH the backend's English roster role names (god_roster.json /
-// roster: "Seer" / "Werewolf" / "Witch" / "Villager" ...) AND the Chinese role
-// names used elsewhere in the UI. Only 5 portraits exist, so generic good-camp
-// roles share the villager art and all wolf variants share the wolf art.
 export const roleImageMap: Record<string, string> = {
-  // --- English (backend roster role_name) ---
+  // --- Catalog keys (backend RoleListItem.key) ---
   Seer: seerImg,
   Witch: witchImg,
   Hunter: hunterImg,
   Werewolf: wolfImg,
-  AlphaWolf: wolfImg,
-  WhiteWolf: wolfImg,
-  WolfBeauty: wolfImg,
-  GuardianWolf: wolfImg,
-  HiddenWolf: wolfImg,
-  NightmareWolf: wolfImg,
-  BloodMoonApostle: wolfImg,
+  AlphaWolf: "/tarot/AlphaWolf.png",
+  WhiteWolf: "/tarot/WhiteWolf.png",
+  WolfBeauty: "/tarot/WolfBeauty.png",
+  GuardianWolf: "/tarot/GuardianWolf.png",
+  HiddenWolf: "/tarot/HiddenWolf.png",
+  NightmareWolf: "/tarot/NightmareWolf.png",
+  BloodMoonApostle: "/tarot/BloodMoonApostle.png",
   Villager: villagerImg,
-  Guard: villagerImg,
-  Idiot: villagerImg,
-  Elder: villagerImg,
+  Guard: "/tarot/Guard.png",
+  Idiot: "/tarot/idiot.png",
+  Elder: "/tarot/Elder.png",
   Knight: villagerImg,
-  Magician: villagerImg,
-  Cupid: villagerImg,
-  Raven: villagerImg,
-  GraveyardKeeper: villagerImg,
-  Thief: villagerImg,
-  Lover: villagerImg,
-  // --- Chinese (in-UI display names) ---
+  Magician: "/tarot/Magician.png",
+  Cupid: "/tarot/Cupid.png",
+  Raven: "/tarot/Raven.png",
+  GraveyardKeeper: "/tarot/GraveyardKeeper.png",
+  Thief: "/tarot/Thief.png",
+  Lover: "/tarot/Lover.png",
+  // --- Runtime / English names ---
+  "Alpha Wolf": "/tarot/AlphaWolf.png",
+  "White Wolf": "/tarot/WhiteWolf.png",
+  "Wolf Beauty": "/tarot/WolfBeauty.png",
+  "Guardian Wolf": "/tarot/GuardianWolf.png",
+  "Hidden Wolf": "/tarot/HiddenWolf.png",
+  "Nightmare Wolf": "/tarot/NightmareWolf.png",
+  "Blood Moon Apostle": "/tarot/BloodMoonApostle.png",
+  "Graveyard Keeper": "/tarot/GraveyardKeeper.png",
+  // --- Chinese display names ---
   预言家: seerImg,
   女巫: witchImg,
   猎人: hunterImg,
   狼人: wolfImg,
-  狼王: wolfImg,
-  白狼: wolfImg,
-  狼美人: wolfImg,
-  守卫狼: wolfImg,
-  隐狼: wolfImg,
-  血月使徒: wolfImg,
-  梦魇狼: wolfImg,
-  守卫: villagerImg,
-  白痴: villagerImg,
-  长老: villagerImg,
+  狼王: "/tarot/AlphaWolf.png",
+  白狼: "/tarot/WhiteWolf.png",
+  狼美人: "/tarot/WolfBeauty.png",
+  守卫狼: "/tarot/GuardianWolf.png",
+  隐狼: "/tarot/HiddenWolf.png",
+  血月使徒: "/tarot/BloodMoonApostle.png",
+  梦魇狼: "/tarot/NightmareWolf.png",
+  守卫: "/tarot/Guard.png",
+  白痴: "/tarot/idiot.png",
+  长老: "/tarot/Elder.png",
   骑士: villagerImg,
-  魔术师: villagerImg,
-  丘比特: villagerImg,
-  乌鸦: villagerImg,
-  守墓人: villagerImg,
-  盗贼: villagerImg,
-  恋人: villagerImg,
+  魔术师: "/tarot/Magician.png",
+  丘比特: "/tarot/Cupid.png",
+  乌鸦: "/tarot/Raven.png",
+  守墓人: "/tarot/GraveyardKeeper.png",
+  盗贼: "/tarot/Thief.png",
+  恋人: "/tarot/Lover.png",
   村民: villagerImg,
   平民: villagerImg,
 };
@@ -66,7 +68,6 @@ export const roleImageMap: Record<string, string> = {
 export const getRoleImage = (role: string) => {
   const exact = roleImageMap[role];
   if (exact) return exact;
-  // Unknown role / camp string ("werewolf", a wolf variant, etc.): any wolf -> wolf art.
   if ((role ?? "").toLowerCase().includes("wolf") || (role ?? "").includes("狼")) return wolfImg;
   return villagerImg;
 };

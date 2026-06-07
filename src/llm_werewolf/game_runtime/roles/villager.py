@@ -286,11 +286,11 @@ class Cupid(Role):
         """获取丘比特角色的配置。"""
         return RoleConfig(
             name="Cupid",
-            camp=Camp.VILLAGER,
+            camp=Camp.NEUTRAL,
             description=(
-                "你是丘比特。仅在第一夜，你选择两名玩家结为恋人。"
+                "你是丘比特（中立第三方）。仅在第一夜，你选择两名玩家结为恋人。"
                 "恋人会知晓彼此的身份。如果一名恋人死亡，另一名会立即心碎殉情。"
-                "无论原始阵营如何，恋人共同获胜。"
+                "无论原始阵营如何，恋人可形成独立胜利条件。"
             ),
             priority=ActionPriority.CUPID,
             can_act_night=True,

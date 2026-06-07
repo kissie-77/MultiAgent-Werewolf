@@ -53,6 +53,29 @@ def test_pages_role_detail() -> None:
     assert body["success"] is True
     assert body["data"]["display_name"] == "预言家"
     assert "board_sizes" in body["data"]
+    assert body["data"]["prompt_count"] >= 1
+    assert len(body["data"]["prompt_library"]) >= 1
+    assert "skill_library" in body["data"]
+    assert len(body["data"]["abilities"]) >= 1
+
+
+def test_pages_cupid_is_neutral_camp() -> None:
+    resp = _client().get("/api/v1/pages/roles/Cupid")
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["camp"] == "neutral"
+    assert body["data"]["display_name"] == "丘比特"
+
+
+def test_pages_roles_has_intro_and_counts() -> None:
+    resp = _client().get("/api/v1/pages/roles")
+    body = resp.json()
+    assert body["success"] is True
+    assert body["data"]["intro_title"]
+    werewolves = body["data"]["camps"].get("werewolf", [])
+    assert werewolves
+    assert werewolves[0].get("prompt_count", 0) >= 0
+    assert werewolves[0].get("tagline")
 
 
 def test_pages_night_phase() -> None:

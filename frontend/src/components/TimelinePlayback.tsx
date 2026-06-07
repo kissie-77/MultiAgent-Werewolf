@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect, useRef } from "react";
-import { PlayerScore, TimelineEvent } from "../api/types";
+import React, { useState, useEffect, useRef } from "react";
+import { TimelineEvent } from "../api/types";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, Pause, SkipBack, SkipForward, FastForward, User as UserIcon, Shield, Moon, Sun, Sword, ScanEye, Skull, HeartPulse, MessageSquare, Handshake } from "lucide-react";
 
@@ -10,78 +10,29 @@ interface PlayerData {
   index: number;
 }
 
-function toSeatId(value: string | number | null | undefined): string {
-  const digits = String(value ?? "").replace(/\D/g, "");
-  return digits ? `P${Number(digits)}` : "";
-}
+const mockPlayers: PlayerData[] = [
+  { id: "P1", role: "女巫", camp: "GOOD", index: 0 },
+  { id: "P2", role: "预言家", camp: "GOOD", index: 1 },
+  { id: "P3", role: "狼人", camp: "WEREWOLF", index: 2 },
+  { id: "P4", role: "村民", camp: "GOOD", index: 3 },
+  { id: "P5", role: "村民", camp: "GOOD", index: 4 },
+  { id: "P6", role: "狼人", camp: "WEREWOLF", index: 5 }
+];
 
-function campFromRole(role: string): PlayerData["camp"] {
-  return /wolf|狼人/i.test(role) ? "WEREWOLF" : "GOOD";
-}
-
-function buildPlayers(playerCount: number, playerScores: PlayerScore[]): PlayerData[] {
-  if (playerScores.length > 0) {
-    return playerScores
-      .map((player) => ({
-        id: `P${player.playerId}`,
-        role: player.role || "",
-        camp: campFromRole(player.role || ""),
-        index: Math.max(0, player.playerId - 1),
-      }))
-      .sort((a, b) => a.index - b.index);
-  }
-  const count = Math.max(1, playerCount);
-  return Array.from({ length: count }, (_, index) => ({
-    id: `P${index + 1}`,
-    role: "",
-    camp: "NEUTRAL" as const,
-    index,
-  }));
-}
-
-export default function TimelinePlayback({
-  timeline,
-  viewScope = "ALL",
-  playerCount = 6,
-  playerScores = [],
-}: {
-  timeline: TimelineEvent[],
-  viewScope?: string,
-  playerCount?: number,
-  playerScores?: PlayerScore[],
-}) {
+export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { timeline: TimelineEvent[], viewScope?: string }) {
+  // Start at the first event so the replay opens at the top of the chronicle and
+  // plays forward — initialising at the last event stranded the view at the bottom.
   const [cursor, setCursor] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const shouldFollowCursorRef = useRef(false);
-  const maxCursor = Math.max(0, timeline.length - 1);
-  const progressPercent = maxCursor > 0 ? (cursor / maxCursor) * 100 : 0;
-  const replayPlayers = buildPlayers(playerCount, playerScores);
-
-  const moveCursor = (next: number | ((current: number) => number)) => {
-    shouldFollowCursorRef.current = true;
-    setCursor((current) => {
-      const resolved = typeof next === "function" ? next(current) : next;
-      return Math.max(0, Math.min(maxCursor, resolved));
-    });
-  };
-
-  useEffect(() => {
-    setCursor(0);
-    setIsPlaying(false);
-    shouldFollowCursorRef.current = false;
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0;
-    }
-  }, [timeline]);
 
   // Playback effect
   useEffect(() => {
     let timer: any;
     if (isPlaying) {
       timer = setInterval(() => {
-        moveCursor(c => {
+        setCursor(c => {
           if (c < timeline.length - 1) return c + 1;
           setIsPlaying(false);
           return c;
@@ -93,14 +44,12 @@ export default function TimelinePlayback({
 
   // Auto-scroll
   useEffect(() => {
-    if (!shouldFollowCursorRef.current || !scrollRef.current) {
-      return;
+    if (scrollRef.current) {
+      const activeEl = scrollRef.current.querySelector('[data-active="true"]');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
-    const activeEl = scrollRef.current.querySelector('[data-active="true"]');
-    if (activeEl) {
-      activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    shouldFollowCursorRef.current = false;
   }, [cursor]);
 
   // Calculate live state up to cursor
@@ -113,7 +62,7 @@ export default function TimelinePlayback({
 
   pastEvents.forEach(ev => {
     if (ev.result === "DEAD" && ev.targetId) {
-      deadPlayers.add(toSeatId(ev.targetId));
+      deadPlayers.add(ev.targetId);
     }
     if (ev.type === "vote" && ev.targetId && ev.phase !== "DAY_ANNOUNCE" /* Ensure we only count vote events */) {
       // Just showing current vote count if it's a vote event
@@ -121,7 +70,7 @@ export default function TimelinePlayback({
   });
 
   // Calculate if a player is speaking
-  const speakingPlayer = currentEvent?.type === "speech" ? toSeatId(currentEvent.playerId) : null;
+  const speakingPlayer = currentEvent?.type === "speech" ? currentEvent.playerId : null;
 
   const getCampColor = (camp: string, isDead: boolean) => {
     if (isDead) return "bg-zinc-800 text-zinc-500 border-zinc-700 opacity-60 grayscale";
@@ -142,14 +91,14 @@ export default function TimelinePlayback({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[600px] min-h-0 border border-zinc-900 bg-zinc-950 rounded-lg overflow-hidden relative">
+    <div className="grid grid-cols-1 lg:grid-cols-4 grid-rows-1 gap-4 h-[600px] border border-zinc-900 bg-zinc-950 rounded-lg overflow-hidden relative">
       
       {/* 1. Seat Ring (Left) */}
       <div className="col-span-1 border-r border-zinc-900 bg-[#0c0c0c] p-4 flex flex-col hidden lg:flex">
-        <h3 className="font-mono text-xs text-zinc-400 uppercase tracking-widest text-center mb-12">上帝视角</h3>
+        <h3 className="font-mono text-xs text-zinc-500 uppercase tracking-widest text-center mb-12">上帝视角</h3>
         <div className="relative w-full aspect-square max-w-[200px] mx-auto mt-4">
-          {replayPlayers.map((p, idx) => {
-            const angle = (idx * 360 / replayPlayers.length) - 90; // Starting from top (-90deg)
+          {mockPlayers.map((p, idx) => {
+            const angle = (idx * 60) - 90; // Starting from top (-90deg)
             const radius = 90;
             const x = Math.cos(angle * Math.PI / 180) * radius;
             const y = Math.sin(angle * Math.PI / 180) * radius;
@@ -193,19 +142,19 @@ export default function TimelinePlayback({
       </div>
 
       {/* 2. Event Feed (Center) */}
-      <div className="col-span-1 lg:col-span-2 flex min-h-0 flex-col relative bg-zinc-950">
+      <div className="col-span-1 lg:col-span-2 flex flex-col min-h-0 relative bg-zinc-950">
         <div className="h-10 border-b border-zinc-900 bg-zinc-900/20 flex items-center justify-between px-4">
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-            {currentEvent?.day ? `DAY ${currentEvent.day}` : ""} {currentEvent?.isNight ? "夜晚" : "白天"}
+            {currentEvent?.day ? `DAY ${currentEvent.day}` : ''} {currentEvent?.isNight ? '🌙 黑夜' : '☀️ 白昼'}
           </span>
           <span className="text-[10px] font-mono text-zinc-600">
             {cursor + 1} / {timeline.length}
           </span>
         </div>
         
-        <div 
+        <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-zinc-950"
+          className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent"
         >
           {timeline.map((ev, idx) => {
             const isActive = idx === cursor;
@@ -224,9 +173,9 @@ export default function TimelinePlayback({
             
             if (ev.type === "system") {
               return (
-                <div key={ev.id} data-active={isActive} className={`text-center py-2 transition-opacity duration-300 ${isActive ? 'opacity-100' : isPast ? 'opacity-90' : 'opacity-75'}`}>
+                <div key={ev.id} data-active={isActive} className={`text-center py-2 transition-opacity duration-300 ${isActive ? 'opacity-100' : isPast ? 'opacity-80' : 'opacity-20'}`}>
                   <span className="px-3 py-1 bg-zinc-900 rounded-full text-[10px] font-mono uppercase tracking-widest text-zinc-400 border border-zinc-800">
-                    第 {ev.day} 天 {ev.title} - {ev.description}
+                    {ev.day}日 {ev.title} - {ev.description}
                   </span>
                 </div>
               );
@@ -237,13 +186,13 @@ export default function TimelinePlayback({
                 <div 
                   key={ev.id} 
                   data-active={isActive}
-                  className={`flex gap-3 transition-all duration-300 ${isActive ? 'opacity-100 scale-100 ml-2' : isPast ? 'opacity-70 scale-100' : 'opacity-65 scale-100'}`}
+                  className={`flex gap-3 transition-all duration-300 ${isActive ? 'opacity-100 scale-100 ml-2' : isPast ? 'opacity-40 scale-95' : 'opacity-10 scale-95 blur-[1px]'}`}
                 >
                   <div className={`mt-1 w-8 h-8 rounded-full border border-zinc-900 flex items-center justify-center shrink-0 bg-zinc-950 text-zinc-700`}>
                     <Moon className="w-4 h-4" />
                   </div>
                   <div className={`flex-1 rounded p-3 border border-zinc-900 border-dashed bg-[#0c0c0c]`}>
-                    <p className={`text-xs ${isActive ? 'text-zinc-300' : 'text-zinc-400'} italic`}>[夜间私密信息已隐藏]</p>
+                    <p className={`text-xs ${isActive ? 'text-zinc-400' : 'text-zinc-600'} italic`}>[被迷雾掩盖的深夜秘密...]</p>
                   </div>
                 </div>
               );
@@ -253,7 +202,7 @@ export default function TimelinePlayback({
               <div 
                 key={ev.id} 
                 data-active={isActive}
-                className={`flex gap-3 transition-all duration-300 ${isActive ? 'opacity-100 scale-100 ml-2 shadow-lg shadow-black/50' : isPast ? 'opacity-95 scale-100' : 'opacity-85 scale-100'}`}
+                className={`flex gap-3 transition-all duration-300 ${isActive ? 'opacity-100 scale-100 ml-2 shadow-lg shadow-black/50' : isPast ? 'opacity-80 scale-100' : 'opacity-20 scale-95 blur-[1px]'}`}
               >
                 <div className={`mt-1 w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center shrink-0 ${isActive ? 'bg-zinc-800 text-zinc-200 border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'bg-zinc-900 text-zinc-400'}`}>
                   {getEventIcon(ev.type)}
@@ -262,16 +211,16 @@ export default function TimelinePlayback({
                 <div className={`flex-1 rounded p-3 border ${isActive ? 'bg-zinc-900 border-zinc-700' : 'bg-zinc-950 border-zinc-900'}`}>
                   {ev.type === "speech" && (
                     <>
-                      <div className="text-[10px] font-mono text-zinc-400 mb-1 font-bold">{ev.playerId} 发言</div>
-                      <p className={`text-sm ${isActive ? 'text-zinc-100' : 'text-zinc-300'}`}>"{ev.message}"</p>
+                      <div className="text-[10px] font-mono text-zinc-500 mb-1 font-bold">{ev.playerId} 发言</div>
+                      <p className={`text-sm ${isActive ? 'text-zinc-200' : 'text-zinc-400'}`}>"{ev.message}"</p>
                     </>
                   )}
                   {ev.type !== "speech" && (
                     <>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-mono text-zinc-300 uppercase tracking-widest font-bold">{ev.title}</span>
+                        <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest font-bold">{ev.title}</span>
                       </div>
-                      <p className={`text-sm ${isActive ? 'text-red-300 font-bold' : 'text-zinc-300'}`}>{ev.description}</p>
+                      <p className={`text-sm ${isActive ? 'text-red-400 font-bold' : 'text-zinc-500'}`}>{ev.description}</p>
                       
                       {ev.actions && ev.actions.length > 0 && (
                         <div className="mt-2 text-xs font-mono text-zinc-500 space-y-1">
@@ -289,7 +238,7 @@ export default function TimelinePlayback({
         {/* Playback Controls Footer */}
         <div className="h-14 bg-zinc-950 border-t border-zinc-900 flex items-center justify-between px-4 relative z-10">
           <div className="flex items-center gap-2">
-            <button onClick={() => moveCursor(0)} className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-300 disabled:opacity-50" disabled={cursor === 0}>
+            <button onClick={() => setCursor(0)} className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-300 disabled:opacity-50" disabled={cursor === 0}>
               <SkipBack className="w-4 h-4" />
             </button>
             <button 
@@ -298,7 +247,7 @@ export default function TimelinePlayback({
             >
               {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
             </button>
-            <button onClick={() => moveCursor(c => c + 1)} className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-300 disabled:opacity-50" disabled={cursor >= maxCursor}>
+            <button onClick={() => setCursor(c => Math.min(timeline.length - 1, c + 1))} className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-300 disabled:opacity-50" disabled={cursor === timeline.length - 1}>
               <SkipForward className="w-4 h-4" />
             </button>
           </div>
@@ -307,9 +256,9 @@ export default function TimelinePlayback({
             <div className="w-full h-1 bg-zinc-900 rounded-full relative cursor-pointer" onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const percent = (e.clientX - rect.left) / rect.width;
-              moveCursor(Math.floor(percent * (maxCursor + 1)));
+              setCursor(Math.floor(percent * timeline.length));
             }}>
-              <div className="absolute top-0 left-0 h-full bg-yellow-500 rounded-full pointer-events-none transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+              <div className="absolute top-0 left-0 h-full bg-yellow-500 rounded-full pointer-events-none transition-all duration-300" style={{ width: `${(cursor / (timeline.length - 1)) * 100}%` }} />
             </div>
           </div>
 
@@ -323,21 +272,21 @@ export default function TimelinePlayback({
 
       {/* 3. Live State Menu (Right) */}
       <div className="col-span-1 border-l border-zinc-900 bg-[#0a0a0a] p-4 flex flex-col hidden lg:flex">
-        <h3 className="font-mono text-[10px] text-zinc-400 uppercase tracking-widest mb-4">实时状态 (LIVE STATE)</h3>
+        <h3 className="font-mono text-[10px] text-zinc-600 uppercase tracking-widest mb-4">实时态视界 (LIVE STATE)</h3>
         
         <div className="bg-zinc-950 border border-zinc-900 rounded p-3 mb-4">
-          <div className="text-[10px] font-mono text-zinc-400 mb-1">存活状态</div>
+          <div className="text-[10px] font-mono text-zinc-500 mb-1">存活状况</div>
           <div className="text-xl font-serif font-bold text-yellow-500">
-            {replayPlayers.length - deadPlayers.size} <span className="text-sm text-zinc-600 font-sans font-normal">/ {replayPlayers.length}</span>
+            {mockPlayers.length - deadPlayers.size} <span className="text-sm text-zinc-600 font-sans font-normal">/ {mockPlayers.length}</span>
           </div>
         </div>
 
         {currentEvent?.type === "vote" && currentEvent.actions && (
           <div className="bg-zinc-950 border border-zinc-900 rounded p-3 mb-4">
-            <div className="text-[10px] font-mono text-zinc-400 mb-2">当前投票状态</div>
+            <div className="text-[10px] font-mono text-zinc-500 mb-2">当前放逐票型</div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-zinc-300">{currentEvent.targetId} 出局</span>
+                <span className="text-zinc-300">{currentEvent.targetId} 号出局</span>
               </div>
               <div className="flex flex-wrap gap-1 mt-1">
                  {currentEvent.actions.map(act => (
@@ -349,10 +298,10 @@ export default function TimelinePlayback({
         )}
 
         <div className="bg-zinc-950 border border-zinc-900 rounded p-3 mb-4 mt-auto">
-          <div className="text-[10px] font-mono text-zinc-400 mb-2">上帝视角记录</div>
-          <p className="text-xs text-zinc-300 leading-tight">
-            当前复盘时间线 <br/>
-            可滚动查看完整对局事件。
+          <div className="text-[10px] font-mono text-zinc-500 mb-2">上帝视角全知</div>
+          <p className="text-xs text-zinc-400 leading-tight">
+            2026-06-04 15:16 录像 <br/>
+            6人局，好人阵营最终获胜。
           </p>
         </div>
         
@@ -360,5 +309,3 @@ export default function TimelinePlayback({
     </div>
   );
 }
-
-

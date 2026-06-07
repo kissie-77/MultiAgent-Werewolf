@@ -101,28 +101,7 @@ describe("store seat-view human input", () => {
     const spy = vi
       .spyOn(ApiClient, "sendInput")
       .mockResolvedValue({ run_id: "r1", accepted: true, message: null });
-    const result = await useGameStore.getState().submitHumanInput({ kind: "seat", seat: 2 });
+    await useGameStore.getState().submitHumanInput({ kind: "seat", seat: 2 });
     expect(spy).not.toHaveBeenCalled();
-    expect(result.ok).toBe(false);
-  });
-
-  it("surfaces reject_code when submission is rejected", async () => {
-    useGameStore.setState({
-      pendingInput: awaitingSeat,
-      playerToken: "seat1-r1",
-      seatRunId: "r1",
-      humanSeat: 1,
-    });
-    vi.spyOn(ApiClient, "sendInput").mockResolvedValue({
-      run_id: "r1",
-      accepted: false,
-      reject_code: "already_consumed",
-      message: "request_id already consumed",
-    });
-
-    const result = await useGameStore.getState().submitHumanInput({ kind: "seat", seat: 2 });
-    expect(result.ok).toBe(false);
-    expect(useGameStore.getState().humanInputError).toContain("已提交");
-    expect(useGameStore.getState().pendingInput).not.toBeNull();
   });
 });

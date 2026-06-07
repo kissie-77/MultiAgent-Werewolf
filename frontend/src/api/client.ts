@@ -34,7 +34,6 @@ import { mapHomePage } from "../lib/homeMap";
 import { mapRoleDetail, mapRolesPage } from "../lib/rolesMap";
 import { mapHowToPlayPage } from "../lib/howToPlayMap";
 import { mapAboutPage } from "../lib/aboutMap";
-import { fetchWithRetry } from "./retry";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -58,7 +57,7 @@ export function unwrap<T>(json: unknown): T {
 
 export class ApiClient {
   private static async get<T>(url: string): Promise<T> {
-    const response = await fetchWithRetry(`${API_BASE}${url}`);
+    const response = await fetch(`${API_BASE}${url}`);
     if (!response.ok) {
       throw new Error(`API error fetching ${url}: ${response.statusText}`);
     }
@@ -66,7 +65,7 @@ export class ApiClient {
   }
 
   private static async post<T>(url: string, body: unknown): Promise<T> {
-    const response = await fetchWithRetry(`${API_BASE}${url}`, {
+    const response = await fetch(`${API_BASE}${url}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -102,6 +101,9 @@ export class ApiClient {
   }
 
   static async getHomePageData(): Promise<HomePageData> {
+    // Backend returns {hero, stats_cards, recent_runs, ...}; the mapper reshapes it
+    // into the page's HomePageData ({title, stats:{...}, highlights[]}) with defensive
+    // defaults so a missing field can't white-screen the dashboard.
     const raw = await this.get<BackendHomePageData>("/api/v1/pages/home");
     return mapHomePage(raw);
   }
@@ -180,24 +182,6 @@ export class ApiClient {
   static async getRunsPageData(page = 1, pageSize = 20): Promise<RunListPageData> {
     return this.get<RunListPageData>(
       `/api/v1/runs?page=${page}&page_size=${pageSize}`
-    );
-  }
-
-  /** Runs that have on-disk events.jsonl (spectate / log replay). */
-  static async getSpectatableRuns(page = 1, pageSize = 30): Promise<RunListPageData> {
-    return this.get<RunListPageData>(
-      `/api/v1/runs?page=${page}&page_size=${pageSize}&replay_only=true`
-    );
-  }
-
-  /** Raw replay timeline from server-side events.jsonl (before UI mapping). */
-  static async getReplayLogEvents(
-    runId: string,
-    source = "runs",
-  ): Promise<import("./types").BackendReplayPageData> {
-    const params = new URLSearchParams({ run_id: runId, source, view: "god" });
-    return this.get<import("./types").BackendReplayPageData>(
-      `/api/v1/pages/replay?${params.toString()}`
     );
   }
 }

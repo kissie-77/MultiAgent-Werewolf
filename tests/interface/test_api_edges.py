@@ -6,16 +6,18 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
-from tests.interface.fixtures import write_sample_run
 from llm_werewolf.interface.api.deps import get_artifacts_dir
+from llm_werewolf.interface.api.services.runs import (
+    list_run_dirs,
+    get_run_detail,
+    resolve_run_path,
+)
 from llm_werewolf.interface.api.services.board import build_board_presets
-from llm_werewolf.interface.api.services.config import list_config_files, parse_config_brief
 from llm_werewolf.interface.api.services.pages import build_replay_page_enriched
+from llm_werewolf.interface.api.services.config import list_config_files, parse_config_brief
 from llm_werewolf.interface.api.services.replay import extract_game_snapshot
-from llm_werewolf.interface.api.services.runs import get_run_detail, list_run_dirs, resolve_run_path
 
 
 def test_get_artifacts_dir(tmp_path, monkeypatch) -> None:
@@ -134,8 +136,8 @@ def test_legacy_share_replay_missing(api_client: TestClient) -> None:
 
 
 def test_build_mode_options_tolerates_bad_config() -> None:
-    from llm_werewolf.interface.api.services.pages import _build_mode_options
     from llm_werewolf.interface.cli.runtime.modes import GameMode
+    from llm_werewolf.interface.api.services.pages import _build_mode_options
 
     bad_mode = GameMode(
         participation="all_agent",

@@ -16,6 +16,11 @@ from llm_werewolf.strategy.registry.role_version_manifest import (
 _BUILTIN_MODELS = frozenset({"human", "demo", "web-human"})
 
 
+# Builtin (non-LLM) player models: they need no base_url / api_key and must not
+# be resolved through model_env. "web-human" is the M3 web-driven human seat.
+_BUILTIN_MODELS = frozenset({"human", "demo", "web-human"})
+
+
 class RoleVersionConfig(BaseModel):
     """Per-role prompt/skill version map; unset roles use defaults."""
 

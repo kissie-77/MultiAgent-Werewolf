@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from enum import Enum
 import json
 import zlib
@@ -14,6 +15,7 @@ import contextlib
 from dataclasses import field, dataclass
 
 from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.game_runtime.roles.catalog import ROLE_CATALOG
 from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.services.runs import get_run_detail
 from llm_werewolf.interface.api.models.actions import (
@@ -35,6 +37,10 @@ from llm_werewolf.interface.cli.runtime.bootstrap import (
     wire_agentscope_after_setup,
 )
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
+from llm_werewolf.interface.api.services.human_input import (
+    remove_input_broker,
+    get_or_create_input_broker,
+)
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
 from llm_werewolf.interface.api.services.event_stream import (
     remove_broadcaster,
@@ -54,6 +60,8 @@ from llm_werewolf.interface.api.services.roster_customize import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 
 logger = logging.getLogger(__name__)
@@ -118,6 +126,30 @@ def validate_seat_stream_access(
     return None
 
 
+def build_run_id(
+    label: str,
+    ts: str,
+    *,
+    tag: str | None,
+    exists: Callable[[str], bool],
+) -> str:
+    """Build a unique run_id: ``{label}-{ts}[-{tag}]`` with a collision counter.
+
+    ``exists(run_id)`` reports whether a run dir of that id already exists. The
+    counter guarantees uniqueness across same-second opens (single backend) and
+    across backends sharing one runs dir (each backend passes a distinct ``tag``).
+    """
+    base = f"{label}-{ts}"
+    if tag:
+        base = f"{base}-{tag}"
+    if not exists(base):
+        return base
+    n = 2
+    while exists(f"{base}-{n}"):
+        n += 1
+    return f"{base}-{n}"
+
+
 def _read_alert_count(run_dir: Path) -> int:
     report = run_dir / "alert_report.json"
     if not report.is_file():
@@ -155,6 +187,67 @@ def _override_seat_to_web_human(players_config: PlayersConfig, seat: int) -> Pla
         }
     )
     return _rebuild_players_config(players_config, roster)
+
+
+def _canonical_role_name(requested: str) -> str | None:
+    """Resolve a zh display name ('狼人') or English key ('Werewolf') to the catalog key.
+
+    Dealt role *instances* expose only the English ``name`` (their ``RoleConfig`` has
+    no display name); the zh display name lives in the catalog. Canonicalizing here
+    lets the human pick a role by its Chinese name and still match the dealt role.
+    """
+    req = requested.strip().lower()
+    if not req:
+        return None
+    for definition in ROLE_CATALOG:
+        if req in (str(definition.name).strip().lower(), str(definition.display_name).strip().lower()):
+            return definition.name
+    return None
+
+
+def _role_matches(role: object, requested: str) -> bool:
+    """True if ``role`` (a dealt role instance) is the requested role."""
+    target = _canonical_role_name(requested)
+    if target is None:
+        return False
+    get_config = getattr(role, "get_config", None)
+    cfg = get_config() if callable(get_config) else None
+    role_name = str(getattr(cfg, "name", "") or getattr(role, "name", "") or "")
+    return role_name.strip().lower() == target.lower()
+
+
+def _force_human_seat_role(engine: GameEngine, seat: int | None, requested: str | None) -> None:
+    """Make the human seat actually get the role the player picked.
+
+    ``setup_game`` shuffles roles across seats, so a chosen role would otherwise be
+    random. Swap the human seat's role with whichever seat holds the requested role
+    (the role multiset — and thus board balance — is preserved). Best-effort: if the
+    role isn't in the dealt lineup, keep the random deal and log; never break the run.
+    """
+    if seat is None or not requested:
+        return
+    game_state = getattr(engine, "game_state", None)
+    players = list(getattr(game_state, "players", []) or [])
+    if seat < 1 or seat > len(players):
+        return
+    human = players[seat - 1]
+    if _role_matches(human.role, requested):
+        return
+    donor = next((p for p in players if p is not human and _role_matches(p.role, requested)), None)
+    if donor is None:
+        logger.warning(
+            "Requested human role %r is not in the lineup for seat %d; keeping random deal",
+            requested,
+            seat,
+        )
+        return
+    donor_seat = players.index(donor) + 1
+    human.role, donor.role = donor.role, human.role
+    # Re-bind both agents to their new roles (setup_game bound them to the old ones).
+    for player, seat_number in ((human, seat), (donor, donor_seat)):
+        agent = getattr(player, "agent", None)
+        if agent is not None and hasattr(agent, "bind_role"):
+            agent.bind_role(type(player.role), seat_number=seat_number)
 
 
 def _write_god_roster(run_dir: Path, engine: object) -> None:
@@ -226,6 +319,7 @@ class GameSession:
     broadcaster: Any | None = None
     player_token: str | None = None
     human_seat: int | None = None
+    human_role: str | None = None
     input_broker: Any | None = None
 
 
@@ -274,8 +368,10 @@ class GameSessionManager:
             msg = "Web human-player games are not supported yet; use the CLI werewolf command for human mixed games."
             raise ValueError(msg)
         human_seat: int | None = None
+        human_role: str | None = None
         if request.human is not None:
             human_seat = request.human.seat
+            human_role = request.human.role
             # Override the requested seat to the builtin web-human model and persist the
             # effective config so _run_game / launch_roster.json reflect it.
             players_config = _override_seat_to_web_human(effective_players_config, human_seat)
@@ -287,9 +383,15 @@ class GameSessionManager:
 
         label = (request.run_label or stem).replace("llm-", "")
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-        run_id = f"{label}-{ts}"
+        instance_tag = os.environ.get("WEREWOLF_INSTANCE_TAG") or None
+        run_id = build_run_id(
+            label, ts, tag=instance_tag, exists=lambda rid: (runs_dir / rid).exists()
+        )
         run_dir = runs_dir / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
+        run_dir.mkdir(parents=True, exist_ok=False)
+
+        # Stable per-seat token (not auth): lets the browser claim the seat stream + /input.
+        player_token = f"seat{human_seat}-{run_id}" if human_seat is not None else None
 
         # Stable per-seat token (not auth): lets the browser claim the seat stream + /input.
         player_token = f"seat{human_seat}-{run_id}" if human_seat is not None else None
@@ -335,6 +437,7 @@ class GameSessionManager:
             rules=rules,
             human_seats=human_seats,
             human_seat=human_seat,
+            human_role=human_role,
             player_token=player_token,
         )
 
@@ -371,10 +474,9 @@ class GameSessionManager:
             custom_roster=custom_roster,
             player_token=player_token,
             stream_path=f"/api/v1/games/{run_id}/stream" if human_seat is not None else None,
-            seat_page_path=seat_page_path,
         )
 
-    async def _run_game(self, session: GameSession) -> None:
+    async def _run_game(self, session: GameSession) -> None:  # noqa: C901, PLR0915
         attach_run_log_handler(session.run_dir)
         try:
             players_config = session.players_config or load_config(config_path=session.config_path)
@@ -418,6 +520,9 @@ class GameSessionManager:
 
             engine.on_event = _on_event
             engine.setup_game(players=players, roles=roles)
+            # Honor the human's chosen role (setup_game shuffles, so without this swap
+            # the picked role would be random — the long-standing "选狼人却进成预言家" bug).
+            _force_human_seat_role(engine, session.human_seat, session.human_role)
             _write_god_roster(session.run_dir, engine)
             wire_agentscope_after_setup(engine, players_config)
 
@@ -450,6 +555,24 @@ class GameSessionManager:
             session.status = GameSessionStatus.FAILED
             session.error = str(exc) or type(exc).__name__
             logger.exception("Game session %s failed", session.run_id)
+            # Tell live SSE subscribers the game died so the UI can surface a clear
+            # "对局中断" state instead of silently freezing on the last phase (the
+            # sheriff-election screen). broadcaster.close() in `finally` only sends a
+            # generic end-of-stream, indistinguishable from a normal game end.
+            if session.broadcaster is not None:
+                try:
+                    session.broadcaster.publish({
+                        "event_type": "game_failed",
+                        "phase": "ended",
+                        "round_number": 0,
+                        "message": f"对局异常中断：{session.error}",
+                        "data": {"error": session.error},
+                        "visible_to": None,
+                    })
+                except Exception as pub_exc:
+                    logger.warning(
+                        "Failed to broadcast game_failed for %s: %s", session.run_id, pub_exc
+                    )
             try:
                 await get_dispatcher().emit_session_failed(
                     run_id=session.run_id,
@@ -459,7 +582,7 @@ class GameSessionManager:
             except Exception as alert_exc:
                 logger.warning("Alert dispatch failed for %s: %s", session.run_id, alert_exc)
         finally:
-            detach_run_log_handler()
+            detach_run_log_handler(session.run_dir)
             if session.broadcaster is not None:
                 session.broadcaster.close()
             remove_broadcaster(session.run_id)

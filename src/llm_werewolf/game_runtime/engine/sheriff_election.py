@@ -1,5 +1,6 @@
 """游戏引擎的警长选举阶段逻辑。"""
 
+import asyncio
 from collections.abc import Callable
 
 from llm_werewolf.game_runtime.types import EventType, GamePhase, PlayerProtocol
@@ -19,7 +20,32 @@ class SheriffElectionMixin:
     build_player_observation: Callable[[PlayerProtocol], str]
 
     async def execute_sheriff_election(self) -> None:
-        """执行警长选举阶段。"""
+        """执行警长选举阶段。
+
+        任何阶段级失败（如竞选演说 / 投票时 LLM 超时）都会被捕获并放弃本次警长选举，
+        以保证对局继续推进到白天。否则异常会冒泡中断整局：后端 ``status=failed`` 后
+        不再发任何事件，前端（被动 SSE 观众）会停在“警长竞选”界面卡死、进程无法推进。
+        ``finally`` 始终标记 ``sheriff_election_done``，确保阶段切换不被卡住。
+        """
+        if not self.game_state:
+            return
+
+        try:
+            await self._run_sheriff_election()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self._log_event(
+                EventType.ERROR,
+                self.locale.get("sheriff_election_aborted", error=str(exc)),
+                data={"error": str(exc), "error_type": type(exc).__name__},
+            )
+        finally:
+            if self.game_state:
+                self.game_state.sheriff_election_done = True
+
+    async def _run_sheriff_election(self) -> None:
+        """警长选举核心流程：候选征集 → 竞选演说 → 投票 → 结算。"""
         if not self.game_state:
             return
 
@@ -41,7 +67,6 @@ class SheriffElectionMixin:
 
         if not candidates:
             self._log_event(EventType.MESSAGE, self.locale.get("no_candidates"))
-            self.game_state.sheriff_election_done = True
             return
 
         if len(candidates) == 1:
@@ -50,14 +75,11 @@ class SheriffElectionMixin:
                 self.locale.get("sheriff_single_candidate", player=candidates[0].name),
             )
             self._elect_sheriff(candidates[0])
-            self.game_state.sheriff_election_done = True
             return
 
         await self._conduct_campaign_speeches(candidates)
         vote_counts = await self._conduct_sheriff_voting(candidates)
         await self._resolve_sheriff_result(vote_counts, candidates)
-
-        self.game_state.sheriff_election_done = True
 
     async def _collect_sheriff_candidates(self) -> list[PlayerProtocol]:
         if not self.game_state:

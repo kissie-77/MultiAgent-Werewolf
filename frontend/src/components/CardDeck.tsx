@@ -138,7 +138,8 @@ export default function CardDeck() {
             const isSelected = selectedCardId === p.id;
             
             // Identity exposure: expose if it is the User themselves, OR if they are dead, OR if game is over!
-            const isExposed = p.isUser || !p.isAlive || phase === "GAME_OVER" || (gameState?.gameMode === "llmOnly" && llmExposeAll);
+            // ...but only when we actually KNOW the role — a hidden seat (redacted role="") stays 秘匿.
+            const isExposed = (p.isUser || !p.isAlive || phase === "GAME_OVER" || (gameState?.gameMode === "llmOnly" && llmExposeAll)) && !!p.role;
 
   
             // Color tags for role highlights

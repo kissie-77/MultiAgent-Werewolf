@@ -208,7 +208,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "神庭命盘开始转动，请在下方点击挑选一名在阵的玩家查明其是恶狼（狼人）还是凡骨（好人）。"
                   })}
                   disabled={phase !== "NIGHT_SEER" || isSeerSkillUsed}
-                  className="px-4 py-2.5 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-yellow-800 rounded font-sans font-black text-[11px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-yellow-800 rounded font-sans font-black text-[9.5px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   开启查验神眼
                 </button>
@@ -257,7 +257,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: `昨晚落难的无辜凡人 (玩家 ${gameState.victimId} 号) 已被选定。倾注解药圣水可以净化利爪邪毒，逆转死生劫持。`
                   })}
                   disabled={phase !== "NIGHT_WITCH" || isWitchSaveUsed || gameState.victimId === null}
-                  className="px-4 py-2.5 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 border-2 border-fuchsia-800 rounded font-sans font-black text-[11px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 border-2 border-fuchsia-800 rounded font-sans font-black text-[9.5px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   使用苏生解药
                 </button>
@@ -286,7 +286,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "选定一名场上的眼中钉。此毒一出，断绝一切护体神力与流转因果，今夜过后彻底淘汰。"
                   })}
                   disabled={phase !== "NIGHT_WITCH" || isWitchPoisonUsed}
-                  className="px-4 py-2.5 bg-emerald-650 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-emerald-800 rounded font-sans font-black text-[11px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2 bg-emerald-650 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed border-2 border-emerald-800 rounded font-sans font-black text-[9.5px] text-[#000] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   投下致命剧毒
                 </button>
@@ -320,7 +320,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "群狼自幽暗密林深处探出利爪。选定一席将其猎杀淘汰，粉碎凡尘议会的气运。此操作将触发夜里撕咬特效。"
                   })}
                   disabled={phase !== "NIGHT_WOLF" || isWolfBiteUsed}
-                  className="px-4 py-2.5 bg-red-650 hover:bg-red-600 disabled:opacity-40 border-2 border-red-900 rounded font-sans font-black text-[11px] text-[#f5f5f5] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2 bg-red-650 hover:bg-red-600 disabled:opacity-40 border-2 border-red-900 rounded font-sans font-black text-[9.5px] text-[#f5f5f5] uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   集结狂嚎袭击
                 </button>
@@ -368,7 +368,7 @@ export default function SkillBar({ hideHeader = false }: { hideHeader?: boolean 
                     description: "胸口被撕咬/放逐。扳机已扣死！选定场上一名死敌，用最后一发驱邪银弹将其一同流放！"
                   })}
                   disabled={!isUserDead}
-                  className="px-4 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-40 border-2 border-red-800 rounded font-sans font-black text-[11px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 border-2 border-red-800 rounded font-sans font-black text-[9.5px] text-white uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-all text-center"
                 >
                   扣下复仇扳机
                 </button>

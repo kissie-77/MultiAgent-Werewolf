@@ -115,6 +115,10 @@ api:
 dev-web:
 	cd frontend && npm install && npm run dev
 
+.PHONY: fleet
+fleet:
+	$(RUN) werewolf-fleet up --backends 2
+
 # ─── Docker 部署 ──────────────────────────────────────────────────────────
 .PHONY: docker-up
 docker-up:

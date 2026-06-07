@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from llm_werewolf.interface.api.app import create_app, entry
+from llm_werewolf.interface.api.app import entry, create_app
 
 
 def test_api_entry_starts_uvicorn() -> None:

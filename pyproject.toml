@@ -27,6 +27,7 @@ log_file_level = "INFO"
 markers = [
     "slow: slow tests",
     "skip_when_ci: Skip when CI/CD",
+    "fleet_smoke: opt-in fleet smoke tests (real subprocesses; set RUN_FLEET_SMOKE=1)",
 ]
 minversion = "8.2"
 testpaths = "tests/"
@@ -107,6 +108,7 @@ werewolf-evidence = "llm_werewolf.interface.cli.evidence:entry"
 werewolf-vote-swing = "llm_werewolf.interface.cli.vote_swing:entry"
 werewolf-watch = "llm_werewolf.interface.cli.watch:entry"
 werewolf-api = "llm_werewolf.interface.api.app:main"
+werewolf-fleet = "llm_werewolf.interface.cli.fleet.entry:entry"
 
 [dependency-groups]
 dev = [
@@ -402,6 +404,8 @@ ignore = [
     "PERF401",
     # Use `list` or `list.copy` to create a copy of a list
     "PERF402",
+    # try-except inside a loop (necessary for retry-with-backoff loops)
+    "PERF203",
     # constants ("magic") values in comparisons
     "PLR2004",
 ]
@@ -431,6 +435,8 @@ keep-runtime-typing = true
 "*.ipynb" = ["T201", "F401", "S105", "F811", "ANN", "PERF", "SLF"]
 "tests/**/*.py" = ["S101", "SLF001", "INP001", "ANN", "PLC0415", "PT011", "ARG"]
 "scripts/**/*.py" = ["INP001", "E402", "T201", "ANN401", "S101", "SLF001", "PLC0415"]
+# Fleet CLI prints status tables to the console (like scripts), so allow `print`.
+"*/interface/cli/fleet/entry.py" = ["T201"]
 "notebooks/*.ipynb" = ["UP", "DOC", "RUF", "D", "C", "F401", "T201"]
 "examples/*.py" = ["UP", "DOC", "RUF", "D", "C", "F401", "T201"]
 

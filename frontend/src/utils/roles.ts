@@ -1,73 +1,33 @@
-// Role portraits: tarot deck in `frontend/public/tarot/` (served at `/tarot/*.png`).
-// Fallback to `public/material/` for legacy paths.
-const seerImg = "/tarot/seer.png";
-const witchImg = "/tarot/witch.png";
-const hunterImg = "/tarot/hunter.png";
-const wolfImg = "/tarot/wolf.png";
-const villagerImg = "/tarot/villager.png";
+// Role art is served from `frontend/public/{material,tarot}/<PascalCase>.png`
+// (canonical stems matching the backend role names). Reference as plain absolute
+// URLs — do NOT `import` from `public/` (Vite returns SPA-fallback HTML).
+// `material` = in-game portrait, `tarot` = setup arcana card.
 
-export const roleImageMap: Record<string, string> = {
-  // --- Catalog keys (backend RoleListItem.key) ---
-  Seer: seerImg,
-  Witch: witchImg,
-  Hunter: hunterImg,
-  Werewolf: wolfImg,
-  AlphaWolf: "/tarot/AlphaWolf.png",
-  WhiteWolf: "/tarot/WhiteWolf.png",
-  WolfBeauty: "/tarot/WolfBeauty.png",
-  GuardianWolf: "/tarot/GuardianWolf.png",
-  HiddenWolf: "/tarot/HiddenWolf.png",
-  NightmareWolf: "/tarot/NightmareWolf.png",
-  BloodMoonApostle: "/tarot/BloodMoonApostle.png",
-  Villager: villagerImg,
-  Guard: "/tarot/Guard.png",
-  Idiot: "/tarot/idiot.png",
-  Elder: "/tarot/Elder.png",
-  Knight: villagerImg,
-  Magician: "/tarot/Magician.png",
-  Cupid: "/tarot/Cupid.png",
-  Raven: "/tarot/Raven.png",
-  GraveyardKeeper: "/tarot/GraveyardKeeper.png",
-  Thief: "/tarot/Thief.png",
-  Lover: "/tarot/Lover.png",
-  // --- Runtime / English names ---
-  "Alpha Wolf": "/tarot/AlphaWolf.png",
-  "White Wolf": "/tarot/WhiteWolf.png",
-  "Wolf Beauty": "/tarot/WolfBeauty.png",
-  "Guardian Wolf": "/tarot/GuardianWolf.png",
-  "Hidden Wolf": "/tarot/HiddenWolf.png",
-  "Nightmare Wolf": "/tarot/NightmareWolf.png",
-  "Blood Moon Apostle": "/tarot/BloodMoonApostle.png",
-  "Graveyard Keeper": "/tarot/GraveyardKeeper.png",
-  // --- Chinese display names ---
-  预言家: seerImg,
-  女巫: witchImg,
-  猎人: hunterImg,
-  狼人: wolfImg,
-  狼王: "/tarot/AlphaWolf.png",
-  白狼: "/tarot/WhiteWolf.png",
-  狼美人: "/tarot/WolfBeauty.png",
-  守卫狼: "/tarot/GuardianWolf.png",
-  隐狼: "/tarot/HiddenWolf.png",
-  血月使徒: "/tarot/BloodMoonApostle.png",
-  梦魇狼: "/tarot/NightmareWolf.png",
-  守卫: "/tarot/Guard.png",
-  白痴: "/tarot/idiot.png",
-  长老: "/tarot/Elder.png",
-  骑士: villagerImg,
-  魔术师: "/tarot/Magician.png",
-  丘比特: "/tarot/Cupid.png",
-  乌鸦: "/tarot/Raven.png",
-  守墓人: "/tarot/GraveyardKeeper.png",
-  盗贼: "/tarot/Thief.png",
-  恋人: "/tarot/Lover.png",
-  村民: villagerImg,
-  平民: villagerImg,
+// role string (English roster name, space-stripped, OR Chinese display name) -> canonical stem
+const ROLE_STEM: Record<string, string> = {
+  // --- English (backend roster role_name, spaces stripped by stemFor) ---
+  Werewolf: "Werewolf", AlphaWolf: "AlphaWolf", WhiteWolf: "WhiteWolf", WolfBeauty: "WolfBeauty",
+  GuardianWolf: "GuardianWolf", HiddenWolf: "HiddenWolf", BloodMoonApostle: "BloodMoonApostle",
+  NightmareWolf: "NightmareWolf",
+  Villager: "Villager", Seer: "Seer", Witch: "Witch", Hunter: "Hunter", Guard: "Guard",
+  Idiot: "Idiot", Elder: "Elder", Knight: "Knight", Magician: "Magician", Cupid: "Cupid",
+  Raven: "Raven", GraveyardKeeper: "GraveyardKeeper", Thief: "Thief", Lover: "Lover",
+  // --- Chinese (in-UI display names / setup dropdown values) ---
+  狼人: "Werewolf", 狼王: "AlphaWolf", 白狼: "WhiteWolf", 狼美人: "WolfBeauty", 守卫狼: "GuardianWolf",
+  隐狼: "HiddenWolf", 血月使徒: "BloodMoonApostle", 梦魇狼: "NightmareWolf",
+  村民: "Villager", 平民: "Villager", 预言家: "Seer", 女巫: "Witch", 猎人: "Hunter", 守卫: "Guard",
+  白痴: "Idiot", 长老: "Elder", 骑士: "Knight", 魔术师: "Magician", 丘比特: "Cupid", 乌鸦: "Raven",
+  守墓人: "GraveyardKeeper", 盗贼: "Thief", 恋人: "Lover",
 };
 
-export const getRoleImage = (role: string) => {
-  const exact = roleImageMap[role];
-  if (exact) return exact;
-  if ((role ?? "").toLowerCase().includes("wolf") || (role ?? "").includes("狼")) return wolfImg;
-  return villagerImg;
-};
+function stemFor(role: string): string {
+  const raw = role ?? "";
+  const key = raw.replace(/\s+/g, ""); // "Alpha Wolf" -> "AlphaWolf"
+  if (ROLE_STEM[key]) return ROLE_STEM[key];
+  if (ROLE_STEM[raw]) return ROLE_STEM[raw];
+  if (key.toLowerCase().includes("wolf") || raw.includes("狼")) return "Werewolf";
+  return "Villager";
+}
+
+export const getRoleImage = (role: string) => `/material/${stemFor(role)}.png`;
+export const getTarotImage = (role: string) => `/tarot/${stemFor(role)}.png`;

@@ -1,22 +1,22 @@
 import { create } from "zustand";
 import { GameState, Player } from "./types";
 import { getCustomApiKey } from "./lib/config";
-import { ApiClient } from "./api/client";
-import { fetchWithRetry } from "./api/retry";
-import { streamUrl } from "./api/sse";
-import { initialSpectateState, reduceEvent } from "./lib/gameReducer";
-import { mapBeliefEvent, mapVoteEvent } from "./lib/insightMap";
-import { initialStateWithRoster, startLogReplayDrain } from "./lib/spectateLog";
-import { buildHumanPayload } from "./lib/humanInput";
-import { humanInputRejectMessage } from "./lib/humanInputErrors";
 import type { AwaitingInputEvent } from "./api/types";
 import type { HumanInputSelection } from "./lib/humanInput";
 
-let logReplayController: { stop: () => void } | null = null;
-
-function stopLogReplayDrain() {
-  logReplayController?.stop();
-  logReplayController = null;
+/**
+ * The legacy /api/game/* mock endpoints are gone (404 in the SSE architecture).
+ * Guard every state-replacing fetch: a non-ok / non-GameState response (e.g. a
+ * 404 body `{detail:"Not Found"}`) must never be written into `state`, or the
+ * next render derefs an undefined `players`/`phase` and white-screens the app.
+ */
+function isGameState(x: unknown): x is GameState {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    Array.isArray((x as { players?: unknown }).players) &&
+    typeof (x as { phase?: unknown }).phase === "string"
+  );
 }
 
 interface GameStore {
@@ -71,16 +71,13 @@ interface GameStore {
   toggleAutoPlay: () => void;
   setSetupCount: (count: number | null) => void;
 
-  // Live spectate (SSE god-view) or log replay for completed runs
+  // Live spectate (SSE god-view)
   spectateSource: EventSource | null;
-  spectateError: string | null;
-  logReplayActive: boolean;
   insightBeliefs: import("./api/insightTypes").BeliefSnapshot[] | null;
   insightVote: import("./api/insightTypes").VoteIntentionSnapshot | null;
   spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
   connectSpectate: (runId: string) => void;
   disconnectSpectate: () => void;
-  clearSpectateError: () => void;
 
   // Human-vs-AI seat view (SSE seat stream + awaiting_input bridge)
   pendingInput: AwaitingInputEvent | null;
@@ -89,11 +86,8 @@ interface GameStore {
   seatRunId: string | null;
   connectSeat: (runId: string, opts: { seat: number; token: string }) => void;
   ingestSeatEvent: (ev: any) => boolean;
-  submitHumanInput: (selection: HumanInputSelection) => Promise<{ ok: boolean; error?: string }>;
+  submitHumanInput: (selection: HumanInputSelection) => Promise<void>;
   clearPendingInput: () => void;
-  humanInputError: string | null;
-  clearHumanInputError: () => void;
-  isLiveSession: () => boolean;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -114,22 +108,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setSetupCount: (count) => set({ setupCount: count }),
 
   fetchState: async () => {
-    const prev = get().state;
     try {
-      const res = await fetchWithRetry("/api/game/state", {
-        headers: { "X-Deepseek-Api-Key": getCustomApiKey() },
+      const res = await fetch("/api/game/state", {
+        headers: { "X-Deepseek-Api-Key": getCustomApiKey() }
       });
-      if (!res.ok) {
-        throw new Error(`state failed: HTTP ${res.status}`);
-      }
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data });
     } catch (err) {
       console.error("Failed to fetch game state:", err);
-      const inGame = prev && prev.phase !== "START_SCREEN";
-      if (inGame) {
-        set({ state: prev });
-      }
     }
   },
 
@@ -142,7 +129,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ userRole, playerCount, gameMode, startImmediately, hasSheriff })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false });
     } catch (err) {
       console.error("Failed to reset game:", err);
@@ -160,7 +148,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SPEECH_SUBMIT", text: userSpeechText })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, userSpeechText: "", selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to submit speech:", err);
@@ -227,7 +216,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "USER_VOTE", targetId: selectedCardId })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to cast vote:", err);
@@ -269,7 +259,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SHERIFF_VOTE", targetId: finalTargetId })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to cast sheriff vote:", err);
@@ -286,7 +277,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SIMULATE_NEXT_SPEAKER" })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false });
     } catch (err) {
       console.error("Failed to simulate speaker:", err);
@@ -352,7 +344,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: actionType, targetId, ...additional })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to exert night action:", err);
@@ -369,7 +362,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "TRANSITION_TO_DEBATE" })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false });
     } catch (err) {
       console.error("Failed executing transition:", err);
@@ -386,7 +380,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SHERIFF_RUN_RESOLVE", userRuns })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false, selectedCardId: null });
     } catch (err) {
       console.error("Sheriff run resolve failed:", err);
@@ -395,176 +390,66 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   exitGame: async () => {
-    set({ isLoading: true, isAutoPlaying: false });
-    const hadLive = Boolean(get().spectateSource || get().seatRunId || get().logReplayActive);
-    if (hadLive) {
-      get().disconnectSpectate();
-      set({
-        state: initialSpectateState(),
-        seatRunId: null,
-        playerToken: null,
-        humanSeat: null,
-        pendingInput: null,
-        humanInputError: null,
-        insightBeliefs: null,
-        insightVote: null,
-        spectateRoster: null,
-        logReplayActive: false,
-        isLoading: false,
-      });
-      return;
-    }
-    try {
-      const res = await fetch("/api/game/exit", {
-        method: "POST",
-        headers: { "X-Deepseek-Api-Key": getCustomApiKey() }
-      });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
-    } catch (err) {
-      console.error("Failed executing exitGame:", err);
-      set({ isLoading: false });
-    }
+    // Legacy /api/game/exit is gone (404). Exit cleanly: stop autoplay, drop the
+    // live SSE stream and hard-navigate to the setup screen. Never POST to the dead
+    // mock — its 404 body used to be written into `state` and white-screen the app.
+    // A hard nav (vs. a local setState) guarantees no in-flight SSE event can
+    // repopulate the game view after exit.
+    set({ isAutoPlaying: false, isLoading: false, pendingInput: null });
+    get().disconnectSpectate();
+    window.location.href = "/";
   },
-
-  isLiveSession: () => Boolean(get().spectateSource || get().seatRunId),
 
   setSelectedCardId: (id) => set({ selectedCardId: id }),
   setUserSpeechText: (text) => set({ userSpeechText: text }),
   toggleAutoPlay: () => set((state) => ({ isAutoPlaying: !state.isAutoPlaying })),
 
   spectateSource: null,
-  spectateError: null,
-  logReplayActive: false,
   insightBeliefs: null,
   insightVote: null,
   spectateRoster: null,
-  clearSpectateError: () => set({ spectateError: null }),
   connectSpectate: (runId) => {
     get().disconnectSpectate();
-    set({
-      insightBeliefs: null,
-      insightVote: null,
-      spectateRoster: null,
-      spectateError: null,
-      logReplayActive: false,
-      state: null,
-    });
+    set({ insightBeliefs: null, insightVote: null, spectateRoster: null });
+    Promise.all([import("./lib/gameReducer"), import("./api/sse"), import("./lib/insightMap")]).then(
+      ([{ initialSpectateState, reduceEvent }, { streamUrl }, { mapBeliefEvent, mapVoteEvent }]) => {
+        set({ state: initialSpectateState(), isLoading: false });
+        const es = new EventSource(streamUrl(runId, "god"));
 
-    void (async () => {
-      let status;
-      try {
-        status = await ApiClient.getGameStatus(runId);
-      } catch {
-        set({ spectateError: `未找到对局日志：${runId}`, state: initialSpectateState(), isLoading: false });
-        return;
-      }
-
-      if (!status.has_replay) {
-        set({
-          spectateError: "该对局尚无 events.jsonl 日志，无法观战。请从战绩页打开复盘。",
-          state: initialSpectateState(),
-          isLoading: false,
+        // Named "snapshot" frame: inject event_type so the reducer's snapshot
+        // case fires (roster -> seats), and stash the god roster for insight.
+        es.addEventListener("snapshot", (e: MessageEvent) => {
+          try {
+            const snap = JSON.parse(e.data);
+            const cur = get().state ?? initialSpectateState();
+            set({
+              state: reduceEvent(cur, { ...snap, event_type: "snapshot" }),
+              spectateRoster: Array.isArray(snap.roster) ? snap.roster : null,
+            });
+          } catch (err) { console.error("bad snapshot frame", err); }
         });
-        return;
-      }
 
-      const isLive =
-        status.status === "running" &&
-        status.snapshot != null &&
-        !status.snapshot.is_ended;
+        // Unnamed game/insight events (event_type lives inside data JSON).
+        es.onmessage = (e: MessageEvent) => {
+          try {
+            const ev = JSON.parse(e.data);
+            const cur = get().state ?? initialSpectateState();
+            set({ state: reduceEvent(cur, ev) });
+            if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
+            else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
+          } catch (err) { console.error("bad sse event", err); }
+        };
 
-      if (!isLive) {
-        try {
-          const raw = await ApiClient.getReplayLogEvents(runId);
-          const roster = raw.run?.roster?.map((p, idx) => ({
-            seat: Number(String(p.player_id ?? "").replace(/\D/g, "")) || idx + 1,
-            name: p.player_name ?? `P${idx + 1}`,
-            role: p.role_name ?? "Unknown",
-            camp: p.camp,
-            is_alive: true,
-          }));
-          const timeline = raw.timeline ?? [];
-          const seed = initialStateWithRoster(roster);
-          set({
-            state: seed,
-            spectateRoster: roster ?? null,
-            insightBeliefs: null,
-            insightVote: null,
-            isLoading: false,
-            isAutoPlaying: true,
-            logReplayActive: timeline.length > 0,
-            spectateSource: null,
-          });
-          if (timeline.length === 0) {
-            set({ logReplayActive: false });
-            return;
-          }
-          stopLogReplayDrain();
-          logReplayController = startLogReplayDrain({
-            events: timeline,
-            initial: seed,
-            isPaused: () => !get().isAutoPlaying,
-            mapBelief: mapBeliefEvent,
-            mapVote: mapVoteEvent,
-            onStep: (state, insight) => {
-              const patch: Partial<GameStore> = { state };
-              if (insight?.beliefs) patch.insightBeliefs = insight.beliefs;
-              if (insight?.vote) patch.insightVote = insight.vote;
-              set(patch);
-            },
-            onComplete: () => {
-              logReplayController = null;
-              set({ logReplayActive: false });
-            },
-          });
-        } catch (err) {
-          set({
-            spectateError: err instanceof Error ? err.message : String(err),
-            state: initialSpectateState(),
-            isLoading: false,
-          });
-        }
-        return;
-      }
-
-      set({ state: initialSpectateState(), isLoading: false });
-      const es = new EventSource(streamUrl(runId, "god"));
-
-      es.addEventListener("snapshot", (e: MessageEvent) => {
-        try {
-          const snap = JSON.parse(e.data);
-          const cur = get().state ?? initialSpectateState();
-          set({
-            state: reduceEvent(cur, { ...snap, event_type: "snapshot" }),
-            spectateRoster: Array.isArray(snap.roster) ? snap.roster : null,
-          });
-        } catch (err) { console.error("bad snapshot frame", err); }
-      });
-
-      es.onmessage = (e: MessageEvent) => {
-        try {
-          const ev = JSON.parse(e.data);
-          const cur = get().state ?? initialSpectateState();
-          set({ state: reduceEvent(cur, ev) });
-          if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
-          else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
-        } catch (err) { console.error("bad sse event", err); }
-      };
-
-      es.addEventListener("end", () => {
-        es.close();
-        set({ spectateSource: null });
-      });
-      es.onerror = () => { /* EventSource auto-reconnects for live runs */ };
-      set({ spectateSource: es });
-    })();
+        es.addEventListener("end", () => { get().disconnectSpectate(); });
+        es.onerror = () => { /* EventSource auto-reconnects */ };
+        set({ spectateSource: es });
+      },
+    );
   },
   disconnectSpectate: () => {
-    stopLogReplayDrain();
     const es = get().spectateSource;
     if (es) es.close();
-    set({ spectateSource: null, logReplayActive: false });
+    set({ spectateSource: null });
   },
 
   // --- Human-vs-AI seat view ---------------------------------------------
@@ -572,8 +457,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   playerToken: null,
   humanSeat: null,
   seatRunId: null,
-  humanInputError: null,
-  clearHumanInputError: () => set({ humanInputError: null }),
 
   // Capture the awaiting_input bridge events on the seat stream. Returns true
   // when the event was consumed (so the caller skips the normal reducer).
@@ -597,29 +480,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   submitHumanInput: async (selection) => {
     const { pendingInput, playerToken, seatRunId } = get();
-    if (!pendingInput || !playerToken || !seatRunId) {
-      return { ok: false, error: "当前无待提交的决策。" };
-    }
+    if (!pendingInput || !playerToken || !seatRunId) return;
+    const [{ buildHumanPayload }, { ApiClient }] = await Promise.all([
+      import("./lib/humanInput"),
+      import("./api/client"),
+    ]);
     const payload = buildHumanPayload(selection);
     try {
-      const res = await ApiClient.sendInput(seatRunId, {
+      await ApiClient.sendInput(seatRunId, {
         token: playerToken,
         request_id: pendingInput.request_id,
         kind: pendingInput.kind,
         payload,
       });
-      if (res.accepted) {
-        set({ pendingInput: null, humanInputError: null });
-        return { ok: true };
-      }
-      const msg = humanInputRejectMessage(res.reject_code, res.message);
-      set({ humanInputError: msg });
-      return { ok: false, error: msg };
+      set({ pendingInput: null });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ humanInputError: msg });
       console.error("Failed to submit human input:", err);
-      return { ok: false, error: msg };
     }
   },
 
@@ -634,30 +510,35 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerToken: token,
       humanSeat: seat,
     });
-    set({ state: initialSpectateState(), isLoading: false });
-    const es = new EventSource(streamUrl(runId, "seat", seat, token));
+    Promise.all([import("./lib/gameReducer"), import("./api/sse"), import("./lib/insightMap")]).then(
+      ([{ initialSpectateState, reduceEvent }, { streamUrl }, { mapBeliefEvent, mapVoteEvent }]) => {
+        set({ state: initialSpectateState(), isLoading: false });
+        const es = new EventSource(streamUrl(runId, "seat", seat, token));
 
-    es.addEventListener("snapshot", (e: MessageEvent) => {
-      try {
-        const snap = JSON.parse(e.data);
-        const cur = get().state ?? initialSpectateState();
-        set({ state: reduceEvent(cur, { ...snap, event_type: "snapshot" }) });
-      } catch (err) { console.error("bad snapshot frame", err); }
-    });
+        es.addEventListener("snapshot", (e: MessageEvent) => {
+          try {
+            const snap = JSON.parse(e.data);
+            const cur = get().state ?? initialSpectateState();
+            set({ state: reduceEvent(cur, { ...snap, event_type: "snapshot", selfSeat: seat }) });
+          } catch (err) { console.error("bad snapshot frame", err); }
+        });
 
-    es.onmessage = (e: MessageEvent) => {
-      try {
-        const ev = JSON.parse(e.data);
-        if (get().ingestSeatEvent(ev)) return;
-        const cur = get().state ?? initialSpectateState();
-        set({ state: reduceEvent(cur, ev) });
-        if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
-        else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
-      } catch (err) { console.error("bad sse event", err); }
-    };
+        es.onmessage = (e: MessageEvent) => {
+          try {
+            const ev = JSON.parse(e.data);
+            // awaiting_input / input_* bridge events drive the human panel.
+            if (get().ingestSeatEvent(ev)) return;
+            const cur = get().state ?? initialSpectateState();
+            set({ state: reduceEvent(cur, ev) });
+            if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
+            else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
+          } catch (err) { console.error("bad sse event", err); }
+        };
 
-    es.addEventListener("end", () => { get().disconnectSpectate(); });
-    es.onerror = () => { /* EventSource auto-reconnects */ };
-    set({ spectateSource: es });
+        es.addEventListener("end", () => { get().disconnectSpectate(); });
+        es.onerror = () => { /* EventSource auto-reconnects */ };
+        set({ spectateSource: es });
+      },
+    );
   },
 }));

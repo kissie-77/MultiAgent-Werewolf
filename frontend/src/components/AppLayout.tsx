@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Shield, Home, Scroll, History, Info, Users, Cpu, ArrowLeft } from "lucide-react";
+import { Shield, Home, Scroll, History, Info, Users, Cpu, ArrowLeft, AlertTriangle } from "lucide-react";
+import ErrorBoundary from "./ErrorBoundary";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -105,7 +106,35 @@ export default function AppLayout({ children }: AppLayoutProps) {
       )}
 
       <main className="flex-grow z-10">
-        {children}
+        {/* Keyed by path so a render error on one page never white-screens the app
+            and is reset when navigating elsewhere. Defense-in-depth behind the
+            per-page mappers (e.g. lib/homeMap.ts). */}
+        <ErrorBoundary
+          key={currentPath}
+          label={currentPath}
+          fallback={
+            <div className="min-h-[70vh] flex flex-col items-center justify-center text-center gap-4 px-4">
+              <AlertTriangle className="w-12 h-12 text-amber-500" />
+              <p className="font-mono text-sm text-zinc-300 tracking-wider">页面渲染异常，已安全兜底。</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-zinc-900 border border-zinc-700 rounded font-mono text-xs text-zinc-200 hover:border-amber-500"
+                >
+                  重新加载
+                </button>
+                <Link
+                  to="/home"
+                  className="px-4 py-2 bg-blue-900/30 border border-blue-700/50 rounded font-mono text-xs text-blue-200 hover:border-blue-400"
+                >
+                  回到主界面
+                </Link>
+              </div>
+            </div>
+          }
+        >
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   );

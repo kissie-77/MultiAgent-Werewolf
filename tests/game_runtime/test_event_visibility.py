@@ -120,19 +120,23 @@ def test_wolf_beauty_nightmare_raven_visible_to_actor_only() -> None:
             event_type, {"actor_id": "a1", "target_id": "t1"}, wolf_player_ids=["a1"]
         ) == ["a1"]
 
-
-def test_magician_swap_visible_to_actor_only() -> None:
-    # Magician 走 PRIVATE_ACTOR_TYPES（player_id），不在 actor_id 系的 ACTOR_ONLY_SKILL_TYPES。
-    assert resolve_visible_to(
-        EventType.MAGICIAN_SWAPPED,
-        {"player_id": "actor_1", "target1_id": "t1", "target2_id": "t2"},
-        wolf_player_ids=["wolf_1"],
-    ) == ["actor_1"]
+        assert visible == ["actor_1"]
 
 
-def test_sub_phase_is_public() -> None:
-    assert resolve_visible_to(EventType.SUB_PHASE, {"name": "werewolf_chat"}) is None
+def test_error_event_is_scoped_to_actor_not_public() -> None:
+    # BUG-2: a night-action-failure ERROR carries the actor's player_id; it must
+    # default to actor-only (the wolves must NOT learn which seat failed to act,
+    # which would leak that the seat has a night role).
+    visible = resolve_visible_to(
+        EventType.ERROR,
+        {"player_id": "player_1", "error": "boom", "error_type": "TimeoutError"},
+        wolf_player_ids=["wolf_1", "wolf_2"],
+    )
+    assert visible == ["player_1"]
 
 
-def test_actor_thinking_is_public() -> None:
-    assert resolve_visible_to(EventType.ACTOR_THINKING, {"player_id": "player_1"}) is None
+def test_error_event_without_actor_is_not_public() -> None:
+    # An anonymous error (no player_id, e.g. speech_failed player="*") must fall
+    # back to god-only, never broadcast to every seat.
+    visible = resolve_visible_to(EventType.ERROR, {"error": "boom"})
+    assert visible == []

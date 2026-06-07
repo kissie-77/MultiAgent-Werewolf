@@ -60,6 +60,7 @@ export interface GameState {
     /** Distinguishes sheriff campaign speeches from ordinary day debate. */
     speechContext?: "day" | "sheriff" | "wolf";
   }[];
+  eventLog: { round: number; phase: string; type: string; message: string }[];
   /** Animation hooks — see `LiveCue` JSDoc. */
   liveCue: LiveCue;
   narration: string;
@@ -77,4 +78,7 @@ export interface GameState {
   hasSheriff?: boolean;
   sheriffId?: number | null;
   sheriffCandidates?: number[];
+  /** Set when the backend reports the run crashed (game_failed SSE event). */
+  failed?: boolean;
+  failureMessage?: string;
 }

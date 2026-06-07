@@ -7,46 +7,46 @@ from pathlib import Path
 
 import pytest
 
-from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
-from llm_werewolf.interface.api.services.config import (
-    compare_models,
-    get_model_detail,
-    list_config_files,
-    list_models_page,
-    parse_config_brief,
-)
-from llm_werewolf.interface.api.services.content import (
-    get_about_page,
-    get_features_page,
-    get_how_to_play_page,
-    get_night_phase_page,
-    get_strategy_page,
+from llm_werewolf.interface.api.services.runs import (
+    list_run_dirs,
+    paginate_runs,
+    get_run_detail,
+    resolve_run_path,
+    aggregate_model_usage,
 )
 from llm_werewolf.interface.api.services.pages import (
     build_game_page,
     build_home_page,
-    build_replay_page_enriched,
     build_role_detail_page,
+    build_replay_page_enriched,
     build_share_replay_page_enriched,
 )
+from llm_werewolf.interface.api.services.config import (
+    compare_models,
+    get_model_detail,
+    list_models_page,
+    list_config_files,
+    parse_config_brief,
+)
 from llm_werewolf.interface.api.services.replay import (
+    build_timeline,
+    get_replay_page,
     build_mvp_ranking,
     build_phase_summary,
-    build_timeline,
     extract_camp_counts,
     extract_game_snapshot,
-    get_replay_page,
     get_share_replay_page,
 )
-from llm_werewolf.interface.api.services.runs import (
-    aggregate_model_usage,
-    get_run_detail,
-    list_run_dirs,
-    paginate_runs,
-    resolve_run_path,
+from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
+from llm_werewolf.interface.api.services.content import (
+    get_about_page,
+    get_features_page,
+    get_strategy_page,
+    get_how_to_play_page,
+    get_night_phase_page,
 )
 
-from tests.interface.fixtures import write_demo_config, write_sample_run
+from tests.interface.fixtures import sample_run_events, write_sample_run, write_demo_config
 
 
 @pytest.fixture
@@ -358,3 +358,55 @@ def test_aggregate_model_usage_reads_mvp_scores(api_dirs: dict[str, Path]) -> No
     stats = aggregate_model_usage(api_dirs["runs_dir"], api_dirs["eval_runs_dir"])
     demo = next(item for item in stats if item.model_id == "demo")
     assert demo.avg_mvp == pytest.approx(8.25)
+
+
+def _write_real_schema_run(run_dir: Path, *, model: str = "deepseek-chat") -> None:
+    """A web-started run as it really lands on disk: the per-seat model lives ONLY
+    in launch_roster.json, and mvp_scores.json rows carry mvp_total with ai_model=null
+    (the production schema the synthetic fixture does not reproduce)."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    events = sample_run_events()  # player_1..6 with roles; werewolf (player_2) wins
+    (run_dir / "events.jsonl").write_text(
+        "\n".join(json.dumps(e, ensure_ascii=False) for e in events), encoding="utf-8"
+    )
+    # seat 1 is a browser human; seats 2..6 run the AI model — in seat order.
+    players = [{"name": "P1", "model": "web-human"}] + [
+        {"name": f"P{i}", "model": model} for i in range(2, 7)
+    ]
+    (run_dir / "launch_roster.json").write_text(
+        json.dumps({"players": players}, ensure_ascii=False), encoding="utf-8"
+    )
+    (run_dir / "mvp_scores.json").write_text(
+        json.dumps(
+            [
+                {"player_id": "player_2", "player_name": "W", "mvp_total": 12.0, "ai_model": None},
+                {"player_id": "player_3", "player_name": "B", "mvp_total": 8.0, "ai_model": None},
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_aggregate_model_usage_attributes_model_from_launch_roster(tmp_path: Path) -> None:
+    # BUG 6/7: the model lives only in launch_roster.json. Before the fix the roster
+    # carried no ai_model and this source was never read, so usage_stats was empty.
+    runs_dir = tmp_path / "runs"
+    eval_dir = tmp_path / "eval"
+    _write_real_schema_run(runs_dir / "real-run")
+    stats = aggregate_model_usage(runs_dir, eval_dir)
+    stat = next((s for s in stats if s.model_id == "deepseek-chat"), None)
+    assert stat is not None, "model from launch_roster.json must appear in the leaderboard"
+    assert stat.run_count == 1
+    assert stat.win_rate is not None and 0.0 <= stat.win_rate <= 1.0  # per-run, not per-seat
+    assert stat.avg_mvp == pytest.approx(10.0)  # (12.0 + 8.0) / 2 from mvp_total
+
+
+def test_aggregate_model_usage_excludes_human_seats(tmp_path: Path) -> None:
+    # The human seat (web-human) is not an AI model and must not pollute the ranking.
+    runs_dir = tmp_path / "runs"
+    eval_dir = tmp_path / "eval"
+    _write_real_schema_run(runs_dir / "real-run")
+    ids = {s.model_id for s in aggregate_model_usage(runs_dir, eval_dir)}
+    assert "web-human" not in ids
+    assert "deepseek-chat" in ids

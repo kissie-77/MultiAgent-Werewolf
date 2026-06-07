@@ -62,39 +62,6 @@ def test_stream_seat_view_hides_other_players_private_events(tmp_path, monkeypat
     assert "seer_checked" not in body   # seat 3 must NOT see seat 2's private event
 
 
-def test_stream_web_human_seat_requires_token(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    run_id = "web-human-stream"
-    run_dir = tmp_path / "artifacts" / "runs" / run_id
-    _write_events(run_dir, [])
-    meta = {
-        "run_id": run_id,
-        "status": "running",
-        "web_human_seat": 2,
-        "player_token": f"seat2-{run_id}",
-    }
-    (run_dir / "run_meta.json").write_text(json.dumps(meta), encoding="utf-8")
-
-    client = TestClient(create_app())
-    no_token = client.get(f"/api/v1/games/{run_id}/stream?view=seat&seat=2")
-    assert no_token.status_code == 403
-
-    bad_token = client.get(
-        f"/api/v1/games/{run_id}/stream?view=seat&seat=2&token=wrong"
-    )
-    assert bad_token.status_code == 403
-
-    wrong_seat = client.get(
-        f"/api/v1/games/{run_id}/stream?view=seat&seat=3&token=seat2-{run_id}"
-    )
-    assert wrong_seat.status_code == 403
-
-    ok = client.get(
-        f"/api/v1/games/{run_id}/stream?view=seat&seat=2&token=seat2-{run_id}"
-    )
-    assert ok.status_code == 200
-
-
 def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     client = TestClient(create_app())
@@ -102,37 +69,11 @@ def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):
     assert resp.status_code == 404
 
 
-def test_god_snapshot_builds_roster_from_events_when_god_roster_missing(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    run_id = "6p-demo-events"
-    run_dir = tmp_path / "artifacts" / "runs" / run_id
-    _write_events(
-        run_dir,
-        [
-            {
-                "event_type": "role_acting",
-                "round_number": 1,
-                "phase": "night",
-                "data": {"player_id": "player_1", "player_name": "A", "role": "Seer"},
-            },
-            {
-                "event_type": "role_acting",
-                "round_number": 1,
-                "phase": "night",
-                "data": {"player_id": "player_2", "player_name": "B", "role": "Werewolf"},
-            },
-        ],
-    )
-    client = TestClient(create_app())
-    with client.stream("GET", f"/api/v1/games/{run_id}/stream?view=god") as resp:
-        body = "".join(chunk for chunk in resp.iter_text())
-    assert '"roster"' in body
-    assert "Seer" in body
-
-
 def test_god_snapshot_includes_roster_when_present(tmp_path, monkeypatch):
     import json
+
     from fastapi.testclient import TestClient
+
     from llm_werewolf.interface.api.app import create_app
 
     monkeypatch.chdir(tmp_path)
@@ -142,43 +83,46 @@ def test_god_snapshot_includes_roster_when_present(tmp_path, monkeypatch):
     (run_dir / "events.jsonl").write_text("", encoding="utf-8")
     (run_dir / "run_meta.json").write_text(json.dumps({"run_id": run_id, "status": "completed"}), encoding="utf-8")
     (run_dir / "god_roster.json").write_text(
-        json.dumps([{"seat": 1, "name": "Player1", "role": "Seer", "camp": "villager", "is_alive": True}]),
+        json.dumps([
+            {"seat": 1, "name": "Player1", "role": "Seer", "camp": "villager", "is_alive": True},
+            {"seat": 2, "name": "Player2", "role": "Werewolf", "camp": "werewolf", "is_alive": True},
+        ]),
         encoding="utf-8",
     )
     client = TestClient(create_app())
     with client.stream("GET", f"/api/v1/games/{run_id}/stream?view=god") as resp:
         body = "".join(chunk for chunk in resp.iter_text())
     assert '"roster"' in body
-    assert "Seer" in body
+    assert "Seer" in body and "Werewolf" in body  # god sees every role
 
-    # seat view must NOT leak the roster
+    # seat view sends a REDACTED roster: own role revealed, others hidden
     with client.stream("GET", f"/api/v1/games/{run_id}/stream?view=seat&seat=1") as resp:
         body2 = "".join(chunk for chunk in resp.iter_text())
-    assert "Seer" not in body2
+    assert '"roster"' in body2          # roster present (so cards render)
+    assert "Seer" in body2              # the requesting seat's own role
+    assert "Werewolf" not in body2      # another seat's role must NOT leak
 
 
 async def test_engine_run_publishes_to_broadcaster(tmp_path, monkeypatch):
     """A real (demo) game wired through GameSessionManager's composite on_event
-    both writes events.jsonl and fans out to a live subscriber."""
+    both writes events.jsonl and fans out to a live subscriber.
+    """
     monkeypatch.chdir(tmp_path)
     import asyncio
+
     from llm_werewolf.interface.api.services import event_stream
-    from llm_werewolf.interface.api.services.game_sessions import game_session_manager
     from llm_werewolf.interface.api.models.actions import StartGameRequest
-    from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir
+    from llm_werewolf.interface.api.services.game_sessions import game_session_manager
 
     # demo config ships in repo configs/; copy is unnecessary — resolve_config_for_start
     # accepts a config_id under the repo configs dir.
-    from tests.interface.fixtures import write_standard_demo_config
-
-    configs_dir = tmp_path / "configs"
-    write_standard_demo_config(configs_dir, player_count=6)
+    configs_dir = Path(__file__).resolve().parents[2] / "configs"
     runs_dir = tmp_path / "artifacts" / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
 
     resp = await game_session_manager.start_game(
         configs_dir=configs_dir, runs_dir=runs_dir,
-        request=StartGameRequest(config_id="standard-6p"),
+        request=StartGameRequest(config_id="demo-6"),
     )
     run_id = resp.run_id
     # The _run_game task is scheduled but has not yet run (start_game never

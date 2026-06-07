@@ -98,6 +98,20 @@ export default function ReplayPage() {
     return sorted.length > 0 ? sorted : [1];
   })();
 
+  // Per-seat view options must match the real player count, not a hardcoded P1–P6
+  // (which made every 9/12-player replay look like a 6-player game). Prefer the
+  // run's player count; fall back to the highest seat seen in the timeline.
+  const seatCount: number = (() => {
+    if (run.initial_players && run.initial_players > 0) return run.initial_players;
+    let max = 0;
+    timeline.forEach((e) => {
+      const n = e.playerId ? parseInt(String(e.playerId).replace(/\D/g, ""), 10) : NaN;
+      if (Number.isFinite(n) && n > max) max = n;
+    });
+    return max;
+  })();
+  const seatNumbers: number[] = Array.from({ length: seatCount }, (_, i) => i + 1);
+
   // Tiny custom styled Markdown renderer to support clean syntax without adding untrusted dependencies
   const renderMarkdown = (md: string) => {
     const lines = md.split("\n");
@@ -245,12 +259,9 @@ export default function ReplayPage() {
             >
                <option value="ALL">上帝视角</option>
                <option value="PUBLIC">公开视角</option>
-               <option value="P1">P1 视角</option>
-               <option value="P2">P2 视角</option>
-               <option value="P3">P3 视角</option>
-               <option value="P4">P4 视角</option>
-               <option value="P5">P5 视角</option>
-               <option value="P6">P6 视角</option>
+               {seatNumbers.map((n) => (
+                 <option key={n} value={`P${n}`}>P{n} 视角</option>
+               ))}
             </select>
           </label>
         </div>
@@ -300,12 +311,7 @@ export default function ReplayPage() {
             animate={{ opacity: 1, y: 0 }}
             className="w-full"
           >
-            <TimelinePlayback
-              timeline={timeline}
-              viewScope={viewScope}
-              playerCount={run.initial_players}
-              playerScores={scores}
-            />
+            <TimelinePlayback timeline={timeline} viewScope={viewScope} />
           </motion.div>
         )}
 

@@ -206,37 +206,15 @@ async def submit_human_input(
     if session is None:
         raise HTTPException(status_code=404, detail=f"Active session not found: {run_id}")
     if body.token != session.player_token:
-        return ApiResponse(
-            data=HumanInputResponse(
-                run_id=run_id,
-                accepted=False,
-                message="Invalid seat token",
-                reject_code="invalid_token",
-            )
-        )
+        raise HTTPException(status_code=403, detail="Invalid seat token")
     broker = get_input_broker(run_id)
     if broker is None:
-        return ApiResponse(
-            data=HumanInputResponse(
-                run_id=run_id,
-                accepted=False,
-                message="No input broker for this run",
-                reject_code="no_input_broker",
-            )
-        )
-    accepted, reject_code = broker.submit(request_id=body.request_id, payload=body.payload)
+        raise HTTPException(status_code=409, detail="No input broker for this run")
+    accepted = broker.submit(request_id=body.request_id, payload=body.payload)
     if not accepted:
-        messages = {
-            "expired_or_unknown": "Unknown or expired request_id",
-            "already_consumed": "request_id already consumed",
-        }
-        return ApiResponse(
-            data=HumanInputResponse(
-                run_id=run_id,
-                accepted=False,
-                message=messages.get(reject_code or "", "Input rejected"),
-                reject_code=reject_code,
-            )
+        raise HTTPException(
+            status_code=409,
+            detail="Unknown, already-consumed, or expired request_id",
         )
     return ApiResponse(data=HumanInputResponse(run_id=run_id, accepted=True))
 
@@ -300,51 +278,38 @@ def _load_god_roster(run_dir: Path) -> object | None:
         return None
 
 
-def _seat_from_player_id(player_id: str, fallback: int) -> int:
-    digits = "".join(ch for ch in player_id if ch.isdigit())
-    if digits:
-        return int(digits)
-    return fallback
-
-
-def _roster_from_run_logs(run_dir: Path) -> list[dict]:
-    """Rebuild god-view roster from events.jsonl when god_roster.json is missing."""
-    from llm_werewolf.evaluation.post_game.run_context import load_run_context
-
-    try:
-        ctx = load_run_context(run_dir)
-    except Exception:  # pragma: no cover - best effort
+def _redact_roster_for_seat(roster: object | None, seat: int | None) -> list[dict]:
+    """Seat-view roster: seat/name/is_alive for everyone; role/camp only for the
+    human's own seat (and fellow werewolves when the human is a werewolf)."""
+    if not isinstance(roster, list) or not roster:
         return []
-    roster: list[dict] = []
-    for idx, (player_id, entry) in enumerate(
-        sorted(ctx.roster.items(), key=lambda item: _seat_from_player_id(item[0], 0)),
-        start=1,
-    ):
-        seat = _seat_from_player_id(player_id, idx)
-        roster.append(
-            {
-                "seat": seat,
-                "name": entry.player_name or f"Player{seat}",
-                "role": entry.role_name or "Unknown",
-                "camp": entry.camp,
-                "is_alive": True,
-            }
-        )
-    return roster
+    self_entry = next((r for r in roster if r.get("seat") == seat), None)
+    self_is_wolf = bool(self_entry) and self_entry.get("camp") == "werewolf"
+    out: list[dict] = []
+    for r in roster:
+        reveal = (r.get("seat") == seat) or (self_is_wolf and r.get("camp") == "werewolf")
+        out.append({
+            "seat": r.get("seat"),
+            "name": r.get("name"),
+            "is_alive": r.get("is_alive", True),
+            "role": r.get("role") if reveal else None,
+            "camp": r.get("camp") if reveal else None,
+        })
+    return out
 
 
-def _initial_snapshot(run_dir: Path, view: str) -> dict:
-    """Build the snapshot first-frame payload, enriched with roster for god view."""
+def _initial_snapshot(run_dir: Path, view: str, seat: int | None = None) -> dict:
+    """Build the snapshot first-frame payload. god = full roster; seat = redacted."""
     try:
         snap = extract_game_snapshot(run_dir).model_dump()
     except Exception:  # pragma: no cover - snapshot best-effort
         snap = {}
-    if view == "god":
-        roster = _load_god_roster(run_dir)
-        if not roster:
-            roster = _roster_from_run_logs(run_dir)
-        if roster:
+    roster = _load_god_roster(run_dir)
+    if roster is not None:
+        if view == "god":
             snap["roster"] = roster
+        elif view == "seat":
+            snap["roster"] = _redact_roster_for_seat(roster, seat)
     return snap
 
 
@@ -359,8 +324,8 @@ async def _stream_events(
     last_event_id: int,
 ) -> AsyncIterator[dict]:
     """Yield SSE frames: snapshot, replayed events, then live events until close."""
-    # 1) first frame: coarse snapshot (god view also carries the roster)
-    snap = _initial_snapshot(run_dir, view)
+    # 1) first frame: coarse snapshot (god carries full roster; seat redacted)
+    snap = _initial_snapshot(run_dir, view, seat)
     yield {"event": "snapshot", "data": json.dumps(snap, ensure_ascii=False)}
 
     # 2) replay already-persisted events after last_event_id
@@ -388,7 +353,6 @@ async def stream_game(
     request: Request,
     view: Annotated[str, Query(pattern="^(god|seat)$")] = "god",
     seat: Annotated[int | None, Query(ge=1, le=20)] = None,
-    token: Annotated[str | None, Query()] = None,
     last_event_id: Annotated[int, Query(ge=0)] = 0,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
@@ -399,20 +363,6 @@ async def stream_game(
         run_dir = alt if alt.is_dir() else run_dir
     if not run_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-
-    from llm_werewolf.interface.api.services.game_sessions import validate_seat_stream_access
-
-    session = game_session_manager._sessions.get(run_id)
-    denied = validate_seat_stream_access(
-        view=view,
-        seat=seat,
-        token=token,
-        run_dir=run_dir,
-        session=session,
-    )
-    if denied is not None:
-        status = 400 if denied.startswith("seat query parameter") else 403
-        raise HTTPException(status_code=status, detail=denied)
 
     # Honor the SSE reconnect header if the client sent one.
     header_id = request.headers.get("last-event-id")

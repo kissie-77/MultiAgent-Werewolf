@@ -23,9 +23,6 @@ from pydantic import Field
 from llm_werewolf.agent_team.agents.base import BaseAgent
 from llm_werewolf.agent_team.agents.human_interactive_agent import HumanInteractiveAgent
 
-# Per-decision browser wait before broker falls back (phase timeouts are disabled for web-human runs).
-WEB_HUMAN_BROKER_DEADLINE_S = 300.0
-
 
 class WebHumanAgent(BaseAgent):
     """浏览器人类玩家：每个决策点把归一化请求 ``await`` 给 :class:`HumanInputBroker`。"""
@@ -33,6 +30,9 @@ class WebHumanAgent(BaseAgent):
     model: str = Field(default="web-human")
     seat: int = Field(default=0, exclude=True)
     broker: object | None = Field(default=None, exclude=True)  # HumanInputBroker
+    # 人类决策窗口（秒）。broker 持此 deadline 优雅超时（emit input_timeout + 安全兜底），
+    # 取代引擎 LLM 阶段超时的硬取消——后者会静默作废人类输入（见 BUG-3）。
+    decision_deadline: float = Field(default=120.0, exclude=True)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -47,7 +47,7 @@ class WebHumanAgent(BaseAgent):
             prompt=message,
             valid_targets=option_seats,
             fallback=fallback,
-            deadline=WEB_HUMAN_BROKER_DEADLINE_S,
+            deadline=self.decision_deadline,
         )
 
 

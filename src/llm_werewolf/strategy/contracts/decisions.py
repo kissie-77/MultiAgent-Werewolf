@@ -52,10 +52,7 @@ _INCOMPLETE_SPEECH_ENDINGS = (
 
 
 def generate_response_instruction(
-    schema_name: str,
-    *,
-    information_isolation: bool = False,
-    allow_legacy_scalar: bool = False,
+    schema_name: str, *, information_isolation: bool = False, allow_legacy_scalar: bool = False
 ) -> str:
     """返回与具体结构化 Schema 绑定的 generate_response 约束。
 
@@ -69,12 +66,10 @@ def generate_response_instruction(
             "【输出方式】优先调用 generate_response 提交 JSON；"
             "如果当前运行环境没有真实工具调用能力，则直接输出一个 JSON 对象。"
             f"两种方式的字段都必须严格遵守 {schema_name} Schema。"
-        ),
+        )
     ]
     if allow_legacy_scalar:
-        parts.append(
-            "也接受 [[数字]] 或 YES/NO 等简写格式，系统会自动解析。"
-        )
+        parts.append("也接受 [[数字]] 或 YES/NO 等简写格式，系统会自动解析。")
     else:
         parts.append(
             "禁止用 [[数字]]、[[...]] 或裸文本代替 structured 字段。不要输出解释、Markdown 代码块或额外自然语言。"
@@ -101,6 +96,8 @@ def speech_schema_instruction() -> str:
         "  不得仅为座位号、不得为「无公开发言」类占位。",
         "- private_thought (string, 可选): 仅自己可见的推理，不会广播。",
         "禁止用 [[...]] / {...} 代替上述字段。",
+        "若无法调用工具而直接输出 JSON，public_speech 的值必须是纯中文发言正文，"
+        "不要把 'public_speech:' / 'private_thought:' 等字段名或外层引号写进发言内容。",
         GENERATE_RESPONSE_INSTRUCTION,
     ])
 
@@ -209,7 +206,9 @@ def vote_intention_schema_instruction() -> str:
     ])
 
 
-def seat_choice_schema_instruction(*, allow_skip: bool = False, require_reason: bool = False) -> str:
+def seat_choice_schema_instruction(
+    *, allow_skip: bool = False, require_reason: bool = False
+) -> str:
     """SeatChoiceDecision 的提示块（投票 / 夜间目标）。"""
     skip_line = (
         "不行动或弃票时 seat=0。" if allow_skip else "必须选择有效目标，seat 为全局座位号。"
@@ -255,8 +254,7 @@ class BeliefEntry(BaseModel):
     target_seat: int = Field(..., ge=1, description="Observed player seat")
     wolf_probability: float = Field(..., ge=0.0, le=1.0)
     reason: str | None = Field(
-        default=None,
-        description="Required when submitting a belief update in MindStateDecision.",
+        default=None, description="Required when submitting a belief update in MindStateDecision."
     )
     note: str | None = Field(default=None)
 
@@ -267,8 +265,7 @@ class SecondOrderEntry(BaseModel):
     observer_seat: int = Field(..., ge=1, description="Other player seat")
     suspects_me_as_wolf: float = Field(..., ge=0.0, le=1.0)
     reason: str | None = Field(
-        default=None,
-        description="Required when submitting a B2 update in MindStateDecision.",
+        default=None, description="Required when submitting a B2 update in MindStateDecision."
     )
     note: str | None = Field(default=None)
 
@@ -284,8 +281,7 @@ class ExposureRadarDelta(BaseModel):
     observer_seat: int = Field(..., ge=1)
     suspicion: float = Field(..., ge=0.0, le=1.0)
     reason: str | None = Field(
-        default=None,
-        description="Required when submitting an exposure radar update.",
+        default=None, description="Required when submitting an exposure radar update."
     )
 
 
@@ -299,11 +295,7 @@ class WolfCampDelta(BaseModel):
 class MindStateDecision(BaseModel):
     """投票意向 + 一阶/二阶信念 + 可选狼队增量，一次 generate_response 提交。"""
 
-    seat: int = Field(
-        ...,
-        ge=0,
-        description="Vote intention seat; 0 = no clear target.",
-    )
+    seat: int = Field(..., ge=0, description="Vote intention seat; 0 = no clear target.")
     reason: str | None = Field(default=None)
     first_order: list[BeliefEntry] = Field(default_factory=list)
     second_order: list[SecondOrderEntry] = Field(default_factory=list)
@@ -339,9 +331,7 @@ def _nonempty_reason(value: str | None) -> bool:
 
 
 def validate_mind_state_decision(
-    decision: MindStateDecision,
-    *,
-    previous_vote_seat: int | None,
+    decision: MindStateDecision, *, previous_vote_seat: int | None
 ) -> list[str]:
     """Validate partial belief updates and vote-intention change reasons."""
     errors: list[str] = []
@@ -360,7 +350,9 @@ def validate_mind_state_decision(
     if decision.wolf_camp_delta is not None:
         for delta in decision.wolf_camp_delta.god_role_intel:
             if not _nonempty_reason(delta.reason):
-                errors.append(f"wolf_camp_delta.god_role_intel 座位 {delta.target_seat} 必须填写 reason")
+                errors.append(
+                    f"wolf_camp_delta.god_role_intel 座位 {delta.target_seat} 必须填写 reason"
+                )
         for delta in decision.wolf_camp_delta.exposure_radar:
             if not _nonempty_reason(delta.reason):
                 errors.append(
@@ -431,31 +423,180 @@ def is_valid_public_speech(text: str, *, min_chars: int = _SPEECH_MIN_CHARS) -> 
     return not looks_like_kill_or_vote_format(stripped)
 
 
+# 模型偶尔不调用 generate_response，而是把 Schema 字段名直接写进纯文本里
+# （如 "public_speech: ..."、'{"private_thought": "..."}'、**公开发言**：...）。
+# 下列助手在解析阶段剥离这些标签，并把私域推理从公开发言里分离出去。
+#
+# 英文机器 token（public_speech / private_thought）几乎不会出现在自然中文发言里，
+# 任何位置出现都视为泄漏标签；中文词（公开发言 / 私人推理 / 内心独白 / 心理活动 …）
+# 与正常发言高度歧义（「我说说我的内心想法：…」是正常发言），因此仅在“字段倾倒”模式
+# （文本开头本身就是 public 标签，或含英文 token）下才把中文词当作标签。
+_PUBLIC_LABELS_EN = ("public_speech", "publicspeech")
+_PRIVATE_LABELS_EN = ("private_thought", "privatethought")
+_PUBLIC_LABELS_CN = ("公开发言内容", "公开发言", "公開發言")
+_PRIVATE_LABELS_CN = ("私人推理", "内心独白", "心理活动", "内心想法", "私域推理")
+_PUBLIC_SPEECH_LABELS = _PUBLIC_LABELS_EN + _PUBLIC_LABELS_CN
+_PRIVATE_THOUGHT_LABELS = _PRIVATE_LABELS_EN + _PRIVATE_LABELS_CN
+_ALL_SCHEMA_LABELS = _PUBLIC_SPEECH_LABELS + _PRIVATE_THOUGHT_LABELS
+
+_LABEL_SEP = r"[:：]"
+# 在 label 匹配前先吃掉的 Markdown 强调/标题符号。
+_MARKDOWN_EMPHASIS = re.compile(r"\*\*|__|`|#{1,6}\s*")
+# 中文弯引号 U+201C/201D/2018/2019，用 chr() 避免歧义 unicode 字面量（RUF001）。
+_SMART_QUOTES = "".join(map(chr, (0x201C, 0x201D, 0x2018, 0x2019)))
+_QUOTE_CLASS = "\"'" + _SMART_QUOTES
+_BOUNDARY_CHARS = r"\s,{}\[\]" + _QUOTE_CLASS
+# 成对引号 open->close；仅当整段被同一对引号完整包裹时才剥离（见 _cleanup_speech_segment）。
+_QUOTE_PAIRS = {'"': '"', "'": "'", "`": "`", chr(0x201C): chr(0x201D), chr(0x2018): chr(0x2019)}
+
+
+def _label_alternation(labels: tuple[str, ...]) -> str:
+    return "|".join(re.escape(label) for label in labels)
+
+
+def _label_occurrence_re(labels: tuple[str, ...]) -> re.Pattern[str]:
+    """匹配“(边界)(可选引号)label(可选引号/空白)分隔符”的标签出现位置。"""
+    return re.compile(
+        r"(?:^|[" + _BOUNDARY_CHARS + r"])"
+        r"[" + _QUOTE_CLASS + r"]*"
+        r"(?:" + _label_alternation(labels) + r")"
+        r"[" + _QUOTE_CLASS + r"\s]*" + _LABEL_SEP,
+        flags=re.I,
+    )
+
+
+_SCHEMA_LABEL_PROBE = re.compile(_label_alternation(_ALL_SCHEMA_LABELS), flags=re.I)
+_PUBLIC_LABEL_PREFIX_RE = re.compile(
+    r"^[" + _QUOTE_CLASS + r"\s,{\[]*(?:" + _label_alternation(_PUBLIC_SPEECH_LABELS) + r")"
+    r"[" + _QUOTE_CLASS + r"\s]*" + _LABEL_SEP,
+    flags=re.I,
+)
+# 文本开头即 private 标签 = 字段倾倒（如「私人推理：今晚刀…」），与句中自然出现的
+# 「我说说我的内心想法：」区分开；后者标签不在开头，不触发字段模式。
+_PRIVATE_LABEL_PREFIX_RE = re.compile(
+    r"^[" + _QUOTE_CLASS + r"\s,{\[]*(?:" + _label_alternation(_PRIVATE_THOUGHT_LABELS) + r")"
+    r"[" + _QUOTE_CLASS + r"\s]*" + _LABEL_SEP,
+    flags=re.I,
+)
+_PUBLIC_EN_OCC_RE = _label_occurrence_re(_PUBLIC_LABELS_EN)
+_PUBLIC_ALL_OCC_RE = _label_occurrence_re(_PUBLIC_SPEECH_LABELS)
+_PRIVATE_EN_OCC_RE = _label_occurrence_re(_PRIVATE_LABELS_EN)
+_PRIVATE_ALL_OCC_RE = _label_occurrence_re(_PRIVATE_THOUGHT_LABELS)
+
+
+def _cleanup_speech_segment(segment: str) -> str:
+    """剥离 Markdown/JSON 包裹符、悬挂逗号与整段成对包裹的首尾引号。"""
+    text = _MARKDOWN_EMPHASIS.sub("", segment).strip()
+    text = text.strip("{}[]").strip().rstrip(",").strip()
+    # 仅当整段被同一对引号完整包裹（内部无同款引号）时才剥离，避免把
+    # 「"金水"…"银水"」这种开头/结尾各含一个引号词的正常发言剥成残缺引号。
+    for _ in range(3):
+        if len(text) >= 2 and text[0] in _QUOTE_PAIRS:
+            close = _QUOTE_PAIRS[text[0]]
+            inner = text[1:-1]
+            if text[-1] == close and close not in inner and text[0] not in inner:
+                text = inner.strip().rstrip(",").strip()
+                continue
+        break
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def split_labeled_speech(text: str) -> tuple[str, str | None]:
+    """拆分把 Schema 字段名写进正文的发言。
+
+    返回 ``(public, private)``。未检出泄漏标签时 private 为 None，public 为清洗后的原文。
+    英文 token 任意位置都视为标签；中文标签仅在“字段倾倒”模式下生效。按标签位置独立
+    切取各字段值，因此与 public/private 的先后顺序及 JSON 包裹无关；不含标签的正常发言
+    （即便其中带冒号或「内心想法」之类词）原样返回。
+    """
+    if not text or not text.strip():
+        return "", None
+
+    s = _MARKDOWN_EMPHASIS.sub("", text)
+    # 字段倾倒模式：开头即 public/private 标签，或含英文机器 token。此时才放行中文标签，
+    # 避免「私人推理：今晚刀预言家」这类只含中文 private 标签的倾倒把私域计划广播出去。
+    field_mode = (
+        bool(_PUBLIC_LABEL_PREFIX_RE.match(s))
+        or bool(_PRIVATE_LABEL_PREFIX_RE.match(s))
+        or bool(_PUBLIC_EN_OCC_RE.search(s))
+    )
+    pub_re = _PUBLIC_ALL_OCC_RE if field_mode else _PUBLIC_EN_OCC_RE
+    prv_re = _PRIVATE_ALL_OCC_RE if field_mode else _PRIVATE_EN_OCC_RE
+
+    occ: list[tuple[int, int, str]] = []  # (match_start, value_start, kind)
+    for kind, pattern in (("public", pub_re), ("private", prv_re)):
+        for m in pattern.finditer(s):
+            occ.append((m.start(), m.end(), kind))
+    occ.sort()
+
+    if not occ:
+        return _cleanup_speech_segment(s), None
+
+    starts = [o[0] for o in occ]
+    public_value: str | None = None
+    private_values: list[str] = []
+    for i, (_mstart, value_start, kind) in enumerate(occ):
+        value_end = starts[i + 1] if i + 1 < len(occ) else len(s)
+        value = s[value_start:value_end]
+        if kind == "public" and public_value is None:
+            public_value = value
+        elif kind == "private":
+            private_values.append(value)
+
+    if public_value is not None:
+        public = _cleanup_speech_segment(public_value)
+    else:
+        # 仅有 private 标签：标签前的散文（若有）才是公开发言。
+        public = _cleanup_speech_segment(s[: occ[0][0]])
+    private = _cleanup_speech_segment("\n".join(private_values)) or None
+    return public, private
+
+
 def extract_public_text(response: str) -> str:
     """从模型响应中提取可公开发表的发言。
 
-    选取最长的非纯座位号 [[...]] 块；若模型将真实发言放在 {{}} / [[...]] 外，
-    则回退到其中的散文文本。
+    依次尝试：(1) 泄漏的 public_speech 标签 / JSON 字段；(2) 最长的合法 [[...]] 发言块；
+    (3) 去掉 {{}} / [[...]] 后的散文（并剥离泄漏标签）。
     """
     if not response or not response.strip():
         return "（无公开发言）"
+
+    # 1) 字段倾倒 / JSON：含 Schema 标签时优先按标签切取公开发言。
+    if _SCHEMA_LABEL_PROBE.search(response):
+        labeled_public, _ = split_labeled_speech(response)
+        if is_valid_public_speech(labeled_public):
+            return labeled_public
 
     bracket_blocks = [
         block.strip()
         for block in re.findall(r"\[\[\s*(.+?)\s*\]\]", response, flags=re.S)
         if block.strip()
     ]
+    # 仅当 [[...]] 块本身就是合法发言时才采用，避免散文里的 [[5号]] 之类劫持整句。
     speech_blocks = [
         b
         for b in bracket_blocks
-        if not looks_like_seat_only(b) and not looks_like_kill_or_vote_format(b)
+        if not looks_like_seat_only(b)
+        and not looks_like_kill_or_vote_format(b)
+        and is_valid_public_speech(b)
     ]
     if speech_blocks:
         return max(speech_blocks, key=len)
 
     without_private = re.sub(r"\{[^{}]*\}", "", response, flags=re.S)
-    without_brackets = re.sub(r"\[\[.*?\]\]", "", without_private, flags=re.S)
-    cleaned = re.sub(r"\s+", " ", without_brackets).strip()
+
+    def _unwrap_bracket(match: re.Match[str]) -> str:
+        # 散文里的座位引用（[[2号]]）展开为内容；纯投票/刀人标记（[[7]]）删除。
+        inner = match.group(1).strip()
+        if looks_like_seat_only(inner) or looks_like_kill_or_vote_format(inner):
+            return ""
+        return inner
+
+    without_brackets = re.sub(
+        r"\[\[\s*(.*?)\s*\]\]", _unwrap_bracket, without_private, flags=re.S
+    )
+    public_prose, _ = split_labeled_speech(without_brackets)
+    cleaned = re.sub(r"\s+", " ", public_prose).strip()
     if is_valid_public_speech(cleaned):
         return cleaned
 

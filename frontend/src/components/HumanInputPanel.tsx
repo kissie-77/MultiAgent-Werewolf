@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { useGameStore } from "../store";
 import type { HumanInputSelection } from "../lib/humanInput";
+import { remainingSeconds } from "../lib/countdown";
 
 /**
  * Seat-view human decision panel. Driven entirely by `pendingInput` (the
@@ -13,35 +14,49 @@ import type { HumanInputSelection } from "../lib/humanInput";
 export default function HumanInputPanel() {
   const pendingInput = useGameStore((s) => s.pendingInput);
   const submitHumanInput = useGameStore((s) => s.submitHumanInput);
-  const humanInputError = useGameStore((s) => s.humanInputError);
-  const clearHumanInputError = useGameStore((s) => s.clearHumanInputError);
 
   const [submitting, setSubmitting] = useState(false);
   const [poisonTarget, setPoisonTarget] = useState<number | null>(null);
   const [multiSel, setMultiSel] = useState<number[]>([]);
   const [speech, setSpeech] = useState("");
+  const [startedAtMs, setStartedAtMs] = useState<number>(() => Date.now());
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
-  // Reset transient choices whenever a fresh request arrives.
+  const requestId = pendingInput?.request_id;
+  const deadlineSec = pendingInput?.deadline ?? 0;
+
+  // Reset transient choices + restart the countdown clock on a fresh request.
   useEffect(() => {
     setPoisonTarget(null);
     setMultiSel([]);
     setSpeech("");
     setSubmitting(false);
-    clearHumanInputError();
-  }, [pendingInput?.request_id, clearHumanInputError]);
+    const t = Date.now();
+    setStartedAtMs(t);
+    setNowMs(t);
+  }, [requestId]);
+
+  // Tick the clock once a second while a request with a deadline is pending.
+  useEffect(() => {
+    if (!deadlineSec || deadlineSec <= 0) return;
+    const id = setInterval(() => setNowMs(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [requestId, deadlineSec]);
 
   if (!pendingInput) return null;
 
   const targets = pendingInput.valid_targets ?? [];
+  const remaining = remainingSeconds(deadlineSec, startedAtMs, nowMs);
+  const expired = deadlineSec > 0 && remaining <= 0;
+  // Buttons are inert while a submission is in flight OR the window has elapsed
+  // (the backend's input_timeout will clear this panel via the seat stream).
+  const locked = submitting || expired;
 
   const submit = async (selection: HumanInputSelection) => {
-    if (submitting) return;
+    if (locked) return;
     setSubmitting(true);
     try {
-      const result = await submitHumanInput(selection);
-      if (!result.ok) {
-        setSubmitting(false);
-      }
+      await submitHumanInput(selection);
     } finally {
       setSubmitting(false);
     }
@@ -80,17 +95,33 @@ export default function HumanInputPanel() {
             <span className="font-serif text-sm font-black text-amber-500 uppercase tracking-widest drop-shadow">
               轮到你了 · Your Move
             </span>
-            <span className="font-mono text-[10px] text-slate-500">座位 {pendingInput.seat}</span>
+            <div className="flex items-center gap-3">
+              {deadlineSec > 0 && (
+                <span
+                  className={`font-mono text-[11px] font-bold tabular-nums px-2 py-0.5 rounded border ${
+                    expired
+                      ? "text-rose-300 border-rose-700/60 bg-rose-950/40"
+                      : remaining <= 10
+                        ? "text-rose-300 border-rose-700/60 bg-rose-950/40 animate-pulse"
+                        : "text-amber-300 border-amber-800/50 bg-amber-950/30"
+                  }`}
+                  aria-label="decision-countdown"
+                >
+                  {expired ? "0s" : `${remaining}s`}
+                </span>
+              )}
+              <span className="font-mono text-[10px] text-slate-500">座位 {pendingInput.seat}</span>
+            </div>
           </div>
 
           <p className="text-[12px] text-amber-100/90 leading-relaxed font-serif whitespace-pre-line mb-4">
             {pendingInput.prompt}
           </p>
 
-          {humanInputError && (
-            <p className="mb-3 px-3 py-2 rounded border border-red-500/40 bg-red-950/40 text-[11px] text-red-300 font-sans leading-relaxed">
-              {humanInputError}
-            </p>
+          {expired && (
+            <div className="mb-4 px-3 py-2 rounded border border-rose-800/60 bg-rose-950/40 text-[11px] font-mono text-rose-200">
+              ⏳ 决策超时，已按安全默认兜底，正在交还裁定…
+            </div>
           )}
 
           {/* seat: pick one target (or abstain) */}
@@ -101,7 +132,7 @@ export default function HumanInputPanel() {
                   <button
                     key={seat}
                     type="button"
-                    disabled={submitting}
+                    disabled={locked}
                     onClick={() => submit({ kind: "seat", seat })}
                     className={`${seatBtn} ${seatBtnIdle}`}
                   >
@@ -111,7 +142,7 @@ export default function HumanInputPanel() {
               </div>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={locked}
                 onClick={() => submit({ kind: "seat", skip: true })}
                 className="self-start px-3 py-1.5 rounded border border-slate-700 text-[11px] font-bold text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-all cursor-pointer disabled:opacity-40"
               >
@@ -126,7 +157,7 @@ export default function HumanInputPanel() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={submitting}
+                  disabled={locked}
                   onClick={() => submit({ kind: "witch", action: "save" })}
                   className={`${seatBtn} ${seatBtnIdle}`}
                 >
@@ -134,7 +165,7 @@ export default function HumanInputPanel() {
                 </button>
                 <button
                   type="button"
-                  disabled={submitting}
+                  disabled={locked}
                   onClick={() => submit({ kind: "witch", action: "none" })}
                   className={`${seatBtn} ${seatBtnIdle}`}
                 >
@@ -150,7 +181,7 @@ export default function HumanInputPanel() {
                     <button
                       key={seat}
                       type="button"
-                      disabled={submitting}
+                      disabled={locked}
                       onClick={() => setPoisonTarget(seat)}
                       className={`${seatBtn} ${poisonTarget === seat ? seatBtnActive : seatBtnIdle}`}
                     >
@@ -160,7 +191,7 @@ export default function HumanInputPanel() {
                 </div>
                 <button
                   type="button"
-                  disabled={submitting || poisonTarget == null}
+                  disabled={locked || poisonTarget == null}
                   onClick={() => submit({ kind: "witch", action: "poison", seat: poisonTarget ?? undefined })}
                   className="self-start px-3 py-1.5 rounded border border-purple-600/60 text-[11px] font-bold text-purple-300 hover:bg-purple-900/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -175,7 +206,7 @@ export default function HumanInputPanel() {
             <div className="flex gap-3">
               <button
                 type="button"
-                disabled={submitting}
+                disabled={locked}
                 onClick={() => submit({ kind: "yesno", yes: true })}
                 className={`${seatBtn} ${seatBtnIdle} flex-1`}
               >
@@ -183,7 +214,7 @@ export default function HumanInputPanel() {
               </button>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={locked}
                 onClick={() => submit({ kind: "yesno", yes: false })}
                 className={`${seatBtn} ${seatBtnIdle} flex-1`}
               >
@@ -200,7 +231,7 @@ export default function HumanInputPanel() {
                   <button
                     key={seat}
                     type="button"
-                    disabled={submitting}
+                    disabled={locked}
                     onClick={() => toggleMulti(seat)}
                     className={`${seatBtn} ${multiSel.includes(seat) ? seatBtnActive : seatBtnIdle}`}
                   >
@@ -210,7 +241,7 @@ export default function HumanInputPanel() {
               </div>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={locked}
                 onClick={() => submit({ kind: "multi", seats: multiSel })}
                 className="self-start px-3 py-1.5 rounded border border-amber-600/60 text-[11px] font-bold text-amber-300 hover:bg-amber-900/30 transition-all cursor-pointer disabled:opacity-40"
               >
@@ -231,7 +262,7 @@ export default function HumanInputPanel() {
               />
               <button
                 type="button"
-                disabled={submitting || speech.trim().length === 0}
+                disabled={locked || speech.trim().length === 0}
                 onClick={() => submit({ kind: "speech", text: speech.trim() })}
                 className="self-end px-4 py-2 rounded border border-amber-600/60 text-[11px] font-bold text-amber-300 hover:bg-amber-900/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >

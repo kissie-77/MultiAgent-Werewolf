@@ -21,6 +21,16 @@ if TYPE_CHECKING:
     from llm_werewolf.strategy.contracts.phase_outputs import ActionPhase
 
 
+def _is_human_controlled(agent: object | None) -> bool:
+    """True for human-driven seats (stdin ``human`` or browser ``web-human``).
+
+    Such seats own their decision clock via their input channel (broker deadline);
+    applying an LLM phase timeout would hard-cancel the wait and silently void the
+    human's input (BUG-3). Detected by the builtin ``model`` tag, no import needed.
+    """
+    return getattr(agent, "model", "") in {"human", "web-human"}
+
+
 class PhaseInteractionHub(Protocol):
     """Runtime-facing contract implemented by the agent communication hub."""
 
@@ -171,7 +181,12 @@ class PhaseInteraction:
             return self._night_timeout
         return self._night_timeout
 
-    async def _await_with_timeout(self, coro, phase: str | None):
+    async def _await_with_timeout(self, coro, phase: str | None, *, agent: object | None = None):
+        # Human-controlled seats are exempt: their broker owns the deadline + a
+        # graceful fallback, so a hard phase-timeout cancel would silently void
+        # the human's input (BUG-3). AI seats are unchanged.
+        if _is_human_controlled(agent):
+            return await coro
         timeout = self._timeout_for_phase(phase)
         if timeout is None or timeout <= 0:
             return await coro
@@ -215,6 +230,7 @@ class PhaseInteraction:
                 action_phase,
             ),
             phase,
+            agent=agent,
         )
 
     async def request_witch_night_choice(
@@ -245,6 +261,7 @@ class PhaseInteraction:
                 phase=phase,
             ),
             phase,
+            agent=agent,
         )
 
     async def request_yes_no(
@@ -262,6 +279,7 @@ class PhaseInteraction:
                 actor, agent, role_name, question, context, round_number, phase
             ),
             phase,
+            agent=agent,
         )
 
     async def request_multi_targets(
@@ -289,6 +307,7 @@ class PhaseInteraction:
                 phase,
             ),
             phase,
+            agent=agent,
         )
 
     async def request_speech(
@@ -314,6 +333,7 @@ class PhaseInteraction:
                 audience=audience,
             ),
             phase,
+            agent=agent,
         )
 
     async def announce(

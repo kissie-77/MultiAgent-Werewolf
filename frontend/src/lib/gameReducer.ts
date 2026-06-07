@@ -7,7 +7,8 @@ export interface SseEvent {
   phase?: string;
   message?: string;
   data?: Record<string, any>;
-  roster?: { seat: number; name: string; role: string; camp?: string | null; is_alive?: boolean }[];
+  roster?: { seat: number; name: string; role: string | null; camp?: string | null; is_alive?: boolean }[];
+  selfSeat?: number;
   event_id?: number;
 }
 
@@ -93,7 +94,6 @@ function setThinkingFromEvent(s: GameState, ev: SseEvent): void {
       role: String(ev.data?.role ?? s.players.find((p) => p.id === seat)?.role ?? ""),
       context,
     },
-    nightSkill: context === "night_skill" ? s.liveCue.nightSkill : s.liveCue.nightSkill,
   };
   s.currentSpeakerId = null;
 }
@@ -145,7 +145,7 @@ function clearNightCues(s: GameState): void {
 export function initialSpectateState(): GameState {
   return {
     players: [], dayNumber: 0, phase: "START_SCREEN", currentSpeakerId: null,
-    countdown: 0, speechLogs: [], narration: "", winner: null,
+    countdown: 0, speechLogs: [], eventLog: [], narration: "", winner: null,
     wolfKilledTarget: null, witchSaved: false, witchPoisonedTarget: null,
     seerVerifiedTarget: null, seerVerificationResult: null, victimId: null,
     discussionIndex: 0, executionId: null, gameMode: "llmOnly",
@@ -156,19 +156,34 @@ export function initialSpectateState(): GameState {
 export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
   const s: GameState = {
     ...prev,
-    players: prev.players.map((p) => ({ ...p })),
-    speechLogs: [...prev.speechLogs],
-    liveCue: cloneLiveCue(prev.liveCue),
+    players: (prev.players ?? []).map((p) => ({ ...p })),
+    speechLogs: [...(prev.speechLogs ?? [])],
+    eventLog: [...(prev.eventLog ?? [])],
+    liveCue: cloneLiveCue(prev.liveCue ?? initialLiveCue()),
   };
 
   if (ev.phase && PHASE_MAP[ev.phase]) s.phase = PHASE_MAP[ev.phase];
   if (typeof ev.round_number === "number" && ev.round_number > 0) s.dayNumber = ev.round_number;
 
+  if (ev.message) {
+    const last = s.eventLog[s.eventLog.length - 1];
+    if (!last || last.message !== ev.message) {
+      s.eventLog.push({
+        round: ev.round_number ?? s.dayNumber,
+        phase: ev.phase ?? "",
+        type: ev.event_type,
+        message: ev.message,
+      });
+    }
+  }
+
   switch (ev.event_type) {
     case "snapshot": {
       if (ev.roster?.length) {
+        const selfSeat = ev.selfSeat;
         s.players = ev.roster.map<Player>((r) => ({
-          id: r.seat, name: r.name, role: r.role, isUser: false,
+          id: r.seat, name: r.name, role: r.role ?? "",
+          isUser: selfSeat != null && r.seat === selfSeat,
           isAlive: r.is_alive !== false, avatarSeed: r.name, lastSpeech: "",
           statusNotes: "",
         }));
@@ -291,6 +306,14 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       clearThinking(s);
       clearNightCues(s);
       s.liveCue = { ...s.liveCue, sheriffStage: null };
+      break;
+    }
+    case "game_failed": {
+      s.phase = "GAME_OVER";
+      s.failed = true;
+      s.failureMessage = ev.message ?? "对局异常中断";
+      clearThinking(s);
+      clearNightCues(s);
       break;
     }
     default: {

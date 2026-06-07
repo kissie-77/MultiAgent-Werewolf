@@ -32,7 +32,10 @@ class HumanSeatSpec(BaseModel):
     seat: int = Field(..., ge=1, le=20, description="1-based seat for the single human player")
     role: str | None = Field(
         default=None,
-        description="Optional fixed role (ignored until Enhancement A8; random deal for now)",
+        description=(
+            "Optional fixed role for the human seat (zh display name like '狼人' or English "
+            "key like 'Werewolf'); honored via a post-deal role swap when present in the lineup"
+        ),
     )
 
 
@@ -122,10 +125,6 @@ class StartGameResponse(BaseModel):
     custom_roster: bool = False
     player_token: str | None = None
     stream_path: str | None = None
-    seat_page_path: str | None = Field(
-        default=None,
-        description="Full frontend route for the human seat view (includes view/seat/token query params)",
-    )
 
 
 class HumanInputRequest(BaseModel):
@@ -139,10 +138,6 @@ class HumanInputResponse(BaseModel):
     run_id: str
     accepted: bool
     message: str | None = None
-    reject_code: str | None = Field(
-        default=None,
-        description="When accepted=false: no_input_broker | invalid_token | expired_or_unknown | already_consumed",
-    )
 
 
 class GameStatusResponse(BaseModel):

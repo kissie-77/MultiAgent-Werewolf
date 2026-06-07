@@ -24,21 +24,16 @@ async def test_request_resolves_on_submit():
     )
     await asyncio.sleep(0)  # 让 request 登记并推事件
     rid = next(iter(broker.pending_ids()))
-    assert spy.events and spy.events[0]["event_type"] == "actor_thinking"
-    assert spy.events[0]["visible_to"] is None
-    awaiting = spy.events[1]
-    assert awaiting["event_type"] == "awaiting_input"
-    assert awaiting["visible_to"] == ["player_1"]
-    assert awaiting["seat"] == 1
-    assert awaiting["request_id"] == rid
-    assert awaiting["kind"] == "seat"
-    assert awaiting["valid_targets"] == [2, 3]
-    ok, code = broker.submit(request_id=rid, payload="2")
-    assert ok is True and code is None
+    assert spy.events and spy.events[0]["event_type"] == "awaiting_input"
+    assert spy.events[0]["visible_to"] == ["player_1"]
+    assert spy.events[0]["seat"] == 1
+    assert spy.events[0]["request_id"] == rid
+    assert spy.events[0]["kind"] == "seat"
+    assert spy.events[0]["valid_targets"] == [2, 3]
+    assert broker.submit(request_id=rid, payload="2") is True
     assert await task == "2"
     # 幂等：再次 submit 同 id 返回 False
-    ok2, code2 = broker.submit(request_id=rid, payload="3")
-    assert ok2 is False and code2 == "expired_or_unknown"
+    assert broker.submit(request_id=rid, payload="3") is False
 
 
 async def test_request_times_out_to_fallback():
@@ -54,8 +49,7 @@ async def test_request_times_out_to_fallback():
 
 def test_submit_unknown_request_is_false():
     broker = HumanInputBroker(run_id="r1", seat=1, broadcaster=_Spy())
-    ok, code = broker.submit(request_id="nope", payload="2")
-    assert ok is False and code == "expired_or_unknown"
+    assert broker.submit(request_id="nope", payload="2") is False
 
 
 async def test_awaiting_input_event_is_seat_scoped_for_sse():
@@ -78,8 +72,7 @@ async def test_awaiting_input_event_is_seat_scoped_for_sse():
 
     # the resolution event must stay seat-scoped too (no leak that seat 1 acted)
     rid = next(iter(broker.pending_ids()))
-    ok, code = broker.submit(request_id=rid, payload="2")
-    assert ok is True and code is None
+    assert broker.submit(request_id=rid, payload="2") is True
     assert await task == "2"
     received = next(e for e in spy.events if e["event_type"] == "input_received")
     assert event_visible_for(received, view="seat", seat=3) is False

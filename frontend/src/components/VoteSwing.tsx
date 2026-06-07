@@ -7,8 +7,6 @@ export default function VoteSwing({ swings, timeline }: { swings: VoteSwingSpeec
   const [selectedSwing, setSelectedSwing] = useState<string | null>(swings[0]?.id || null);
 
   const activeSwing = swings.find(s => s.id === selectedSwing);
-  const effectiveSwings = swings.filter((s) => s.swing_count > 0);
-  const hasDetectedSwing = effectiveSwings.length > 0;
 
   return (
     <div className="border border-zinc-900 bg-zinc-950/40 rounded p-6">
@@ -24,15 +22,6 @@ export default function VoteSwing({ swings, timeline }: { swings: VoteSwingSpeec
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {!hasDetectedSwing && (
-          <div className="lg:col-span-3 rounded border border-zinc-800 bg-zinc-950/70 p-6 text-center">
-            <div className="text-sm font-serif text-amber-500 tracking-widest">本局未检测到投票摇摆</div>
-            <p className="mt-2 text-xs font-mono text-zinc-400">
-              已记录 {swings.length} 段公开发言，但没有出现明确的改票链路。
-            </p>
-          </div>
-        )}
-
         {/* Left Column: Ranking */}
         <div className="lg:col-span-1 border-r border-zinc-900 pr-6 space-y-4">
           <h4 className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-4 flex items-center justify-between">
@@ -40,7 +29,7 @@ export default function VoteSwing({ swings, timeline }: { swings: VoteSwingSpeec
             <span>改票量</span>
           </h4>
           <div className="space-y-3">
-             {swings.slice().sort((a,b) => b.influence_score - a.influence_score).map(s => (
+             {swings.sort((a,b) => b.influence_score - a.influence_score).map(s => (
                <div 
                  key={s.id} 
                  onClick={() => setSelectedSwing(s.id)}

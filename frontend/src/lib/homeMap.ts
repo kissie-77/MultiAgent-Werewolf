@@ -1,75 +1,106 @@
-import type {
-  BackendHomePageData,
-  BackendNavLink,
-  BackendStatCard,
-  HomePageData,
-  RunSummary,
-} from "../api/types";
-import { mapRunRow } from "../utils/runRows";
+import type { HomePageData } from "../api/types";
 
-function num(value: unknown): number {
-  const n = typeof value === "number" ? value : Number(value);
+/**
+ * Pure mapping layer: backend `GET /api/v1/pages/home` -> the front-end
+ * `HomePageData` shape consumed by HomePage.
+ *
+ * Mirrors `lib/replayMap.ts` / `lib/modelsMap.ts`: pure functions, defensive
+ * defaults, snake->camel. The backend payload is `{hero, stats_cards,
+ * recent_runs, quick_actions, ...}` while HomePage expects `{title, subtitle,
+ * description, stats:{...}, highlights[], ...}`. Without this mapper HomePage
+ * dereferenced `data.stats.activeGames` on an undefined `stats` and white-screened.
+ */
+
+interface BackendHomeHero {
+  title?: string | null;
+  subtitle?: string | null;
+  cta_label?: string | null;
+  cta_path?: string | null;
+}
+
+interface BackendStatCard {
+  label?: string | null;
+  value?: number | string | null;
+  unit?: string | null;
+  hint?: string | null;
+}
+
+interface BackendRecentRun {
+  run_id?: string | null;
+  created_at?: string | null;
+  player_count?: number | null;
+  winner_camp?: string | null;
+  has_replay?: boolean | null;
+}
+
+interface BackendQuickAction {
+  key?: string | null;
+  title?: string | null;
+  path?: string | null;
+  description?: string | null;
+}
+
+export interface BackendHomePageData {
+  hero?: BackendHomeHero | null;
+  stats_cards?: BackendStatCard[] | null;
+  recent_runs?: BackendRecentRun[] | null;
+  quick_actions?: BackendQuickAction[] | null;
+}
+
+/** Coerce anything to a finite number; non-numeric / NaN -> 0. */
+function toNum(x: unknown): number {
+  const n = typeof x === "number" ? x : Number(x);
   return Number.isFinite(n) ? n : 0;
 }
 
-function statValue(cards: BackendStatCard[], index: number): number {
-  return num(cards[index]?.value);
+/** Value of the first stat card whose label contains any of `keys` (default 0). */
+function statValue(cards: BackendStatCard[], keys: string[], dflt = 0): number {
+  const card = cards.find((c) => keys.some((k) => (c?.label ?? "").includes(k)));
+  return card ? toNum(card.value) : dflt;
 }
 
-function formatRunDate(value: string | null): string {
-  if (!value) return "";
-  return value.replace("T", " ").slice(0, 16);
-}
-
-function winnerText(camp: string | null): string {
-  const normalized = (camp ?? "").toLowerCase();
-  if (normalized.includes("wolf")) return "狼人胜";
-  if (normalized.includes("villager") || normalized === "good") return "好人胜";
-  if (normalized.includes("draw")) return "平局";
-  return "进行中";
-}
-
-function mapRunHighlight(run: RunSummary, index: number): HomePageData["highlights"][number] {
-  const resolved = mapRunRow(run).playerCount;
-  const playerCount = resolved > 0 ? resolved : "?";
-  const replayState = run.has_replay ? "可复盘" : "暂无复盘";
-  return {
-    id: run.run_id || `run-${index + 1}`,
-    title: winnerText(run.winner_camp),
-    summary: `#${run.run_id || "unknown"} · ${replayState}`,
-    category: `${playerCount}人局`,
-    date: formatRunDate(run.created_at),
-  };
-}
-
-function mapQuickLink(link: BackendNavLink): HomePageData["quickLinks"][number] {
-  return {
-    label: link.title || link.key,
-    path: link.path || "/",
-    description: link.description ?? "",
-  };
+/** lowercase backend camp -> human-readable zh label (defensive). */
+function campLabel(camp: string | null | undefined): string {
+  const c = (camp ?? "").toString().toLowerCase();
+  if (c.includes("wolf") || c.includes("wolv")) return "狼人胜";
+  if (c.includes("villager") || c === "good") return "好人胜";
+  return "未结算";
 }
 
 export function mapHomePage(raw: BackendHomePageData | null | undefined): HomePageData {
-  const statsCards = Array.isArray(raw?.stats_cards) ? raw!.stats_cards! : [];
-  const recentRuns = Array.isArray(raw?.recent_runs) ? raw!.recent_runs! : [];
-  const quickActions = Array.isArray(raw?.quick_actions) ? raw!.quick_actions! : [];
-  const activeGames = recentRuns.filter((run) => !run.winner_camp).length;
+  const d = raw ?? {};
+  const hero = d.hero ?? {};
+  const cards = Array.isArray(d.stats_cards) ? d.stats_cards : [];
+  const runs = Array.isArray(d.recent_runs) ? d.recent_runs : [];
+  const actions = Array.isArray(d.quick_actions) ? d.quick_actions : [];
+
+  // Stat semantics differ between backend (历史对局/角色数量/可用配置/含复盘) and the
+  // page's four slots; map best-effort by label substring with safe 0 defaults so a
+  // missing/renamed card can never crash the render.
+  const rating = statValue(cards, ["评分", "胜率"]);
 
   return {
-    title: raw?.hero?.title || "AI 狼人杀",
-    subtitle: "观测后台",
-    description:
-      raw?.hero?.subtitle ||
-      "多智能体狼人杀博弈平台，支持 AI 对局、复盘分析与模型表现对比。",
-    welcomeMessage: "",
+    title: hero.title ?? "AI 狼人杀",
+    subtitle: hero.subtitle ?? "",
+    description: hero.subtitle ?? "",
+    welcomeMessage: hero.title ?? "",
     stats: {
-      activeGames,
-      totalMatchesPlayed: statValue(statsCards, 0),
-      onlineAIs: statValue(statsCards, 2),
-      averageRating: String(statValue(statsCards, 3)),
+      totalMatchesPlayed: statValue(cards, ["对局", "历史"]),
+      activeGames: statValue(cards, ["进行", "存续", "活跃", "复盘"]),
+      onlineAIs: statValue(cards, ["角色", "模型", "智能", "配置"]),
+      averageRating: rating > 0 ? String(rating) : "—",
     },
-    highlights: recentRuns.map(mapRunHighlight),
-    quickLinks: quickActions.map(mapQuickLink),
+    highlights: runs.map((r, i) => ({
+      id: r?.run_id ?? String(i),
+      title: `${toNum(r?.player_count) || "?"} 人局 · ${campLabel(r?.winner_camp)}`,
+      summary: `对局 ${r?.run_id ?? ""}${r?.has_replay ? "（含复盘）" : ""}`.trim(),
+      category: campLabel(r?.winner_camp),
+      date: r?.created_at ?? "",
+    })),
+    quickLinks: actions.map((a) => ({
+      label: a?.title ?? "",
+      path: a?.path ?? "/",
+      description: a?.description ?? "",
+    })),
   };
 }

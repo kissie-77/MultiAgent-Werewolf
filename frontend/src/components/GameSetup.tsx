@@ -3,25 +3,11 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useGameStore } from "../store";
 import { ApiClient } from "../api/client";
-import { mapRunRow } from "../utils/runRows";
-import type { RunRow } from "../utils/runRows";
-import {
-  type EnvFieldStatus,
-  type ProviderSchema,
-  fetchApiKeysStatus,
-  fetchProviders,
-  saveProviderFieldsToServer,
-} from "../lib/config";
-import {
-  clampPlayerCount,
-  nearestStandardConfigId,
-  MIN_PLAYER_COUNT,
-  MAX_PLAYER_COUNT,
-} from "../lib/boardConfig";
+import { getCustomApiKey, setCustomApiKey, getOpenAIApiKey, setOpenAIApiKey, getGeminiApiKey, setGeminiApiKey, getClaudeApiKey, setClaudeApiKey, getDoubaoApiKey, setDoubaoApiKey } from "../lib/config";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from "lucide-react";
 
-import { getRoleImage } from "../utils/roles";
+import { getTarotImage } from "../utils/roles";
 
 export default function GameSetup() {
   const setSetupCount = useGameStore((state) => state.setSetupCount);
@@ -37,66 +23,48 @@ export default function GameSetup() {
   const [userRole, setUserRole] = useState<string>("预言家");
   const [humanSeat, setHumanSeat] = useState<number>(1);
   const [hasSheriff, setHasSheriff] = useState<boolean>(true);
-  const [providers, setProviders] = useState<ProviderSchema[]>([]);
-  const [selectedProviderId, setSelectedProviderId] = useState<string>("doubao");
-  const [envFieldValues, setEnvFieldValues] = useState<Record<string, string>>({});
-  const [envFieldStatus, setEnvFieldStatus] = useState<Record<string, EnvFieldStatus>>({});
-  const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [settingsSaving, setSettingsSaving] = useState(false);
-  const [spectatableRuns, setSpectatableRuns] = useState<RunRow[]>([]);
-  const [spectateRunId, setSpectateRunId] = useState<string>("");
-  const [spectateRunsLoading, setSpectateRunsLoading] = useState(false);
-  const [spectateRunsError, setSpectateRunsError] = useState<string | null>(null);
-
-  const selectedProvider =
-    providers.find((p) => p.provider_id === selectedProviderId) ?? providers[0] ?? null;
-
-  const fieldPlaceholder = (envName: string, fallback: string) => {
-    const status = envFieldStatus[envName];
-    if (status?.configured && status.masked) {
-      return `已配置 ${status.masked}`;
-    }
-    return fallback;
-  };
+  const [apiKey, setApiKey] = useState<string>("");
+  const [openaiKey, setOpenaiKey] = useState<string>("");
+  const [geminiKey, setGeminiKey] = useState<string>("");
+  const [claudeKey, setClaudeKey] = useState<string>("");
+  const [doubaoKey, setDoubaoKey] = useState<string>("");
 
   useEffect(() => {
-    if (!showSettingsModal) return;
-    setSettingsError(null);
-    Promise.all([fetchProviders(), fetchApiKeysStatus()])
-      .then(([provData, keyData]) => {
-        setProviders(provData.providers);
-        setSelectedProviderId(provData.default_provider_id || "doubao");
-        setEnvFieldStatus(keyData.env_fields ?? {});
-        setEnvFieldValues({});
-      })
-      .catch((err) =>
-        setSettingsError(err instanceof Error ? err.message : String(err))
-      );
-  }, [showSettingsModal]);
+    setApiKey(getCustomApiKey());
+    setOpenaiKey(getOpenAIApiKey());
+    setGeminiKey(getGeminiApiKey());
+    setClaudeKey(getClaudeApiKey());
+    setDoubaoKey(getDoubaoApiKey());
+  }, []);
 
-  const saveSettings = async () => {
-    if (!selectedProvider) return;
-    setSettingsError(null);
-    setSettingsSaving(true);
-    try {
-      const payload: Record<string, string> = {};
-      for (const field of selectedProvider.fields) {
-        const value = envFieldValues[field.env_name]?.trim();
-        if (value) payload[field.env_name] = value;
-      }
-      if (Object.keys(payload).length === 0) {
-        setSettingsError("请至少填写一个要保存的字段");
-        return;
-      }
-      const data = await saveProviderFieldsToServer(payload);
-      setEnvFieldStatus(data.env_fields ?? {});
-      setEnvFieldValues({});
-      setShowSettingsModal(false);
-    } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSettingsSaving(false);
-    }
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setApiKey(val);
+    setCustomApiKey(val);
+  };
+
+  const handleOpenaiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setOpenaiKey(val);
+    setOpenAIApiKey(val);
+  };
+
+  const handleGeminiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setGeminiKey(val);
+    setGeminiApiKey(val);
+  };
+
+  const handleClaudeKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setClaudeKey(val);
+    setClaudeApiKey(val);
+  };
+
+  const handleDoubaoKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setDoubaoKey(val);
+    setDoubaoApiKey(val);
   };
 
   React.useEffect(() => {
@@ -143,13 +111,15 @@ export default function GameSetup() {
     setStarting(true);
     setSetupCount(null);
     try {
-      const count = clampPlayerCount(playerCount);
       const res = await ApiClient.startGame({
-        config_id: nearestStandardConfigId(count),
-        player_count: count,
+        config_id: "llm-6p-deepseek",
+        // 把用户选的座位数传给后端（后端 resize_players_config 会按模板扩/缩到 N 座）；
+        // 不传则永远只开 config 自带的 6 人局。范围对齐后端校验 6–20。
+        player_count: playerCount,
         badge_flow: hasSheriff,
-        // 人机模式下占用一个人类座位；纯观战模式不传 human。
-        ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat } } : {}),
+        // 人机模式下占用一个人类座位 + 把所选角色传给后端（后端会把该角色换到本座位）；
+        // 纯观战模式不传 human。
+        ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat, role: userRole } } : {}),
       });
       // 人机模式：用后端返回的座位令牌进入本人座位视角；否则进上帝观战。
       if (gameMode === "humanVsAI" && res.player_token) {
@@ -216,25 +186,10 @@ export default function GameSetup() {
   };
 
   const handlePlayerCountChange = (val: number) => {
-    const nextVal = clampPlayerCount(val);
+    // Web API 仅支持 6–20 座（StartGameRequest.player_count: ge=6, le=20）；
+    // 低于 6 的局后端会 422 拒绝，故在 UI 侧就把范围钳到 6–20。
+    const nextVal = Math.max(6, Math.min(20, val));
     setPlayerCount(nextVal);
-    
-    // Auto adjust player role if chosen role is unavailable due to low occupant count
-    if (nextVal === 1) {
-      setUserRole("预言家");
-    } else if (nextVal === 2) {
-      if (userRole !== "预言家" && userRole !== "狼人") {
-        setUserRole("预言家");
-      }
-    } else if (nextVal === 3) {
-      if (userRole === "猎人" || userRole === "村民") {
-        setUserRole("预言家");
-      }
-    } else if (nextVal === 4) {
-      if (userRole === "猎人") {
-        setUserRole("预言家");
-      }
-    }
   };
 
   return (
@@ -446,9 +401,22 @@ export default function GameSetup() {
                       </button>
                     </div>
 
-                    <p className="w-full text-center text-[9px] text-slate-500 font-mono pt-2 border-t border-slate-800/50">
-                      支持 {MIN_PLAYER_COUNT}–{MAX_PLAYER_COUNT} 人自由编排（基于最近标准板子缩放）
-                    </p>
+                    <div className="w-full flex flex-wrap items-center justify-center gap-2 pt-3 border-t border-slate-800/50">
+                      {[6, 8, 9, 12].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => handlePlayerCountChange(num)}
+                          className={`px-3 py-1.5 rounded text-[10px] font-mono font-bold border transition-all duration-300 cursor-pointer ${
+                            playerCount === num
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.15)]"
+                              : "bg-transparent text-slate-500 border-slate-700 hover:text-amber-100 hover:border-amber-900/50 hover:bg-amber-900/10"
+                          }`}
+                        >
+                          {num} 人局
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="px-4 py-3 bg-slate-900/60 border border-slate-800 rounded text-[10px] font-serif text-slate-400 flex flex-col gap-1.5 shadow-inner">
@@ -516,7 +484,7 @@ export default function GameSetup() {
                     {/* Tarot preview portrait */}
                     <div className="w-1/3 max-w-[140px] shrink-0 border-2 border-amber-900/40 rounded overflow-hidden shadow-inner relative">
                         <img 
-                          src={getRoleImage(userRole)} 
+                          src={getTarotImage(userRole)}
                           alt={userRole} 
                           className="w-full h-full object-cover object-top mix-blend-luminosity hover:mix-blend-normal transition-all"
                         />
@@ -532,37 +500,21 @@ export default function GameSetup() {
                          className="bg-black/60 border border-amber-500/30 text-amber-100 px-4 py-3 text-sm font-bold select-none cursor-pointer focus:outline-none focus:border-amber-500 shadow-md transition-colors w-full break-words outline-none appearance-none"
                          style={{ boxShadow: "inset 0 0 10px rgba(0,0,0,0.8)" }}
                        >
+                          {/* Only roles that actually exist in the basic lineup the Web
+                              start uses (llm-6p-deepseek, resized 6–20). Picking a role
+                              outside the lineup can't be honored, so it isn't offered. */}
                           <optgroup label="好人阵营">
                             <option value="预言家">预言家 (Seer)</option>
                             <option value="女巫">女巫 (Witch)</option>
                             <option value="猎人">猎人 (Hunter)</option>
-                            <option value="守卫">守卫 (Guard)</option>
-                            <option value="白痴">白痴 (Idiot)</option>
-                            <option value="长老">长老 (Elder)</option>
-                            <option value="骑士">骑士 (Knight)</option>
-                            <option value="魔术师">魔术师 (Magician)</option>
-                            <option value="乌鸦">乌鸦 (Raven)</option>
-                            <option value="守墓人">守墓人 (Graveyard Keeper)</option>
                             <option value="村民">村民 (Villager)</option>
                           </optgroup>
                           <optgroup label="狼人阵营">
                             <option value="狼人">狼人 (Werewolf)</option>
-                            <option value="狼王">狼王 (Alpha Wolf)</option>
-                            <option value="白狼">白狼 (White Wolf)</option>
-                            <option value="狼美人">狼美人 (Wolf Beauty)</option>
-                            <option value="守卫狼">守卫狼 (Guardian Wolf)</option>
-                            <option value="隐狼">隐狼 (Hidden Wolf)</option>
-                            <option value="血月使徒">血月使徒 (Blood Moon Apostle)</option>
-                            <option value="梦魇狼">梦魇狼 (Nightmare Wolf)</option>
-                          </optgroup>
-                          <optgroup label="中立阵营">
-                            <option value="盗贼">盗贼 (Thief)</option>
-                            <option value="丘比特">丘比特 (Cupid)</option>
-                            <option value="恋人">恋人 (Lover)</option>
                           </optgroup>
                        </select>
                        <span className="text-[10px] text-zinc-500 mt-2 font-mono leading-relaxed">
-                         The engine will adapt to your chosen identity role automatically.
+                         你的身份将固定为所选角色；其余席位由 AI 扮演、身份随机发牌。
                        </span>
                     </div>
                   </div>
@@ -604,45 +556,6 @@ export default function GameSetup() {
               </div>
             </div>
             
-            {gameMode === "llmOnly" && (
-              <div className="w-full flex flex-col gap-3 mt-4 relative z-20 border border-red-900/30 rounded-lg p-4 bg-black/30">
-                <span className="font-serif text-[11px] text-red-400 font-bold tracking-[0.2em] flex items-center gap-2">
-                  <Eye className="w-3.5 h-3.5" />
-                  载入历史对局 · Log Replay
-                </span>
-                <p className="text-[10px] text-slate-500 font-sans leading-relaxed">
-                  从服务端 artifacts 中的 events.jsonl 选择已有对局，以日志回放方式观战（无需活跃 session）。
-                </p>
-                {spectateRunsLoading ? (
-                  <p className="text-[10px] text-zinc-500 font-mono">读取对局日志列表…</p>
-                ) : spectateRunsError ? (
-                  <p className="text-[10px] text-red-400/90 font-mono">{spectateRunsError}</p>
-                ) : spectatableRuns.length === 0 ? (
-                  <p className="text-[10px] text-zinc-500 font-mono">暂无可回放的对局日志</p>
-                ) : (
-                  <select
-                    value={spectateRunId}
-                    onChange={(e) => setSpectateRunId(e.target.value)}
-                    className="w-full bg-black/60 border border-red-900/40 text-amber-100 px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-red-500/60"
-                  >
-                    {spectatableRuns.map((run) => (
-                      <option key={run.runId} value={run.runId}>
-                        {run.playerCount}人 · {run.createdAt || "未知时间"} · #{run.runId}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <button
-                  type="button"
-                  disabled={!spectateRunId || spectateRunsLoading}
-                  onClick={() => navigate(`/game?run_id=${encodeURIComponent(spectateRunId)}`)}
-                  className="w-full px-4 py-3 border border-red-800/60 bg-red-950/40 hover:bg-red-900/30 text-red-200 text-xs font-mono uppercase tracking-widest rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  从日志载入观战
-                </button>
-              </div>
-            )}
-
             {/* Launch Match Button */}
             <div className="w-full flex flex-col gap-3 mt-6 relative z-20">
               <button
@@ -687,19 +600,12 @@ export default function GameSetup() {
       {createPortal(
         <AnimatePresence>
           {showSettingsModal && (
-            <div
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none"
-              onClick={() => setShowSettingsModal(false)}
-              onKeyDown={(e) => e.key === "Escape" && setShowSettingsModal(false)}
-              role="presentation"
-            >
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 className="w-full max-w-md bg-slate-950 bg-woodcut-dark border border-amber-900/40 p-6 md:p-8 rounded-xl relative shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
               >
               {/* Corner Ornaments */}
               <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-amber-600/40" />
@@ -708,87 +614,105 @@ export default function GameSetup() {
               <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-amber-600/40" />
 
               <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowSettingsModal(false);
-                }}
-                className="absolute top-3 right-3 text-slate-500 hover:text-amber-500 transition-colors p-2 z-50 rounded-md bg-black/40 border border-slate-800/80 hover:border-amber-900/50"
-                aria-label="关闭设置"
+                onClick={() => setShowSettingsModal(false)}
+                className="absolute top-4 right-4 text-slate-500 hover:text-amber-500 transition-colors p-1 z-10"
               >
                 ✕
               </button>
               
-              <h2 className="text-lg font-serif font-black text-amber-500 uppercase tracking-widest mb-6 border-b border-amber-900/30 pb-3 flex items-center gap-2 relative z-10 drop-shadow-md pr-10">
+              <h2 className="text-lg font-serif font-black text-amber-500 uppercase tracking-widest mb-6 border-b border-amber-900/30 pb-3 flex items-center gap-2 relative z-10 drop-shadow-md">
                 <Settings className="w-5 h-5 text-amber-600" />
                 枢纽引擎 ∙ 密钥档案
               </h2>
 
               <div className="flex flex-col gap-5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar relative z-10">
                 <div className="flex flex-col gap-2">
-                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    选择供应商 · Provider
+                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Key className="w-4 h-4 text-amber-500/80" /> DEEPSEEK API KEY
                   </label>
-                  <select
-                    value={selectedProviderId}
-                    onChange={(e) => {
-                      setSelectedProviderId(e.target.value);
-                      setEnvFieldValues({});
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className="relative z-20 bg-black/60 border border-amber-500/30 text-amber-100 px-3 py-2.5 text-sm font-bold cursor-pointer focus:outline-none focus:border-amber-500 w-full"
-                  >
-                    {providers.map((p) => (
-                      <option key={p.provider_id} value={p.provider_id}>
-                        {p.display_name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
+                    <input 
+                      type="password"
+                      placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={apiKey}
+                      onChange={handleApiKeyChange}
+                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
+                    />
+                  </div>
                 </div>
 
-                {selectedProvider?.fields.map((field) => (
-                  <div key={field.env_name} className="flex flex-col gap-2">
-                    <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                      <Key className="w-4 h-4 text-amber-500/80" />
-                      {field.label}
-                      <span className="text-zinc-600 font-mono normal-case">{field.env_name}</span>
-                    </label>
-                    <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
-                      <input
-                        type={field.secret ? "password" : "text"}
-                        placeholder={fieldPlaceholder(field.env_name, field.example || "")}
-                        value={envFieldValues[field.env_name] ?? ""}
-                        onChange={(e) =>
-                          setEnvFieldValues((prev) => ({
-                            ...prev,
-                            [field.env_name]: e.target.value,
-                          }))
-                        }
-                        className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
-                      />
-                    </div>
-                    {field.description && (
-                      <p className="text-[9px] text-zinc-500 font-sans pl-1">{field.description}</p>
-                    )}
+                <div className="flex flex-col gap-2">
+                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Key className="w-4 h-4 text-green-500/80" /> OPENAI API KEY
+                  </label>
+                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
+                    <input 
+                      type="password"
+                      placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={openaiKey}
+                      onChange={handleOpenaiKeyChange}
+                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
+                    />
                   </div>
-                ))}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Key className="w-4 h-4 text-blue-500/80" /> GEMINI API KEY
+                  </label>
+                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
+                    <input 
+                      type="password"
+                      placeholder="AIza-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={geminiKey}
+                      onChange={handleGeminiKeyChange}
+                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Key className="w-4 h-4 text-purple-500/80" /> CLAUDE API KEY
+                  </label>
+                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
+                    <input 
+                      type="password"
+                      placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={claudeKey}
+                      onChange={handleClaudeKeyChange}
+                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Key className="w-4 h-4 text-red-500/80" /> DOUBAO API KEY
+                  </label>
+                  <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
+                    <input 
+                      type="password"
+                      placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={doubaoKey}
+                      onChange={handleDoubaoKeyChange}
+                      className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
+                    />
+                  </div>
+                </div>
 
                 <p className="text-[10px] text-slate-500 leading-relaxed font-sans mt-3 border-l-2 border-amber-900/50 pl-3">
-                  密钥写入服务器 <code className="text-amber-600/80">.env</code>；仅提交当前供应商下你填写的字段。
+                  配置各平台密钥以供大模型法阵运转。<br/>
+                  * 符文信息仅存于本地浏览器，隐秘且安全。
                 </p>
-                {settingsError && (
-                  <p className="text-[10px] text-red-400 font-sans mt-2">{settingsError}</p>
-                )}
               </div>
 
               <div className="mt-8 pt-4 border-t border-amber-900/30 flex justify-end relative z-10">
                 <button
-                  onClick={saveSettings}
-                  disabled={settingsSaving}
-                  className="px-6 py-2.5 bg-amber-950/40 border border-amber-600/50 text-amber-500 font-sans font-black text-xs uppercase tracking-widest hover:bg-amber-900/60 hover:text-amber-400 transition-all rounded disabled:opacity-50"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="px-6 py-2.5 bg-amber-950/40 border border-amber-600/50 text-amber-500 font-sans font-black text-xs uppercase tracking-widest hover:bg-amber-900/60 hover:text-amber-400 transition-all rounded"
                 >
-                  {settingsSaving ? "保存中…" : "铭刻设定 (SAVE)"}
+                  铭刻设定 (SAVE)
                 </button>
               </div>
             </motion.div>

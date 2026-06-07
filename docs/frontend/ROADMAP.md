@@ -2,7 +2,7 @@
 
 > **模块**：frontend
 > **状态**：draft
-> **最后更新**：2026-06-07
+> **最后更新**：2026-06-06
 
 ## 总览
 
@@ -11,8 +11,6 @@
 | Express + Three.js 原型 | ✅ Done | 本地 demo（port 3000） |
 | FastAPI 对接（直连 + 解信封） | ✅ Done | Vite 代理 + 废弃 mock |
 | 实时观战 M1/M2/M2b | ✅ Done | SSE god 流 + gameReducer + 信念/票型 + 结算/复盘 |
-| 日志观战（无 session） | ✅ Done | status 分流 + 流式 `startLogReplayDrain` + Insight 联动 + 历史对局下拉 |
-| 供应商设置 UI | ✅ Done | `GET /settings/providers` + 动态 env 字段 |
 | 内容页接后端（B 档：Runs/Models/Share） | ✅ Done | mapper 层吸收契约接缝 |
 | M3 人机对战（座位视图 + 真人输入） | ✅ Done | `HumanInputPanel` + `humanInput.ts` + 座位令牌；真机 2 局打通 |
 | Leaderboard 可视化 | 📋 Planned | 依赖 evaluation |
@@ -43,7 +41,7 @@
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-06-07 | 日志流式回放、Insight、phase_changed、favicon、bundle 分包；详见 [前端联调问题修复记录](../reports/前端联调问题修复记录-2026-06-07.md) §2.18 |
+| 2026-06-06 | 人机座位视图修复：后端脱敏名单（6 卡牌 + 本人徽标 + 他人秘匿）+ reducer 事件时间线/公开发言气泡 + 全 22 角色立绘（material/tarot 部署 PascalCase + 映射）；真机回归通过；spec/plan 见 `docs/superpowers/{specs,plans}/2026-06-06-human-seat-view-and-role-art*` |
 | 2026-06-06 | B 档内容页接后端 + M3 人机对战座位输入 + 结算页/立绘修复；详见 [前后端打通与人机对战报告](../reports/前后端打通与人机对战-2026-06-06.md) |
 | 2026-06-05 | 前端联调：Router + Vite 代理 + SpectatePanel + 6 页 API 对接 |
 | 2026-05-23 | 初始化 DESIGN / ROADMAP，消除 README 死链 |

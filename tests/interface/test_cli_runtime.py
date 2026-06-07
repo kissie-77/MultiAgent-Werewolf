@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import pytest
 
-from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
 from llm_werewolf.game_runtime import GameEngine
+from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
 from llm_werewolf.interface.cli.entry import _human_viewer_ids
-from llm_werewolf.interface.cli.runtime.bootstrap import prepare_game_roster
-from llm_werewolf.interface.cli.runtime.bootstrap import create_information_hub
+from llm_werewolf.interface.cli.runtime.bootstrap import (
+    prepare_game_roster,
+    create_information_hub,
+)
 from llm_werewolf.interface.cli.runtime.overrides import (
+    parse_seat_list,
     apply_human_seats,
     apply_plan_assignment_override,
-    parse_seat_list,
 )
 from llm_werewolf.interface.cli.runtime.player_count import resize_players_config
 

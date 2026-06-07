@@ -95,6 +95,65 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
 > API Key 仅 LLM 玩家需要（写入 `.env`）；`human` / `demo` 座位无需 Key。详见
 > [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)。
 
+## 本地全栈开发（前端 + 后端）
+
+Web 联调时前后端分开起：后端跑 FastAPI（默认 `:8000`，本仓库联调用 `:8010`），前端跑 Vite 开发服务器并把 `/api` 代理到后端。
+
+**1) 启动后端 API**
+
+```bash
+# 仓库根目录；注入有效 LLM Key（仅 AI 座位需要），端口 8010
+DEEPSEEK_API_KEY=sk-xxxx OBS_READY_REQUIRE_LLM=0 uv run werewolf-api --port 8010
+```
+
+- `DEEPSEEK_API_KEY`：AI 座位调用 LLM 用的密钥（也可写进 `.env`）；纯 demo 观战可省略。
+- `OBS_READY_REQUIRE_LLM=0`：让 `/ready` 不强制校验 LLM，没真 Key 时也能通过就绪检查。
+- 健康检查：`GET http://localhost:8010/health` → `{"status":"ok"}`；`GET /ready` → `{"status":"ready"}`。
+
+**2) 启动前端**
+
+```bash
+cd frontend
+npm install                                     # 首次
+VITE_API_PROXY=http://localhost:8010 npm run dev
+```
+
+- `VITE_API_PROXY` 必须指向后端端口；Vite 把 `/api`、`/ready` 代理过去（见 `frontend/vite.config.ts`），缺省指向 `:8000`。
+- Vite 默认开在 `http://localhost:5173`（端口被占用时自动顺延，以终端打印为准）。
+
+**3) 进入游戏**
+
+浏览器打开 Vite 打印的地址 →「进入盘面」：
+
+- **观战（god 视角）**：直接看 6 个 AI 互相博弈（白天发言 / 黑夜狼聊 / 投票全程，SSE 实时下行）。
+- **人机对战（座位视角）**：在开局设置里选模式 + 座位；开局后带 `player_token` 跳到座位视图，URL 形如
+  `/game?run_id=<id>&view=seat&seat=<N>&token=<player_token>`，轮到你时弹层让你发言 / 投票 / 用药。
+
+> 端口一致性：后端用哪个端口，前端 `VITE_API_PROXY` 就填哪个，否则 `/api` 转发 404。
+> 密钥安全：AI 座位的 Key 只在服务端环境变量里（不进前端、不进请求体）；座位令牌 `seat{N}-{run_id}` 仅防误操作。
+
+前后端打通与人机对战的完整说明见 [docs/reports/前后端打通与人机对战-2026-06-06.md](docs/reports/前后端打通与人机对战-2026-06-06.md)。
+
+## 并行多栈（fleet）：同时开多局
+
+一条命令拉起 N 套（后端 + 前端）各自独立端口，用于并行开局（批量评测 / 多个真人各自一局）。
+
+```bash
+# 拉起 2 套后端(8010/8011) + 2 套前端(5173/5174)；Ctrl-C 全部停止
+DEEPSEEK_API_KEY=sk-xxx uv run werewolf-fleet up --backends 2
+
+# 仅后端（评测用，不起 vite）
+uv run werewolf-fleet up --backends 4 --frontends 0
+
+# 批量开局：把 20 局分发到 4 个后端，并发 4、相邻启动错峰 1.5s（抗 429）
+uv run werewolf-fleet batch --config llm-6p-deepseek --count 20 --backends 4 --concurrency 4 --stagger 1.5
+```
+
+- 每个后端进程拿到 `WEREWOLF_INSTANCE_TAG=iN`，`run_id` 形如 `6p-deepseek-<ts>-iN`，多后端共享 `artifacts/runs/` 不会撞车（单后端同秒双开也已修，靠目录存在性计数器兜底）。
+- 每个前端通过 `VITE_API_PROXY` 指向自己的后端；人机对战把 `http://localhost:<fe_port>/` 分给各真人即可。
+- 日志：`artifacts/fleet/<stamp>/backend-iN.log` / `frontend-iN.log`；批量汇总 `artifacts/fleet/<stamp>/batch_summary.json`。
+- **限流提示**：所有后端共用同一个 LLM key，规模大时用 `--concurrency` / `--stagger` 错峰，避免 429。
+
 ## 生产部署（Docker Compose）
 
 ```
@@ -167,7 +226,7 @@ src/llm_werewolf/
 - [x] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
 - [x] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)）
 - [ ] 结构化日志（JSON 事件流）
-- [ ] Web 前端观战 UI
+- [x] Web 前端观战 UI / 人机对战（FastAPI + React/Three.js + SSE 实时直播 + 座位输入，详见上方「本地全栈开发」）
 - [x] 评测与复盘（vote intention / swing 分析）
 - [x] 女巫 / 守卫毒奶规则与死亡链（915 项自动化测试）
 

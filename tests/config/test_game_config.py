@@ -77,8 +77,15 @@ def test_invalid_player_count_config() -> None:
     with pytest.raises(ValueError, match="Maximum 20 players supported"):
         create_game_config_from_player_count(100)
 
-    with pytest.raises(ValueError, match="Minimum 6 players required"):
+    with pytest.raises(ValueError, match="Minimum 4 players required"):
         create_game_config_from_player_count(3)
+
+
+def test_four_player_board_has_single_wolf() -> None:
+    config = create_game_config_from_player_count(4)
+    assert config.num_players == 4
+    werewolves = sum(1 for role in config.role_names if "Wolf" in role or role == "Werewolf")
+    assert werewolves == 1
 
 
 def test_config_scaling() -> None:

@@ -9,10 +9,15 @@ from pathlib import Path
 _LLM_KEY_ENVS: tuple[str, ...] = (
     "ARK_API_KEY",
     "OPENAI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "GEMINI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "KIMI_API_KEY",
+    "GLM_API_KEY",
+    "MINIMAX_API_KEY",
+    # legacy aliases (migration)
     "VIBE_API_KEY",
     "MOONSHOT_API_KEY",
-    "KIMI_API_KEY",
-    "ANTHROPIC_API_KEY",
 )
 
 

@@ -15,6 +15,8 @@ def test_actions_spec(api_client: TestClient) -> None:
     assert resp.status_code == 200
     actions = resp.json()["data"]["actions"]
     assert any(a["action"] == "start_game" for a in actions)
+    assert any(a["action"] == "stream_events" for a in actions)
+    assert any(a["action"] == "submit_human_input" for a in actions)
 
 
 def test_start_game_unknown_config(api_client: TestClient) -> None:
@@ -24,7 +26,7 @@ def test_start_game_unknown_config(api_client: TestClient) -> None:
 
 def test_start_game_returns_run_id(api_client: TestClient) -> None:
     with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
-        resp = api_client.post("/api/v1/games/start", json={"config_id": "demo-6"})
+        resp = api_client.post("/api/v1/games/start", json={"config_id": "standard-6p"})
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["run_id"]
@@ -38,7 +40,7 @@ def test_start_game_default_mode(api_client: TestClient) -> None:
         resp = api_client.post("/api/v1/games/start", json={})
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["config_id"] == "llm-12p-kimi"
+    assert data["config_id"] == "standard-6p"
     assert data["rules"] == "basic"
 
 
@@ -57,7 +59,7 @@ def test_start_game_custom_roster(api_client: TestClient) -> None:
         resp = api_client.post(
             "/api/v1/games/start",
             json={
-                "config_id": "demo-6",
+                "config_id": "standard-6p",
                 "player_count": 8,
                 "players": [{"name": "SeatOne"}, {"name": "SeatTwo"}],
             },
@@ -76,7 +78,7 @@ def test_start_game_rejects_human_seats_for_web(api_client: TestClient) -> None:
     with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
         resp = api_client.post(
             "/api/v1/games/start",
-            json={"config_id": "demo-6", "human_seats": [1], "badge_flow": True},
+            json={"config_id": "standard-6p", "human_seats": [1], "badge_flow": True},
         )
     assert resp.status_code == 400
     assert "human-player games are not supported" in resp.json()["detail"]
@@ -119,6 +121,9 @@ def test_list_start_modes(api_client: TestClient) -> None:
     modes = resp.json()["data"]["modes"]
     assert any(m["rules"] == "basic" for m in modes)
     assert all(m["participation"] != "human_mixed" for m in modes)
+    assert any(m["participation"] == "human_vs_ai" for m in modes)
+    assert any(m["config_id"] == "standard-6p" for m in modes)
+    assert any(m["config_id"] == "standard-12p" for m in modes)
     assert all(m["config_id"] != "human-6p-demo" for m in modes)
     assert resp.json()["data"]["default_rules"] == "basic"
 

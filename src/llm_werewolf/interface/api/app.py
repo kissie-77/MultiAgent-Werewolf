@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from llm_werewolf.paths import ARTIFACTS_DIR
+from llm_werewolf.game_runtime.support.env import load_project_dotenv
 from llm_werewolf.interface.api.routes import (
     game_router,
     home_router,
@@ -21,6 +22,7 @@ from llm_werewolf.interface.api.routes import (
     replay_router,
     actions_router,
     content_router,
+    settings_router,
 )
 from llm_werewolf.observability.core.health import check_readiness
 
@@ -49,6 +51,7 @@ PAGE_ROUTE_MAP = {
     "cancel_game": f"{API_PREFIX}/games/{{run_id}}/cancel",
     "trigger_post_game": f"{API_PREFIX}/runs/{{run_id}}/post-game",
     "compare_models_post": f"{API_PREFIX}/models/compare",
+    "settings_api_keys": f"{API_PREFIX}/settings/api-keys",
 }
 
 
@@ -66,6 +69,7 @@ def _ready_require_llm_key() -> bool:
 
 
 def create_app() -> FastAPI:
+    load_project_dotenv()
     app = FastAPI(
         title="LLM Werewolf API",
         description="Frontend-facing HTTP API for AI Werewolf pages.",
@@ -84,7 +88,7 @@ def create_app() -> FastAPI:
         allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Accept", "Authorization", "Content-Type"],
+        allow_headers=["Accept", "Authorization", "Content-Type", "X-Settings-Token"],
     )
 
     @app.get("/health")
@@ -112,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(models_router, prefix=API_PREFIX)
     app.include_router(runs_router, prefix=API_PREFIX)
     app.include_router(replay_router, prefix=API_PREFIX)
+    app.include_router(settings_router, prefix=API_PREFIX)
 
     return app
 

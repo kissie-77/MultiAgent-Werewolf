@@ -112,7 +112,7 @@ async def run(config_path: Path, run_dir: Path) -> None:
 
 
 def main() -> None:
-    config = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("configs/llm-12p-kimi.yaml")
+    config = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("configs/standard-12p.yaml")
     label = config.stem.replace("llm-", "")
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = RUNS_DIR / f"{label}-{ts}"

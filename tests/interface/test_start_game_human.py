@@ -13,14 +13,14 @@ from llm_werewolf.interface.api.models.actions import (
 
 
 def test_request_accepts_human_seat() -> None:
-    req = StartGameRequest(config_id="llm-6p-deepseek", human={"seat": 1})
+    req = StartGameRequest(config_id="standard-6p", human={"seat": 1})
     assert req.human is not None
     assert req.human.seat == 1
     assert req.human.role is None
 
 
 def test_request_human_defaults_to_none() -> None:
-    req = StartGameRequest(config_id="llm-6p-deepseek")
+    req = StartGameRequest(config_id="standard-6p")
     assert req.human is None
 
 

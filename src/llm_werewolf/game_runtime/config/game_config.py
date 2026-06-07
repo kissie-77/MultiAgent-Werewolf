@@ -8,7 +8,7 @@ class GameConfig(BaseModel):
     """游戏配置，包括玩家数量、角色与计时设置。"""
 
     num_players: int = Field(
-        ..., ge=6, le=20, description="Number of players in the game", examples=[6, 9, 12]
+        ..., ge=4, le=20, description="Number of players in the game", examples=[4, 6, 12]
     )
     role_names: list[str] = Field(
         ...,

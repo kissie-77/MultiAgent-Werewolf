@@ -467,13 +467,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     ]);
     const payload = buildHumanPayload(selection);
     try {
-      await ApiClient.sendInput(seatRunId, {
+      const res = await ApiClient.sendInput(seatRunId, {
         token: playerToken,
         request_id: pendingInput.request_id,
         kind: pendingInput.kind,
         payload,
       });
-      set({ pendingInput: null });
+      if (res.accepted) {
+        set({ pendingInput: null });
+      }
     } catch (err) {
       console.error("Failed to submit human input:", err);
     }

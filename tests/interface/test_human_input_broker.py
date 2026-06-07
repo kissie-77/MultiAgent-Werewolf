@@ -30,10 +30,12 @@ async def test_request_resolves_on_submit():
     assert spy.events[0]["request_id"] == rid
     assert spy.events[0]["kind"] == "seat"
     assert spy.events[0]["valid_targets"] == [2, 3]
-    assert broker.submit(request_id=rid, payload="2") is True
+    ok, code = broker.submit(request_id=rid, payload="2")
+    assert ok is True and code is None
     assert await task == "2"
     # 幂等：再次 submit 同 id 返回 False
-    assert broker.submit(request_id=rid, payload="3") is False
+    ok2, code2 = broker.submit(request_id=rid, payload="3")
+    assert ok2 is False and code2 == "expired_or_unknown"
 
 
 async def test_request_times_out_to_fallback():
@@ -49,7 +51,8 @@ async def test_request_times_out_to_fallback():
 
 def test_submit_unknown_request_is_false():
     broker = HumanInputBroker(run_id="r1", seat=1, broadcaster=_Spy())
-    assert broker.submit(request_id="nope", payload="2") is False
+    ok, code = broker.submit(request_id="nope", payload="2")
+    assert ok is False and code == "expired_or_unknown"
 
 
 async def test_awaiting_input_event_is_seat_scoped_for_sse():
@@ -72,7 +75,8 @@ async def test_awaiting_input_event_is_seat_scoped_for_sse():
 
     # the resolution event must stay seat-scoped too (no leak that seat 1 acted)
     rid = next(iter(broker.pending_ids()))
-    assert broker.submit(request_id=rid, payload="2") is True
+    ok, code = broker.submit(request_id=rid, payload="2")
+    assert ok is True and code is None
     assert await task == "2"
     received = next(e for e in spy.events if e["event_type"] == "input_received")
     assert event_visible_for(received, view="seat", seat=3) is False

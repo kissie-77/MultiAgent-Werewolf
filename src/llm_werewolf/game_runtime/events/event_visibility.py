@@ -110,6 +110,10 @@ def resolve_visible_to(
         actor_id = (data or {}).get(key) or (data or {}).get("player_id")
         return [actor_id] if actor_id else []
 
+    if event_type == EventType.ERROR:
+        actor_id = (data or {}).get("player_id")
+        return [actor_id] if actor_id else []
+
     if event_type in REPLAY_ONLY_TYPES:
         return []
 

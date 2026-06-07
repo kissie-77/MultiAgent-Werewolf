@@ -62,6 +62,39 @@ def test_stream_seat_view_hides_other_players_private_events(tmp_path, monkeypat
     assert "seer_checked" not in body   # seat 3 must NOT see seat 2's private event
 
 
+def test_stream_web_human_seat_requires_token(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run_id = "web-human-stream"
+    run_dir = tmp_path / "artifacts" / "runs" / run_id
+    _write_events(run_dir, [])
+    meta = {
+        "run_id": run_id,
+        "status": "running",
+        "web_human_seat": 2,
+        "player_token": f"seat2-{run_id}",
+    }
+    (run_dir / "run_meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    client = TestClient(create_app())
+    no_token = client.get(f"/api/v1/games/{run_id}/stream?view=seat&seat=2")
+    assert no_token.status_code == 403
+
+    bad_token = client.get(
+        f"/api/v1/games/{run_id}/stream?view=seat&seat=2&token=wrong"
+    )
+    assert bad_token.status_code == 403
+
+    wrong_seat = client.get(
+        f"/api/v1/games/{run_id}/stream?view=seat&seat=3&token=seat2-{run_id}"
+    )
+    assert wrong_seat.status_code == 403
+
+    ok = client.get(
+        f"/api/v1/games/{run_id}/stream?view=seat&seat=2&token=seat2-{run_id}"
+    )
+    assert ok.status_code == 200
+
+
 def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     client = TestClient(create_app())
@@ -108,13 +141,16 @@ async def test_engine_run_publishes_to_broadcaster(tmp_path, monkeypatch):
 
     # demo config ships in repo configs/; copy is unnecessary — resolve_config_for_start
     # accepts a config_id under the repo configs dir.
-    configs_dir = Path(__file__).resolve().parents[2] / "configs"
+    from tests.interface.fixtures import write_standard_demo_config
+
+    configs_dir = tmp_path / "configs"
+    write_standard_demo_config(configs_dir, player_count=6)
     runs_dir = tmp_path / "artifacts" / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
 
     resp = await game_session_manager.start_game(
         configs_dir=configs_dir, runs_dir=runs_dir,
-        request=StartGameRequest(config_id="demo-6"),
+        request=StartGameRequest(config_id="standard-6p"),
     )
     run_id = resp.run_id
     # The _run_game task is scheduled but has not yet run (start_game never

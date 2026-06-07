@@ -43,8 +43,9 @@
 |------|------|
 | `uv run werewolf` | 交互式正式对局入口 |
 | `uv run werewolf --participation human_mixed --rules extended_roles --players 18 --human_seat 8` | 18 人人机扩展局示例 |
-| `uv run werewolf configs/llm-12p-kimi.yaml` | 12 人 Kimi/VibeAPI LLM 对局（CLI） |
-| `scripts/test_ark_connectivity.py` | 校验 `.env` 中 `ARK_API_KEY` + `ARK_EP` 是否可用（Doubao/ARK 专用） |
+| `uv run werewolf configs/standard-12p.yaml` | 12 人标准局（豆包，CLI） |
+| `docs/interface/PROVIDERS.md` | 8 家供应商 env 槽位说明 |
+| `scripts/test_ark_connectivity.py` | 校验 `ARK_API_KEY` + `ARK_EP`（豆包） |
 | `uv run werewolf-api` | Web API（前端对接目标，`:8000`）；`GET /health`、`GET /ready` |
 | `uv run werewolf-watch --since 24h` | 扫描 run 产物并生成告警摘要（默认不 push Webhook） |
 

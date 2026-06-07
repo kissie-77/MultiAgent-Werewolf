@@ -41,6 +41,6 @@ def test_apply_human_seats(demo_config) -> None:
 
 
 def test_prepare_start_players_config_returns_none_without_overrides(demo_config) -> None:
-    request = StartGameRequest(config_id="demo-6")
+    request = StartGameRequest(config_id="standard-6p")
     assert has_roster_customizations(request) is False
     assert prepare_start_players_config(demo_config, request) is None

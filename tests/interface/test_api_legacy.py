@@ -52,7 +52,7 @@ def test_legacy_models_list(api_client: TestClient) -> None:
     resp = api_client.get("/api/v1/models")
     body = resp.json()
     assert resp.status_code == 200
-    assert any(c["config_id"] == "demo-6" for c in body["data"]["configs"])
+    assert any(c["config_id"] == "standard-6p" for c in body["data"]["configs"])
 
 
 def test_legacy_models_compare(api_client: TestClient) -> None:

@@ -1,0 +1,43 @@
+# Standard 8-player match board (Volcengine Ark / Doubao)
+# Official board size — roles auto-dealt from player count.
+# Set ARK_API_KEY and ARK_EP in .env (or via web settings).
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+vote_intention_concurrency: 8
+
+doubao_base: &doubao_base https://ark.cn-beijing.volces.com/api/v3
+
+players:
+  - name: Player1
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY
+  - name: Player2
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY
+  - name: Player3
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY
+  - name: Player4
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY
+  - name: Player5
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY
+  - name: Player6
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY
+  - name: Player7
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY
+  - name: Player8
+    model_env: ARK_EP
+    base_url: *doubao_base
+    api_key_env: ARK_API_KEY

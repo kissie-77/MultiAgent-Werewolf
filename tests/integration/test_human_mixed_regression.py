@@ -42,7 +42,7 @@ async def test_human_mixed_demo_prompts_do_not_expose_control_or_model_terms(
     monkeypatch.setattr(DemoAgent, "get_structured_response", record_structured)
     monkeypatch.setattr("builtins.input", lambda _prompt="": (_ for _ in ()).throw(EOFError()))
 
-    cfg = load_config(Path("configs/human-6p-demo.yaml"))
+    cfg = load_config(Path("configs/archive/human-6p-demo.yaml"))
     agents, roles, game_config = prepare_game_roster(cfg)
     engine = GameEngine(game_config, language=cfg.language, information_hub=create_information_hub())
     engine.on_event = lambda _event: None

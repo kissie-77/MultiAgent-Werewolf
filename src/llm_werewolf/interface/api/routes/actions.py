@@ -86,6 +86,25 @@ ACTION_SPECS: list[PageActionSpec] = [
     PageActionSpec(
         page_key="game",
         frontend_route="/game",
+        action="stream_events",
+        method="GET",
+        api_path="/api/v1/games/{run_id}/stream",
+        description="SSE event stream (god or seat view; seat view for web-human requires token)",
+        response_model=None,
+    ),
+    PageActionSpec(
+        page_key="game",
+        frontend_route="/game",
+        action="submit_human_input",
+        method="POST",
+        api_path="/api/v1/games/{run_id}/input",
+        description="Resolve a web-human awaiting_input decision",
+        request_model="HumanInputRequest",
+        response_model="HumanInputResponse",
+    ),
+    PageActionSpec(
+        page_key="game",
+        frontend_route="/game",
         action="cancel_game",
         method="POST",
         api_path="/api/v1/games/{run_id}/cancel",
@@ -187,15 +206,37 @@ async def submit_human_input(
     if session is None:
         raise HTTPException(status_code=404, detail=f"Active session not found: {run_id}")
     if body.token != session.player_token:
-        raise HTTPException(status_code=403, detail="Invalid seat token")
+        return ApiResponse(
+            data=HumanInputResponse(
+                run_id=run_id,
+                accepted=False,
+                message="Invalid seat token",
+                reject_code="invalid_token",
+            )
+        )
     broker = get_input_broker(run_id)
     if broker is None:
-        raise HTTPException(status_code=409, detail="No input broker for this run")
-    accepted = broker.submit(request_id=body.request_id, payload=body.payload)
+        return ApiResponse(
+            data=HumanInputResponse(
+                run_id=run_id,
+                accepted=False,
+                message="No input broker for this run",
+                reject_code="no_input_broker",
+            )
+        )
+    accepted, reject_code = broker.submit(request_id=body.request_id, payload=body.payload)
     if not accepted:
-        raise HTTPException(
-            status_code=409,
-            detail="Unknown, already-consumed, or expired request_id",
+        messages = {
+            "expired_or_unknown": "Unknown or expired request_id",
+            "already_consumed": "request_id already consumed",
+        }
+        return ApiResponse(
+            data=HumanInputResponse(
+                run_id=run_id,
+                accepted=False,
+                message=messages.get(reject_code or "", "Input rejected"),
+                reject_code=reject_code,
+            )
         )
     return ApiResponse(data=HumanInputResponse(run_id=run_id, accepted=True))
 
@@ -312,6 +353,7 @@ async def stream_game(
     request: Request,
     view: Annotated[str, Query(pattern="^(god|seat)$")] = "god",
     seat: Annotated[int | None, Query(ge=1, le=20)] = None,
+    token: Annotated[str | None, Query()] = None,
     last_event_id: Annotated[int, Query(ge=0)] = 0,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
@@ -322,6 +364,20 @@ async def stream_game(
         run_dir = alt if alt.is_dir() else run_dir
     if not run_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+
+    from llm_werewolf.interface.api.services.game_sessions import validate_seat_stream_access
+
+    session = game_session_manager._sessions.get(run_id)
+    denied = validate_seat_stream_access(
+        view=view,
+        seat=seat,
+        token=token,
+        run_dir=run_dir,
+        session=session,
+    )
+    if denied is not None:
+        status = 400 if denied.startswith("seat query parameter") else 403
+        raise HTTPException(status_code=status, detail=denied)
 
     # Honor the SSE reconnect header if the client sent one.
     header_id = request.headers.get("last-event-id")

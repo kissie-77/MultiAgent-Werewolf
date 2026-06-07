@@ -214,7 +214,7 @@ def get_share_replay_page(
         og_description=summary,
         winner_camp=detail.winner_camp,
         highlight_players=highlights,
-        share_url_path=f"/share/replay/{run_id}",
+        share_url_path=f"/share/{run_id}",
         artifacts=[a for a in detail.artifacts if a.name.endswith((".md", ".json"))][:10],
     )
 

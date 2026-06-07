@@ -57,6 +57,65 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Web-human runs disable tight phase timeouts; broker deadline handles human wait.
+WEB_HUMAN_RELAXED_TIMEOUT_S = 3600
+
+
+def _read_run_meta(run_dir: Path) -> dict[str, Any]:
+    meta_path = run_dir / "run_meta.json"
+    if not meta_path.is_file():
+        return {}
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def read_web_human_auth(run_dir: Path) -> tuple[int | None, str | None]:
+    """Return ``(web_human_seat, player_token)`` persisted for a run, if any."""
+    meta = _read_run_meta(run_dir)
+    seat = meta.get("web_human_seat")
+    token = meta.get("player_token")
+    return (int(seat) if seat is not None else None, str(token) if token else None)
+
+
+def resolve_web_human_auth(
+    *,
+    run_dir: Path,
+    session: GameSession | None,
+) -> tuple[int | None, str | None]:
+    if session is not None and session.human_seat is not None:
+        return session.human_seat, session.player_token
+    return read_web_human_auth(run_dir)
+
+
+def validate_seat_stream_access(
+    *,
+    view: str,
+    seat: int | None,
+    token: str | None,
+    run_dir: Path,
+    session: GameSession | None,
+) -> str | None:
+    """Return an HTTP error detail string when seat-stream access must be denied."""
+    if view != "seat":
+        return None
+    web_seat, expected_token = resolve_web_human_auth(run_dir=run_dir, session=session)
+    if web_seat is None:
+        if seat is None:
+            return "seat query parameter is required for view=seat"
+        return None
+    if seat is None:
+        return "seat query parameter is required for web-human seat stream"
+    if token is None:
+        return "token query parameter is required for web-human seat stream"
+    if expected_token is None or token != expected_token:
+        return "Invalid seat token"
+    if seat != web_seat:
+        return "Seat does not match the human player seat for this run"
+    return None
+
 
 def _read_alert_count(run_dir: Path) -> int:
     report = run_dir / "alert_report.json"
@@ -235,6 +294,9 @@ class GameSessionManager:
             "human_seats": human_seats,
             "badge_flow": badge_flow,
         }
+        if human_seat is not None:
+            meta["web_human_seat"] = human_seat
+            meta["player_token"] = player_token
         (run_dir / "run_meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2),
             encoding="utf-8",
@@ -273,12 +335,19 @@ class GameSessionManager:
         session.status = GameSessionStatus.RUNNING
 
         amp = "&"
+        game_page_path = f"/game?run_id={run_id}{amp}source=runs"
+        seat_page_path = None
+        if human_seat is not None and player_token is not None:
+            seat_page_path = (
+                f"{game_page_path}{amp}view=seat{amp}seat={human_seat}"
+                f"{amp}token={player_token}"
+            )
         return StartGameResponse(
             run_id=run_id,
             status=session.status.value,
             config_id=stem,
             run_dir=str(run_dir.as_posix()),
-            game_page_path=f"/game?run_id={run_id}{amp}source=runs",
+            game_page_path=game_page_path,
             status_path=f"/api/v1/games/{run_id}/status{amp}source=runs",
             replay_page_path=f"/replay/{run_id}{amp}source=runs",
             participation=participation,
@@ -289,6 +358,7 @@ class GameSessionManager:
             custom_roster=custom_roster,
             player_token=player_token,
             stream_path=f"/api/v1/games/{run_id}/stream" if human_seat is not None else None,
+            seat_page_path=seat_page_path,
         )
 
     async def _run_game(self, session: GameSession) -> None:
@@ -298,6 +368,15 @@ class GameSessionManager:
             players, roles, game_config = prepare_game_roster(players_config)
             if session.badge_flow:
                 game_config = game_config.model_copy(update={"enable_sheriff": True})
+            if session.human_seat is not None:
+                relaxed = WEB_HUMAN_RELAXED_TIMEOUT_S
+                game_config = game_config.model_copy(
+                    update={
+                        "night_timeout": relaxed,
+                        "day_timeout": relaxed,
+                        "vote_timeout": relaxed,
+                    }
+                )
             engine = GameEngine(
                 game_config,
                 language=players_config.language,

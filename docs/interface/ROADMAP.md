@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-05
+> **最后更新**：2026-06-07
 
 ## 模块目录结构
 
@@ -44,8 +44,11 @@ interface/
 | 控制台展示 | ✅ Done | CLI 挂载 `ui.ConsolePresenter`（TUI 已移除） |
 | 人机对战 | ✅ Done | `--human_seat` 混合座位 |
 | API 回放功能 | 🔄 In Progress | replay / runs 页面 API |
-| CLI 12 人 LLM 对局验证 | ✅ Done | `llm-12p-kimi.yaml` + VibeAPI/Kimi 配置 |
-| Web 前端对接 | 📋 Planned | 与 frontend 模块对接 |
+| 标准板子 YAML（4/6/8/12/16） | ✅ Done | `standard-*p.yaml`，默认豆包 |
+| 供应商 env 模板 | ✅ Done | 8 家 · [PROVIDERS.md](./PROVIDERS.md) |
+| 设置 API（浏览器写 `.env`） | ✅ Done | `GET/POST /settings/api-keys` |
+| Web 人机 + 观战 SSE | ✅ Done | 座位 token、输入 reject_code、分享 `/share/{id}` |
+| 同台多模型（按座 provider） | 📋 Planned | Provider Registry 开局解析 |
 
 ## 已完成
 

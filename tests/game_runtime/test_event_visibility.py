@@ -4,6 +4,19 @@ from llm_werewolf.game_runtime.types import EventType
 from llm_werewolf.game_runtime.events.event_visibility import resolve_visible_to
 
 
+def test_error_visible_only_to_actor() -> None:
+    visible = resolve_visible_to(
+        EventType.ERROR,
+        {"player_id": "player_3", "message": "night action failed"},
+    )
+    assert visible == ["player_3"]
+
+
+def test_error_without_player_id_is_not_public() -> None:
+    visible = resolve_visible_to(EventType.ERROR, {"message": "generic failure"})
+    assert visible == []
+
+
 def test_werewolf_killed_visible_to_wolf_team_and_witch() -> None:
     visible = resolve_visible_to(
         EventType.WEREWOLF_KILLED,

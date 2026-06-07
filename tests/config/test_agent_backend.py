@@ -58,7 +58,7 @@ def test_vote_intention_concurrency_accepts_parallel_value() -> None:
 
 
 def test_kimi_config_enables_parallel_vote_intentions() -> None:
-    cfg = load_config(Path("configs/llm-12p-kimi.yaml"))
+    cfg = load_config(Path("configs/standard-12p.yaml"))
 
     assert cfg.vote_intention_concurrency > 1
 

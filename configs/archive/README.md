@@ -1,7 +1,11 @@
 # Archived configs
 
-These YAML files are kept for reference only. They are **not** wired into `modes.py`, CI, or default scripts.
+Retired board YAMLs kept for reference and regression fixtures. **Do not use for new matches.**
 
-For active setups use `configs/example.yaml`, `configs/llm-12p-kimi.yaml`, `configs/llm-6p-doubao.yaml`, `configs/llm-9p-doubao.yaml`, or `configs/demo-6.yaml`.
+Active official boards live in the parent directory:
 
-`configs/llm-12p-doubao.yaml` has been removed from active entry modes; 12-player real LLM runs now use `configs/llm-12p-kimi.yaml`.
+- `standard-4p.yaml` … `standard-16p.yaml`
+
+Other active non-board files: `example.yaml` (template), `observability.yaml`.
+
+`human-6p-demo.yaml` remains here for CLI stdin human + demo bot offline testing only.

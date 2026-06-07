@@ -50,15 +50,15 @@ class StartGameRequest(BaseModel):
     run_label: str | None = Field(default=None, description="Optional run directory prefix")
     player_count: int | None = Field(
         default=None,
-        ge=6,
+        ge=4,
         le=20,
-        description="Optional seat count override (6-20)",
+        description="Optional seat count override (4-20); prefer standard-{N}p config_id",
     )
     human_seats: list[int] | None = Field(
         default=None,
         description=(
-            "1-based seat numbers for human players. CLI-only for now; "
-            "the Web API rejects human-player games until browser input is implemented."
+            "1-based seat numbers for CLI stdin humans (model=human). "
+            "For browser play use ``human`` instead."
         ),
     )
     badge_flow: bool | None = Field(
@@ -122,6 +122,10 @@ class StartGameResponse(BaseModel):
     custom_roster: bool = False
     player_token: str | None = None
     stream_path: str | None = None
+    seat_page_path: str | None = Field(
+        default=None,
+        description="Full frontend route for the human seat view (includes view/seat/token query params)",
+    )
 
 
 class HumanInputRequest(BaseModel):
@@ -135,6 +139,10 @@ class HumanInputResponse(BaseModel):
     run_id: str
     accepted: bool
     message: str | None = None
+    reject_code: str | None = Field(
+        default=None,
+        description="When accepted=false: no_input_broker | invalid_token | expired_or_unknown | already_consumed",
+    )
 
 
 class GameStatusResponse(BaseModel):

@@ -96,11 +96,18 @@ class HumanInputBroker:
         finally:
             self._pending.pop(rid, None)
 
-    def submit(self, *, request_id: str, payload: str) -> bool:
-        """Resolve the matching future. Unknown / already-consumed -> ``False``."""
+    def submit(self, *, request_id: str, payload: str) -> tuple[bool, str | None]:
+        """Resolve the matching future.
+
+        Returns ``(True, None)`` on success. On failure returns ``(False, code)`` where
+        *code* is one of ``expired_or_unknown`` (no pending request — timed out or never
+        existed) or ``already_consumed``.
+        """
         pending = self._pending.get(request_id)
-        if pending is None or pending.future.done():
-            return False
+        if pending is None:
+            return False, "expired_or_unknown"
+        if pending.future.done():
+            return False, "already_consumed"
         pending.future.set_result(payload)
         self._publish(
             {
@@ -109,7 +116,7 @@ class HumanInputBroker:
                 "request_id": request_id,
             }
         )
-        return True
+        return True, None
 
     def pending_ids(self) -> set[str]:
         return set(self._pending)

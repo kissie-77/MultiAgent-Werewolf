@@ -3,7 +3,11 @@ import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useGameStore } from "../store";
 import { ApiClient } from "../api/client";
-import { getCustomApiKey, setCustomApiKey, getOpenAIApiKey, setOpenAIApiKey, getGeminiApiKey, setGeminiApiKey, getClaudeApiKey, setClaudeApiKey, getDoubaoApiKey, setDoubaoApiKey } from "../lib/config";
+import {
+  type ApiKeySlotStatus,
+  fetchApiKeysStatus,
+  saveApiKeysToServer,
+} from "../lib/config";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from "lucide-react";
 
@@ -28,43 +32,55 @@ export default function GameSetup() {
   const [geminiKey, setGeminiKey] = useState<string>("");
   const [claudeKey, setClaudeKey] = useState<string>("");
   const [doubaoKey, setDoubaoKey] = useState<string>("");
+  const [keyStatus, setKeyStatus] = useState<Record<string, ApiKeySlotStatus>>({});
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
+  const keyPlaceholder = (slot: string, fallback: string) => {
+    const status = keyStatus[slot];
+    if (status?.configured && status.masked) {
+      return `已配置 ${status.masked}`;
+    }
+    return fallback;
+  };
 
   useEffect(() => {
-    setApiKey(getCustomApiKey());
-    setOpenaiKey(getOpenAIApiKey());
-    setGeminiKey(getGeminiApiKey());
-    setClaudeKey(getClaudeApiKey());
-    setDoubaoKey(getDoubaoApiKey());
-  }, []);
+    if (!showSettingsModal) return;
+    setSettingsError(null);
+    fetchApiKeysStatus()
+      .then((data) => setKeyStatus(data.keys))
+      .catch((err) =>
+        setSettingsError(err instanceof Error ? err.message : String(err))
+      );
+  }, [showSettingsModal]);
 
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setApiKey(val);
-    setCustomApiKey(val);
-  };
-
-  const handleOpenaiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setOpenaiKey(val);
-    setOpenAIApiKey(val);
-  };
-
-  const handleGeminiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setGeminiKey(val);
-    setGeminiApiKey(val);
-  };
-
-  const handleClaudeKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setClaudeKey(val);
-    setClaudeApiKey(val);
-  };
-
-  const handleDoubaoKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setDoubaoKey(val);
-    setDoubaoApiKey(val);
+  const saveSettings = async () => {
+    setSettingsError(null);
+    setSettingsSaving(true);
+    try {
+      const payload: Record<string, string> = {};
+      if (apiKey.trim()) payload.deepseek = apiKey.trim();
+      if (openaiKey.trim()) payload.openai = openaiKey.trim();
+      if (geminiKey.trim()) payload.gemini = geminiKey.trim();
+      if (claudeKey.trim()) payload.claude = claudeKey.trim();
+      if (doubaoKey.trim()) payload.doubao = doubaoKey.trim();
+      if (Object.keys(payload).length === 0) {
+        setSettingsError("请至少填写一个要保存的 API Key");
+        return;
+      }
+      const data = await saveApiKeysToServer(payload);
+      setKeyStatus(data.keys);
+      setApiKey("");
+      setOpenaiKey("");
+      setGeminiKey("");
+      setClaudeKey("");
+      setDoubaoKey("");
+      setShowSettingsModal(false);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSettingsSaving(false);
+    }
   };
 
   React.useEffect(() => {
@@ -89,7 +105,7 @@ export default function GameSetup() {
     setSetupCount(null);
     try {
       const res = await ApiClient.startGame({
-        config_id: "llm-6p-deepseek",
+        config_id: `standard-${playerCount}p`,
         player_count: playerCount,
         badge_flow: hasSheriff,
         // 人机模式下占用一个人类座位；纯观战模式不传 human。
@@ -638,9 +654,9 @@ export default function GameSetup() {
                   <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
                     <input 
                       type="password"
-                      placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      placeholder={keyPlaceholder("deepseek", "sk-xxxxxxxxxxxxxxxxxxxxxxxx")}
                       value={apiKey}
-                      onChange={handleApiKeyChange}
+                      onChange={(e) => setApiKey(e.target.value)}
                       className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
                     />
                   </div>
@@ -653,9 +669,9 @@ export default function GameSetup() {
                   <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
                     <input 
                       type="password"
-                      placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      placeholder={keyPlaceholder("openai", "sk-xxxxxxxxxxxxxxxxxxxxxxxx")}
                       value={openaiKey}
-                      onChange={handleOpenaiKeyChange}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
                       className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
                     />
                   </div>
@@ -668,9 +684,9 @@ export default function GameSetup() {
                   <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
                     <input 
                       type="password"
-                      placeholder="AIza-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      placeholder={keyPlaceholder("gemini", "AIza-xxxxxxxxxxxxxxxxxxxxxxxx")}
                       value={geminiKey}
-                      onChange={handleGeminiKeyChange}
+                      onChange={(e) => setGeminiKey(e.target.value)}
                       className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
                     />
                   </div>
@@ -683,9 +699,9 @@ export default function GameSetup() {
                   <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
                     <input 
                       type="password"
-                      placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx"
+                      placeholder={keyPlaceholder("claude", "sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx")}
                       value={claudeKey}
-                      onChange={handleClaudeKeyChange}
+                      onChange={(e) => setClaudeKey(e.target.value)}
                       className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
                     />
                   </div>
@@ -698,26 +714,30 @@ export default function GameSetup() {
                   <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
                     <input 
                       type="password"
-                      placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
+                      placeholder={keyPlaceholder("doubao", "xxxxxxxxxxxxxxxxxxxxxxxx")}
                       value={doubaoKey}
-                      onChange={handleDoubaoKeyChange}
+                      onChange={(e) => setDoubaoKey(e.target.value)}
                       className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
                     />
                   </div>
                 </div>
 
                 <p className="text-[10px] text-slate-500 leading-relaxed font-sans mt-3 border-l-2 border-amber-900/50 pl-3">
-                  配置各平台密钥以供大模型法阵运转。<br/>
-                  * 符文信息仅存于本地浏览器，隐秘且安全。
+                  密钥通过接口写入服务器 <code className="text-amber-600/80">.env</code>，供本局 LLM 代理调用。<br/>
+                  * 仅提交你填写的字段；已配置的项显示脱敏预览，不会回显完整 Key。
                 </p>
+                {settingsError && (
+                  <p className="text-[10px] text-red-400 font-sans mt-2">{settingsError}</p>
+                )}
               </div>
 
               <div className="mt-8 pt-4 border-t border-amber-900/30 flex justify-end relative z-10">
                 <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="px-6 py-2.5 bg-amber-950/40 border border-amber-600/50 text-amber-500 font-sans font-black text-xs uppercase tracking-widest hover:bg-amber-900/60 hover:text-amber-400 transition-all rounded"
+                  onClick={saveSettings}
+                  disabled={settingsSaving}
+                  className="px-6 py-2.5 bg-amber-950/40 border border-amber-600/50 text-amber-500 font-sans font-black text-xs uppercase tracking-widest hover:bg-amber-900/60 hover:text-amber-400 transition-all rounded disabled:opacity-50"
                 >
-                  铭刻设定 (SAVE)
+                  {settingsSaving ? "保存中…" : "铭刻设定 (SAVE)"}
                 </button>
               </div>
             </motion.div>

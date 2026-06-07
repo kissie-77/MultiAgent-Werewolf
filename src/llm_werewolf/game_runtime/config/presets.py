@@ -8,10 +8,10 @@ def _validate_player_count(num_players: int) -> None:
         num_players: 待校验的玩家数量。
 
     Raises:
-        ValueError: 玩家数量超出有效范围（6-20）时抛出。
+        ValueError: 玩家数量超出有效范围（4-20）时抛出。
     """
-    if num_players < 6:
-        msg = "Minimum 6 players required"
+    if num_players < 4:
+        msg = "Minimum 4 players required"
         raise ValueError(msg)
     if num_players > 20:
         msg = "Maximum 20 players supported"
@@ -27,6 +27,8 @@ def _allocate_werewolf_roles(num_players: int) -> list[str]:
     Returns:
         list[str]: 狼人角色名称列表。
     """
+    if num_players <= 4:
+        return ["Werewolf"]
     if num_players <= 8:
         return ["Werewolf", "Werewolf"]
     if num_players <= 11:
@@ -89,13 +91,13 @@ def create_game_config_from_player_count(num_players: int) -> GameConfig:
     该函数按玩家总数缩放狼人与特殊角色数量，生成平衡的角色构成。
 
     Args:
-        num_players: 游戏中的玩家数量（6-20）。
+        num_players: 游戏中的玩家数量（4-20）。
 
     Returns:
         GameConfig: 生成的、角色平衡的游戏配置。
 
     Raises:
-        ValueError: 玩家数量超出有效范围（6-20）时抛出。
+        ValueError: 玩家数量超出有效范围（4-20）时抛出。
     """
     _validate_player_count(num_players)
 

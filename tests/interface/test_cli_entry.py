@@ -3,7 +3,7 @@ from llm_werewolf.interface.cli.entry import _should_enable_sheriff
 
 def test_explicit_config_does_not_enable_sheriff_by_default() -> None:
     assert not _should_enable_sheriff(
-        config="configs/human-6p-demo.yaml",
+        config="configs/archive/human-6p-demo.yaml",
         rules=None,
         badge_flow=False,
     )

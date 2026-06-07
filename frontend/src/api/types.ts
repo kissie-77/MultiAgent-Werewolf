@@ -616,6 +616,7 @@ export interface StartGameResponse {
   badge_flow?: boolean;
   player_token?: string | null;
   stream_path?: string | null;
+  seat_page_path?: string | null;
 }
 
 // --- Human-vs-AI input bridge (mirrors backend HumanInputBroker / route) ---
@@ -644,5 +645,6 @@ export interface HumanInputResponse {
   run_id: string;
   accepted: boolean;
   message?: string | null;
+  reject_code?: string | null;
 }
 

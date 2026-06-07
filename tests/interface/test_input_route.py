@@ -3,11 +3,12 @@
 Set-up wires a *real* :class:`HumanInputBroker` into the process registry with one
 pending request (created via the public ``broker.request`` coroutine) plus a fake
 ``GameSession`` carrying a known ``player_token``. Then the route is exercised through
-``TestClient`` for the three contract branches:
+``TestClient`` for the contract branches:
 
-* wrong token              -> 403 (rejected before the broker is even consulted)
-* unknown ``request_id``   -> 409 (broker exists but ``submit`` returns ``False``)
-* correct token + id       -> 200, ``accepted=True`` (broker ``submit`` resolves)
+* wrong token              -> 200 ``accepted=False``, ``reject_code=invalid_token``
+* unknown ``request_id``   -> 200 ``accepted=False``, ``reject_code=expired_or_unknown``
+* correct token + id       -> 200 ``accepted=True``
+* duplicate submit         -> 200 ``accepted=False``, ``reject_code=already_consumed``
 
 The pending request is registered by running ``broker.request`` on a throw-away event
 loop *up to its first suspension point* and then leaving that loop stopped (not closed).
@@ -57,7 +58,7 @@ def _install_session() -> None:
         run_id=_RUN_ID,
         run_dir=Path("."),
         config_path=Path("."),
-        config_id="demo-6",
+        config_id="standard-6p",
         player_token=_TOKEN,
         human_seat=1,
     )
@@ -70,21 +71,24 @@ def test_input_route_contract() -> None:
     try:
         base = f"/api/v1/games/{_RUN_ID}/input"
 
-        # Wrong token -> 403, before the broker is consulted.
         bad = client.post(
             base,
             json={"token": "WRONG", "request_id": rid, "kind": "seat", "payload": "2"},
         )
-        assert bad.status_code == 403, bad.text
+        assert bad.status_code == 200, bad.text
+        bad_data = bad.json()["data"]
+        assert bad_data["accepted"] is False
+        assert bad_data["reject_code"] == "invalid_token"
 
-        # Correct token but unknown request_id -> 409.
         unknown = client.post(
             base,
             json={"token": _TOKEN, "request_id": "no-such-id", "kind": "seat", "payload": "2"},
         )
-        assert unknown.status_code == 409, unknown.text
+        assert unknown.status_code == 200, unknown.text
+        unknown_data = unknown.json()["data"]
+        assert unknown_data["accepted"] is False
+        assert unknown_data["reject_code"] == "expired_or_unknown"
 
-        # Correct token + real pending id -> 200 accepted.
         ok = client.post(
             base,
             json={"token": _TOKEN, "request_id": rid, "kind": "seat", "payload": "2"},
@@ -94,12 +98,14 @@ def test_input_route_contract() -> None:
         assert data["run_id"] == _RUN_ID
         assert data["accepted"] is True
 
-        # Idempotency: the same id is now consumed -> 409.
         again = client.post(
             base,
             json={"token": _TOKEN, "request_id": rid, "kind": "seat", "payload": "2"},
         )
-        assert again.status_code == 409, again.text
+        assert again.status_code == 200, again.text
+        again_data = again.json()["data"]
+        assert again_data["accepted"] is False
+        assert again_data["reject_code"] in {"already_consumed", "expired_or_unknown"}
     finally:
         hi.remove_input_broker(_RUN_ID)
         loop.close()

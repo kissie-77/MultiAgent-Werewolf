@@ -7,7 +7,7 @@ Two complementary tests:
    builtin model (clearing any LLM key/base_url), mints a seat token, and fills the
    response ``player_token`` / ``stream_path``.
 
-2. ``test_web_human_game_pauses_and_resumes`` — full demo-6 game where seat 1 is the
+2. ``test_web_human_game_pauses_and_resumes`` — full standard-6p (demo) game where seat 1 is the
    web-human. The seat's agent blocks on the broker at every decision; a driver task
    submits ``"0"`` to advance it, proving the pause/resume loop does not deadlock. The
    broker wiring itself is asserted deterministically: the captured seat-1 agent is a
@@ -26,22 +26,26 @@ from llm_werewolf.interface.api.services.game_sessions import (
 )
 from llm_werewolf.interface.api.services.human_input import get_input_broker
 from llm_werewolf.interface.api.models.actions import StartGameRequest
+from tests.interface.fixtures import write_standard_demo_config
 
-_CONFIGS_DIR = Path(__file__).resolve().parents[2] / "configs"
 
 
 async def test_start_game_overrides_human_seat_to_web_human(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     mgr = GameSessionManager()
+    configs_dir = tmp_path / "configs"
+    write_standard_demo_config(configs_dir, player_count=6)
     runs_dir = tmp_path / "artifacts" / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
 
-    req = StartGameRequest(config_id="demo-6", human={"seat": 1})
-    resp = await mgr.start_game(configs_dir=_CONFIGS_DIR, runs_dir=runs_dir, request=req)
+    req = StartGameRequest(config_id="standard-6p", human={"seat": 1})
+    resp = await mgr.start_game(configs_dir=configs_dir, runs_dir=runs_dir, request=req)
 
     # Response carries the seat token + stream path for the browser seat-view subscription.
     assert resp.player_token == f"seat1-{resp.run_id}"
     assert resp.stream_path == f"/api/v1/games/{resp.run_id}/stream"
+    assert resp.seat_page_path is not None
+    assert f"view=seat&seat=1&token={resp.player_token}" in resp.seat_page_path
 
     session = mgr._sessions[resp.run_id]
     assert session.human_seat == 1
@@ -76,8 +80,10 @@ async def test_web_human_game_pauses_and_resumes(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(gs_mod, "prepare_game_roster", _capture)
 
-    req = StartGameRequest(config_id="demo-6", human={"seat": 1})
-    resp = await mgr.start_game(configs_dir=_CONFIGS_DIR, runs_dir=runs_dir, request=req)
+    configs_dir = tmp_path / "configs"
+    write_standard_demo_config(configs_dir, player_count=6)
+    req = StartGameRequest(config_id="standard-6p", human={"seat": 1})
+    resp = await mgr.start_game(configs_dir=configs_dir, runs_dir=runs_dir, request=req)
     assert resp.player_token and resp.stream_path
 
     session = mgr._sessions[resp.run_id]
@@ -89,7 +95,8 @@ async def test_web_human_game_pauses_and_resumes(tmp_path, monkeypatch) -> None:
             broker = get_input_broker(resp.run_id)
             if broker is not None:
                 for rid in list(broker.pending_ids()):
-                    if broker.submit(request_id=rid, payload="0"):
+                    ok, _code = broker.submit(request_id=rid, payload="0")
+                    if ok:
                         submitted += 1
             await asyncio.sleep(0.01)
 

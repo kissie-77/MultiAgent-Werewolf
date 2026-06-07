@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-04
+> **最后更新**：2026-06-07
 > **关联代码**：`src/llm_werewolf/interface/`
 > **关联测试**：`tests/interface/`
 
@@ -58,14 +58,17 @@ uv run werewolf
 # 18 人人机扩展局（示例：8 号位为人类）
 uv run werewolf --participation human_mixed --rules extended_roles --players 18 --human_seat 8
 
-# 12 人 Kimi/VibeAPI LLM 对局（首参为 YAML 路径，无 play 子命令）
-uv run werewolf configs/llm-12p-kimi.yaml
+# 标准对局（4/6/8/12/16 人，默认豆包）— 见 configs/standard-*p.yaml
+uv run werewolf configs/standard-12p.yaml
+uv run werewolf configs/standard-6p.yaml --human_seat 1
 
-# Doubao 历史配置仍可用；改 ARK_API_KEY / ARK_EP 后可先跑这个
+# 校验豆包连通性（需 .env 中 ARK_API_KEY + ARK_EP）
 uv run python scripts/test_ark_connectivity.py
 
-# 启动 Web API（默认 127.0.0.1:8000）
-uv run werewolf-api
+# 启动 Web API（默认 127.0.0.1:8000；联调常用 8010）
+uv run werewolf-api --port 8010
+
+# 8 家供应商 env 模板见 docs/interface/PROVIDERS.md
 
 # 批量离线正确性评测
 uv run werewolf-eval --scenario smoke_6p_basic --games 3 --output_dir eval_runs/manual-smoke

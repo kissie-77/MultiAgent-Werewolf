@@ -126,7 +126,7 @@ def test_replay_and_share_pages(service_dirs: dict[str, Path]) -> None:
 
     share = get_share_replay_page("svc-run", service_dirs["runs_dir"], service_dirs["eval_runs_dir"])
     assert share is not None
-    assert share.share_url_path == "/share/replay/svc-run"
+    assert share.share_url_path == "/share/svc-run"
 
 
 def test_replay_page_defaults_to_public_visibility(service_dirs: dict[str, Path]) -> None:
@@ -239,7 +239,7 @@ def test_config_service(service_dirs: dict[str, Path]) -> None:
 
     brief = parse_config_brief(files[0])
     assert brief is not None
-    assert brief.config_id == "demo-6"
+    assert brief.config_id == "standard-6p"
     assert brief.models == ["demo"] * 6
 
     listing = list_models_page(service_dirs["configs_dir"])

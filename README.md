@@ -65,7 +65,7 @@ make demo                         # Demo 模式（无需 API Key，6 人随机 A
 make demo9                        # Demo 模式（9 人 + 警徽流）
 
 uv run werewolf configs/my_game.yaml          # 使用自定义配置
-uv run llm-werewolf --config configs/llm-6p-deepseek.yaml  # LLM 对战
+uv run llm-werewolf --config configs/standard-6p.yaml  # 6 人标准 LLM 对战
 ```
 
 ### 对局模式（命令行参数）
@@ -75,18 +75,18 @@ uv run llm-werewolf --config configs/llm-6p-deepseek.yaml  # LLM 对战
 | 参数                              | 作用                                        | 默认              |
 | --------------------------------- | ------------------------------------------- | ----------------- |
 | `--human_seat 1`（或 `1,3`）      | 指定 1-based 座位为**人类玩家**（可多座位） | 无（纯 Agent 局） |
-| `--players N`                     | 覆盖**总座位数（含人类）**，范围 6–20       | 沿用 YAML 名单    |
+| `--players N`                     | 覆盖**总座位数（含人类）**，范围 4–20       | 沿用 YAML 名单    |
 | `--badge_flow` / `--nobadge_flow` | 开 / 关**警长·警徽流**                      | 关                |
 
 ```bash
-# 纯 LLM 对战
-uv run llm-werewolf --config configs/llm-6p-deepseek.yaml
+# 纯 LLM 对战（标准板子：4/6/8/12/16 人见 configs/standard-*p.yaml）
+uv run llm-werewolf --config configs/standard-6p.yaml
 
 # 人机对战：你坐 1 号，其余 5 个 AI 当对手
-uv run llm-werewolf --config configs/llm-6p-deepseek.yaml --human_seat 1
+uv run llm-werewolf --config configs/standard-6p.yaml --human_seat 1
 
-# 离线人机对战（无需 API Key，对手为 demo 机器人）；并开警徽流、扩到 9 人
-uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
+# 离线人机对战（无需 API Key，对手为 demo 机器人，配置在 archive/）
+uv run llm-werewolf --config configs/archive/human-6p-demo.yaml --badge_flow
 ```
 
 人类玩家只需输入：**选人/投票→座位号**，**是否→`1`/`0`**，**发言→中文**，**女巫→`救` 或 `毒 3`**。
@@ -153,7 +153,8 @@ make docker-down            # 停止
 
 | 变量 | 说明 | 示例 |
 |------|------|------|
-| `OPENAI_API_KEY` / `ARK_API_KEY` | LLM 接入密钥 | `sk-...` |
+| `ARK_API_KEY` / `ARK_EP` | 豆包（火山方舟）；**标准对局默认** | 见 `.env.example` |
+| 其他 7 家供应商 | DS / GPT / Gemini / Claude / Kimi / GLM / MiniMax | 见 [docs/interface/PROVIDERS.md](docs/interface/PROVIDERS.md) |
 | `OBS_ALERT_WEBHOOK_URL` | 告警推送地址（可选） | `https://open.feishu.cn/...` |
 | `OBS_ALERT_MIN_SEVERITY` | 最低告警级别 | `warning`（默认） |
 | `WEB_PORT` | 前端监听端口 | `80`（默认） |

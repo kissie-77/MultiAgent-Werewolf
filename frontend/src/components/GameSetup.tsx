@@ -90,6 +90,9 @@ export default function GameSetup() {
     try {
       const res = await ApiClient.startGame({
         config_id: "llm-6p-deepseek",
+        // 把用户选的座位数传给后端（后端 resize_players_config 会按模板扩/缩到 N 座）；
+        // 不传则永远只开 config 自带的 6 人局。范围对齐后端校验 6–20。
+        player_count: playerCount,
         badge_flow: hasSheriff,
         // 人机模式下占用一个人类座位；纯观战模式不传 human。
         ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat } } : {}),
@@ -159,25 +162,10 @@ export default function GameSetup() {
   };
 
   const handlePlayerCountChange = (val: number) => {
-    const nextVal = Math.max(1, Math.min(16, val));
+    // Web API 仅支持 6–20 座（StartGameRequest.player_count: ge=6, le=20）；
+    // 低于 6 的局后端会 422 拒绝，故在 UI 侧就把范围钳到 6–20。
+    const nextVal = Math.max(6, Math.min(20, val));
     setPlayerCount(nextVal);
-    
-    // Auto adjust player role if chosen role is unavailable due to low occupant count
-    if (nextVal === 1) {
-      setUserRole("预言家");
-    } else if (nextVal === 2) {
-      if (userRole !== "预言家" && userRole !== "狼人") {
-        setUserRole("预言家");
-      }
-    } else if (nextVal === 3) {
-      if (userRole === "猎人" || userRole === "村民") {
-        setUserRole("预言家");
-      }
-    } else if (nextVal === 4) {
-      if (userRole === "猎人") {
-        setUserRole("预言家");
-      }
-    }
   };
 
   return (
@@ -390,7 +378,7 @@ export default function GameSetup() {
                     </div>
 
                     <div className="w-full flex flex-wrap items-center justify-center gap-2 pt-3 border-t border-slate-800/50">
-                      {[4, 6, 8, 12, 16].map((num) => (
+                      {[6, 8, 9, 12].map((num) => (
                         <button
                           key={num}
                           type="button"

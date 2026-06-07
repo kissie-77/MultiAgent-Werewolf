@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from enum import Enum
 import json
 from typing import TYPE_CHECKING, Any
@@ -34,6 +35,10 @@ from llm_werewolf.interface.cli.runtime.bootstrap import (
     wire_agentscope_after_setup,
 )
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
+from llm_werewolf.interface.api.services.human_input import (
+    remove_input_broker,
+    get_or_create_input_broker,
+)
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
 from llm_werewolf.interface.api.services.event_stream import (
     remove_broadcaster,
@@ -41,10 +46,6 @@ from llm_werewolf.interface.api.services.event_stream import (
 )
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
-from llm_werewolf.interface.api.services.human_input import (
-    remove_input_broker,
-    get_or_create_input_broker,
-)
 from llm_werewolf.interface.api.services.roster_customize import (
     resolve_start_rules,
     _rebuild_players_config,
@@ -53,9 +54,35 @@ from llm_werewolf.interface.api.services.roster_customize import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 
 logger = logging.getLogger(__name__)
+
+
+def build_run_id(
+    label: str,
+    ts: str,
+    *,
+    tag: str | None,
+    exists: Callable[[str], bool],
+) -> str:
+    """Build a unique run_id: ``{label}-{ts}[-{tag}]`` with a collision counter.
+
+    ``exists(run_id)`` reports whether a run dir of that id already exists. The
+    counter guarantees uniqueness across same-second opens (single backend) and
+    across backends sharing one runs dir (each backend passes a distinct ``tag``).
+    """
+    base = f"{label}-{ts}"
+    if tag:
+        base = f"{base}-{tag}"
+    if not exists(base):
+        return base
+    n = 2
+    while exists(f"{base}-{n}"):
+        n += 1
+    return f"{base}-{n}"
 
 
 def _read_alert_count(run_dir: Path) -> int:
@@ -215,9 +242,12 @@ class GameSessionManager:
 
         label = (request.run_label or stem).replace("llm-", "")
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-        run_id = f"{label}-{ts}"
+        instance_tag = os.environ.get("WEREWOLF_INSTANCE_TAG") or None
+        run_id = build_run_id(
+            label, ts, tag=instance_tag, exists=lambda rid: (runs_dir / rid).exists()
+        )
         run_dir = runs_dir / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
+        run_dir.mkdir(parents=True, exist_ok=False)
 
         # Stable per-seat token (not auth): lets the browser claim the seat stream + /input.
         player_token = f"seat{human_seat}-{run_id}" if human_seat is not None else None
@@ -354,6 +384,24 @@ class GameSessionManager:
             session.status = GameSessionStatus.FAILED
             session.error = str(exc) or type(exc).__name__
             logger.exception("Game session %s failed", session.run_id)
+            # Tell live SSE subscribers the game died so the UI can surface a clear
+            # "对局中断" state instead of silently freezing on the last phase (the
+            # sheriff-election screen). broadcaster.close() in `finally` only sends a
+            # generic end-of-stream, indistinguishable from a normal game end.
+            if session.broadcaster is not None:
+                try:
+                    session.broadcaster.publish({
+                        "event_type": "game_failed",
+                        "phase": "ended",
+                        "round_number": 0,
+                        "message": f"对局异常中断：{session.error}",
+                        "data": {"error": session.error},
+                        "visible_to": None,
+                    })
+                except Exception as pub_exc:
+                    logger.warning(
+                        "Failed to broadcast game_failed for %s: %s", session.run_id, pub_exc
+                    )
             try:
                 await get_dispatcher().emit_session_failed(
                     run_id=session.run_id,
@@ -363,7 +411,7 @@ class GameSessionManager:
             except Exception as alert_exc:
                 logger.warning("Alert dispatch failed for %s: %s", session.run_id, alert_exc)
         finally:
-            detach_run_log_handler()
+            detach_run_log_handler(session.run_dir)
             if session.broadcaster is not None:
                 session.broadcaster.close()
             remove_broadcaster(session.run_id)

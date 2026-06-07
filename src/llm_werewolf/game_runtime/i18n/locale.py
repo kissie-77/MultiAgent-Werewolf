@@ -80,6 +80,7 @@ class Locale:
             # 警长选举
             "sheriff_campaign_started": "Sheriff election begins. Players may volunteer to campaign for sheriff.",
             "no_candidates": "No one volunteered to campaign for sheriff. There will be no sheriff this game.",
+            "sheriff_election_aborted": "Sheriff election was interrupted by an error ({error}); continuing without a sheriff.",
             "player_volunteers": "{player} volunteers to campaign for sheriff.",
             "sheriff_single_candidate": "Only {player} is running for sheriff. No vote is needed.",
             "campaign_speeches_start": "{count} candidates will now give their campaign speeches.",
@@ -222,6 +223,7 @@ class Locale:
             # 警长选举
             "sheriff_campaign_started": "警長選舉開始，玩家可以自願競選警長。",
             "no_candidates": "沒有人自願競選警長，本局沒有警長。",
+            "sheriff_election_aborted": "警長選舉因異常中止（{error}），本局無警長，遊戲繼續。",
             "player_volunteers": "{player} 自願競選警長。",
             "sheriff_single_candidate": "僅有 {player} 競選警長，無需投票。",
             "campaign_speeches_start": "{count} 位候選人將發表競選演說。",
@@ -364,6 +366,7 @@ class Locale:
             # 警长选举
             "sheriff_campaign_started": "警长选举开始，玩家可以自愿竞选警长。",
             "no_candidates": "没有人自愿竞选警长，本局没有警长。",
+            "sheriff_election_aborted": "警长选举因异常中止（{error}），本局无警长，游戏继续。",
             "player_volunteers": "{player} 自愿竞选警长。",
             "sheriff_single_candidate": "仅有 {player} 竞选警长，无需投票。",
             "campaign_speeches_start": "{count} 位候选人将发表竞选演说。",

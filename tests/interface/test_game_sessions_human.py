@@ -19,13 +19,10 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-import llm_werewolf.interface.api.services.game_sessions as gs_mod
-from llm_werewolf.interface.api.services.game_sessions import (
-    GameSessionStatus,
-    GameSessionManager,
-)
-from llm_werewolf.interface.api.services.human_input import get_input_broker
 from llm_werewolf.interface.api.models.actions import StartGameRequest
+from llm_werewolf.interface.api.services.human_input import get_input_broker
+import llm_werewolf.interface.api.services.game_sessions as gs_mod
+from llm_werewolf.interface.api.services.game_sessions import GameSessionStatus, GameSessionManager
 
 _CONFIGS_DIR = Path(__file__).resolve().parents[2] / "configs"
 

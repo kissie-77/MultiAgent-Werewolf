@@ -71,7 +71,9 @@ def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):
 
 def test_god_snapshot_includes_roster_when_present(tmp_path, monkeypatch):
     import json
+
     from fastapi.testclient import TestClient
+
     from llm_werewolf.interface.api.app import create_app
 
     monkeypatch.chdir(tmp_path)
@@ -103,13 +105,14 @@ def test_god_snapshot_includes_roster_when_present(tmp_path, monkeypatch):
 
 async def test_engine_run_publishes_to_broadcaster(tmp_path, monkeypatch):
     """A real (demo) game wired through GameSessionManager's composite on_event
-    both writes events.jsonl and fans out to a live subscriber."""
+    both writes events.jsonl and fans out to a live subscriber.
+    """
     monkeypatch.chdir(tmp_path)
     import asyncio
+
     from llm_werewolf.interface.api.services import event_stream
-    from llm_werewolf.interface.api.services.game_sessions import game_session_manager
     from llm_werewolf.interface.api.models.actions import StartGameRequest
-    from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir
+    from llm_werewolf.interface.api.services.game_sessions import game_session_manager
 
     # demo config ships in repo configs/; copy is unnecessary — resolve_config_for_start
     # accepts a config_id under the repo configs dir.

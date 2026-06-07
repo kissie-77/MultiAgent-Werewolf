@@ -34,4 +34,7 @@ export interface GameState {
   hasSheriff?: boolean;
   sheriffId?: number | null;
   sheriffCandidates?: number[];
+  /** Set when the backend reports the run crashed (game_failed SSE event). */
+  failed?: boolean;
+  failureMessage?: string;
 }

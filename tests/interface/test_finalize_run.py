@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import importlib
 import types
+import importlib
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -45,7 +45,7 @@ def test_persist_run_artifacts_writes_beliefs(tmp_path) -> None:
 
     from llm_werewolf.strategy.belief.state import BeliefLog, BeliefSnapshotRecord
     from llm_werewolf.strategy.wolf.camp_mind import init_wolf_camp_mind, merge_wolf_camp_delta
-    from llm_werewolf.strategy.contracts.decisions import WolfCampDelta, GodRoleDelta
+    from llm_werewolf.strategy.contracts.decisions import GodRoleDelta, WolfCampDelta
 
     belief_log = BeliefLog()
     belief_log.append(

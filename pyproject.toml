@@ -27,6 +27,7 @@ log_file_level = "INFO"
 markers = [
     "slow: slow tests",
     "skip_when_ci: Skip when CI/CD",
+    "fleet_smoke: opt-in fleet smoke tests (real subprocesses; set RUN_FLEET_SMOKE=1)",
 ]
 minversion = "8.2"
 testpaths = "tests/"

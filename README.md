@@ -134,6 +134,26 @@ VITE_API_PROXY=http://localhost:8010 npm run dev
 
 前后端打通与人机对战的完整说明见 [docs/reports/前后端打通与人机对战-2026-06-06.md](docs/reports/前后端打通与人机对战-2026-06-06.md)。
 
+## 并行多栈（fleet）：同时开多局
+
+一条命令拉起 N 套（后端 + 前端）各自独立端口，用于并行开局（批量评测 / 多个真人各自一局）。
+
+```bash
+# 拉起 2 套后端(8010/8011) + 2 套前端(5173/5174)；Ctrl-C 全部停止
+DEEPSEEK_API_KEY=sk-xxx uv run werewolf-fleet up --backends 2
+
+# 仅后端（评测用，不起 vite）
+uv run werewolf-fleet up --backends 4 --frontends 0
+
+# 批量开局：把 20 局分发到 4 个后端，并发 4、相邻启动错峰 1.5s（抗 429）
+uv run werewolf-fleet batch --config llm-6p-deepseek --count 20 --backends 4 --concurrency 4 --stagger 1.5
+```
+
+- 每个后端进程拿到 `WEREWOLF_INSTANCE_TAG=iN`，`run_id` 形如 `6p-deepseek-<ts>-iN`，多后端共享 `artifacts/runs/` 不会撞车（单后端同秒双开也已修，靠目录存在性计数器兜底）。
+- 每个前端通过 `VITE_API_PROXY` 指向自己的后端；人机对战把 `http://localhost:<fe_port>/` 分给各真人即可。
+- 日志：`artifacts/fleet/<stamp>/backend-iN.log` / `frontend-iN.log`；批量汇总 `artifacts/fleet/<stamp>/batch_summary.json`。
+- **限流提示**：所有后端共用同一个 LLM key，规模大时用 `--concurrency` / `--stagger` 错峰，避免 429。
+
 ## 生产部署（Docker Compose）
 
 ```

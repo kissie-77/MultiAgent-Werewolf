@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from enum import Enum
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 import asyncio
 import logging
 from pathlib import Path
@@ -56,6 +57,30 @@ if TYPE_CHECKING:
     from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 
 logger = logging.getLogger(__name__)
+
+
+def build_run_id(
+    label: str,
+    ts: str,
+    *,
+    tag: str | None,
+    exists: Callable[[str], bool],
+) -> str:
+    """Build a unique run_id: ``{label}-{ts}[-{tag}]`` with a collision counter.
+
+    ``exists(run_id)`` reports whether a run dir of that id already exists. The
+    counter guarantees uniqueness across same-second opens (single backend) and
+    across backends sharing one runs dir (each backend passes a distinct ``tag``).
+    """
+    base = f"{label}-{ts}"
+    if tag:
+        base = f"{base}-{tag}"
+    if not exists(base):
+        return base
+    n = 2
+    while exists(f"{base}-{n}"):
+        n += 1
+    return f"{base}-{n}"
 
 
 def _read_alert_count(run_dir: Path) -> int:
@@ -354,6 +379,24 @@ class GameSessionManager:
             session.status = GameSessionStatus.FAILED
             session.error = str(exc) or type(exc).__name__
             logger.exception("Game session %s failed", session.run_id)
+            # Tell live SSE subscribers the game died so the UI can surface a clear
+            # "对局中断" state instead of silently freezing on the last phase (the
+            # sheriff-election screen). broadcaster.close() in `finally` only sends a
+            # generic end-of-stream, indistinguishable from a normal game end.
+            if session.broadcaster is not None:
+                try:
+                    session.broadcaster.publish({
+                        "event_type": "game_failed",
+                        "phase": "ended",
+                        "round_number": 0,
+                        "message": f"对局异常中断：{session.error}",
+                        "data": {"error": session.error},
+                        "visible_to": None,
+                    })
+                except Exception as pub_exc:
+                    logger.warning(
+                        "Failed to broadcast game_failed for %s: %s", session.run_id, pub_exc
+                    )
             try:
                 await get_dispatcher().emit_session_failed(
                     run_id=session.run_id,

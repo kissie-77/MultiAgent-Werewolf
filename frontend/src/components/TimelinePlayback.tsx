@@ -20,7 +20,9 @@ const mockPlayers: PlayerData[] = [
 ];
 
 export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { timeline: TimelineEvent[], viewScope?: string }) {
-  const [cursor, setCursor] = useState(timeline.length > 0 ? timeline.length - 1 : 0);
+  // Start at the first event so the replay opens at the top of the chronicle and
+  // plays forward — initialising at the last event stranded the view at the bottom.
+  const [cursor, setCursor] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -89,7 +91,7 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[600px] border border-zinc-900 bg-zinc-950 rounded-lg overflow-hidden relative">
+    <div className="grid grid-cols-1 lg:grid-cols-4 grid-rows-1 gap-4 h-[600px] border border-zinc-900 bg-zinc-950 rounded-lg overflow-hidden relative">
       
       {/* 1. Seat Ring (Left) */}
       <div className="col-span-1 border-r border-zinc-900 bg-[#0c0c0c] p-4 flex flex-col hidden lg:flex">
@@ -140,7 +142,7 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
       </div>
 
       {/* 2. Event Feed (Center) */}
-      <div className="col-span-1 lg:col-span-2 flex flex-col relative bg-zinc-950">
+      <div className="col-span-1 lg:col-span-2 flex flex-col min-h-0 relative bg-zinc-950">
         <div className="h-10 border-b border-zinc-900 bg-zinc-900/20 flex items-center justify-between px-4">
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
             {currentEvent?.day ? `DAY ${currentEvent.day}` : ''} {currentEvent?.isNight ? '🌙 黑夜' : '☀️ 白昼'}
@@ -150,9 +152,9 @@ export default function TimelinePlayback({ timeline, viewScope = "ALL" }: { time
           </span>
         </div>
         
-        <div 
+        <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent"
+          className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent"
         >
           {timeline.map((ev, idx) => {
             const isActive = idx === cursor;

@@ -9,8 +9,8 @@ export interface GameInsight {
 }
 
 /**
- * Live god-view insight, fed by the spectate SSE stream (store.connectSpectate).
- * runId is accepted for API compatibility; data comes from the active stream.
+ * God-view insight from live SSE or log-replay timeline (store.connectSpectate).
+ * runId is accepted for API compatibility; data comes from the active session.
  */
 export function useGameInsight(_runId: string | null): GameInsight {
   const beliefs = useGameStore((s) => s.insightBeliefs);

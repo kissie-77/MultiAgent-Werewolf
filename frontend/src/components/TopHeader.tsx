@@ -13,6 +13,7 @@ export default function TopHeader({
   const phase = gameState?.phase;
   const dayNumber = gameState?.dayNumber || 1;
   const isAutoPlaying = useGameStore((state) => state.isAutoPlaying);
+  const logReplayActive = useGameStore((state) => state.logReplayActive);
   const toggleAutoPlay = useGameStore((state) => state.toggleAutoPlay);
   const simulateNextAI = useGameStore((state) => state.simulateNextAI);
   const exitGame = useGameStore((state) => state.exitGame);
@@ -136,7 +137,7 @@ export default function TopHeader({
         {/* Separator */}
         <div className="w-px h-6 bg-zinc-700 mx-1" />
 
-        {!isLiveRun && (
+        {(!isLiveRun || logReplayActive) && (
         <button
           onClick={toggleAutoPlay}
           className={`h-6 px-2 rounded border text-[10px] font-sans font-bold tracking-wider cursor-pointer flex items-center justify-center transition-all duration-200 ${
@@ -144,7 +145,11 @@ export default function TopHeader({
               ? "border-amber-500/50 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]" 
               : "border-emerald-500/50 bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
           }`}
-          title={isAutoPlaying ? "暂停游戏自动播放" : "继续游戏自动播放"}
+          title={
+            logReplayActive
+              ? (isAutoPlaying ? "暂停日志回放" : "继续日志回放")
+              : (isAutoPlaying ? "暂停游戏自动播放" : "继续游戏自动播放")
+          }
         >
           {isAutoPlaying ? (
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>

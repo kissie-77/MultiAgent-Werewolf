@@ -58,6 +58,16 @@ describe("gameReducer", () => {
     expect(s.players[0]).toMatchObject({ id: 3, role: "Witch", name: "C" });
   });
 
+  it("maps phase_changed.data.phase into game phase", () => {
+    const s = reduceEvent(initialSpectateState(), {
+      event_type: "phase_changed",
+      round_number: 1,
+      phase: "night",
+      data: { phase: "day_discussion" },
+    } as any);
+    expect(s.phase).toBe("DAY_DEBATE");
+  });
+
   it("ends the game on game_ended", () => {
     let s = reduceEvent(initialSpectateState(), snapshot as any);
     s = reduceEvent(s, {

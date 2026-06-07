@@ -9,11 +9,17 @@ import { Eye, EyeOff } from "lucide-react";
 export default function InsightDock({ runId }: { runId: string | null }) {
   const { beliefs, voteSnapshot, players } = useGameInsight(runId);
   const gameState = useGameStore(state => state.state);
+  const logReplayActive = useGameStore(state => state.logReplayActive);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showIdentities, setShowIdentities] = useState(true);
 
   if (!beliefs || !voteSnapshot) {
-    return null; // Don't show while loading
+    if (!logReplayActive) return null;
+    return (
+      <div className="pointer-events-auto absolute right-6 top-12 z-40 hidden md:block w-[320px] rounded-b-xl border border-amber-900/40 bg-[#0c0a09]/95 px-3 py-2 text-amber-500/80 font-mono text-[10px] uppercase tracking-widest">
+        观战读心 · 日志回放载入中…
+      </div>
+    );
   }
 
   const roundLabel = beliefs.length > 0 ? `R${beliefs[0].round}·昼` : "-";

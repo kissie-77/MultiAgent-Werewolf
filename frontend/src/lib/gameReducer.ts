@@ -121,6 +121,14 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       }
       break;
     }
+    case "phase_changed": {
+      const phaseKey = ev.data?.phase ?? ev.phase;
+      if (phaseKey && PHASE_MAP[String(phaseKey)]) {
+        s.phase = PHASE_MAP[String(phaseKey)];
+      }
+      if (ev.message) s.narration = ev.message;
+      break;
+    }
     case "player_died":
     case "player_eliminated": {
       const seat = seatOf(ev.data);

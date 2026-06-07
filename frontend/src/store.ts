@@ -1,8 +1,22 @@
 import { create } from "zustand";
 import { GameState, Player } from "./types";
 import { getCustomApiKey } from "./lib/config";
+import { ApiClient } from "./api/client";
+import { streamUrl } from "./api/sse";
+import { initialSpectateState, reduceEvent } from "./lib/gameReducer";
+import { mapBeliefEvent, mapVoteEvent } from "./lib/insightMap";
+import { initialStateWithRoster, startLogReplayDrain } from "./lib/spectateLog";
+import { buildHumanPayload } from "./lib/humanInput";
+import { humanInputRejectMessage } from "./lib/humanInputErrors";
 import type { AwaitingInputEvent } from "./api/types";
 import type { HumanInputSelection } from "./lib/humanInput";
+
+let logReplayController: { stop: () => void } | null = null;
+
+function stopLogReplayDrain() {
+  logReplayController?.stop();
+  logReplayController = null;
+}
 
 interface GameStore {
   state: GameState | null;
@@ -59,6 +73,7 @@ interface GameStore {
   // Live spectate (SSE god-view) or log replay for completed runs
   spectateSource: EventSource | null;
   spectateError: string | null;
+  logReplayActive: boolean;
   insightBeliefs: import("./api/insightTypes").BeliefSnapshot[] | null;
   insightVote: import("./api/insightTypes").VoteIntentionSnapshot | null;
   spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
@@ -372,10 +387,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   exitGame: async () => {
     set({ isLoading: true, isAutoPlaying: false });
-    const hadLive = Boolean(get().spectateSource || get().seatRunId);
+    const hadLive = Boolean(get().spectateSource || get().seatRunId || get().logReplayActive);
     if (hadLive) {
       get().disconnectSpectate();
-      const { initialSpectateState } = await import("./lib/gameReducer");
       set({
         state: initialSpectateState(),
         seatRunId: null,
@@ -386,6 +400,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         insightBeliefs: null,
         insightVote: null,
         spectateRoster: null,
+        logReplayActive: false,
         isLoading: false,
       });
       return;
@@ -411,6 +426,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   spectateSource: null,
   spectateError: null,
+  logReplayActive: false,
   insightBeliefs: null,
   insightVote: null,
   spectateRoster: null,
@@ -422,16 +438,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       insightVote: null,
       spectateRoster: null,
       spectateError: null,
+      logReplayActive: false,
       state: null,
     });
 
     void (async () => {
-      const { ApiClient } = await import("./api/client");
-      const { initialSpectateState, reduceEvent } = await import("./lib/gameReducer");
-      const { streamUrl } = await import("./api/sse");
-      const { mapBeliefEvent, mapVoteEvent } = await import("./lib/insightMap");
-      const { hydrateStateFromLogEvents } = await import("./lib/spectateLog");
-
       let status;
       try {
         status = await ApiClient.getGameStatus(runId);
@@ -464,12 +475,39 @@ export const useGameStore = create<GameStore>((set, get) => ({
             camp: p.camp,
             is_alive: true,
           }));
-          const state = hydrateStateFromLogEvents(raw.timeline ?? [], roster);
+          const timeline = raw.timeline ?? [];
+          const seed = initialStateWithRoster(roster);
           set({
-            state,
+            state: seed,
             spectateRoster: roster ?? null,
+            insightBeliefs: null,
+            insightVote: null,
             isLoading: false,
+            isAutoPlaying: true,
+            logReplayActive: timeline.length > 0,
             spectateSource: null,
+          });
+          if (timeline.length === 0) {
+            set({ logReplayActive: false });
+            return;
+          }
+          stopLogReplayDrain();
+          logReplayController = startLogReplayDrain({
+            events: timeline,
+            initial: seed,
+            isPaused: () => !get().isAutoPlaying,
+            mapBelief: mapBeliefEvent,
+            mapVote: mapVoteEvent,
+            onStep: (state, insight) => {
+              const patch: Partial<GameStore> = { state };
+              if (insight?.beliefs) patch.insightBeliefs = insight.beliefs;
+              if (insight?.vote) patch.insightVote = insight.vote;
+              set(patch);
+            },
+            onComplete: () => {
+              logReplayController = null;
+              set({ logReplayActive: false });
+            },
           });
         } catch (err) {
           set({
@@ -514,9 +552,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })();
   },
   disconnectSpectate: () => {
+    stopLogReplayDrain();
     const es = get().spectateSource;
     if (es) es.close();
-    set({ spectateSource: null });
+    set({ spectateSource: null, logReplayActive: false });
   },
 
   // --- Human-vs-AI seat view ---------------------------------------------
@@ -552,11 +591,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!pendingInput || !playerToken || !seatRunId) {
       return { ok: false, error: "当前无待提交的决策。" };
     }
-    const [{ buildHumanPayload }, { ApiClient }, { humanInputRejectMessage }] = await Promise.all([
-      import("./lib/humanInput"),
-      import("./api/client"),
-      import("./lib/humanInputErrors"),
-    ]);
     const payload = buildHumanPayload(selection);
     try {
       const res = await ApiClient.sendInput(seatRunId, {
@@ -591,35 +625,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerToken: token,
       humanSeat: seat,
     });
-    Promise.all([import("./lib/gameReducer"), import("./api/sse"), import("./lib/insightMap")]).then(
-      ([{ initialSpectateState, reduceEvent }, { streamUrl }, { mapBeliefEvent, mapVoteEvent }]) => {
-        set({ state: initialSpectateState(), isLoading: false });
-        const es = new EventSource(streamUrl(runId, "seat", seat, token));
+    set({ state: initialSpectateState(), isLoading: false });
+    const es = new EventSource(streamUrl(runId, "seat", seat, token));
 
-        es.addEventListener("snapshot", (e: MessageEvent) => {
-          try {
-            const snap = JSON.parse(e.data);
-            const cur = get().state ?? initialSpectateState();
-            set({ state: reduceEvent(cur, { ...snap, event_type: "snapshot" }) });
-          } catch (err) { console.error("bad snapshot frame", err); }
-        });
+    es.addEventListener("snapshot", (e: MessageEvent) => {
+      try {
+        const snap = JSON.parse(e.data);
+        const cur = get().state ?? initialSpectateState();
+        set({ state: reduceEvent(cur, { ...snap, event_type: "snapshot" }) });
+      } catch (err) { console.error("bad snapshot frame", err); }
+    });
 
-        es.onmessage = (e: MessageEvent) => {
-          try {
-            const ev = JSON.parse(e.data);
-            // awaiting_input / input_* bridge events drive the human panel.
-            if (get().ingestSeatEvent(ev)) return;
-            const cur = get().state ?? initialSpectateState();
-            set({ state: reduceEvent(cur, ev) });
-            if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
-            else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
-          } catch (err) { console.error("bad sse event", err); }
-        };
+    es.onmessage = (e: MessageEvent) => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (get().ingestSeatEvent(ev)) return;
+        const cur = get().state ?? initialSpectateState();
+        set({ state: reduceEvent(cur, ev) });
+        if (ev.event_type === "belief_snapshot") set({ insightBeliefs: mapBeliefEvent(ev.data) });
+        else if (ev.event_type === "vote_intention_snapshot") set({ insightVote: mapVoteEvent(ev.data) });
+      } catch (err) { console.error("bad sse event", err); }
+    };
 
-        es.addEventListener("end", () => { get().disconnectSpectate(); });
-        es.onerror = () => { /* EventSource auto-reconnects */ };
-        set({ spectateSource: es });
-      },
-    );
+    es.addEventListener("end", () => { get().disconnectSpectate(); });
+    es.onerror = () => { /* EventSource auto-reconnects */ };
+    set({ spectateSource: es });
   },
 }));

@@ -48,7 +48,7 @@ interface/
 | 供应商 env 模板 | ✅ Done | 8 家 · [PROVIDERS.md](./PROVIDERS.md) |
 | 设置 API（浏览器写 `.env`） | ✅ Done | `GET/POST /settings/api-keys` + `GET /settings/providers` |
 | Web 人机 + 观战 SSE | ✅ Done | 座位 token、输入 reject_code、分享 `/share/{id}` |
-| 日志观战 / run 元数据 | ✅ Done | SSE 快照补 roster；`replay_only`；`_scan_run_metadata` |
+| 日志观战 / run 元数据 | ✅ Done | SSE 快照补 roster；`replay_only`；`effective_player_count` + `_load_run_roster`（`f1f655d`） |
 | 同台多模型（按座 provider） | 📋 Planned | Provider Registry 开局解析 |
 
 ## 已完成
@@ -79,7 +79,7 @@ interface/
 
 ## 进行中
 
-- [ ] 对局回放 API 完善（信念矩阵在日志回放路径的聚合）
+- [ ] 信念矩阵日志聚合 API（前端目前从 replay 时间线自行扫描 `belief_snapshot`）
 - [ ] API 文档自动生成（OpenAPI/Swagger）
 
 ## 计划中
@@ -93,7 +93,7 @@ interface/
 
 | 日期 | 摘要 |
 |------|------|
-| 2026-06-07 | 日志观战：`replay_only`、run 元数据推断、providers API、SSE 快照 roster 回退 |
+| 2026-06-07 | 日志观战：`replay_only`、run 元数据推断、providers API、SSE roster 回退；`f1f655d`：`effective_player_count`、god_roster 容错、分享/模型页人数 |
 | 2026-06-05 | 目录重组：删除 10 个根目录 shim，`watch_cli.py→cli/watch.py`，17 处 import + pyproject.toml 同步更新 |
 | 2026-06-02 | 人机混战：显式配置优先级、极简人类输入提示、提交后等待提示 |
 | 2026-06-02 | 文档：TUI 移除、ARK 连通验证、12p 配置、产物路径；CLI 入口新增人数选择；人机混战按人数校验座位；修正 CORS 来源解析；默认模型配置切换为 `kimi-k2.5` |

@@ -105,6 +105,14 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       s.winner = camp === "werewolf" ? "WOLVES" : camp === "villager" ? "VILLAGERS" : s.winner;
       break;
     }
+    case "game_failed": {
+      // Backend crashed mid-run (e.g. sheriff-election LLM timeout). Surface a
+      // clear interrupted state instead of leaving the UI frozen on the last phase.
+      s.phase = "GAME_OVER";
+      s.failed = true;
+      s.failureMessage = ev.message ?? "对局异常中断";
+      break;
+    }
     default: {
       if (ev.message) s.narration = ev.message;
     }

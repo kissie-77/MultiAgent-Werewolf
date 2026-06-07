@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import ThreeCanvas from "../components/ThreeCanvas";
 import CardDeck from "../components/CardDeck";
 import SpeechConsole from "../components/SpeechConsole";
-import ControlPanel from "../components/ControlPanel";
 import TopHeader from "../components/TopHeader";
 import GameSetup from "../components/GameSetup";
 import GameOverPanel from "../components/GameOverPanel";
@@ -87,8 +86,23 @@ export default function GameApp() {
       {/* 3D Render Studio Canvas Layer */}
       <ThreeCanvas />
 
+      {/* Run crashed mid-game (e.g. sheriff-election LLM timeout): show a clear
+          interrupted state so the UI never freezes on the last phase. */}
+      {gameState?.failed && (
+        <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-black/90 text-zinc-200 pointer-events-auto px-6 text-center">
+          <ShieldAlert className="w-14 h-14 text-amber-500" />
+          <span className="text-2xl font-black tracking-widest">对局已中断</span>
+          <span className="font-mono text-xs text-zinc-400 max-w-md leading-relaxed">
+            {gameState.failureMessage || "后端对局异常，进程已停止。"}
+          </span>
+          <button onClick={handleExitGame} className="px-5 py-2 bg-zinc-800 border border-zinc-700 rounded text-xs hover:border-zinc-500">
+            退出游戏
+          </button>
+        </div>
+      )}
+
       {/* GameOver Panel Overlay — wrapped so a render error can never white-screen the app */}
-      {gameState?.phase === "GAME_OVER" && (
+      {!gameState?.failed && gameState?.phase === "GAME_OVER" && (
         <ErrorBoundary
           label="GameOverPanel"
           fallback={
@@ -172,10 +186,9 @@ export default function GameApp() {
               <SpeechConsole />
             </div>
 
-            {/* User Input, Auto Debate & Actions at the bottom */}
-            <div className="shrink-0 bg-transparent">
-              <ControlPanel />
-            </div>
+            {/* Legacy ControlPanel removed: its buttons posted to the dead /api/game/*
+                mock (all 404 now). Live spectate is passive; the human seat decides
+                only via HumanInputPanel (driven by awaiting_input SSE events). */}
 
           </div>
 

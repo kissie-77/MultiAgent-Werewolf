@@ -56,6 +56,11 @@ class HumanInputBroker:
         valid_targets: list[int],
         fallback: str,
         deadline: float | None = None,
+        ui_hint: str = "",
+        title: str = "",
+        allow_skip: bool = False,
+        allow_witch_save: bool = True,
+        multi_count: int = 0,
     ) -> str:
         """Register + publish ``awaiting_input`` + await the future.
 
@@ -90,6 +95,11 @@ class HumanInputBroker:
                 "prompt": prompt,
                 "valid_targets": list(valid_targets),
                 "deadline": deadline,
+                "ui_hint": ui_hint,
+                "title": title,
+                "allow_skip": allow_skip,
+                "allow_witch_save": allow_witch_save,
+                "multi_count": multi_count,
             }
         )
         try:

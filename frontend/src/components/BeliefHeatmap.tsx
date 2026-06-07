@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { BeliefAnchor } from "../api/types";
 import { Play, Pause, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -8,6 +8,24 @@ export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) 
   const [hoveredCell, setHoveredCell] = useState<{ obs: string, target: string, reason?: string, note?: string, prob: number } | null>(null);
 
   const activeAnchor = anchors[cursor];
+
+  // 动态推导玩家列表：从所有 anchors 中提取座位号，确保切换 anchor 时座位列表一致
+  const seats = useMemo(() => {
+    if (!anchors?.length) return ["P1", "P2", "P3", "P4", "P5", "P6"];
+    const seatNumbers = new Set<number>();
+    for (const anchor of anchors) {
+      for (const obs of (anchor.observers ?? [])) {
+        const n = parseInt(String(obs.observer_id).replace(/\D/g, ""), 10);
+        if (Number.isFinite(n) && n > 0) seatNumbers.add(n);
+        for (const t of (obs.targets ?? [])) {
+          const tn = parseInt(String(t.target_seat).replace(/\D/g, ""), 10);
+          if (Number.isFinite(tn) && tn > 0) seatNumbers.add(tn);
+        }
+      }
+    }
+    const sorted = Array.from(seatNumbers).sort((a, b) => a - b);
+    return sorted.length > 0 ? sorted.map(n => `P${n}`) : ["P1", "P2", "P3", "P4", "P5", "P6"];
+  }, [anchors]);
 
   // 根据 wolf_probability 决定颜色的辅助函数
   const getCellColor = (prob: number | undefined, note?: string) => {
@@ -25,9 +43,6 @@ export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) 
     if (prob === undefined) return "·";
     return prob.toFixed(2).replace(/^0+/, "");
   };
-
-  // 玩家列表
-  const seats = ["P1", "P2", "P3", "P4", "P5", "P6"];
 
   return (
     <div className="border border-zinc-900 bg-zinc-950/40 rounded p-6">

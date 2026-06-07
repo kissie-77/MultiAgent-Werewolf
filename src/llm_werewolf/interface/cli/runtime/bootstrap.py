@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from llm_werewolf.game_runtime.config import PlayersConfig, create_game_config_from_player_count
+from llm_werewolf.game_runtime.config import GameConfig, PlayersConfig, create_game_config_from_player_count
 from llm_werewolf.agent_team.agents.base import create_agent
 from llm_werewolf.agent_team.agents.factory import configure_agents_for_players
 from llm_werewolf.game_runtime.registries.role_registry import create_roles
@@ -88,7 +88,11 @@ def prepare_game_roster(
     players_config: PlayersConfig,
 ) -> tuple[list[AgentProtocol], list[RoleProtocol], GameConfig]:
     """单局对局的玩家列表、洗牌后的角色实例与板子配置。"""
-    game_config = create_game_config_from_player_count(len(players_config.players))
+    seat_count = len(players_config.players)
+    if players_config.role_names:
+        game_config = GameConfig(num_players=seat_count, role_names=list(players_config.role_names))
+    else:
+        game_config = create_game_config_from_player_count(seat_count)
     updates: dict[str, int] = {
         "vote_intention_concurrency": players_config.vote_intention_concurrency,
     }

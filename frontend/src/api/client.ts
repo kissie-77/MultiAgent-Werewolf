@@ -24,6 +24,7 @@ import {
   UpdateApiKeysRequest,
   UpdateApiKeysResponse,
   AvailableModelsResponse,
+  BoardPresetsResponse,
   BackendReplayPageData,
   BackendModelsPageData,
   BackendShareReplayData,
@@ -100,6 +101,10 @@ export class ApiClient {
 
   static async startGame(req: StartGameRequest): Promise<StartGameResponse> {
     return this.post<StartGameResponse>("/api/v1/games/start", req);
+  }
+
+  static async getBoardPresets(): Promise<BoardPresetsResponse> {
+    return this.get<BoardPresetsResponse>("/api/v1/games/board-presets");
   }
 
   static async sendInput(runId: string, body: HumanInputRequest): Promise<HumanInputResponse> {

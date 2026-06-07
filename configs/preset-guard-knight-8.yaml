@@ -1,0 +1,53 @@
+preset:
+  title: 守卫骑士局
+  description: 守卫守人、骑士白天验狼，双盾神职拉长好人轮次。
+  tags:
+  - 防守
+  - 神职
+  - 8人
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+vote_intention_concurrency: 8
+role_names:
+- Werewolf
+- Werewolf
+- Seer
+- Witch
+- Guard
+- Knight
+- Villager
+- Villager
+players:
+- name: Player1
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player2
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player3
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player4
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player5
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player6
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player7
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player8
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY

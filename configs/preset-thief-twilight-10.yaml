@@ -1,0 +1,63 @@
+preset:
+  title: 盗贼暮光局
+  description: 盗贼首夜择牌改身份，局势从第一夜就不可预测。
+  tags:
+  - 盗贼
+  - 变阵
+  - 10人
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+vote_intention_concurrency: 10
+role_names:
+- Werewolf
+- Werewolf
+- Thief
+- Seer
+- Witch
+- Hunter
+- Raven
+- Villager
+- Villager
+- Villager
+players:
+- name: Player1
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player2
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player3
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player4
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player5
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player6
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player7
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player8
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player9
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player10
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY

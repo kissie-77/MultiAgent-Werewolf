@@ -86,12 +86,17 @@ function setThinkingFromEvent(s: GameState, ev: SseEvent): void {
   const seat = seatOf(ev.data);
   if (seat == null) return;
   const context = parseThinkingContext(ev.data?.context);
+  const selfSeat = ev.selfSeat;
+  const role =
+    selfSeat != null && seat !== selfSeat
+      ? ""
+      : String(ev.data?.role ?? s.players.find((p) => p.id === seat)?.role ?? "");
   s.liveCue = {
     ...s.liveCue,
     thinking: {
       seat,
       playerName: String(ev.data?.player_name ?? `P${seat}`),
-      role: String(ev.data?.role ?? s.players.find((p) => p.id === seat)?.role ?? ""),
+      role,
       context,
     },
   };
@@ -112,12 +117,14 @@ function applySpeech(
   const playerName = ev.data?.player_name ?? `P${seat}`;
   upsertPlayer(s, seat, { name: playerName, lastSpeech: content });
   const p = s.players.find((x) => x.id === seat);
+  const selfSeat = ev.selfSeat;
+  const hidePrivate = selfSeat != null && seat !== selfSeat;
   s.speechLogs.push({
     playerId: seat,
     playerName: p?.name ?? playerName,
     role: p?.role ?? String(ev.data?.role ?? ""),
     content,
-    reasoning: reasoningOf(ev.data),
+    reasoning: hidePrivate ? undefined : reasoningOf(ev.data),
     day: ev.round_number ?? s.dayNumber,
     isNight: ev.phase === "night" || speechContext === "wolf",
     speechContext,
@@ -203,9 +210,12 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       const seat = seatOf(ev.data);
       const role = ev.data?.role;
       if (seat != null && role) {
+        const selfSeat = ev.selfSeat;
+        const roleText =
+          selfSeat != null && seat !== selfSeat ? "" : String(role);
         upsertPlayer(s, seat, {
           name: ev.data?.player_name ?? `P${seat}`,
-          role: String(role),
+          role: roleText,
         });
         if (ev.data?.context === "night_skill" || ev.phase === "night") {
           clearThinking(s);
@@ -214,7 +224,7 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
             nightSkill: {
               seat,
               playerName: String(ev.data?.player_name ?? `P${seat}`),
-              role: String(role),
+              role: roleText,
               subPhase: typeof ev.data?.sub_phase === "string" ? ev.data.sub_phase : s.liveCue.nightSubPhase,
             },
           };

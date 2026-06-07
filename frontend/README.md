@@ -1,20 +1,16 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Frontend
 
-# Run and deploy your AI Studio app
+React + Vite 狼人杀 Web UI。配置与启动说明以仓库根目录为准：
 
-This contains everything you need to run your app locally.
+- **快速启动**：[../README.md](../README.md)（§本地全栈开发）
+- **前端开发详解**：[../docs/frontend/DEV.md](../docs/frontend/DEV.md)
+- **模块设计**：[../docs/frontend/README.md](../docs/frontend/README.md)
 
-View your app in AI Studio: https://ai.studio/apps/f15b3c0a-dbca-4e6d-a1a7-9cb95c185978
+```powershell
+# 回到仓库根目录后执行 — 推荐
+..\dev.ps1
+```
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+cd frontend && npm install && npm run dev   # 仅前端（需另开 API）
+```

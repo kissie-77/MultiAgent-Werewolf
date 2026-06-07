@@ -1,18 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ThreeCanvas from "../components/ThreeCanvas";
-import CardDeck from "../components/CardDeck";
 import SpeechConsole from "../components/SpeechConsole";
-import ControlPanel from "../components/ControlPanel";
 import TopHeader from "../components/TopHeader";
 import GameSetup from "../components/GameSetup";
 import GameOverPanel from "../components/GameOverPanel";
 import InsightDock from "../components/InsightDock";
 import { useGameStore } from "../store";
-import { initialSpectateState } from "../lib/gameReducer";
 import { Skull } from "lucide-react";
-import { motion } from "motion/react";
-import CastSkillOverlay from "../components/CastSkillOverlay";
 import AlertOverlays from "../components/AlertOverlays";
 import HumanInputPanel from "../components/HumanInputPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -22,7 +17,6 @@ export default function GameApp() {
   const navigate = useNavigate();
   const gameState = useGameStore((state) => state.state);
   const exitGame = useGameStore((state) => state.exitGame);
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
   const [searchParams] = useSearchParams();
   const runId = searchParams.get("run_id");
@@ -43,24 +37,31 @@ export default function GameApp() {
     Number.isFinite(Number(seatParam));
 
   useEffect(() => {
-    if (runId) {
-      const seat = seatParam ? Number(seatParam) : NaN;
-      if (view === "seat" && token && Number.isFinite(seat)) {
-        connectSeat(runId, { seat, token });
-      } else {
-        connectSpectate(runId);
-      }
-      return () => disconnectSpectate();
+    if (!runId) return;
+    const seat = seatParam ? Number(seatParam) : NaN;
+    if (view === "seat" && token && Number.isFinite(seat)) {
+      connectSeat(runId, { seat, token });
+    } else {
+      connectSpectate(runId);
     }
-    if (!useGameStore.getState().state) {
-      useGameStore.setState({ state: initialSpectateState() });
-    }
+    return () => disconnectSpectate();
   }, [runId, view, seatParam, token, connectSpectate, connectSeat, disconnectSpectate]);
 
   const handleExitGame = async () => {
     await exitGame();
     navigate("/");
   };
+
+  if (!isLiveRun) {
+    return (
+      <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-slate-100 overflow-hidden font-sans select-none antialiased">
+        <div className="absolute inset-0 bg-woodcut-dark opacity-30 mix-blend-multiply pointer-events-none z-0" />
+        <ThreeCanvas />
+        <GameSetup />
+        <div className="absolute inset-0 pointer-events-none border-4 border-indigo-900/40 shadow-[inset_0_0_100px_rgba(30,58,138,0.5)] z-50 rounded-xl" />
+      </div>
+    );
+  }
 
   if (!gameState) {
     return (
@@ -72,11 +73,10 @@ export default function GameApp() {
   }
 
   const spectateBooting =
-    isLiveRun &&
     gameState.phase === "START_SCREEN" &&
     (gameState.players?.length ?? 0) === 0;
 
-  if (isLiveRun && spectateError) {
+  if (spectateError) {
     return (
       <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center text-zinc-300 font-sans gap-4 px-6 text-center">
         <p className="text-amber-500/90 font-sans text-xs">观战不可用</p>
@@ -122,17 +122,6 @@ export default function GameApp() {
     );
   }
 
-  if (!isLiveRun && gameState.phase === "START_SCREEN") {
-    return (
-      <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-slate-100 overflow-hidden font-sans select-none antialiased">
-        <div className="absolute inset-0 bg-woodcut-dark opacity-30 mix-blend-multiply pointer-events-none z-0" />
-        <ThreeCanvas />
-        <GameSetup />
-        <div className="absolute inset-0 pointer-events-none border-4 border-indigo-900/40 shadow-[inset_0_0_100px_rgba(30,58,138,0.5)] z-50 rounded-xl" />
-      </div>
-    );
-  }
-
   const isNight = gameState?.phase?.startsWith("NIGHT") || false;
 
   return (
@@ -171,32 +160,6 @@ export default function GameApp() {
         </div>
 
         <div className="flex-grow flex flex-row w-full min-h-0 relative">
-          {!isLiveRun && (
-            <motion.div
-              initial={{ width: 320 }}
-              animate={{ width: isSidebarExpanded ? 320 : 0 }}
-              transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="pointer-events-auto shrink-0 border-r border-indigo-500/20 shadow-[4px_0_24px_rgba(0,0,0,0.5)] flex flex-col h-full overflow-hidden relative bg-[#09060c]/95"
-            >
-              <CardDeck />
-            </motion.div>
-          )}
-
-          {!isLiveRun && (
-            <motion.button
-              type="button"
-              onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-              animate={{ left: isSidebarExpanded ? 320 : 0 }}
-              transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="pointer-events-auto absolute top-1/2 -translate-y-1/2 z-40 bg-zinc-950 border border-amber-900/60 text-amber-500 hover:text-amber-400 hover:bg-zinc-900 hover:border-amber-700/80 w-6 h-24 rounded-r-md flex flex-col items-center justify-center shadow-[4px_0_20px_rgba(0,0,0,0.8)] transition-all group"
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(245,158,11,0.15),_transparent)] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-r-md" />
-              <span className="font-serif text-[10px] text-amber-700 group-hover:text-amber-500 transition-colors mb-1">✦</span>
-              <span className="font-mono text-[10px] font-black text-amber-600 group-hover:text-amber-400 transition-colors drop-shadow">{isSidebarExpanded ? "◀" : "▶"}</span>
-              <span className="font-serif text-[10px] text-amber-700 group-hover:text-amber-500 transition-colors mt-1">✦</span>
-            </motion.button>
-          )}
-
           <div className="flex-grow flex flex-col min-w-0 h-full relative pointer-events-auto bg-transparent">
             <div className="flex-grow flex flex-col min-h-0 overflow-hidden relative">
               {gameState?.winner && (
@@ -215,15 +178,9 @@ export default function GameApp() {
 
               <SpeechConsole highlightSelfSeat={isSeatView} />
             </div>
-
-            {!isLiveRun && (
-              <div className="shrink-0 bg-transparent">
-                <ControlPanel />
-              </div>
-            )}
           </div>
 
-          {insightEnabled && <InsightDock runId={runId} />}
+          {insightEnabled && !isSeatView && <InsightDock runId={runId} />}
         </div>
       </div>
 
@@ -235,7 +192,6 @@ export default function GameApp() {
 
       <AlertOverlays />
       <LiveCueAnchors />
-      {!isLiveRun && <CastSkillOverlay />}
       {isSeatView && <HumanInputPanel />}
     </div>
   );

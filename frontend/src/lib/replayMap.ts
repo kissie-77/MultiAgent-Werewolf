@@ -44,6 +44,16 @@ function toWinnerCamp(camp: string | null | undefined): "WOLVES" | "VILLAGERS" {
 }
 
 export function mapRunInfo(run: BackendRunDetail | null | undefined): ReplayRunInfo {
+  // 从 roster 中提取模型名称（取第一个玩家的 ai_model 作为对局模型）
+  let modelName = "";
+  if (Array.isArray(run?.roster)) {
+    for (const r of run!.roster) {
+      if (r?.ai_model) {
+        modelName = r.ai_model;
+        break;
+      }
+    }
+  }
   return {
     id: run?.run_id ?? "",
     date: run?.created_at ?? "",
@@ -53,6 +63,7 @@ export function mapRunInfo(run: BackendRunDetail | null | undefined): ReplayRunI
     initial_players: run?.player_count ?? 0,
     user_role: "",
     winner_camp: toWinnerCamp(run?.winner_camp),
+    ...(modelName ? { model_name: modelName } : {}),
   };
 }
 
@@ -259,10 +270,15 @@ export function mapPlayerScores(
 
   // alive status joined from run.roster by player_id (default true).
   const aliveById = new Map<string, boolean>();
+  // camp info joined from run.roster by player_id
+  const campById = new Map<string, string>();
   const roster = data?.run?.roster;
   if (Array.isArray(roster)) {
     for (const r of roster) {
-      if (r?.player_id != null) aliveById.set(String(r.player_id), r.is_alive !== false);
+      if (r?.player_id != null) {
+        aliveById.set(String(r.player_id), r.is_alive !== false);
+        if (r?.camp != null) campById.set(String(r.player_id), String(r.camp));
+      }
     }
   }
 
@@ -273,6 +289,7 @@ export function mapPlayerScores(
       playerId: toSeatNumber(p?.player_id),
       playerName: p?.player_name ?? "",
       role: p?.role_name ?? "",
+      camp: campById.get(pid) ?? p?.camp ?? "",
       isAlive: aliveById.has(pid) ? (aliveById.get(pid) as boolean) : true,
       gameSurvivalScore: num(norm[SCORE_DIMENSION.gameSurvivalScore]),
       logicSpeechScore: num(norm[SCORE_DIMENSION.logicSpeechScore]),
@@ -402,9 +419,23 @@ export function mapBeliefColumns(
     }));
 }
 
-/** Degraded in M2b: the front-end WolfCampSnapshot fields have no backend source. */
-export function mapWolfCampSnapshots(_rows?: unknown): WolfCampSnapshot[] {
-  return [];
+/** Map backend wolf_camp_snapshots (any[]) to front-end WolfCampSnapshot shape. */
+export function mapWolfCampSnapshots(raw: unknown): WolfCampSnapshot[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s: any) => ({
+    day: num(s?.day ?? s?.round),
+    campStrategy: s?.camp_strategy ?? s?.campStrategy ?? "",
+    targetSelectionId: num(s?.target_selection_id ?? s?.targetSelectionId),
+    targetSelectionName: s?.target_selection_name ?? s?.targetSelectionName ?? "",
+    wolfVotes: Array.isArray(s?.wolf_votes ?? s?.wolfVotes)
+      ? (s?.wolf_votes ?? s?.wolfVotes).map((wv: any) => ({
+          wolfPlayerId: num(wv?.wolf_player_id ?? wv?.wolfPlayerId),
+          wolfPlayerName: wv?.wolf_player_name ?? wv?.wolfPlayerName ?? "",
+          votedForId: num(wv?.voted_for_id ?? wv?.votedForId),
+          votedForName: wv?.voted_for_name ?? wv?.votedForName ?? "",
+        }))
+      : [],
+  }));
 }
 
 // --- compose ---
@@ -424,7 +455,7 @@ export function mapReplayPage(
     report_markdown: d.report_markdown ?? "",
     coach_excerpt: d.coach_excerpt ?? "",
     belief_snapshots: mapBeliefColumns(d.belief_snapshots),
-    wolf_camp_snapshots: mapWolfCampSnapshots(),
+    wolf_camp_snapshots: mapWolfCampSnapshots(d.wolf_camp_snapshots),
     belief_heatmap: [],
     belief_matrix_anchors: mapBeliefAnchors(d.belief_snapshots),
     vote_swing_summary: mapVoteSwing(d),

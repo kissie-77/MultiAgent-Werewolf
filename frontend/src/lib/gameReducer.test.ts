@@ -96,4 +96,24 @@ describe("public dialogue + event timeline", () => {
     s = reduceEvent(s, { event_type: "werewolf_killed", message: "Player3 被狼人杀害" } as any);
     expect(s.eventLog.map((e) => e.message)).toEqual(["天黑请闭眼", "Player3 被狼人杀害"]);
   });
+
+  it("strips other players' reasoning in seat view", () => {
+    let s = reduceEvent(initialSpectateState(), {
+      event_type: "snapshot",
+      selfSeat: 1,
+      roster: [
+        { seat: 1, name: "P1", role: "Seer", is_alive: true },
+        { seat: 2, name: "P2", role: null, is_alive: true },
+      ],
+    } as any);
+    s = reduceEvent(s, {
+      event_type: "player_speech",
+      round_number: 1,
+      phase: "day_discussion",
+      message: "hi",
+      selfSeat: 1,
+      data: { player_id: "player_2", reasoning: "wolf plan", content: "hi" },
+    } as any);
+    expect(s.speechLogs.at(-1)?.reasoning).toBeUndefined();
+  });
 });

@@ -71,7 +71,7 @@ export function mapRolesPage(raw: BackendRolesPageData | null | undefined): Role
   };
 }
 
-function mapPromptEntry(entry: BackendRoleDetailData["prompt_library"][number]): RolePromptEntry {
+function mapPromptEntry(entry: NonNullable<BackendRoleDetailData["prompt_library"]>[number]): RolePromptEntry {
   return {
     id: entry.id,
     category: entry.category,
@@ -81,7 +81,7 @@ function mapPromptEntry(entry: BackendRoleDetailData["prompt_library"][number]):
   };
 }
 
-function mapSkillEntry(entry: BackendRoleDetailData["skill_library"][number]): RoleSkillEntry {
+function mapSkillEntry(entry: NonNullable<BackendRoleDetailData["skill_library"]>[number]): RoleSkillEntry {
   return {
     id: entry.id,
     title: entry.title,

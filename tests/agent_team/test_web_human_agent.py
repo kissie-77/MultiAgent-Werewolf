@@ -18,12 +18,20 @@ class _FakeBroker:
 async def test_seat_decision_awaits_broker() -> None:
     broker = _FakeBroker("2")
     agent = WebHumanAgent(name="P1", seat=1, broker=broker)
-    msg = "请只回复目标玩家的全局座位号\n可选目标:\n- 座位 2\n- 座位 3"
+    msg = (
+        "你是 1 号女巫。\n"
+        "请只回复目标玩家的全局座位号\n"
+        "可选目标:\n- 座位 2\n- 座位 3"
+    )
     out = await agent.get_response(msg)
     assert out == "2"
     assert broker.calls[0]["kind"] == "seat"
     assert broker.calls[0]["valid_targets"] == [2, 3]
-    assert broker.calls[0]["prompt"] == msg
+    # Browser must receive sanitized prompt, not raw LLM observation.
+    assert broker.calls[0]["prompt"] != msg
+    assert "Schema" not in broker.calls[0]["prompt"]
+    assert broker.calls[0]["title"]
+    assert broker.calls[0]["ui_hint"]
 
 
 async def test_no_broker_returns_empty() -> None:

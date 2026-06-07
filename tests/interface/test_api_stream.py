@@ -42,6 +42,44 @@ def test_stream_replays_completed_run_god_view(tmp_path, monkeypatch):
     assert "vote_result" in body
 
 
+def test_redact_event_for_seat_strips_private_fields() -> None:
+    from llm_werewolf.interface.api.services.event_stream import redact_event_for_seat
+
+    ev = {
+        "event_type": "player_speech",
+        "data": {
+            "player_id": "player_2",
+            "role": "Werewolf",
+            "reasoning": "secret plan",
+            "private_thought": "inner monologue",
+            "content": "hello",
+        },
+    }
+    out = redact_event_for_seat(ev, seat=1)
+    assert out["data"]["content"] == "hello"
+    assert "reasoning" not in out["data"]
+    assert "private_thought" not in out["data"]
+    assert "role" not in out["data"]
+
+    self_ev = redact_event_for_seat(
+        {
+            "event_type": "actor_thinking",
+            "data": {"player_id": "player_1", "role": "Seer"},
+        },
+        seat=1,
+    )
+    assert self_ev["data"]["role"] == "Seer"
+
+    other_ev = redact_event_for_seat(
+        {
+            "event_type": "actor_thinking",
+            "data": {"player_id": "player_2", "role": "Werewolf"},
+        },
+        seat=1,
+    )
+    assert "role" not in other_ev["data"]
+
+
 def test_stream_seat_view_hides_other_players_private_events(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     run_id = "demo-stream2"
@@ -60,6 +98,39 @@ def test_stream_seat_view_hides_other_players_private_events(tmp_path, monkeypat
         body = "".join(chunk for chunk in resp.iter_text())
     assert "vote_result" in body        # public -> visible
     assert "seer_checked" not in body   # seat 3 must NOT see seat 2's private event
+
+
+def test_stream_seat_view_redacts_speech_roles_in_replay(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run_id = "demo-redact-speech"
+    run_dir = tmp_path / "artifacts" / "runs" / run_id
+    _write_events(
+        run_dir,
+        [
+            {
+                "event_type": "player_speech",
+                "round_number": 1,
+                "phase": "day_discussion",
+                "message": "hello",
+                "data": {
+                    "player_id": "player_2",
+                    "role": "Werewolf",
+                    "reasoning": "secret",
+                    "private_thought": "inner",
+                    "content": "hello",
+                },
+                "visible_to": None,
+            },
+        ],
+    )
+    client = TestClient(create_app())
+    with client.stream("GET", f"/api/v1/games/{run_id}/stream?view=seat&seat=1") as resp:
+        body = "".join(chunk for chunk in resp.iter_text())
+    assert "player_speech" in body
+    assert "hello" in body
+    assert '"role": "Werewolf"' not in body
+    assert '"reasoning": "secret"' not in body
+    assert '"private_thought": "inner"' not in body
 
 
 def test_stream_unknown_run_returns_404(tmp_path, monkeypatch):

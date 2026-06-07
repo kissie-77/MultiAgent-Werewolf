@@ -139,13 +139,13 @@ export default function RolesPage() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-4 mb-10 text-center"
+        className="space-y-6 mb-10 text-center"
       >
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-950 border border-zinc-900 rounded-full text-[9px] font-mono text-yellow-500 uppercase tracking-widest">
           <Sparkles className="w-3 h-3 text-yellow-500" />
           SACRED ALIGNMENT EPICS · {roles.length} ROLES
         </div>
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-widest font-sans bg-clip-text bg-gradient-to-r from-zinc-100 to-yellow-600 inline-block text-transparent">
+        <h1 className="text-2xl md:text-3xl font-extrabold tracking-widest font-sans text-zinc-100">
           {introTitle}
         </h1>
         <p className="text-xs text-zinc-400 max-w-2xl mx-auto leading-relaxed">{introText}</p>

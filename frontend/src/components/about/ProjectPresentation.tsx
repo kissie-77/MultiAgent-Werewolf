@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles, ArrowRight, Star, Shield, Eye, Code, Zap, Trophy } from "lucide-react";
 import {
-  MVP_CHECKLIST,
   PRESENTATION_HERO,
-  PRESENTATION_NAV,
   PRESENTATION_SECTIONS,
   PRESENTATION_STATS,
   ROLE_CHIPS,
-  SCORE_ROWS,
   type PresentationCard,
   type PresentationSection,
 } from "../../content/projectPresentation";
@@ -17,6 +14,16 @@ interface ProjectPresentationProps {
   roleCount?: number;
   configCount?: number;
 }
+
+// ─── Icon map for sections ─────────────────────────────────────────────
+const SECTION_ICONS: Record<string, React.ReactNode> = {
+  agents: <Star className="w-4 h-4" />,
+  engine: <Zap className="w-4 h-4" />,
+  isolation: <Shield className="w-4 h-4" />,
+  observability: <Eye className="w-4 h-4" />,
+  frontend: <Code className="w-4 h-4" />,
+  advanced: <Trophy className="w-4 h-4" />,
+};
 
 function CollapsePanel({
   label,
@@ -87,6 +94,7 @@ function CardGrid({ cards }: { cards: PresentationCard[] }) {
 }
 
 function SectionBlock({ section }: { section: PresentationSection }) {
+  const icon = SECTION_ICONS[section.id];
   return (
     <motion.section
       id={section.id}
@@ -97,6 +105,9 @@ function SectionBlock({ section }: { section: PresentationSection }) {
       transition={{ duration: 0.4 }}
     >
       <div className="flex flex-wrap items-center gap-3 mb-5 pb-3 border-b border-zinc-900">
+        <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-yellow-500/10 text-yellow-500 shrink-0">
+          {icon}
+        </span>
         <span className="text-[10px] font-mono font-bold text-yellow-500 bg-yellow-500/10 px-2.5 py-0.5 rounded">
           {section.num}
         </span>
@@ -225,145 +236,85 @@ export default function ProjectPresentation({ roleCount, configCount }: ProjectP
 
   return (
     <div className="relative">
+      {/* ─── Scroll progress bar ─────────────────────────────────── */}
       <div
         className="fixed top-0 left-0 right-0 h-0.5 z-50 bg-gradient-to-r from-yellow-500 to-violet-500 transition-[width]"
         style={{ width: `${progress}%` }}
       />
 
+      {/* ─── Hero ────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center py-12 md:py-16 px-4 border-b border-zinc-900/80"
+        className="relative text-center py-16 md:py-24 px-4 border-b border-zinc-900/80 overflow-hidden"
       >
-        <div className="inline-flex items-center gap-2 px-3 py-1 border border-yellow-500/20 rounded-full text-[9px] font-mono text-yellow-500 tracking-[0.2em] uppercase mb-5">
-          <Sparkles className="w-3 h-3" />
-          {PRESENTATION_HERO.badge}
-        </div>
-        <h1 className="text-2xl sm:text-4xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 via-yellow-400 to-yellow-600">
-          {PRESENTATION_HERO.title}
-          <br className="hidden sm:block" />
-          <span className="sm:ml-0">{PRESENTATION_HERO.titleLine2}</span>
-        </h1>
-        <p className="mt-3 text-[11px] font-mono text-zinc-500 tracking-wider uppercase">
-          {PRESENTATION_HERO.subtitle}
-        </p>
-        <p className="mt-4 text-xs text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-          {PRESENTATION_HERO.description}
-        </p>
+        {/* Background glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(234,179,8,0.06)_0%,_transparent_70%)] pointer-events-none" />
 
-        <div className="flex flex-wrap justify-center gap-8 sm:gap-12 mt-8">
-          {stats.map((s) => (
-            <div key={s.label} className="text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-violet-400">
-                {s.value}
-              </div>
-              <div className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest mt-1">
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 border border-yellow-500/20 rounded-full text-[10px] font-mono text-yellow-500 tracking-[0.2em] uppercase mb-6 bg-yellow-500/5">
+            <Sparkles className="w-3.5 h-3.5" />
+            {PRESENTATION_HERO.badge}
+          </div>
 
-        {configCount !== undefined && configCount > 0 && (
-          <p className="mt-6 text-[10px] font-mono text-zinc-600">
-            平台已配置 {configCount} 套模型方案 · 支持 6–20 人标准板子
+          <h1 className="text-3xl sm:text-5xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 via-yellow-400 to-yellow-600 leading-tight">
+            {PRESENTATION_HERO.title}
+          </h1>
+          <h1 className="text-3xl sm:text-5xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-violet-500 leading-tight mt-1">
+            {PRESENTATION_HERO.titleLine2}
+          </h1>
+
+          <p className="mt-5 text-[11px] font-mono text-zinc-500 tracking-wider uppercase">
+            {PRESENTATION_HERO.subtitle}
           </p>
-        )}
+          <p className="mt-4 text-xs text-zinc-400 max-w-2xl mx-auto leading-relaxed">
+            {PRESENTATION_HERO.description}
+          </p>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10 mt-10 max-w-3xl mx-auto">
+            {stats.map((s) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-center group"
+              >
+                <div className="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-violet-400 group-hover:from-yellow-300 group-hover:to-violet-300 transition-all">
+                  {s.value}
+                </div>
+                <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-1.5">
+                  {s.label}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {configCount !== undefined && configCount > 0 && (
+            <p className="mt-8 text-[10px] font-mono text-zinc-600">
+              平台已配置 {configCount} 套模型方案 · 支持 6–20 人标准板子
+            </p>
+          )}
+
+          {/* CTA */}
+          <div className="flex flex-wrap justify-center gap-3 mt-8">
+            <button
+              type="button"
+              onClick={() => scrollTo("agents")}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-xs font-mono text-yellow-500 hover:bg-yellow-500/20 transition-colors"
+            >
+              开始探索 <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </motion.div>
 
-      <div className="sticky top-0 z-40 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-900 px-4 py-2 overflow-x-auto scrollbar-none">
-        <div className="max-w-5xl mx-auto flex gap-2 min-w-max">
-          {PRESENTATION_NAV.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => scrollTo(item.id)}
-              className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded border border-zinc-800 text-zinc-500 hover:text-yellow-500 hover:border-yellow-500/30 transition-colors whitespace-nowrap"
-            >
-              {item.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => scrollTo("scoring")}
-            className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded border border-zinc-800 text-zinc-500 hover:text-yellow-500 hover:border-yellow-500/30 transition-colors whitespace-nowrap"
-          >
-            评分对照
-          </button>
-        </div>
-      </div>
-
+      {/* ─── Sections ────────────────────────────────────────────── */}
       <div className="max-w-5xl mx-auto px-4 pb-16">
         {PRESENTATION_SECTIONS.map((section) => (
           <SectionBlock key={section.id} section={section} />
         ))}
-
-        <section id="scoring" className="scroll-mt-24 py-10">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.4 }}
-          >
-            <div className="flex items-center gap-3 mb-6 pb-3 border-b border-zinc-900">
-              <span className="text-[10px] font-mono font-bold text-yellow-500 bg-yellow-500/10 px-2.5 py-0.5 rounded">
-                07
-              </span>
-              <h2 className="text-lg font-bold text-zinc-100">评分维度对照</h2>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-zinc-900">
-              <table className="w-full text-left text-[11px] min-w-[640px]">
-                <thead>
-                  <tr className="bg-zinc-900/60 text-zinc-300">
-                    <th className="p-3 font-semibold">维度</th>
-                    <th className="p-3 w-12">权重</th>
-                    <th className="p-3">满分标准</th>
-                    <th className="p-3">项目实现</th>
-                    <th className="p-3 w-20">档位</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {SCORE_ROWS.map((row) => (
-                    <tr key={row.dimension} className="border-t border-zinc-900 hover:bg-yellow-500/[0.02]">
-                      <td className="p-3 text-zinc-200 font-medium">{row.dimension}</td>
-                      <td className="p-3 text-zinc-500 font-mono">{row.weight}</td>
-                      <td className="p-3 text-zinc-400 leading-relaxed">{row.standard}</td>
-                      <td className="p-3 text-zinc-400 leading-relaxed">{row.implementation}</td>
-                      <td className="p-3">
-                        <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                          {row.tier}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-6 p-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 text-xs text-zinc-300 leading-relaxed border-l-2 border-l-yellow-500">
-              <strong className="text-yellow-400">总结：</strong>
-              本项目覆盖课题基础要求、加分项与进阶双方向全选，在 Agent 调优、多智能体系统设计与工程完整度三个维度均达到可演示、可评测、可演进的生产级水准。
-            </div>
-
-            <h3 className="text-sm font-bold text-zinc-300 mt-8 mb-4">MVP Checklist</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {MVP_CHECKLIST.map((item) => (
-                <motion.div
-                  key={item}
-                  initial={{ opacity: 0, x: -8 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.3 }}
-                  className="flex items-start gap-2 p-3 rounded-lg border border-zinc-900 bg-zinc-950/50 text-xs text-zinc-400"
-                >
-                  <span className="text-emerald-500 font-bold shrink-0">✓</span>
-                  <span>{item}</span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </section>
 
         <footer className="text-center py-8 text-[10px] font-mono text-zinc-600 tracking-widest uppercase border-t border-zinc-900">
           Agent Teams 实践 — AI 狼人杀 · 2026

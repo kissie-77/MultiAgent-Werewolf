@@ -1,4 +1,31 @@
-# *.md linguist-detectable=false
-# *.sh linguist-detectable=false
-# Makefile linguist-detectable=false
-# .devcontainer/* linguist-detectable=false
+# 统一换行符：文本文件以 LF 结尾，Windows 下 checkout 时自动转 CRLF
+* text=auto eol=lf
+
+# 确保脚本和配置文件始终使用 LF
+*.sh text eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.conf text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.jsx text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+
+# 二进制文件不转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pyc binary

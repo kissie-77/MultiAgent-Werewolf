@@ -1,0 +1,64 @@
+preset:
+  title: 狼队 parade
+  description: 狼王带队、狼美人魅惑，狼队技能拉满的高压局。
+  tags:
+  - 狼队
+  - 高压
+  - 10人
+  featured: true
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+vote_intention_concurrency: 10
+role_names:
+- Werewolf
+- AlphaWolf
+- WolfBeauty
+- Seer
+- Witch
+- Hunter
+- Villager
+- Villager
+- Villager
+- Villager
+players:
+- name: Player1
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player2
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player3
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player4
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player5
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player6
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player7
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player8
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player9
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player10
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY

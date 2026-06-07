@@ -16,8 +16,11 @@ export default function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdo
   // 合并 MVP 和得分数据
   const mergedPlayers = scores.map(score => {
     const mvpInfo = mvpRanking.find(m => m.playerName === score.playerName);
-    // 若无阵营字段，根据角色粗略判断阵营
-    const camp = ['狼人', 'Werewolf', 'Wolf'].some(w => score.role.includes(w)) ? 'WEREWOLF' : 'GOOD';
+    // 使用后端返回的 camp 字段，回退到角色名称推断
+    const campRaw = score.camp ?? '';
+    const camp = campRaw
+      ? (['WEREWOLF', 'werewolf', 'wolf', '狼人'].some(w => campRaw.includes(w)) ? 'WEREWOLF' : 'GOOD')
+      : (['狼人', 'Werewolf', 'Wolf'].some(w => score.role.includes(w)) ? 'WEREWOLF' : 'GOOD');
     return {
       ...score,
       camp,

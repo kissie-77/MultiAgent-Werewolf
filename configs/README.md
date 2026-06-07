@@ -11,8 +11,11 @@ All web and CLI matches should use one of these five files. Roles are auto-dealt
 | `standard-8p.yaml` | 8 | Mid-size |
 | `standard-12p.yaml` | 12 | Badge-flow default |
 | `standard-16p.yaml` | 16 | Extended roles |
+| `preset-*.yaml` | 8–12 | Curated fun boards (fixed `role_names`; see preset metadata) |
 
 All standard boards use **Volcengine Ark / Doubao** via `ARK_API_KEY` and endpoint id `ARK_EP` in `.env`.
+
+Curated presets (`preset-lovers-9`, `preset-chaos-12`, …) embed a fixed role lineup and are listed by `GET /api/v1/games/board-presets`. Custom lineups can also be sent via `POST /api/v1/games/start` with a `role_names` array.
 
 For all 8 supported vendors (DS / 豆包 / GPT / Gemini / Claude / Kimi / GLM / MiniMax) and env naming rules, see [docs/interface/PROVIDERS.md](../docs/interface/PROVIDERS.md) and `.env.example`.
 

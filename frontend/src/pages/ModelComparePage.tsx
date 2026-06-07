@@ -25,20 +25,26 @@ export default function ModelComparePage() {
   }, [searchParams]);
 
   useEffect(() => {
-    // 后台获取完整模型列表用于选择引导和动态清单
+    let cancelled = false;
     setLoadingAll(true);
     ApiClient.getModelsPageData()
       .then((data) => {
+        if (cancelled) return;
         setAllModels(data.models || []);
         setLoadingAll(false);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error("Failed loading all models for guide list:", err);
         setLoadingAll(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const currentIds = searchParams.getAll("ids");
     if (currentIds.length === 0) {
       setCompareData(null);
@@ -50,14 +56,19 @@ export default function ModelComparePage() {
     setError(null);
     ApiClient.compareModels(currentIds)
       .then((data) => {
+        if (cancelled) return;
         setCompareData(data);
         setLoading(false);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error(err);
         setError("无法接轨高维对比星符，虚无之流翻滚。");
         setLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   const updateIdsInUrl = (newIds: string[]) => {

@@ -1,0 +1,73 @@
+preset:
+  title: 血月隐狼局
+  description: 血月使徒、隐狼、守卫狼三狼异格，守墓人追魂验尸。
+  tags:
+  - 血月
+  - 隐狼
+  - 12人
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+vote_intention_concurrency: 12
+role_names:
+- Werewolf
+- BloodMoonApostle
+- HiddenWolf
+- GuardianWolf
+- Seer
+- Witch
+- GraveyardKeeper
+- Hunter
+- Guard
+- Villager
+- Villager
+- Villager
+players:
+- name: Player1
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player2
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player3
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player4
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player5
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player6
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player7
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player8
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player9
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player10
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player11
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player12
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY

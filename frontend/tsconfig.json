@@ -15,6 +15,7 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "strict": true,
     "paths": {
       "@/*": [
         "./*"
@@ -22,8 +23,5 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  },
-  "exclude": [
-    "src/services/**"
-  ]
+  }
 }

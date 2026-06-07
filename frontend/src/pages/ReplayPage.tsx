@@ -40,7 +40,29 @@ export default function ReplayPage() {
   const [activeTab, setActiveTab] = useState<"timeline" | "mvp_report" | "report" | "belief" | "vote_swing">("timeline");
   const [viewScope, setViewScope] = useState<string>("ALL");
 
-  const fetchData = useCallback(() => {
+  useEffect(() => {
+    if (!runId) return;
+    let cancelled = false;
+    setLoading(true);
+    setErr(null);
+    ApiClient.getReplayData(runId)
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setLoading(false);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        setErr("真意星流无法检索此局复盘，或虚境网络波动，请稍后再试。");
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId]);
+
+  const retryFetch = useCallback(() => {
     if (!runId) return;
     setLoading(true);
     setErr(null);
@@ -56,10 +78,6 @@ export default function ReplayPage() {
       });
   }, [runId]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   // 信念/狼人快照的日期选择器 — 从真实时间线（和信念快照日期）推导，
   // 而非硬编码的 [1, 2]。
   const [selectedSnapshotDay, setSelectedSnapshotDay] = useState<number>(1);
@@ -73,7 +91,7 @@ export default function ReplayPage() {
       <PageLoadState
         variant="error"
         errorText={err || "无法检索指定的复盘档案"}
-        onRetry={fetchData}
+        onRetry={retryFetch}
         action={
           <Link
             to="/"
@@ -235,7 +253,7 @@ export default function ReplayPage() {
              <ChevronRight className="w-4 h-4 rotate-180" /> 返回
           </Link>
           <span className="text-zinc-700">|</span>
-          <span className="tracking-widest">#{runId.slice(0, 16)}</span>
+          <span className="tracking-widest">#{runId?.slice(0, 16)}</span>
           <span className="text-zinc-700">|</span>
           {run.winner_camp === "VILLAGERS" ? (
              <span className="text-blue-400 flex items-center gap-1 font-bold">🏆好人胜</span>
@@ -245,7 +263,7 @@ export default function ReplayPage() {
           <span className="text-zinc-700">|</span>
           <span>{run.initial_players}人</span>
           <span className="text-zinc-700">|</span>
-          <span className="uppercase">DEEPSEEK-V4-FLASH</span>
+          <span className="uppercase">{run.model_name || "DEEPSEEK-V4-FLASH"}</span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -310,7 +328,7 @@ export default function ReplayPage() {
             animate={{ opacity: 1, y: 0 }}
             className="w-full"
           >
-            <TimelinePlayback timeline={timeline} viewScope={viewScope} />
+            <TimelinePlayback timeline={timeline} viewScope={viewScope} run={run} players={scores} />
           </motion.div>
         )}
 
@@ -325,7 +343,7 @@ export default function ReplayPage() {
               scores={scores}
               turningPoints={turning_points}
               reportMarkdown={report_markdown}
-              runModel="DEEPSEEK-V4-FLASH"
+              runModel={run.model_name || "DEEPSEEK-V4-FLASH"}
             />
           </motion.div>
         )}

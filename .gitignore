@@ -262,3 +262,20 @@ add_agentscope_slides.py
 
 # Local API keys — never commit
 Apikey.txt
+
+# Frontend (Node / Vite) — rules consolidated from frontend/.gitignore
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+frontend/.DS_Store
+frontend/*.log
+# Local frontend overrides only (default dev proxy is frontend/.env.development)
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+!frontend/.env.development
+
+# Editor / local scratch
+.cursor/
+conflict-files.txt

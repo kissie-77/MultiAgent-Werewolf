@@ -1,4 +1,4 @@
-// 角色艺术图从 `frontend/public/{material,tarot}/<PascalCase>.png` 提供服务
+// Role art is served from `frontend/public/{material,tarot}/<PascalCase>.png`.
 //（与后端角色名匹配的规范词干）。作为纯绝对 URL 引用 — 不要从 `public/` 导入（Vite 会返回 SPA 回退 HTML）。
 // `material` = 对局内肖像，`tarot` = 开局塔罗牌。
 
@@ -19,12 +19,15 @@ const ROLE_STEM: Record<string, string> = {
   守墓人: "GraveyardKeeper", 盗贼: "Thief", 恋人: "Lover",
 };
 
-/** Legacy lowercase filenames kept alongside PascalCase assets in `public/material`. */
-const MATERIAL_LEGACY_FILE: Record<string, string> = {
-  Seer: "seer",
-  Witch: "witch",
-  Hunter: "hunter",
-  Werewolf: "wolf",
+/** 后端可能返回小写角色名，统一映射到 PascalCase 词干。 */
+const LOWERCASE_STEM: Record<string, string> = {
+  werewolf: "Werewolf", alphawolf: "AlphaWolf", whitewolf: "WhiteWolf", wolfbeauty: "WolfBeauty",
+  guardianwolf: "GuardianWolf", hiddenwolf: "HiddenWolf", bloodmoonapostle: "BloodMoonApostle",
+  nightmarewolf: "NightmareWolf",
+  villager: "Villager", seer: "Seer", witch: "Witch", hunter: "Hunter", guard: "Guard",
+  idiot: "Idiot", elder: "Elder", knight: "Knight", magician: "Magician", cupid: "Cupid",
+  raven: "Raven", graveyardkeeper: "GraveyardKeeper", thief: "Thief", lover: "Lover",
+  wolf: "Werewolf",
 };
 
 function stemFor(role: string): string {
@@ -32,13 +35,12 @@ function stemFor(role: string): string {
   const key = raw.replace(/\s+/g, ""); // "Alpha Wolf" -> "AlphaWolf"
   if (ROLE_STEM[key]) return ROLE_STEM[key];
   if (ROLE_STEM[raw]) return ROLE_STEM[raw];
-  if (key.toLowerCase().includes("wolf") || raw.includes("狼")) return "Werewolf";
+  // 尝试小写匹配（后端可能返回 "seer"、"werewolf" 等）
+  const lowerKey = key.toLowerCase();
+  if (LOWERCASE_STEM[lowerKey]) return LOWERCASE_STEM[lowerKey];
+  if (lowerKey.includes("wolf") || raw.includes("狼")) return "Werewolf";
   return "Villager";
 }
 
-function materialFile(stem: string): string {
-  return MATERIAL_LEGACY_FILE[stem] ?? stem;
-}
-
-export const getRoleImage = (role: string) => `/material/${materialFile(stemFor(role))}.png`;
+export const getRoleImage = (role: string) => `/material/${stemFor(role)}.png`;
 export const getTarotImage = (role: string) => `/tarot/${stemFor(role)}.png`;

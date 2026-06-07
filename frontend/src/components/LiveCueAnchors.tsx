@@ -1,17 +1,24 @@
 import { useGameStore } from "../store";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
+import { isRoleRevealed } from "../lib/humanPrompt";
 
 /**
  * Minimal DOM anchors for animators — attach effects via data-live-cue attributes.
- * Not meant as final UI; values mirror `gameState.liveCue` from the SSE reducer.
+ * In seat view, role names are hidden unless revealed to the human player.
  */
 export default function LiveCueAnchors() {
   const liveCue = useGameStore((s) => s.state?.liveCue);
+  const humanSeat = useGameStore((s) => s.humanSeat);
+  const isSeatView = humanSeat != null;
+
   if (!liveCue) return null;
 
   const { nightSubPhase, nightSkill, sheriffStage } = liveCue;
 
   if (!nightSubPhase && !nightSkill && !sheriffStage) return null;
+
+  const showRole = (seat: number, role: string) =>
+    !isSeatView || seat === humanSeat || isRoleRevealed(role);
 
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-[15] flex flex-col gap-1 items-end">
@@ -37,11 +44,12 @@ export default function LiveCueAnchors() {
         <div
           data-live-cue="night-skill"
           data-seat={nightSkill.seat}
-          data-role={nightSkill.role}
+          data-role={showRole(nightSkill.seat, nightSkill.role) ? nightSkill.role : ""}
           data-sub-phase={nightSkill.subPhase ?? ""}
           className="font-mono text-[9px] text-fuchsia-400/80 uppercase tracking-widest bg-black/60 px-2 py-0.5 rounded border border-fuchsia-900/40"
         >
-          技能占位 · {nightSkill.seat}号 {nightSkill.role}
+          夜间行动 · {nightSkill.seat}号
+          {showRole(nightSkill.seat, nightSkill.role) && nightSkill.role ? ` ${nightSkill.role}` : ""}
         </div>
       )}
     </div>

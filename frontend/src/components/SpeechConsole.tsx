@@ -4,6 +4,7 @@ import { useGameStore } from "../store";
 import { motion, AnimatePresence } from "motion/react";
 import { getRoleImage } from "../utils/roles";
 import { THINKING_CONTEXT_LABEL } from "../lib/liveCue";
+import { isRoleRevealed } from "../lib/humanPrompt";
 
 export default function SpeechConsole({
   highlightSelfSeat = false,
@@ -13,6 +14,7 @@ export default function SpeechConsole({
 }) {
   const gameState = useGameStore((state) => state.state);
   const humanSeat = useGameStore((state) => state.humanSeat);
+  const pendingInput = useGameStore((state) => state.pendingInput);
   const speechLogs = gameState?.speechLogs || [];
   const currentSpeakerId = gameState?.currentSpeakerId;
   const thinkingCue = gameState?.liveCue?.thinking ?? null;
@@ -23,25 +25,29 @@ export default function SpeechConsole({
   // 跟踪哪些日志的思考过程已展开
   const [expandedThoughts, setExpandedThoughts] = useState<Record<number, boolean>>({});
   const [showPureTextHistory, setShowPureTextHistory] = useState(false);
-  
-  const isAutoPlaying = useGameStore(state => state.isAutoPlaying);
 
   const toggleThought = (index: number) => {
-    setExpandedThoughts(prev => ({
+    setExpandedThoughts((prev) => ({
       ...prev,
-      [index]: !prev[index]
+      [index]: !prev[index],
     }));
   };
 
   // 日志变化时自动滚动到底部
   useEffect(() => {
-    if (!showPureTextHistory) {
-      setTimeout(() => {
-        listEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    }
+    if (showPureTextHistory) return;
+    const timer = setTimeout(() => {
+      listEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timer);
   }, [speechLogs.length, currentSpeakerId, expandedThoughts, showPureTextHistory]);
 
+
+  const roleLabelForLog = (log: (typeof speechLogs)[number]) => {
+    const rosterRole = gameState?.players?.find((p) => p.id === log.playerId)?.role;
+    const displayRole = isRoleRevealed(rosterRole) ? rosterRole! : isRoleRevealed(log.role) ? log.role : "";
+    return displayRole || "未知";
+  };
 
   // 为不同角色对话框映射特定边框颜色和阴影
   const roleStyles: Record<string, string> = {
@@ -98,7 +104,7 @@ export default function SpeechConsole({
                      <span className="text-red-500 font-bold">【审判长】</span>
                    ) : (
                      <>
-                       <span className="text-yellow-500 font-bold">[{log.role}] {log.playerName} ({log.playerId}号)</span>
+                       <span className="text-yellow-500 font-bold">[{roleLabelForLog(log)}] {log.playerName} ({log.playerId}号)</span>
                        <span>D-{log.day} / {log.isNight ? "NIGHT" : "DAY"}</span>
                      </>
                    )}
@@ -134,10 +140,15 @@ export default function SpeechConsole({
                 highlightSelfSeat &&
                 humanSeat != null &&
                 log.playerId === humanSeat;
+              const rosterRole = gameState?.players?.find((p) => p.id === log.playerId)?.role;
+              const displayRole = isRoleRevealed(rosterRole) ? rosterRole! : isRoleRevealed(log.role) ? log.role : "";
+              const roleLabel = displayRole || "未知";
+              const avatarRole = displayRole || "村民";
               const isActingSpeaker = currentSpeakerId === log.playerId;
               const isThoughtExpanded = expandedThoughts[index];
+              const showReasoning = Boolean(log.reasoning) && (!highlightSelfSeat || isSelf);
               
-              const bubbleRoleStyle = roleStyles[log.role] || "border-black/20 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]";
+              const bubbleRoleStyle = displayRole ? (roleStyles[displayRole] || roleStyles["村民"]) : "border-zinc-600/70 shadow-[4px_4px_0px_0px_rgba(113,113,122,0.25)]";
 
               if (isNarrator) {
                 return (
@@ -169,7 +180,7 @@ export default function SpeechConsole({
                       : isActingSpeaker
                         ? "border-2 border-black text-black ring-4 ring-yellow-400/80 animate-pulse"
                         : "border-2 border-zinc-700 text-zinc-300"
-                  }`} style={{ backgroundImage: `url(${getRoleImage(log.role)})` }}>
+                  }`} style={{ backgroundImage: `url(${getRoleImage(avatarRole)})` }}>
                     {/* Shadow overlay to make seat number readable */}
                     <div className="absolute inset-0 bg-black/40 pointer-events-none" />
                     
@@ -193,7 +204,7 @@ export default function SpeechConsole({
                         <span className="text-xl leading-none">🗣</span> 
                         <span className="underline decoration-2 underline-offset-2">{log.playerName}</span> 
                         {isSelf && <span className="bg-red-800 text-white px-1.5 py-0.5 text-[9px] rounded-full ml-1">本人</span>}
-                        <span className="opacity-70 font-normal ml-2">[{log.role}]</span>
+                        <span className="opacity-70 font-normal ml-2">[{roleLabel}]</span>
                       </span>
                       <span className="text-zinc-600/80 tracking-widest text-[9px] font-bold">
                         D-{log.day} / {log.isNight ? "NIGHT" : "DAY"}
@@ -201,14 +212,14 @@ export default function SpeechConsole({
                     </div>
 
                     {/* AI Reasoning Section (Only render if reasoning exists) */}
-                    {log.reasoning && (
+                    {showReasoning && (
                       <div className="mb-3">
                         <button 
                           onClick={() => toggleThought(index)}
                           className={`flex items-center gap-1.5 font-mono text-[10px] uppercase font-bold tracking-wider transition-colors active:scale-95 ${isThoughtExpanded ? "text-indigo-900" : "text-indigo-600 hover:text-indigo-800"}`}
                         >
                           <BrainCircuit className="w-3.5 h-3.5" />
-                          <span>{isThoughtExpanded ? "折叠沉思 (Fold Thoughts)" : "窥视内心 (AI Reasoning)"}</span>
+                          <span>{isThoughtExpanded ? "折叠思路" : "查看思路"}</span>
                           {isThoughtExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                         </button>
                         
@@ -251,7 +262,7 @@ export default function SpeechConsole({
       </div>
 
       {/* Live cue: only visible while backend reports actor_thinking */}
-      {thinkingCue && (
+      {thinkingCue && !(highlightSelfSeat && pendingInput && thinkingCue.seat === humanSeat) && (
         <div
           className="absolute bottom-4 left-6 bg-black border-2 border-yellow-500/80 px-4 py-2 rounded shadow-2xl flex items-center gap-2 z-20"
           data-live-cue="thinking"
@@ -264,7 +275,10 @@ export default function SpeechConsole({
             <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:240ms]" />
           </div>
           <span className="font-mono text-[10px] text-yellow-400 font-black uppercase tracking-wider ml-1">
-            {thinkingCue.playerName}（{thinkingCue.seat}号）正在思考 — {THINKING_CONTEXT_LABEL[thinkingCue.context]}
+            {thinkingCue.playerName}（{thinkingCue.seat}号）正在思考
+            {isRoleRevealed(thinkingCue.role) ? ` · ${thinkingCue.role}` : ""}
+            {" — "}
+            {THINKING_CONTEXT_LABEL[thinkingCue.context]}
           </span>
         </div>
       )}

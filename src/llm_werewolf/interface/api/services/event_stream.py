@@ -104,6 +104,33 @@ def event_visible_for(event: dict[str, Any], *, view: str, seat: int | None) -> 
     return f"player_{seat}" in visible_to
 
 
+_SPEECH_EVENT_TYPES = frozenset({
+    "player_speech",
+    "player_discussion",
+    "sheriff_candidate_speech",
+})
+
+
+def redact_event_for_seat(event: dict[str, Any], seat: int) -> dict[str, Any]:
+    """Strip god-view / LLM-only fields before delivering an event to a seat stream."""
+    ev = dict(event)
+    et = ev.get("event_type")
+    data = dict(ev.get("data") or {})
+    self_pid = f"player_{seat}"
+
+    if et in _SPEECH_EVENT_TYPES:
+        data.pop("private_thought", None)
+        data.pop("reasoning", None)
+        if data.get("player_id") != self_pid:
+            data.pop("role", None)
+
+    if et in {"actor_thinking", "role_acting"} and data.get("player_id") != self_pid:
+        data.pop("role", None)
+
+    ev["data"] = data
+    return ev
+
+
 def read_events_after(run_dir: Path, after_id: int) -> list[dict[str, Any]]:
     """Read events.jsonl lines with event_id > after_id (1-based line numbers).
 

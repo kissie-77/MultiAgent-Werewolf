@@ -426,9 +426,17 @@ describe("mapBeliefColumns", () => {
 });
 
 describe("mapWolfCampSnapshots", () => {
-  it("is degraded to an empty array (no backend source in M2b)", () => {
-    expect(mapWolfCampSnapshots()).toEqual([]);
-    expect(mapWolfCampSnapshots([{ anything: true }] as any)).toEqual([]);
+  it("maps unknown wolf camp payloads to a safe empty snapshot", () => {
+    expect(mapWolfCampSnapshots(undefined)).toEqual([]);
+    expect(mapWolfCampSnapshots([{ anything: true }] as any)).toEqual([
+      {
+        day: 0,
+        campStrategy: "",
+        targetSelectionId: 0,
+        targetSelectionName: "",
+        wolfVotes: [],
+      },
+    ]);
   });
 });
 

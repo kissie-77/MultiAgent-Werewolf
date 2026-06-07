@@ -5,15 +5,19 @@ status: active
 source: initial_curated
 camp: werewolf
 quality_passed: True
-weight: 1.30
-win_count: 1
-use_count: 1
+weight: 1.50
+win_count: 3
+use_count: 3
 when_to_use: 白天讨论进入归票阶段，场上出现可抗推的逻辑漏洞位或需要统一狼队票型时；狼队矩阵触发：对单一目标狼信≥0.7且投票意向已收敛，自身被高怀疑时可顺势推动既有怀疑链
 belief_pattern: concentrated
 belief_signals: b1_multi_above_0_5,b1_target_certain,b1_top_above_0_7,b2_top_above_0_8_on_me,vote_intention_set
 created_at: 2026-06-07T08:59:26+00:00
-updated_at: 2026-06-07T08:59:26+00:00
+updated_at: 2026-06-07T15:42:08+00:00
 ---
+
+描述：白天讨论进入归票阶段，场上出现可抗推的逻辑漏洞位或需要统一狼队票型时；狼队矩阵触发：对单一目标狼信≥0.7且投票意向已收敛，自身被高怀疑时可顺势推动既有怀疑链的情况下，使用该 skill
+
+描述：白天讨论进入归票阶段，场上出现可抗推的逻辑漏洞位或需要统一狼队票型时；狼队矩阵触发：对单一目标狼信≥0.7且投票意向已收敛，自身被高怀疑时可顺势推动既有怀疑链的情况下，使用该 skill
 
 描述：白天讨论进入归票阶段，场上出现可抗推的逻辑漏洞位或需要统一狼队票型时；狼队矩阵触发：对单一目标狼信≥0.7且投票意向已收敛，自身被高怀疑时可顺势推动既有怀疑链的情况下，使用该 skill
 

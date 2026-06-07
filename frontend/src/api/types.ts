@@ -275,6 +275,7 @@ export interface ReplayRunInfo {
   initial_players: number;
   user_role: string;
   winner_camp: "WOLVES" | "VILLAGERS";
+  model_name?: string;
 }
 
 export interface TimelineEvent {
@@ -318,6 +319,7 @@ export interface PlayerScore {
   playerId: number;
   playerName: string;
   role: string;
+  camp?: string;
   isAlive: boolean;
   gameSurvivalScore: number;
   logicSpeechScore: number;
@@ -803,11 +805,39 @@ export interface StartGameRequest {
   participation?: string;
   rules?: string;
   player_count?: number;
+  role_names?: string[];
   badge_flow?: boolean;
   human?: HumanSeatSpec;
   track_vote_intentions?: boolean;
   defaults?: PlayerRosterDefaults;
   players?: PlayerRosterSlot[];
+}
+
+export interface PlayableRoleOption {
+  key: string;
+  display_name: string;
+  camp: string;
+  camp_label: string;
+}
+
+export interface BoardPresetOption {
+  preset_id: string;
+  kind: string;
+  title: string;
+  description: string;
+  tags: string[];
+  player_count: number;
+  role_names: string[];
+  role_labels: string[];
+  werewolf_count: number;
+  villager_count: number;
+  neutral_count: number;
+}
+
+export interface BoardPresetsResponse {
+  roles: PlayableRoleOption[];
+  presets: BoardPresetOption[];
+  default_preset_id: string;
 }
 
 export interface StartGameResponse {
@@ -839,6 +869,13 @@ export interface AwaitingInputEvent {
   prompt: string;
   valid_targets: number[];
   deadline?: number | null;
+  /** Sanitized human-facing title (browser UI). */
+  title?: string;
+  /** Plain-text input guidance. */
+  ui_hint?: string;
+  allow_skip?: boolean;
+  allow_witch_save?: boolean;
+  multi_count?: number;
 }
 
 export interface HumanInputRequest {

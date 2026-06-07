@@ -1,34 +1,38 @@
-# Contributing
+# 贡献与本地约定
 
-This project is organized around six backend-facing areas plus UI:
+## 配置单一真源
 
-- `agent_team`: Agent construction, memory, communication, and skill runtime support.
-- `game_runtime`: Werewolf rules, phases, roles, actions, observations, and prompts used during play.
-- `strategy`: prompt versions, decision schemas, belief state, and strategy utilities.
-- `evaluation`: post-game review, scoring, leaderboard, A/B comparison, evolution, and evidence reports.
-- `interface`: CLI/API/TUI entrypoints and runtime bootstrapping.
-- `ui`: frontend and presentation layer.
+| 类型 | 位置 | 说明 |
+|------|------|------|
+| LLM API Key | 仓库根 `.env` | 后端与 Settings API 唯一写入点 |
+| 密钥模板 | 根 `.env.example` | 勿在 `frontend/` 再维护一份 |
+| Vite 开发变量 | `frontend/.env.development` | 仅 `VITE_*`（如 `VITE_API_PROXY`） |
+| 本机覆盖 | `frontend/.env.local` | gitignore，可选 |
 
-## Development Rules
+## 一键本地全栈
 
-- Keep changes inside the owning area whenever possible.
-- Do not bypass information isolation. Private night events must not appear in unauthorized player observations.
-- Add tests for new evaluation artifacts, prompt-version behavior, and game-rule changes.
-- Prefer deterministic rule-based checks for grading evidence; use LLM analysis as an optional enrichment layer.
-- Do not commit generated caches such as `__pycache__`, `.pytest_cache`, or temporary run artifacts.
+| 平台 | 命令 |
+|------|------|
+| Windows | 仓库根目录 `.\dev.ps1` |
+| macOS / Linux | 仓库根目录 `./dev.sh` 或 `make dev` |
+| 分开启动 | `make dev-api` + `make dev-web`（两个终端） |
 
-## Useful Commands
+默认后端端口 **8010**，前端代理见 `frontend/.env.development`。
 
-```powershell
-uv run pytest tests/evaluation --no-cov
-uv run python -m llm_werewolf.interface.cli.evidence --eval_root artifacts/eval_runs
-uv run python -m llm_werewolf.interface.cli.evolution cycle --rounds 2 --games_per_round 3
+## 文档放哪
+
+| 内容 | 路径 |
+|------|------|
+| 项目总览与快速启动 | `README.md` |
+| 前端开发/排错 | `docs/frontend/DEV.md` |
+| 模块设计 | `docs/<module>/README.md` |
+| `frontend/README.md` | 仅指针，不写长文 |
+
+## 提交前检查
+
+```bash
+make check          # 后端 lint + test
+cd frontend && npm run lint && npm test
 ```
 
-## Review Checklist
-
-- The game can still complete a smoke evaluation.
-- `InformationIsolationChecker` has no critical leaks.
-- Post-game artifacts are written without blocking the whole pipeline when one optional step fails.
-- Prompt or skill changes are versioned and traceable.
-- If an evolution claim is made, include A/B evidence and the exact run directories.
+勿提交：`.env`、`.cursor/`、`.github/reports/`、本地 API 明文文件。

@@ -97,7 +97,24 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
 
 ## 本地全栈开发（前端 + 后端）
 
-Web 联调时前后端分开起：后端跑 FastAPI（默认 `:8000`，本仓库联调用 `:8010`），前端跑 Vite 开发服务器并把 `/api` 代理到后端。
+Web 联调默认端口：**后端 `8010`**，**前端 `5173`**（占用时自动顺延）。
+
+### 一键启动（推荐）
+
+```powershell
+# Windows — 在仓库根目录执行（新开 API 窗口 + 当前窗口跑 Vite）
+.\dev.ps1
+```
+
+```bash
+# macOS / Linux — 在仓库根目录执行
+./dev.sh
+# 或 make dev（等价于 ./dev.sh）
+```
+
+分开启动：`make dev-api` 与 `make dev-web`（两个终端）。约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，排错见 [docs/frontend/DEV.md](docs/frontend/DEV.md)。
+
+### 手动分步启动
 
 **1) 启动后端 API**
 
@@ -114,12 +131,14 @@ DEEPSEEK_API_KEY=sk-xxxx OBS_READY_REQUIRE_LLM=0 uv run werewolf-api --port 8010
 
 ```bash
 cd frontend
-npm install                                     # 首次
-VITE_API_PROXY=http://localhost:8010 npm run dev
+npm install          # 首次
+npm run dev
 ```
 
-- `VITE_API_PROXY` 必须指向后端端口；Vite 把 `/api`、`/ready` 代理过去（见 `frontend/vite.config.ts`），缺省指向 `:8000`。
+- 开发代理默认指向 `http://127.0.0.1:8010`（见 `frontend/.env.development` 与 `frontend/vite.config.ts`）。
+- 若后端换端口，改 `frontend/.env.development` 里的 `VITE_API_PROXY`，或临时：`$env:VITE_API_PROXY="http://127.0.0.1:8010"; npm run dev`（PowerShell）。
 - Vite 默认开在 `http://localhost:5173`（端口被占用时自动顺延，以终端打印为准）。
+- 更多排查见 [docs/frontend/DEV.md](docs/frontend/DEV.md)。
 
 **3) 进入游戏**
 

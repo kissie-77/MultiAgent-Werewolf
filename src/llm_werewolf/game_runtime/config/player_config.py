@@ -7,6 +7,7 @@ from openai.types.shared import ReasoningEffort
 from pydantic_core.core_schema import ValidationInfo
 
 from llm_werewolf.game_runtime.config.memory_config import MemoryConfig
+from llm_werewolf.game_runtime.roles.registry import validate_role_names
 from llm_werewolf.strategy.registry.role_version_manifest import (
     DEFAULT_SKILL_VERSION,
     DEFAULT_PROMPT_VERSION,
@@ -225,6 +226,13 @@ class PlayersConfig(BaseModel):
         default=None,
         description="Optional seed for deterministic role shuffle at game start (replay/eval).",
     )
+    role_names: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional fixed role lineup (catalog keys like Seer, AlphaWolf). "
+            "When set, overrides auto-deal from player count."
+        ),
+    )
     players: list[PlayerConfig] = Field(
         ...,
         title="Player List",
@@ -247,6 +255,24 @@ class PlayersConfig(BaseModel):
             msg = "agent_backend only supports 'agentscope'"
             raise ValueError(msg)
         return v
+
+    @field_validator("role_names")
+    @classmethod
+    def validate_role_names_field(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
+        validate_role_names(v)
+        return v
+
+    @model_validator(mode="after")
+    def role_names_match_player_count(self) -> Self:
+        if self.role_names is not None and len(self.role_names) != len(self.players):
+            msg = (
+                f"role_names length ({len(self.role_names)}) must match "
+                f"players length ({len(self.players)})"
+            )
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def sync_legacy_prompt_version(self) -> Self:

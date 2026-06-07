@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import Field, BaseModel, field_validator
+from pydantic import Field, BaseModel, field_validator, model_validator
+
+from llm_werewolf.game_runtime.roles.registry import validate_role_names
 
 # Runtime import required (not TYPE_CHECKING): GameStatusResponse and
 # ModelCompareResponse use these as pydantic field types; with
@@ -95,6 +97,35 @@ class StartGameRequest(BaseModel):
             "None = use YAML default (usually true)."
         ),
     )
+    role_names: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional fixed role lineup (catalog keys). Overrides auto-deal; "
+            "player_count is inferred from length when omitted."
+        ),
+    )
+
+    @field_validator("role_names")
+    @classmethod
+    def validate_custom_role_names(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return None
+        validate_role_names(v)
+        return v
+
+    @model_validator(mode="after")
+    def align_role_names_and_player_count(self) -> StartGameRequest:
+        if self.role_names is None:
+            return self
+        n = len(self.role_names)
+        if self.player_count is None:
+            self.player_count = n
+        elif self.player_count != n:
+            msg = (
+                f"role_names length ({n}) must match player_count ({self.player_count})"
+            )
+            raise ValueError(msg)
+        return self
 
     @field_validator("human_seats")
     @classmethod
@@ -121,6 +152,33 @@ class StartGameModesResponse(BaseModel):
     modes: list[StartGameModeOption]
     default_participation: str = "all_agent"
     default_rules: str = "basic"
+
+
+class PlayableRoleOption(BaseModel):
+    key: str
+    display_name: str
+    camp: str
+    camp_label: str = ""
+
+
+class BoardPresetOption(BaseModel):
+    preset_id: str
+    kind: str = Field(description="standard | curated | custom")
+    title: str
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    player_count: int
+    role_names: list[str]
+    role_labels: list[str] = Field(default_factory=list)
+    werewolf_count: int = 0
+    villager_count: int = 0
+    neutral_count: int = 0
+
+
+class BoardPresetsResponse(BaseModel):
+    roles: list[PlayableRoleOption] = Field(default_factory=list)
+    presets: list[BoardPresetOption] = Field(default_factory=list)
+    default_preset_id: str = ""
 
 
 class StartGameResponse(BaseModel):

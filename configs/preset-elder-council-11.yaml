@@ -1,0 +1,68 @@
+preset:
+  title: 长老议会局
+  description: 长老双命、白痴翻牌免死，经典高配神职组合。
+  tags:
+  - 经典
+  - 神职
+  - 11人
+language: zh-CN
+agent_backend: agentscope
+default_plan: default
+vote_intention_concurrency: 11
+role_names:
+- Werewolf
+- Werewolf
+- AlphaWolf
+- Seer
+- Witch
+- Elder
+- Idiot
+- Hunter
+- Villager
+- Villager
+- Villager
+players:
+- name: Player1
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player2
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player3
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player4
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player5
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player6
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player7
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player8
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player9
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player10
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY
+- name: Player11
+  model_env: ARK_EP
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  api_key_env: ARK_API_KEY

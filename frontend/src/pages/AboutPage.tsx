@@ -10,7 +10,28 @@ export default function AboutPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(() => {
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    ApiClient.getAboutPageData()
+      .then((res) => {
+        if (cancelled) return;
+        setMeta(res);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setError("项目介绍加载失败，请稍后重试。");
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const retryFetch = useCallback(() => {
     setLoading(true);
     setError(null);
     ApiClient.getAboutPageData()
@@ -25,10 +46,6 @@ export default function AboutPage() {
       });
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   if (loading) {
     return <PageLoadState variant="loading" loadingText="加载项目介绍..." />;
   }
@@ -38,7 +55,7 @@ export default function AboutPage() {
       <PageLoadState
         variant="error"
         errorText={error}
-        onRetry={fetchData}
+        onRetry={retryFetch}
         action={
           <Link
             to="/"

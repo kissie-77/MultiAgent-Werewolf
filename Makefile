@@ -34,11 +34,16 @@ help:
 	@echo "  $(BOLD)make fmt$(RESET)            运行 ruff 格式化"
 	@echo "  $(BOLD)make check$(RESET)          lint + test（CI 入口）"
 	@echo ""
-	@echo "$(CYAN)运行游戏$(RESET)"
+	@echo "$(CYAN)本地全栈（Web 联调）$(RESET)"
+	@echo "  $(BOLD)make dev$(RESET)            一键启动 API :8010 + Vite（./dev.sh）"
+	@echo "  $(BOLD)make dev-api$(RESET)        仅后端 API（:8010）"
+	@echo "  $(BOLD)make dev-web$(RESET)        仅前端 Vite（:5173，代理 → :8010）"
+	@echo "  Windows: $(BOLD).\\dev.ps1$(RESET)"
+	@echo ""
+	@echo "$(CYAN)运行游戏（CLI）$(RESET)"
 	@echo "  $(BOLD)make demo$(RESET)           Demo 模式（6 人，无需 API Key）"
 	@echo "  $(BOLD)make demo9$(RESET)          Demo 模式（9 人，含警徽流）"
-	@echo "  $(BOLD)make api$(RESET)            启动 FastAPI 服务（:8000）"
-	@echo "  $(BOLD)make dev-web$(RESET)        启动前端 Vite 开发服（:5173，代理 /api → :8000）"
+	@echo "  $(BOLD)make api$(RESET)            启动 FastAPI（:8000，Docker 默认）"
 	@echo ""
 	@echo "$(CYAN)Docker 部署$(RESET)"
 	@echo "  $(BOLD)make docker-up$(RESET)      构建并启动所有容器（后台）"
@@ -107,13 +112,23 @@ demo:
 demo9:
 	$(RUN) werewolf configs/demo-6.yaml --players 9 --badge_flow
 
+API_PORT ?= 8010
+
 .PHONY: api
 api:
 	$(RUN) werewolf-api
 
+.PHONY: dev-api
+dev-api:
+	OBS_READY_REQUIRE_LLM=0 PYTHONPATH=src $(RUN) werewolf-api --port $(API_PORT)
+
 .PHONY: dev-web
 dev-web:
 	cd frontend && npm install && npm run dev
+
+.PHONY: dev
+dev:
+	bash ./dev.sh
 
 .PHONY: fleet
 fleet:

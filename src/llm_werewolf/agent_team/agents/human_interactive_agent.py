@@ -261,6 +261,78 @@ class HumanInteractiveAgent(BaseAgent):
         return _KIND_SPEECH, 0, False
 
     @staticmethod
+    def _hint_plain(
+        kind: str,
+        n: int,
+        allow_skip: bool,
+        *,
+        allow_witch_save: bool = True,
+    ) -> str:
+        """Plain-text input hint for browser UI (no Rich markup)."""
+        if kind == _KIND_WITCH:
+            if not allow_witch_save:
+                return "可用毒药指定座位（如选择 3 号）；不行动请点「不行动」。"
+            return "可救人、可毒指定座位，或不行动。"
+        if kind == _KIND_MULTI:
+            return f"请选择 {n} 个不同座位，确认后提交。"
+        if kind == _KIND_YESNO:
+            return "请选择「是」或「否」。"
+        if kind == _KIND_SEAT:
+            if allow_skip:
+                return "点选目标座位；弃票/跳过请点「弃票」。"
+            return "本回合必须选择一个有效目标。"
+        return "请输入完整中文发言（至少 15 字，勿用重复字符或纯英文占位）。"
+
+    @staticmethod
+    def _title_for_kind(kind: str, message: str) -> str:
+        if kind == _KIND_SPEECH:
+            if "狼队友讨论" in message or "狼队夜聊" in message or "与狼队友讨论" in message:
+                return "狼队夜聊"
+            if "警长竞选" in message or "PK 发言" in message:
+                return "警长竞选发言"
+            return "公开发言"
+        if kind == _KIND_WITCH:
+            return "女巫行动"
+        if kind == _KIND_YESNO:
+            if "警长" in message or "竞选" in message:
+                return "警长抉择"
+            return "是 / 否"
+        if kind == _KIND_MULTI:
+            return "多选目标"
+        if kind == _KIND_SEAT:
+            if HumanInteractiveAgent._is_werewolf_kill_prompt(message):
+                return "狼人刀人"
+            if "投票" in message or "放逐" in message:
+                return "投票放逐"
+            if "查验" in message or "预言" in message:
+                return "查验目标"
+            return "选择目标"
+        return "轮到你了"
+
+    @staticmethod
+    def prepare_web_prompt(message: str) -> dict[str, object]:
+        """Sanitize an engine prompt for browser human UI."""
+        kind, n, allow_skip = HumanInteractiveAgent._classify(message)
+        allow_witch_save = kind == _KIND_WITCH and HumanInteractiveAgent._witch_save_allowed(message)
+        if kind == _KIND_SPEECH:
+            prompt = HumanInteractiveAgent._render_speech_prompt(message)
+        elif kind in {_KIND_YESNO, _KIND_SEAT, _KIND_MULTI, _KIND_WITCH}:
+            prompt = HumanInteractiveAgent._render_action_prompt(message, kind)
+        else:
+            prompt = HumanInteractiveAgent(name="_web")._render_prompt(message, kind=kind)
+        return {
+            "kind": kind,
+            "prompt": prompt,
+            "ui_hint": HumanInteractiveAgent._hint_plain(
+                kind, n, allow_skip, allow_witch_save=allow_witch_save
+            ),
+            "title": HumanInteractiveAgent._title_for_kind(kind, message),
+            "allow_skip": allow_skip,
+            "allow_witch_save": allow_witch_save,
+            "multi_count": n if kind == _KIND_MULTI else 0,
+        }
+
+    @staticmethod
     def _hint(kind: str, n: int, allow_skip: bool, *, allow_witch_save: bool = True) -> str:
         if kind == _KIND_WITCH:
             if not allow_witch_save:

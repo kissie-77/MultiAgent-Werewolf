@@ -114,6 +114,20 @@ def test_human_prompt_hides_public_speech_boundary_block() -> None:
     assert "【任务】白天公开讨论轮。" in rendered
 
 
+def test_prepare_web_prompt_returns_ui_metadata() -> None:
+    msg = "\n".join([
+        "你是 1 号女巫。",
+        "请只回复目标玩家的全局座位号",
+        "可选目标:\n- 座位 2\n- 座位 3",
+    ])
+    ui = HumanInteractiveAgent.prepare_web_prompt(msg)
+    assert ui["kind"] == "seat"
+    assert ui["title"] == "选择目标"
+    assert "Schema" not in str(ui["prompt"])
+    assert ui["ui_hint"]
+    assert ui["allow_skip"] is False
+
+
 def test_human_speech_prompt_is_minimal_even_with_roundtable_context() -> None:
     agent = HumanInteractiveAgent(name="玩家2", model="human")
     prompt = "\n".join([

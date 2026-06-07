@@ -39,15 +39,22 @@ class WebHumanAgent(BaseAgent):
     async def get_response(self, message: str) -> str:
         if self.broker is None:
             return ""  # 未接 broker（防御）→ 交由引擎兜底，避免死锁
-        kind, _n, allow_skip = HumanInteractiveAgent._classify(message)
+        ui = HumanInteractiveAgent.prepare_web_prompt(message)
+        kind = str(ui["kind"])
         option_seats = sorted(HumanInteractiveAgent._extract_option_seats(message))
+        allow_skip = bool(ui["allow_skip"])
         fallback = HumanInteractiveAgent._fallback_after_invalid(kind, allow_skip)
         return await self.broker.request(
             kind=kind,
-            prompt=message,
+            prompt=str(ui["prompt"]),
             valid_targets=option_seats,
             fallback=fallback,
             deadline=self.decision_deadline,
+            ui_hint=str(ui["ui_hint"]),
+            title=str(ui["title"]),
+            allow_skip=allow_skip,
+            allow_witch_save=bool(ui["allow_witch_save"]),
+            multi_count=int(ui["multi_count"]),
         )
 
 

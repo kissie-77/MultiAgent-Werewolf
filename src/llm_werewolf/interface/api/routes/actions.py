@@ -22,16 +22,19 @@ from llm_werewolf.interface.api.models.actions import (
     ModelCompareRequest,
     ModelCompareResponse,
     StartGameModesResponse,
+    BoardPresetsResponse,
     TriggerPostGameRequest,
     TriggerPostGameResponse,
 )
 from llm_werewolf.interface.api.services.config import compare_models
 from llm_werewolf.interface.api.services.replay import extract_game_snapshot
 from llm_werewolf.interface.api.services.start_modes import build_start_modes
+from llm_werewolf.interface.api.services.board_preset_catalog import build_board_presets_response
 from llm_werewolf.interface.api.services.event_stream import (
     get_broadcaster,
     event_visible_for,
     read_events_after,
+    redact_event_for_seat,
 )
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
 from llm_werewolf.interface.api.services.human_input import get_input_broker
@@ -144,6 +147,13 @@ def list_start_modes(
     configs_dir=Depends(get_configs_dir),
 ) -> ApiResponse[StartGameModesResponse]:
     return ApiResponse(data=build_start_modes(configs_dir))
+
+
+@router.get("/games/board-presets")
+def list_board_presets(
+    configs_dir=Depends(get_configs_dir),
+) -> ApiResponse[BoardPresetsResponse]:
+    return ApiResponse(data=build_board_presets_response(configs_dir))
 
 
 @router.post("/games/start")
@@ -331,6 +341,8 @@ async def _stream_events(
     # 2) replay already-persisted events after last_event_id
     for ev in read_events_after(run_dir, last_event_id):
         if event_visible_for(ev, view=view, seat=seat):
+            if view == "seat" and seat is not None:
+                ev = redact_event_for_seat(ev, seat)
             yield _sse(ev)
 
     # 3) if the run is live, stream new events until it closes
@@ -342,6 +354,8 @@ async def _stream_events(
             if await request.is_disconnected():
                 break
             if event_visible_for(ev, view=view, seat=seat):
+                if view == "seat" and seat is not None:
+                    ev = redact_event_for_seat(ev, seat)
                 yield _sse(ev)
 
     yield {"event": "end", "data": json.dumps({"run_id": run_id})}

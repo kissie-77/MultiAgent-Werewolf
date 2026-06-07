@@ -43,12 +43,25 @@ def apply_roster_customizations(
     cfg: PlayersConfig,
     *,
     player_count: int | None = None,
+    role_names: list[str] | None = None,
     defaults: PlayerRosterDefaults | None = None,
     players: list[PlayerRosterSlot] | None = None,
     human_seats: list[int] | None = None,
 ) -> PlayersConfig:
     """Merge optional count/name/model/human-seat overrides into a loaded PlayersConfig."""
     result = cfg
+
+    if role_names is not None:
+        target_count = player_count if player_count is not None else len(role_names)
+        if target_count != len(role_names):
+            msg = (
+                f"role_names length ({len(role_names)}) must match "
+                f"player_count ({target_count})"
+            )
+            raise ValueError(msg)
+        if len(result.players) != target_count:
+            result = resize_players_config(result, target_count)
+        result = result.model_copy(update={"role_names": list(role_names)})
 
     default_updates = _extract_updates(defaults) if defaults is not None else {}
     if default_updates:
@@ -84,6 +97,7 @@ def has_roster_customizations(request: StartGameRequest) -> bool:
         value is not None and value != []
         for value in (
             request.player_count,
+            request.role_names,
             request.defaults,
             request.players,
             request.human_seats,
@@ -97,6 +111,7 @@ def prepare_start_players_config(base: PlayersConfig, request: StartGameRequest)
     return apply_roster_customizations(
         base,
         player_count=request.player_count,
+        role_names=request.role_names,
         defaults=request.defaults,
         players=request.players,
         human_seats=request.human_seats,

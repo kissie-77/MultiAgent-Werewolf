@@ -3,8 +3,17 @@ import { Link, useNavigate } from "react-router-dom";
 import { useGameStore } from "../store";
 import { ApiClient } from "../api/client";
 import { nearestStandardConfigId } from "../lib/boardConfig";
+import BoardSetupPanel, { type BoardSetupMode } from "./BoardSetupPanel";
+import { SetupBrainSheriffPanel, SetupModelPanel } from "./SetupAdvancedPanel";
+import {
+  findPreset,
+  roleDisplayName,
+  standardLineupForCount,
+  validateCustomLineup,
+} from "../lib/roleCatalog";
+import type { BoardPresetOption, PlayableRoleOption } from "../api/types";
 import { motion, AnimatePresence } from "motion/react";
-import { Users, Shield, Cpu, Zap, Eye, Skull, Settings, Play, BrainCircuit, SlidersHorizontal } from "lucide-react";
+import { Users, Shield, Cpu, Zap, Eye, Skull, Settings, Play } from "lucide-react";
 import ApiKeysSettingsModal from "./ApiKeysSettingsModal";
 import type { AvailableModelOption } from "../api/types";
 
@@ -21,6 +30,12 @@ export default function GameSetup() {
   const [setupStep, setSetupStep] = useState<"landing" | "settings">("landing");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [gameMode, setGameMode] = useState<"llmOnly" | "humanVsAI">("humanVsAI");
+  const [boardMode, setBoardMode] = useState<BoardSetupMode>("standard");
+  const [boardPresets, setBoardPresets] = useState<BoardPresetOption[]>([]);
+  const [playableRoles, setPlayableRoles] = useState<PlayableRoleOption[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("preset-lovers-9");
+  const [customLineup, setCustomLineup] = useState<string[]>(() => standardLineupForCount(6));
+  const [presetsLoading, setPresetsLoading] = useState(false);
   const [playerCount, setPlayerCount] = useState<number>(6);
   const [userRole, setUserRole] = useState<string>("预言家");
   const [humanSeat, setHumanSeat] = useState<number>(1);
@@ -40,20 +55,77 @@ export default function GameSetup() {
     ?? availableModels[0]?.provider_id
     ?? "doubao";
 
+  const activeLineup = React.useMemo(() => {
+    if (boardMode === "custom") return customLineup;
+    if (boardMode === "curated") {
+      return findPreset(boardPresets, selectedPresetId)?.role_names ?? standardLineupForCount(6);
+    }
+    return standardLineupForCount(playerCount);
+  }, [boardMode, customLineup, boardPresets, selectedPresetId, playerCount]);
+
+  const effectivePlayerCount = activeLineup.length;
+
+  const lineupRoleOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { key: string; label: string }[] = [];
+    for (const key of activeLineup) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      opts.push({ key, label: roleDisplayName(key, playableRoles) });
+    }
+    return opts;
+  }, [activeLineup, playableRoles]);
+
   React.useEffect(() => {
-    setSetupCount(playerCount);
-  }, [playerCount, setSetupCount]);
+    setSetupCount(effectivePlayerCount);
+  }, [effectivePlayerCount, setSetupCount]);
 
   // 确保人类座位在当前玩家数量范围内
   React.useEffect(() => {
-    setHumanSeat((seat) => Math.min(Math.max(1, seat), playerCount));
-  }, [playerCount]);
+    setHumanSeat((seat) => Math.min(Math.max(1, seat), effectivePlayerCount));
+  }, [effectivePlayerCount]);
+
+  React.useEffect(() => {
+    if (!lineupRoleOptions.length) return;
+    setUserRole((prev) => {
+      if (lineupRoleOptions.some((o) => o.label === prev)) return prev;
+      return lineupRoleOptions[0].label;
+    });
+  }, [lineupRoleOptions]);
 
   React.useEffect(() => {
     return () => {
       setSetupCount(null);
     };
   }, [setSetupCount]);
+
+  useEffect(() => {
+    if (setupStep !== "settings") return;
+    let cancelled = false;
+    setPresetsLoading(true);
+    ApiClient.getBoardPresets()
+      .then((data) => {
+        if (cancelled) return;
+        setBoardPresets(data.presets);
+        setPlayableRoles(data.roles);
+        const curated = data.presets.find((p) => p.kind === "curated");
+        if (curated) {
+          setSelectedPresetId((prev) =>
+            data.presets.some((p) => p.preset_id === prev && p.kind === "curated") ? prev : curated.preset_id
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBoardPresets([]);
+          setPlayableRoles([]);
+        }
+      })
+      .finally(() => !cancelled && setPresetsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [setupStep]);
 
   useEffect(() => {
     if (setupStep !== "settings") return;
@@ -75,10 +147,10 @@ export default function GameSetup() {
 
   useEffect(() => {
     setSeatProviders((prev) => {
-      const next = Array.from({ length: playerCount }, (_, i) => prev[i] ?? defaultProviderId);
-      return next.length === playerCount ? next : next.slice(0, playerCount);
+      const next = Array.from({ length: effectivePlayerCount }, (_, i) => prev[i] ?? defaultProviderId);
+      return next.length === effectivePlayerCount ? next : next.slice(0, effectivePlayerCount);
     });
-  }, [playerCount, defaultProviderId]);
+  }, [effectivePlayerCount, defaultProviderId]);
 
   useEffect(() => {
     if (setupStep !== "settings" || gameMode !== "llmOnly") return;
@@ -103,16 +175,43 @@ export default function GameSetup() {
     };
   }, [setupStep, gameMode]);
 
+  const resolveStartBoard = () => {
+    if (boardMode === "curated") {
+      const preset = findPreset(boardPresets, selectedPresetId);
+      if (!preset) throw new Error("请选择一套推荐板子");
+      return {
+        config_id: preset.preset_id,
+        player_count: preset.player_count,
+        role_names: preset.kind === "curated" ? undefined : preset.role_names,
+      };
+    }
+    if (boardMode === "custom") {
+      const err = validateCustomLineup(customLineup, playableRoles);
+      if (err) throw new Error(err);
+      return {
+        config_id: nearestStandardConfigId(customLineup.length),
+        player_count: customLineup.length,
+        role_names: customLineup,
+      };
+    }
+    return {
+      config_id: nearestStandardConfigId(playerCount),
+      player_count: playerCount,
+      role_names: undefined as string[] | undefined,
+    };
+  };
+
   const startMatch = async () => {
     if (starting) return;
     setStartError(null);
     setStarting(true);
     setSetupCount(null);
-    setInsightEnabled(enableDeepGame);
+    setInsightEnabled(gameMode === "llmOnly" && enableDeepGame);
     try {
+      const board = resolveStartBoard();
       const rosterPayload = customizeModels
         ? {
-            players: Array.from({ length: playerCount }, (_, index) => {
+            players: Array.from({ length: board.player_count }, (_, index) => {
               const seat = index + 1;
               if (gameMode === "humanVsAI" && seat === humanSeat) return {};
               return { provider: seatProviders[index] ?? defaultProviderId };
@@ -121,8 +220,9 @@ export default function GameSetup() {
         : { defaults: { provider: defaultProviderId } };
 
       const res = await ApiClient.startGame({
-        config_id: nearestStandardConfigId(playerCount),
-        player_count: playerCount,
+        config_id: board.config_id,
+        player_count: board.player_count,
+        ...(board.role_names ? { role_names: board.role_names } : {}),
         badge_flow: hasSheriff,
         track_vote_intentions: enableDeepGame,
         ...rosterPayload,
@@ -143,18 +243,37 @@ export default function GameSetup() {
     }
   };
 
-  const getRolesDescription = (count: number) => {
-    if (count === 1) return "1 预言家 (无狼人，完全探索模式)";
-    if (count === 2) return "1 狼人 | 1 预言家";
-    if (count === 3) return "1 狼人 | 1 预言家 | 1 女巫";
-    if (count === 4) return "1 狼人 | 1 预言家 | 1 女巫 | 1 村民";
-    
-    const wolves = count <= 6 ? 2 : count <= 11 ? 3 : 4;
-    const citizens = count - 3 - wolves; // 预言家、女巫、猎人 = 3个神职
-    return `${wolves} 狼人 | 1 预言家 | 1 女巫 | 1 猎人 ${citizens > 0 ? `| ${citizens} 村民` : ""}`;
+  const handlePlayerCountChange = (val: number) => {
+    const nextVal = Math.max(6, Math.min(20, val));
+    setPlayerCount(nextVal);
+    if (boardMode === "standard") {
+      setCustomLineup(standardLineupForCount(nextVal));
+    }
   };
 
-  const roleDetails = {
+  const handleSelectPreset = (id: string) => {
+    setSelectedPresetId(id);
+    const preset = findPreset(boardPresets, id);
+    if (preset) setPlayerCount(preset.player_count);
+  };
+
+  const handleBoardModeChange = (mode: BoardSetupMode) => {
+    setBoardMode(mode);
+    if (mode === "standard") {
+      setCustomLineup(standardLineupForCount(playerCount));
+    }
+    if (mode === "custom") {
+      setCustomLineup((prev) =>
+        prev.length >= 6 ? prev : standardLineupForCount(playerCount),
+      );
+    }
+    if (mode === "curated") {
+      const preset = findPreset(boardPresets, selectedPresetId);
+      if (preset) setPlayerCount(preset.player_count);
+    }
+  };
+
+  const roleDetails: Record<string, { name: string; desc: string; color: string; icon: React.ReactNode; tag: string }> = {
     预言家: {
       name: "预言家 (Seer)",
       desc: "查验底牌，指引真相。每个黑夜可以查验一名玩家的真实阵营，是指引好人阵营在白昼认清形势的明灯。",
@@ -190,13 +309,6 @@ export default function GameSetup() {
       icon: <Users className="w-5 h-5" />,
       tag: "平民 · 逻辑基石"
     }
-  };
-
-  const handlePlayerCountChange = (val: number) => {
-    // Web API 仅支持 6–20 座（StartGameRequest.player_count: ge=6, le=20）；
-    // 低于 6 的局后端会 422 拒绝，故在 UI 侧就把范围钳到 6–20。
-    const nextVal = Math.max(6, Math.min(20, val));
-    setPlayerCount(nextVal);
   };
 
   return (
@@ -311,9 +423,9 @@ export default function GameSetup() {
               </div>
             </div>
 
-            <div className="w-full flex flex-col lg:flex-row gap-6 relative z-10">
+            <div className="w-full flex flex-col lg:flex-row gap-6 lg:items-start relative z-10">
               {/* Left Column: Basic Settings */}
-              <div className="flex-1 flex flex-col gap-6">
+              <div className="flex-1 flex flex-col gap-5 min-w-0">
                 {/* Ⅰ. 游戏模式 */}
                 <div className="flex flex-col gap-3">
                   <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
@@ -373,288 +485,141 @@ export default function GameSetup() {
                   </div>
                 </div>
 
-                {/* Ⅱ. 游戏人数 */}
-                <div className="flex flex-col gap-3">
-                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
-                    <span className="font-gothic text-amber-700 text-sm">II.</span> 席位编排 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Player Seats</span>
-                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
-                  </span>
-                  
-                  <div className="flex flex-col items-center gap-4 bg-black/40 border border-slate-800 p-4 rounded">
-                    <div className="w-full flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => handlePlayerCountChange(playerCount - 1)}
-                        className="w-10 h-10 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
-                      >
-                        -
-                      </button>
-                      
-                      <div className="flex flex-col items-center">
-                        <span className="text-3xl font-serif font-black text-amber-500 leading-none drop-shadow-[0_2px_4px_rgba(245,158,11,0.2)]">
-                          {playerCount}
-                        </span>
-                        <span className="text-[8px] text-slate-500 uppercase tracking-widest mt-1">
-                          入局玩家数量
-                        </span>
-                      </div>
+                {presetsLoading ? (
+                  <p className="text-[10px] text-zinc-500 font-sans px-1">加载席位配置…</p>
+                ) : (
+                  <BoardSetupPanel
+                    mode={boardMode}
+                    onModeChange={handleBoardModeChange}
+                    presets={boardPresets}
+                    playableRoles={playableRoles}
+                    selectedPresetId={selectedPresetId}
+                    onSelectPreset={handleSelectPreset}
+                    customLineup={customLineup}
+                    onCustomLineupChange={setCustomLineup}
+                    playerCount={playerCount}
+                    onPlayerCountChange={handlePlayerCountChange}
+                  />
+                )}
 
-                      <button
-                        type="button"
-                        onClick={() => handlePlayerCountChange(playerCount + 1)}
-                        className="w-10 h-10 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <div className="w-full flex flex-wrap items-center justify-center gap-2 pt-3 border-t border-slate-800/50">
-                      {[6, 8, 9, 12].map((num) => (
-                        <button
-                          key={num}
-                          type="button"
-                          onClick={() => handlePlayerCountChange(num)}
-                          className={`px-3 py-1.5 rounded text-[10px] font-mono font-bold border transition-all duration-300 cursor-pointer ${
-                            playerCount === num
-                              ? "bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.15)]"
-                              : "bg-transparent text-slate-500 border-slate-700 hover:text-amber-100 hover:border-amber-900/50 hover:bg-amber-900/10"
-                          }`}
-                        >
-                          {num} 人局
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="px-4 py-3 bg-slate-900/60 border border-slate-800 rounded text-[10px] font-serif text-slate-400 flex flex-col gap-1.5 shadow-inner">
-                    <div className="flex items-start gap-2">
-                      <span className="text-amber-600/80 mt-0.5">⚖️</span>
-                      <div>
-                        <span className="text-slate-500 mr-2 uppercase tracking-wide text-[9px]">阵营配置:</span>
-                        <span className="text-amber-100/90 font-bold">{getRolesDescription(playerCount)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ⅳ. 深度对局 / 模型编排 */}
-                <div className="flex flex-col gap-3">
-                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
-                    <span className="font-gothic text-amber-700 text-sm">IV.</span> 智脑深度 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Insight</span>
-                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setEnableDeepGame((v) => !v)}
-                    className={`flex items-center justify-between p-3 rounded border transition-all duration-300 ${
-                      enableDeepGame
-                        ? "bg-violet-900/20 border-violet-500/40 text-violet-300"
-                        : "bg-black/40 border-slate-800 text-slate-500"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 text-[11px] font-sans font-bold tracking-widest">
-                      <BrainCircuit className="w-4 h-4" />
-                      开启深度对局（信念矩阵 / 投票意向）
-                    </span>
-                    <span className={`text-[10px] font-mono ${enableDeepGame ? "text-violet-400" : "text-zinc-600"}`}>
-                      {enableDeepGame ? "ON" : "OFF"}
-                    </span>
-                  </button>
-                  <p className="text-[9px] text-zinc-500 font-sans leading-relaxed px-1">
-                    关闭后观战界面不展示信念矩阵与投票意向面板，对局也不会采集相关数据。
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
-                    <span className="font-gothic text-amber-700 text-sm">V.</span> 模型编排 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Models</span>
-                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setCustomizeModels((v) => !v)}
-                    className={`flex items-center justify-between p-3 rounded border transition-all duration-300 ${
-                      customizeModels
-                        ? "bg-cyan-900/20 border-cyan-500/40 text-cyan-300"
-                        : "bg-black/40 border-slate-800 text-slate-500"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 text-[11px] font-sans font-bold tracking-widest">
-                      <SlidersHorizontal className="w-4 h-4" />
-                      自定义各席位 AI 模型
-                    </span>
-                    <span className={`text-[10px] font-mono ${customizeModels ? "text-cyan-400" : "text-zinc-600"}`}>
-                      {customizeModels ? "ON" : "OFF"}
-                    </span>
-                  </button>
-                  {!customizeModels && (
-                    <p className="text-[9px] text-zinc-500 font-sans px-1">
-                      默认全部使用豆包（需在设置中配置 ARK_API_KEY / ARK_EP）。
-                    </p>
-                  )}
-                  {customizeModels && (
-                    <div className="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar bg-black/40 border border-slate-800 rounded p-3">
-                      {modelsLoading ? (
-                        <span className="text-[10px] text-zinc-500 font-sans">加载可用模型…</span>
-                      ) : availableModels.length === 0 ? (
-                        <span className="text-[10px] text-amber-600/80 font-sans">
-                          尚未检测到已配置的供应商，请先点击右上角设置写入 .env。
-                        </span>
-                      ) : (
-                        Array.from({ length: playerCount }, (_, index) => {
-                          const seat = index + 1;
-                          if (gameMode === "humanVsAI" && seat === humanSeat) return null;
-                          return (
-                            <div key={seat} className="flex items-center gap-2">
-                              <span className="text-[10px] text-zinc-500 font-sans w-10 shrink-0">{seat} 号</span>
-                              <select
-                                value={seatProviders[index] ?? defaultProviderId}
-                                onChange={(e) =>
-                                  setSeatProviders((prev) => {
-                                    const next = [...prev];
-                                    next[index] = e.target.value;
-                                    return next;
-                                  })
-                                }
-                                className="flex-1 bg-black/60 border border-slate-700 text-amber-100 text-[10px] font-sans px-2 py-1.5 rounded outline-none focus:border-amber-500/50"
-                              >
-                                {availableModels.map((m) => (
-                                  <option key={m.provider_id} value={m.provider_id}>
-                                    {m.display_name} ({m.provider_label})
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Ⅵ. 警长选举 */}
-                <div className="flex flex-col gap-3">
-                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
-                    <span className="font-gothic text-amber-700 text-sm">VI.</span> 警长竞选 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Sheriff</span>
-                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
-                  </span>
-                  
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setHasSheriff(true)}
-                      className={`flex-1 p-3 rounded border transition-all duration-300 font-sans text-[11px] tracking-widest font-bold uppercase ${
-                        hasSheriff
-                          ? "bg-amber-500/15 border-amber-500/50 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]"
-                          : "bg-black/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700"
-                      }`}
-                    >
-                      开启警徽流
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHasSheriff(false)}
-                      className={`flex-1 p-3 rounded border transition-all duration-300 font-sans text-[11px] tracking-widest font-bold uppercase ${
-                        !hasSheriff
-                          ? "bg-indigo-500/15 border-indigo-500/50 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.1)]"
-                          : "bg-black/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700"
-                      }`}
-                    >
-                      无警徽局
-                    </button>
-                  </div>
-                </div>
+                <SetupBrainSheriffPanel
+                  enableDeepGame={enableDeepGame}
+                  onToggleDeepGame={() => setEnableDeepGame((v) => !v)}
+                  hasSheriff={hasSheriff}
+                  onSheriffChange={setHasSheriff}
+                />
               </div>
 
               {/* Right Column: Roles and Launch Button */}
-              <div className="flex-1 flex flex-col gap-6">
-                {/* Ⅲ. 你的游戏底牌 */}
-                <div 
-                  className="flex flex-col gap-3 transition-opacity duration-300 flex-grow"
-                  style={{
-                    opacity: gameMode === "humanVsAI" ? 1 : 0.3,
-                    pointerEvents: gameMode === "humanVsAI" ? "auto" : "none"
-                  }}
-                >
+              <div className="flex-1 flex flex-col gap-6 min-w-0 lg:sticky lg:top-2 lg:self-start">
+                <div className="flex flex-col gap-3 flex-grow">
                   <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
-                    <span className="font-gothic text-amber-700 text-sm">III.</span> 抽取底牌 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Your Role</span>
+                    <span className="font-gothic text-amber-700 text-sm">III.</span> 抽取底牌{" "}
+                    <span className="font-gothic text-xs uppercase opacity-70 ml-1">Your Role</span>
                     <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
                   </span>
 
-
-                  <div className="flex flex-row items-stretch gap-4 h-full bg-black/40 border border-slate-800 rounded p-4 relative overflow-hidden">
-                    {/* Tarot preview portrait */}
-                    <div className="w-1/3 max-w-[140px] shrink-0 border-2 border-amber-900/40 rounded overflow-hidden shadow-inner relative">
-                        <img 
+                  <div
+                    className="flex flex-col gap-3 transition-opacity duration-300"
+                    style={{
+                      opacity: gameMode === "humanVsAI" ? 1 : 0.3,
+                      pointerEvents: gameMode === "humanVsAI" ? "auto" : "none",
+                    }}
+                  >
+                    <div className="flex flex-col gap-4 bg-black/40 border border-slate-800 rounded p-4 relative overflow-hidden">
+                      <div className="w-full max-w-[180px] mx-auto aspect-[3/4] border-2 border-amber-900/50 rounded-lg overflow-hidden shadow-[0_0_24px_rgba(245,158,11,0.12)] relative bg-black/60">
+                        <img
                           src={getTarotImage(userRole)}
-                          alt={userRole} 
-                          className="w-full h-full object-cover object-top mix-blend-luminosity hover:mix-blend-normal transition-all"
+                          alt={userRole}
+                          className="w-full h-full object-cover object-top"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none"/>
-                    </div>
-                    
-                    {/* Select Form */}
-                    <div className="flex-1 flex flex-col justify-center gap-3 relative z-10 w-full outline-none">
-                       <label className="text-[10px] text-amber-500/80 font-serif tracking-widest uppercase">Select Arcana</label>
-                       <select
-                         value={userRole}
-                         onChange={(e) => setUserRole(e.target.value)}
-                         className="bg-black/60 border border-amber-500/30 text-amber-100 px-4 py-3 text-sm font-bold select-none cursor-pointer focus:outline-none focus:border-amber-500 shadow-md transition-colors w-full break-words outline-none appearance-none"
-                         style={{ boxShadow: "inset 0 0 10px rgba(0,0,0,0.8)" }}
-                       >
-                          {/* Only roles that actually exist in the basic lineup the Web
-                              start uses (llm-6p-deepseek, resized 6–20). Picking a role
-                              outside the lineup can't be honored, so it isn't offered. */}
-                          <optgroup label="好人阵营">
-                            <option value="预言家">预言家 (Seer)</option>
-                            <option value="女巫">女巫 (Witch)</option>
-                            <option value="猎人">猎人 (Hunter)</option>
-                            <option value="村民">村民 (Villager)</option>
-                          </optgroup>
-                          <optgroup label="狼人阵营">
-                            <option value="狼人">狼人 (Werewolf)</option>
-                          </optgroup>
-                       </select>
-                       <span className="text-[10px] text-zinc-500 mt-2 font-mono leading-relaxed">
-                         你的身份将固定为所选角色；其余席位由 AI 扮演、身份随机发牌。
-                       </span>
-                    </div>
-                  </div>
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent px-3 py-3 pointer-events-none">
+                          <span className="block text-center font-serif text-sm font-bold text-amber-200 tracking-widest">
+                            {userRole}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Seat selection: which chair the human occupies (role is random). */}
-                  <div className="flex flex-col gap-2 bg-black/40 border border-slate-800 rounded p-4">
-                    <label className="text-[10px] text-amber-500/80 font-serif tracking-widest uppercase">
-                      入座席位 · Your Seat
-                    </label>
-                    <div className="flex items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setHumanSeat((s) => Math.max(1, s - 1))}
-                        className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
-                      >
-                        -
-                      </button>
-                      <div className="flex flex-col items-center">
-                        <span className="text-2xl font-serif font-black text-amber-500 leading-none">
-                          {humanSeat} 号
-                        </span>
-                        <span className="text-[8px] text-slate-500 uppercase tracking-widest mt-1">
-                          共 {playerCount} 席
+                      <div className="flex flex-col gap-2 relative z-10 w-full">
+                        <label className="text-[10px] text-amber-500/80 font-serif tracking-widest uppercase text-center">
+                          选择你的身份
+                        </label>
+                        <select
+                          value={userRole}
+                          onChange={(e) => setUserRole(e.target.value)}
+                          className="bg-black/60 border border-amber-500/30 text-amber-100 px-4 py-3 text-sm font-bold select-none cursor-pointer focus:outline-none focus:border-amber-500 shadow-md transition-colors w-full outline-none appearance-none text-center"
+                          style={{ boxShadow: "inset 0 0 10px rgba(0,0,0,0.8)" }}
+                        >
+                          {lineupRoleOptions.map((opt) => (
+                            <option key={opt.key} value={opt.label}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        {roleDetails[userRole as keyof typeof roleDetails] && (
+                          <p className="text-[10px] text-zinc-400 font-sans leading-relaxed text-center px-1">
+                            {roleDetails[userRole as keyof typeof roleDetails].desc}
+                          </p>
+                        )}
+                        <span className="text-[9px] text-zinc-500 font-mono leading-relaxed text-center">
+                          仅可选择本局阵容中包含的身份；其余席位由 AI 随机发牌。
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setHumanSeat((s) => Math.min(playerCount, s + 1))}
-                        className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
-                      >
-                        +
-                      </button>
                     </div>
-                    <span className="text-[9px] text-zinc-500 font-mono leading-relaxed">
-                      其余席位由大语言模型扮演；身份随机发牌。
-                    </span>
+
+                    <div className="flex flex-col gap-2 bg-black/40 border border-slate-800 rounded p-4">
+                      <label className="text-[10px] text-amber-500/80 font-serif tracking-widest uppercase">
+                        入座席位 · Your Seat
+                      </label>
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setHumanSeat((s) => Math.max(1, s - 1))}
+                          className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
+                        >
+                          -
+                        </button>
+                        <div className="flex flex-col items-center">
+                          <span className="text-2xl font-serif font-black text-amber-500 leading-none">
+                            {humanSeat} 号
+                          </span>
+                          <span className="text-[8px] text-slate-500 uppercase tracking-widest mt-1">
+                            共 {effectivePlayerCount} 席
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setHumanSeat((s) => Math.min(effectivePlayerCount, s + 1))}
+                          className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="text-[9px] text-zinc-500 font-mono leading-relaxed">
+                        其余席位由大语言模型扮演；身份随机发牌。
+                      </span>
+                    </div>
                   </div>
-              </div>
+
+                  <SetupModelPanel
+                    customizeModels={customizeModels}
+                    onToggleCustomizeModels={() => setCustomizeModels((v) => !v)}
+                    modelsLoading={modelsLoading}
+                    availableModels={availableModels}
+                    seatProviders={seatProviders}
+                    onSeatProviderChange={(index, providerId) =>
+                      setSeatProviders((prev) => {
+                        const next = [...prev];
+                        next[index] = providerId;
+                        return next;
+                      })
+                    }
+                    effectivePlayerCount={effectivePlayerCount}
+                    humanSeat={humanSeat}
+                    gameMode={gameMode}
+                    defaultProviderId={defaultProviderId}
+                  />
+                </div>
               </div>
             </div>
             

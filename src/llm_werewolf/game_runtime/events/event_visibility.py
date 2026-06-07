@@ -18,6 +18,10 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
     EventType.NIGHTMARE_BLOCKED,
     EventType.MAGICIAN_SWAPPED,
     EventType.RAVEN_MARKED,
+    # 行动/夜间/发言/投票失败等 ERROR 默认只对行动者本人 + 上帝可见：
+    # 否则一条 "Witch(Player1): [夜间行动失败]" 会广播给狼队，泄露座位身份。
+    # data["player_id"] 经 ACTOR_ID_KEYS 解析；无行动者时回退为上帝可见（[]）。
+    EventType.ERROR,
 })
 
 # 仅写入复盘/评测日志，不向任何玩家 observation 暴露。

@@ -127,3 +127,22 @@ def test_typed_private_skill_events_visible_to_actor_only() -> None:
         )
 
         assert visible == ["actor_1"]
+
+
+def test_error_event_is_scoped_to_actor_not_public() -> None:
+    # BUG-2: a night-action-failure ERROR carries the actor's player_id; it must
+    # default to actor-only (the wolves must NOT learn which seat failed to act,
+    # which would leak that the seat has a night role).
+    visible = resolve_visible_to(
+        EventType.ERROR,
+        {"player_id": "player_1", "error": "boom", "error_type": "TimeoutError"},
+        wolf_player_ids=["wolf_1", "wolf_2"],
+    )
+    assert visible == ["player_1"]
+
+
+def test_error_event_without_actor_is_not_public() -> None:
+    # An anonymous error (no player_id, e.g. speech_failed player="*") must fall
+    # back to god-only, never broadcast to every seat.
+    visible = resolve_visible_to(EventType.ERROR, {"error": "boom"})
+    assert visible == []

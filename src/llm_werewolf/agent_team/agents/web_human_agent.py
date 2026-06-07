@@ -30,6 +30,9 @@ class WebHumanAgent(BaseAgent):
     model: str = Field(default="web-human")
     seat: int = Field(default=0, exclude=True)
     broker: object | None = Field(default=None, exclude=True)  # HumanInputBroker
+    # 人类决策窗口（秒）。broker 持此 deadline 优雅超时（emit input_timeout + 安全兜底），
+    # 取代引擎 LLM 阶段超时的硬取消——后者会静默作废人类输入（见 BUG-3）。
+    decision_deadline: float = Field(default=120.0, exclude=True)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -44,6 +47,7 @@ class WebHumanAgent(BaseAgent):
             prompt=message,
             valid_targets=option_seats,
             fallback=fallback,
+            deadline=self.decision_deadline,
         )
 
 

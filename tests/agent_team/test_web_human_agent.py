@@ -29,3 +29,14 @@ async def test_seat_decision_awaits_broker() -> None:
 async def test_no_broker_returns_empty() -> None:
     agent = WebHumanAgent(name="P1", seat=1)
     assert await agent.get_response("任意") == ""
+
+
+async def test_seat_decision_passes_deadline_to_broker() -> None:
+    # BUG-3: the broker must receive a positive deadline so it owns the human's
+    # timeout (emits input_timeout + safe fallback) instead of being silently
+    # cancelled by the engine's phase timeout.
+    broker = _FakeBroker("2")
+    agent = WebHumanAgent(name="P1", seat=1, broker=broker)
+    await agent.get_response("请只回复座位号\n可选目标:\n- 座位 2")
+    assert broker.calls[0].get("deadline") is not None
+    assert broker.calls[0]["deadline"] > 0

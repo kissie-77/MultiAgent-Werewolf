@@ -99,9 +99,12 @@ class InformationHub:
             return self._day_step_timeout
         return self._night_step_timeout
 
-    async def _await_step(self, coro, phase: str | None):
+    async def _await_step(self, coro, phase: str | None, *, skip: bool = False):
+        # ``skip`` exempts human-controlled seats: their input broker owns the
+        # deadline + graceful fallback, so the LLM step timeout must not cancel
+        # the wait and silently void the human's speech (BUG-3).
         timeout = self._step_timeout_for_phase(phase)
-        if timeout is None or timeout <= 0:
+        if skip or timeout is None or timeout <= 0:
             return await coro
         try:
             return await asyncio.wait_for(coro, timeout=timeout)
@@ -145,7 +148,10 @@ class InformationHub:
 
     @staticmethod
     def _is_human_player(player: PlayerProtocol) -> bool:
-        return getattr(getattr(player, "agent", None), "model", "") == "human"
+        # Both the stdin ``human`` and the browser ``web-human`` are human-driven
+        # seats: skip them in AI-only machinery (vote-intention collection, per-step
+        # LLM timeout) — their decisions arrive via their own input channel.
+        return getattr(getattr(player, "agent", None), "model", "") in {"human", "web-human"}
 
     def _resolve_audience(
         self,
@@ -631,6 +637,7 @@ class InformationHub:
                         speaker.agent, context, instruction, roundtable_phase=rt_phase
                     ),
                     phase,
+                    skip=self._is_human_player(speaker),
                 )
 
                 react_self = self._react_agent(speaker)

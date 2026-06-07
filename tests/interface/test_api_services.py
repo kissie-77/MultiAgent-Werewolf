@@ -7,46 +7,46 @@ from pathlib import Path
 
 import pytest
 
-from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
-from llm_werewolf.interface.api.services.config import (
-    compare_models,
-    get_model_detail,
-    list_config_files,
-    list_models_page,
-    parse_config_brief,
-)
-from llm_werewolf.interface.api.services.content import (
-    get_about_page,
-    get_features_page,
-    get_how_to_play_page,
-    get_night_phase_page,
-    get_strategy_page,
+from llm_werewolf.interface.api.services.runs import (
+    list_run_dirs,
+    paginate_runs,
+    get_run_detail,
+    resolve_run_path,
+    aggregate_model_usage,
 )
 from llm_werewolf.interface.api.services.pages import (
     build_game_page,
     build_home_page,
-    build_replay_page_enriched,
     build_role_detail_page,
+    build_replay_page_enriched,
     build_share_replay_page_enriched,
 )
+from llm_werewolf.interface.api.services.config import (
+    compare_models,
+    get_model_detail,
+    list_models_page,
+    list_config_files,
+    parse_config_brief,
+)
 from llm_werewolf.interface.api.services.replay import (
+    build_timeline,
+    get_replay_page,
     build_mvp_ranking,
     build_phase_summary,
-    build_timeline,
     extract_camp_counts,
     extract_game_snapshot,
-    get_replay_page,
     get_share_replay_page,
 )
-from llm_werewolf.interface.api.services.runs import (
-    aggregate_model_usage,
-    get_run_detail,
-    list_run_dirs,
-    paginate_runs,
-    resolve_run_path,
+from llm_werewolf.interface.api.services.catalog import get_role_detail, list_roles_page
+from llm_werewolf.interface.api.services.content import (
+    get_about_page,
+    get_features_page,
+    get_strategy_page,
+    get_how_to_play_page,
+    get_night_phase_page,
 )
 
-from tests.interface.fixtures import write_demo_config, write_sample_run
+from tests.interface.fixtures import write_sample_run, write_demo_config
 
 
 @pytest.fixture

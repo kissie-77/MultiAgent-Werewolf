@@ -3,12 +3,12 @@
 from unittest.mock import MagicMock, patch
 
 from llm_werewolf.game_runtime.config import PlayerConfig, PlayersConfig
+from llm_werewolf.agent_team.agents.base import DemoAgent
 from llm_werewolf.interface.cli.runtime.bootstrap import (
     prepare_game_roster,
     create_players_from_config,
     wire_agentscope_after_setup,
 )
-from llm_werewolf.agent_team.agents.base import DemoAgent
 
 
 def _six_demo_players() -> list[PlayerConfig]:

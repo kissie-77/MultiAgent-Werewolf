@@ -7,8 +7,8 @@ import pytest
 from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.models.actions import PlayerRosterSlot, StartGameRequest
 from llm_werewolf.interface.api.services.roster_customize import (
-    apply_roster_customizations,
     has_roster_customizations,
+    apply_roster_customizations,
     prepare_start_players_config,
 )
 

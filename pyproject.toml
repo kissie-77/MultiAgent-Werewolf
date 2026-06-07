@@ -433,6 +433,8 @@ keep-runtime-typing = true
 "*.ipynb" = ["T201", "F401", "S105", "F811", "ANN", "PERF", "SLF"]
 "tests/**/*.py" = ["S101", "SLF001", "INP001", "ANN", "PLC0415", "PT011", "ARG"]
 "scripts/**/*.py" = ["INP001", "E402", "T201", "ANN401", "S101", "SLF001", "PLC0415"]
+# Fleet CLI prints status tables to the console (like scripts), so allow `print`.
+"*/interface/cli/fleet/entry.py" = ["T201"]
 "notebooks/*.ipynb" = ["UP", "DOC", "RUF", "D", "C", "F401", "T201"]
 "examples/*.py" = ["UP", "DOC", "RUF", "D", "C", "F401", "T201"]
 

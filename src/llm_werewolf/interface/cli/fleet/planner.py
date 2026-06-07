@@ -67,7 +67,7 @@ def plan_fleet(
 
 
 def build_backend_command(spec: InstanceSpec) -> list[str]:
-    """uvicorn launch command for one backend (current Python interpreter)."""
+    """Uvicorn launch command for one backend (current Python interpreter)."""
     return [
         sys.executable,
         "-m",

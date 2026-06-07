@@ -5,11 +5,8 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from llm_werewolf.interface.api.services.game_sessions import (
-    GameSessionStatus,
-    GameSessionManager,
-)
 from llm_werewolf.interface.api.models.actions import StartGameRequest
+from llm_werewolf.interface.api.services.game_sessions import GameSessionStatus, GameSessionManager
 
 _CONFIGS_DIR = Path(__file__).resolve().parents[2] / "configs"
 
@@ -44,7 +41,8 @@ async def test_two_concurrent_demo_games_are_isolated(tmp_path, monkeypatch) -> 
         # Each wrote its own events.jsonl independently.
         e1 = runs_dir / r1.run_id / "events.jsonl"
         e2 = runs_dir / r2.run_id / "events.jsonl"
-        assert e1.is_file() and e2.is_file()
+        assert e1.is_file()
+        assert e2.is_file()
         assert mgr._sessions[r1.run_id].status == GameSessionStatus.COMPLETED
         assert mgr._sessions[r2.run_id].status == GameSessionStatus.COMPLETED
     finally:

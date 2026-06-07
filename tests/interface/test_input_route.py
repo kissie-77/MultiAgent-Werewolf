@@ -25,10 +25,7 @@ from fastapi.testclient import TestClient
 
 from llm_werewolf.interface.api.app import create_app
 from llm_werewolf.interface.api.services import human_input as hi
-from llm_werewolf.interface.api.services.game_sessions import (
-    GameSession,
-    game_session_manager,
-)
+from llm_werewolf.interface.api.services.game_sessions import GameSession, game_session_manager
 
 _RUN_ID = "input-route-test"
 _TOKEN = f"seat1-{_RUN_ID}"

@@ -9,15 +9,20 @@ from __future__ import annotations
 import os
 import time
 import signal
-import subprocess
-from typing import Callable, Protocol
+from typing import TYPE_CHECKING, Protocol
 from pathlib import Path
+import contextlib
+import subprocess
 
 from llm_werewolf.interface.cli.fleet.planner import (
     InstanceSpec,
     build_backend_command,
     build_frontend_command,
 )
+
+if TYPE_CHECKING:
+    from typing import IO
+    from collections.abc import Callable
 
 
 class ProcHandle(Protocol):
@@ -29,7 +34,7 @@ class ProcHandle(Protocol):
 class _PopenHandle:
     """Default ProcHandle wrapping subprocess.Popen with a redirected log file."""
 
-    def __init__(self, popen: subprocess.Popen, log_file) -> None:
+    def __init__(self, popen: subprocess.Popen, log_file: IO[str] | None) -> None:
         self._popen = popen
         self._log_file = log_file
 
@@ -50,14 +55,16 @@ class _PopenHandle:
         return self._popen.poll() is None
 
 
-def _default_spawn(name: str, cmd: list[str], env: dict, cwd, log_path: Path) -> ProcHandle:
+def _default_spawn(
+    name: str, cmd: list[str], env: dict, cwd: str | Path | None, log_path: Path
+) -> ProcHandle:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_file = log_path.open("w", encoding="utf-8")
     full_env = {**os.environ, **env}
     creationflags = 0
     if os.name == "nt":
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
-    popen = subprocess.Popen(
+    popen = subprocess.Popen(  # noqa: S603 - trusted, internally-built command
         cmd,
         cwd=str(cwd) if cwd else None,
         env=full_env,
@@ -69,7 +76,7 @@ def _default_spawn(name: str, cmd: list[str], env: dict, cwd, log_path: Path) ->
 
 
 def _default_health(url: str) -> bool:
-    import httpx
+    import httpx  # noqa: PLC0415 - lazy import keeps httpx optional at module load
 
     try:
         resp = httpx.get(f"{url}/health", timeout=2.0)
@@ -85,7 +92,7 @@ class ProcessSupervisor:
         self,
         specs: list[InstanceSpec],
         *,
-        log_dir,
+        log_dir: str | Path,
         spawn: Callable[..., ProcHandle] = _default_spawn,
         health: Callable[[str], bool] = _default_health,
         sleep: Callable[[float], None] = time.sleep,
@@ -138,10 +145,8 @@ class ProcessSupervisor:
 
     def teardown(self) -> None:
         for _name, handle in reversed(self._procs):
-            try:
+            with contextlib.suppress(Exception):
                 handle.terminate()
-            except Exception:
-                pass
         self._procs.clear()
 
     @property

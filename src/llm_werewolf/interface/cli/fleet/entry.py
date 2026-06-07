@@ -6,14 +6,14 @@ import sys
 import json
 import time
 import asyncio
-import contextlib
 from pathlib import Path
 from datetime import datetime
+import contextlib
 
 import fire
 
 from llm_werewolf.interface.cli.fleet.batch import run_batch, summarize
-from llm_werewolf.interface.cli.fleet.planner import plan_batch, plan_fleet
+from llm_werewolf.interface.cli.fleet.planner import InstanceSpec, plan_batch, plan_fleet
 from llm_werewolf.interface.cli.fleet.supervisor import ProcessSupervisor
 
 
@@ -21,7 +21,7 @@ def build_log_dir(*, root: Path, stamp: str) -> Path:
     return Path(root) / "artifacts" / "fleet" / stamp
 
 
-def _print_table(specs) -> None:
+def _print_table(specs: list[InstanceSpec]) -> None:
     print("\n  idx | backend                  | frontend")
     print("  ----+--------------------------+-------------------------")
     for s in specs:

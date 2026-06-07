@@ -56,7 +56,8 @@ def test_build_backend_command_has_port_and_tag_env() -> None:
     specs = plan_fleet(backends=1, frontends=0, be_base=8010, fe_base=5173, require_llm=False)
     cmd = build_backend_command(specs[0])
     assert "llm_werewolf.interface.api.app" in cmd
-    assert "--port" in cmd and "8010" in cmd
+    assert "--port" in cmd
+    assert "8010" in cmd
 
 
 def test_build_frontend_command_uses_dev_and_port() -> None:

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Protocol
 import asyncio
-from typing import Any, Callable, Protocol
 from dataclasses import dataclass
 
-from llm_werewolf.interface.cli.fleet.planner import BatchItem
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from llm_werewolf.interface.cli.fleet.planner import BatchItem
 
 _TERMINAL = {"completed", "failed", "cancelled"}
 
@@ -29,7 +32,7 @@ class HttpxBatchClient:
     """Default client hitting the real ApiResponse-enveloped endpoints."""
 
     def __init__(self) -> None:
-        import httpx
+        import httpx  # noqa: PLC0415 - lazy import keeps httpx optional at module load
 
         self._httpx = httpx
 
@@ -60,7 +63,8 @@ async def run_batch(
     sleep: Callable[[float], Any] = asyncio.sleep,
 ) -> list[BatchResult]:
     """Start each item's game (respecting per-item stagger + a concurrency window)
-    and poll its status until terminal. Returns one BatchResult per item."""
+    and poll its status until terminal. Returns one BatchResult per item.
+    """
     cl = client or HttpxBatchClient()
     sem = asyncio.Semaphore(concurrency)
     results: list[BatchResult | None] = [None] * len(items)

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import contextvars
 from typing import Any
 import logging
 from pathlib import Path
 from datetime import datetime
+import contextvars
 
 _ROOT_LOGGER = "llm_werewolf"
 _PROVIDER_KIND = "provider_429"
@@ -79,8 +79,8 @@ def load_provider_events(run_dir: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
     events: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
         if not line:
             continue
         try:

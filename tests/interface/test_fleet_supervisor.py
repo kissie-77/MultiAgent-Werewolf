@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from llm_werewolf.interface.cli.fleet.planner import plan_fleet
-from llm_werewolf.interface.cli.fleet.supervisor import ProcessSupervisor, ProcHandle
+from llm_werewolf.interface.cli.fleet.supervisor import ProcHandle, ProcessSupervisor
 
 
 class FakeProc(ProcHandle):
@@ -20,7 +20,7 @@ class FakeProc(ProcHandle):
         return not self.terminated
 
 
-def test_start_all_spawns_backends_and_frontends() -> None:
+def test_start_all_spawns_backends_and_frontends(tmp_path) -> None:
     specs = plan_fleet(backends=2, frontends=2, be_base=8010, fe_base=5173, require_llm=False)
     events: list = []
 
@@ -28,13 +28,13 @@ def test_start_all_spawns_backends_and_frontends() -> None:
         events.append(("spawn", name))
         return FakeProc(name, events)
 
-    sup = ProcessSupervisor(specs, log_dir="/tmp/fleet", spawn=fake_spawn, health=lambda url: True)
+    sup = ProcessSupervisor(specs, log_dir=tmp_path, spawn=fake_spawn, health=lambda url: True)
     sup.start_all()
     spawned = [n for (kind, n) in events if kind == "spawn"]
     assert spawned == ["backend-i0", "backend-i1", "frontend-i0", "frontend-i1"]
 
 
-def test_wait_healthy_returns_true_when_all_ok() -> None:
+def test_wait_healthy_returns_true_when_all_ok(tmp_path) -> None:
     specs = plan_fleet(backends=2, frontends=0, be_base=8010, fe_base=5173, require_llm=False)
     calls: list = []
 
@@ -43,7 +43,7 @@ def test_wait_healthy_returns_true_when_all_ok() -> None:
         return True
 
     sup = ProcessSupervisor(
-        specs, log_dir="/tmp/fleet",
+        specs, log_dir=tmp_path,
         spawn=lambda *a, **k: FakeProc("x", []),
         health=fake_health,
         sleep=lambda _s: None,
@@ -54,7 +54,7 @@ def test_wait_healthy_returns_true_when_all_ok() -> None:
     assert "http://127.0.0.1:8011" in calls
 
 
-def test_wait_healthy_times_out_when_never_ok() -> None:
+def test_wait_healthy_times_out_when_never_ok(tmp_path) -> None:
     specs = plan_fleet(backends=1, frontends=0, be_base=8010, fe_base=5173, require_llm=False)
     ticks = {"t": 0.0}
 
@@ -62,7 +62,7 @@ def test_wait_healthy_times_out_when_never_ok() -> None:
         ticks["t"] += s
 
     sup = ProcessSupervisor(
-        specs, log_dir="/tmp/fleet",
+        specs, log_dir=tmp_path,
         spawn=lambda *a, **k: FakeProc("x", []),
         health=lambda url: False,
         sleep=fake_sleep,
@@ -72,11 +72,11 @@ def test_wait_healthy_times_out_when_never_ok() -> None:
     assert sup.wait_healthy(timeout=1.0) is False
 
 
-def test_teardown_terminates_in_reverse_order() -> None:
+def test_teardown_terminates_in_reverse_order(tmp_path) -> None:
     specs = plan_fleet(backends=2, frontends=2, be_base=8010, fe_base=5173, require_llm=False)
     events: list = []
     sup = ProcessSupervisor(
-        specs, log_dir="/tmp/fleet",
+        specs, log_dir=tmp_path,
         spawn=lambda name, *a, **k: FakeProc(name, events),
         health=lambda url: True,
     )

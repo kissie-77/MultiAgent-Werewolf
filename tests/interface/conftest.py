@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 
 from llm_werewolf.interface.api.app import create_app
-from llm_werewolf.interface.api.deps import get_configs_dir, get_eval_runs_dir, get_runs_dir
-
+from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir, get_eval_runs_dir
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
 
-from tests.interface.fixtures import write_demo_config, write_sample_run
+from tests.interface.fixtures import write_sample_run, write_demo_config
 
 
 @pytest.fixture(autouse=True)

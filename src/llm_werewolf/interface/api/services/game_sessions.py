@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from enum import Enum
 import json
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 import asyncio
 import logging
 from pathlib import Path
@@ -35,6 +35,10 @@ from llm_werewolf.interface.cli.runtime.bootstrap import (
     wire_agentscope_after_setup,
 )
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
+from llm_werewolf.interface.api.services.human_input import (
+    remove_input_broker,
+    get_or_create_input_broker,
+)
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
 from llm_werewolf.interface.api.services.event_stream import (
     remove_broadcaster,
@@ -42,10 +46,6 @@ from llm_werewolf.interface.api.services.event_stream import (
 )
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
-from llm_werewolf.interface.api.services.human_input import (
-    remove_input_broker,
-    get_or_create_input_broker,
-)
 from llm_werewolf.interface.api.services.roster_customize import (
     resolve_start_rules,
     _rebuild_players_config,
@@ -54,6 +54,8 @@ from llm_werewolf.interface.api.services.roster_customize import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 
 logger = logging.getLogger(__name__)

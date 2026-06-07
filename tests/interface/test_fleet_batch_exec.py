@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from llm_werewolf.interface.cli.fleet.batch import run_batch, summarize, BatchResult
+from llm_werewolf.interface.cli.fleet.batch import BatchResult, run_batch, summarize
 from llm_werewolf.interface.cli.fleet.planner import plan_batch
 
 

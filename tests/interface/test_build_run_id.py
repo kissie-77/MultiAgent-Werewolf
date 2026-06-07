@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from llm_werewolf.interface.api.services.game_sessions import build_run_id
+from pathlib import Path
+
+from llm_werewolf.interface.api.models.actions import StartGameRequest
+from llm_werewolf.interface.api.services.game_sessions import GameSessionManager, build_run_id
+
+_CONFIGS_DIR = Path(__file__).resolve().parents[2] / "configs"
 
 
 def test_plain_run_id_no_tag_no_collision() -> None:
@@ -35,14 +40,6 @@ def test_tag_and_collision_compose() -> None:
     taken = {"demo-20260607-101500-i1"}
     rid = build_run_id("demo", "20260607-101500", tag="i1", exists=lambda r: r in taken)
     assert rid == "demo-20260607-101500-i1-2"
-
-
-from pathlib import Path
-
-from llm_werewolf.interface.api.services.game_sessions import GameSessionManager
-from llm_werewolf.interface.api.models.actions import StartGameRequest
-
-_CONFIGS_DIR = Path(__file__).resolve().parents[2] / "configs"
 
 
 async def test_start_game_applies_instance_tag(tmp_path, monkeypatch) -> None:

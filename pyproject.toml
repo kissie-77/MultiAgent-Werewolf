@@ -107,6 +107,7 @@ werewolf-evidence = "llm_werewolf.interface.cli.evidence:entry"
 werewolf-vote-swing = "llm_werewolf.interface.cli.vote_swing:entry"
 werewolf-watch = "llm_werewolf.interface.cli.watch:entry"
 werewolf-api = "llm_werewolf.interface.api.app:main"
+werewolf-fleet = "llm_werewolf.interface.cli.fleet.entry:entry"
 
 [dependency-groups]
 dev = [

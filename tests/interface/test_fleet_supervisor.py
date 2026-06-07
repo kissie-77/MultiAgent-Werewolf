@@ -84,3 +84,10 @@ def test_teardown_terminates_in_reverse_order() -> None:
     sup.teardown()
     terminated = [n for (kind, n) in events if kind == "terminate"]
     assert terminated == ["frontend-i1", "frontend-i0", "backend-i1", "backend-i0"]
+
+
+def test_build_log_dir_under_artifacts_fleet(tmp_path) -> None:
+    from llm_werewolf.interface.cli.fleet.entry import build_log_dir
+
+    out = build_log_dir(root=tmp_path, stamp="20260607-101500")
+    assert out == tmp_path / "artifacts" / "fleet" / "20260607-101500"

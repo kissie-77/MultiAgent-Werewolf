@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+import json
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import Query, Depends, Request, APIRouter, HTTPException
+from sse_starlette.sse import EventSourceResponse
 
 from llm_werewolf.interface.api.deps import get_runs_dir, get_configs_dir, get_eval_runs_dir
 from llm_werewolf.interface.api.models import ApiResponse
 from llm_werewolf.interface.api.models.actions import (
     PageActionSpec,
+    HumanInputRequest,
     StartGameRequest,
+    HumanInputResponse,
     StartGameResponse,
     ActionSpecResponse,
     CancelGameResponse,
-    ControlGameRequest,
-    ControlGameResponse,
     GameStatusResponse,
     ModelCompareRequest,
     ModelCompareResponse,
@@ -24,12 +25,22 @@ from llm_werewolf.interface.api.models.actions import (
     TriggerPostGameRequest,
     TriggerPostGameResponse,
 )
-from llm_werewolf.interface.api.models.state import GameStateResponse
 from llm_werewolf.interface.api.services.config import compare_models
-from llm_werewolf.interface.api.services.runs import get_run_detail
-from llm_werewolf.interface.api.services.sse_stream import stream_game
+from llm_werewolf.interface.api.services.replay import extract_game_snapshot
 from llm_werewolf.interface.api.services.start_modes import build_start_modes
+from llm_werewolf.interface.api.services.event_stream import (
+    get_broadcaster,
+    event_visible_for,
+    read_events_after,
+)
 from llm_werewolf.interface.api.services.game_sessions import game_session_manager
+from llm_werewolf.interface.api.services.human_input import get_input_broker
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from collections.abc import AsyncIterator
+
+    from llm_werewolf.interface.api.services.event_stream import EventBroadcaster
 
 router = APIRouter(tags=["actions"])
 
@@ -75,11 +86,21 @@ ACTION_SPECS: list[PageActionSpec] = [
     PageActionSpec(
         page_key="game",
         frontend_route="/game",
-        action="get_state",
+        action="stream_events",
         method="GET",
-        api_path="/api/v1/games/{run_id}/state",
-        description="Authoritative live game state snapshot",
-        response_model="GameStateResponse",
+        api_path="/api/v1/games/{run_id}/stream",
+        description="SSE event stream (god or seat view; seat view for web-human requires token)",
+        response_model=None,
+    ),
+    PageActionSpec(
+        page_key="game",
+        frontend_route="/game",
+        action="submit_human_input",
+        method="POST",
+        api_path="/api/v1/games/{run_id}/input",
+        description="Resolve a web-human awaiting_input decision",
+        request_model="HumanInputRequest",
+        response_model="HumanInputResponse",
     ),
     PageActionSpec(
         page_key="game",
@@ -89,16 +110,6 @@ ACTION_SPECS: list[PageActionSpec] = [
         api_path="/api/v1/games/{run_id}/cancel",
         description="Cancel running game task",
         response_model="CancelGameResponse",
-    ),
-    PageActionSpec(
-        page_key="game",
-        frontend_route="/game",
-        action="control_game",
-        method="POST",
-        api_path="/api/v1/games/{run_id}/control",
-        description="Pause / resume / single-step / set speed for a running game",
-        request_model="ControlGameRequest",
-        response_model="ControlGameResponse",
     ),
     PageActionSpec(
         page_key="replay",
@@ -172,75 +183,6 @@ def game_status(
     return ApiResponse(data=data)
 
 
-@router.get("/games/{run_id}/view")
-def game_view(
-    run_id: str,
-    since: int = Query(0, ge=0),
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
-    runs_dir=Depends(get_runs_dir),
-    eval_runs_dir=Depends(get_eval_runs_dir),
-) -> ApiResponse:
-    data = game_session_manager.get_view(
-        run_id, runs_dir=runs_dir, eval_runs_dir=eval_runs_dir, since=since, source=source,
-    )
-    if data is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-    return ApiResponse(data=data)
-
-
-@router.get("/games/{run_id}/stream")
-def game_stream(
-    run_id: str,
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
-    last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
-    runs_dir=Depends(get_runs_dir),
-    eval_runs_dir=Depends(get_eval_runs_dir),
-) -> StreamingResponse:
-    # 0-based seqs: a fresh connection (no Last-Event-ID) uses after_seq=-1 so
-    # the very first event (seq 0) is included; Last-Event-ID=N resumes after N.
-    try:
-        after_seq = int(last_event_id) if last_event_id else -1
-    except ValueError:
-        after_seq = -1
-
-    from pathlib import Path
-
-    session = game_session_manager.get_session(run_id)
-    if session is not None:
-        run_dir = session.run_dir
-    else:
-        detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
-        if detail is None:
-            raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-        run_dir = Path(detail.path)
-
-    generator = stream_game(session=session, run_dir=run_dir, last_event_id=after_seq)
-    return StreamingResponse(
-        generator,
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
-
-
-@router.get("/games/{run_id}/state")
-def game_state_snapshot(
-    run_id: str,
-    source: str | None = Query(None, pattern="^(runs|eval)$"),
-    runs_dir=Depends(get_runs_dir),
-    eval_runs_dir=Depends(get_eval_runs_dir),
-) -> ApiResponse[GameStateResponse]:
-    data = game_session_manager.get_state(
-        run_id, runs_dir=runs_dir, eval_runs_dir=eval_runs_dir, source=source,
-    )
-    if data is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-    return ApiResponse(data=data)
-
-
 @router.post("/games/{run_id}/cancel")
 async def cancel_game(run_id: str) -> ApiResponse[CancelGameResponse]:
     data = await game_session_manager.cancel_game(run_id)
@@ -249,20 +191,54 @@ async def cancel_game(run_id: str) -> ApiResponse[CancelGameResponse]:
     return ApiResponse(data=data)
 
 
-@router.post("/games/{run_id}/control")
-async def control_game(
+@router.post("/games/{run_id}/input")
+async def submit_human_input(
     run_id: str,
-    body: ControlGameRequest,
-) -> ApiResponse[ControlGameResponse]:
-    try:
-        data = await game_session_manager.control(
-            run_id, action=body.action, value=body.value
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if data is None:
+    body: HumanInputRequest,
+) -> ApiResponse[HumanInputResponse]:
+    """Resolve a suspended web-human decision identified by ``request_id``.
+
+    The per-seat ``token`` (minted by ``start_game``) gates submission so only the seat
+    owner can answer. Returns 404 for an unknown run, 403 for a bad token, and 409 when
+    no broker is registered or the ``request_id`` is unknown/already consumed/timed out.
+    """
+    session = game_session_manager._sessions.get(run_id)
+    if session is None:
         raise HTTPException(status_code=404, detail=f"Active session not found: {run_id}")
-    return ApiResponse(data=data)
+    if body.token != session.player_token:
+        return ApiResponse(
+            data=HumanInputResponse(
+                run_id=run_id,
+                accepted=False,
+                message="Invalid seat token",
+                reject_code="invalid_token",
+            )
+        )
+    broker = get_input_broker(run_id)
+    if broker is None:
+        return ApiResponse(
+            data=HumanInputResponse(
+                run_id=run_id,
+                accepted=False,
+                message="No input broker for this run",
+                reject_code="no_input_broker",
+            )
+        )
+    accepted, reject_code = broker.submit(request_id=body.request_id, payload=body.payload)
+    if not accepted:
+        messages = {
+            "expired_or_unknown": "Unknown or expired request_id",
+            "already_consumed": "request_id already consumed",
+        }
+        return ApiResponse(
+            data=HumanInputResponse(
+                run_id=run_id,
+                accepted=False,
+                message=messages.get(reject_code or "", "Input rejected"),
+                reject_code=reject_code,
+            )
+        )
+    return ApiResponse(data=HumanInputResponse(run_id=run_id, accepted=True))
 
 
 @router.post("/runs/{run_id}/post-game")
@@ -289,3 +265,169 @@ async def trigger_post_game(
 def compare_models_post(body: ModelCompareRequest) -> ApiResponse[ModelCompareResponse]:
     compare = compare_models(body.ids)
     return ApiResponse(data=ModelCompareResponse(compare=compare))
+
+
+def _count_events(run_dir: Path) -> int:
+    path = run_dir / "events.jsonl"
+    if not path.is_file():
+        return 0
+    with path.open("r", encoding="utf-8") as fh:
+        return sum(1 for line in fh if line.strip())
+
+
+def _sse(event: dict) -> dict:
+    """Format an enriched event dict as an unnamed SSE message.
+
+    Intentionally omits a named ``event:`` field so the browser EventSource's
+    default ``onmessage`` handler receives every event. The ``snapshot`` and
+    ``end`` frames stay named so the client can hook them explicitly; the
+    ``event_type`` still travels inside the ``data`` JSON for the reducer.
+    """
+    return {
+        "id": str(event.get("event_id", "")),
+        "data": json.dumps(event, ensure_ascii=False),
+    }
+
+
+def _load_god_roster(run_dir: Path) -> object | None:
+    """Read the persisted god-view roster, or None when absent/unreadable."""
+    roster_path = run_dir / "god_roster.json"
+    if not roster_path.is_file():
+        return None
+    try:
+        return json.loads(roster_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _seat_from_player_id(player_id: str, fallback: int) -> int:
+    digits = "".join(ch for ch in player_id if ch.isdigit())
+    if digits:
+        return int(digits)
+    return fallback
+
+
+def _roster_from_run_logs(run_dir: Path) -> list[dict]:
+    """Rebuild god-view roster from events.jsonl when god_roster.json is missing."""
+    from llm_werewolf.evaluation.post_game.run_context import load_run_context
+
+    try:
+        ctx = load_run_context(run_dir)
+    except Exception:  # pragma: no cover - best effort
+        return []
+    roster: list[dict] = []
+    for idx, (player_id, entry) in enumerate(
+        sorted(ctx.roster.items(), key=lambda item: _seat_from_player_id(item[0], 0)),
+        start=1,
+    ):
+        seat = _seat_from_player_id(player_id, idx)
+        roster.append(
+            {
+                "seat": seat,
+                "name": entry.player_name or f"Player{seat}",
+                "role": entry.role_name or "Unknown",
+                "camp": entry.camp,
+                "is_alive": True,
+            }
+        )
+    return roster
+
+
+def _initial_snapshot(run_dir: Path, view: str) -> dict:
+    """Build the snapshot first-frame payload, enriched with roster for god view."""
+    try:
+        snap = extract_game_snapshot(run_dir).model_dump()
+    except Exception:  # pragma: no cover - snapshot best-effort
+        snap = {}
+    if view == "god":
+        roster = _load_god_roster(run_dir)
+        if not roster:
+            roster = _roster_from_run_logs(run_dir)
+        if roster:
+            snap["roster"] = roster
+    return snap
+
+
+async def _stream_events(
+    run_id: str,
+    run_dir: Path,
+    request: Request,
+    broadcaster: EventBroadcaster | None,
+    *,
+    view: str,
+    seat: int | None,
+    last_event_id: int,
+) -> AsyncIterator[dict]:
+    """Yield SSE frames: snapshot, replayed events, then live events until close."""
+    # 1) first frame: coarse snapshot (god view also carries the roster)
+    snap = _initial_snapshot(run_dir, view)
+    yield {"event": "snapshot", "data": json.dumps(snap, ensure_ascii=False)}
+
+    # 2) replay already-persisted events after last_event_id
+    for ev in read_events_after(run_dir, last_event_id):
+        if event_visible_for(ev, view=view, seat=seat):
+            yield _sse(ev)
+
+    # 3) if the run is live, stream new events until it closes
+    if broadcaster is not None and not broadcaster.closed:
+        replayed = max(last_event_id, _count_events(run_dir))
+        async for ev in broadcaster.subscribe():
+            if ev.get("event_id", 0) <= replayed:
+                continue
+            if await request.is_disconnected():
+                break
+            if event_visible_for(ev, view=view, seat=seat):
+                yield _sse(ev)
+
+    yield {"event": "end", "data": json.dumps({"run_id": run_id})}
+
+
+@router.get("/games/{run_id}/stream")
+async def stream_game(
+    run_id: str,
+    request: Request,
+    view: Annotated[str, Query(pattern="^(god|seat)$")] = "god",
+    seat: Annotated[int | None, Query(ge=1, le=20)] = None,
+    token: Annotated[str | None, Query()] = None,
+    last_event_id: Annotated[int, Query(ge=0)] = 0,
+    runs_dir=Depends(get_runs_dir),
+    eval_runs_dir=Depends(get_eval_runs_dir),
+) -> EventSourceResponse:
+    run_dir = runs_dir / run_id
+    if not run_dir.is_dir():
+        alt = eval_runs_dir / run_id
+        run_dir = alt if alt.is_dir() else run_dir
+    if not run_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+
+    from llm_werewolf.interface.api.services.game_sessions import validate_seat_stream_access
+
+    session = game_session_manager._sessions.get(run_id)
+    denied = validate_seat_stream_access(
+        view=view,
+        seat=seat,
+        token=token,
+        run_dir=run_dir,
+        session=session,
+    )
+    if denied is not None:
+        status = 400 if denied.startswith("seat query parameter") else 403
+        raise HTTPException(status_code=status, detail=denied)
+
+    # Honor the SSE reconnect header if the client sent one.
+    header_id = request.headers.get("last-event-id")
+    if header_id and header_id.isdigit():
+        last_event_id = int(header_id)
+
+    broadcaster = get_broadcaster(run_id)
+    return EventSourceResponse(
+        _stream_events(
+            run_id,
+            run_dir,
+            request,
+            broadcaster,
+            view=view,
+            seat=seat,
+            last_event_id=last_event_id,
+        )
+    )

@@ -4,40 +4,25 @@ from __future__ import annotations
 
 from enum import Enum
 import json
+from typing import TYPE_CHECKING, Any
 import asyncio
 import logging
-import contextlib
-from typing import TYPE_CHECKING, Any, Callable
 from pathlib import Path
 from datetime import datetime
+import contextlib
 from dataclasses import field, dataclass
 
-if TYPE_CHECKING:
-    from llm_werewolf.interface.api.models.state import GameStateResponse, LastNight
-    from llm_werewolf.interface.api.models.view import ViewResponse
-
 from llm_werewolf.game_runtime import GameEngine
-from llm_werewolf.game_runtime.config.player_config import PlayersConfig
-from llm_werewolf.game_runtime.types import GamePhase
 from llm_werewolf.game_runtime.support.utils import load_config
 from llm_werewolf.interface.api.services.runs import get_run_detail
 from llm_werewolf.interface.api.models.actions import (
     StartGameRequest,
     StartGameResponse,
     CancelGameResponse,
-    ControlGameResponse,
     GameStatusResponse,
     TriggerPostGameResponse,
 )
-from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
-from llm_werewolf.interface.api.services.event_hub import EventHub
-from llm_werewolf.interface.api.services.roster_customize import (
-    has_roster_customizations,
-    prepare_start_players_config,
-    resolve_start_rules,
-)
 from llm_werewolf.interface.api.services.replay import extract_game_snapshot
-from llm_werewolf.interface.api.services.seat import seat_of as _seat_of
 from llm_werewolf.observability.core.dispatcher import get_dispatcher
 from llm_werewolf.observability.core.runtime_log import (
     attach_run_log_handler,
@@ -50,10 +35,19 @@ from llm_werewolf.interface.cli.runtime.bootstrap import (
 )
 from llm_werewolf.evaluation.post_game.event_adapter import event_to_dict
 from llm_werewolf.interface.cli.runtime.finalize_run import finalize_run, persist_run_artifacts
+from llm_werewolf.interface.api.services.event_stream import (
+    remove_broadcaster,
+    get_or_create_broadcaster,
+)
 from llm_werewolf.evaluation.signals.post_game_signals import derive_post_game_status
 from llm_werewolf.interface.api.services.config_resolve import resolve_config_for_start
+from llm_werewolf.interface.api.services.human_input import (
+    remove_input_broker,
+    get_or_create_input_broker,
+)
 from llm_werewolf.interface.api.services.roster_customize import (
     resolve_start_rules,
+    _rebuild_players_config,
     has_roster_customizations,
     prepare_start_players_config,
 )
@@ -62,6 +56,65 @@ if TYPE_CHECKING:
     from llm_werewolf.game_runtime.config.player_config import PlayersConfig
 
 logger = logging.getLogger(__name__)
+
+# Web-human runs disable tight phase timeouts; broker deadline handles human wait.
+WEB_HUMAN_RELAXED_TIMEOUT_S = 3600
+
+
+def _read_run_meta(run_dir: Path) -> dict[str, Any]:
+    meta_path = run_dir / "run_meta.json"
+    if not meta_path.is_file():
+        return {}
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def read_web_human_auth(run_dir: Path) -> tuple[int | None, str | None]:
+    """Return ``(web_human_seat, player_token)`` persisted for a run, if any."""
+    meta = _read_run_meta(run_dir)
+    seat = meta.get("web_human_seat")
+    token = meta.get("player_token")
+    return (int(seat) if seat is not None else None, str(token) if token else None)
+
+
+def resolve_web_human_auth(
+    *,
+    run_dir: Path,
+    session: GameSession | None,
+) -> tuple[int | None, str | None]:
+    if session is not None and session.human_seat is not None:
+        return session.human_seat, session.player_token
+    return read_web_human_auth(run_dir)
+
+
+def validate_seat_stream_access(
+    *,
+    view: str,
+    seat: int | None,
+    token: str | None,
+    run_dir: Path,
+    session: GameSession | None,
+) -> str | None:
+    """Return an HTTP error detail string when seat-stream access must be denied."""
+    if view != "seat":
+        return None
+    web_seat, expected_token = resolve_web_human_auth(run_dir=run_dir, session=session)
+    if web_seat is None:
+        if seat is None:
+            return "seat query parameter is required for view=seat"
+        return None
+    if seat is None:
+        return "seat query parameter is required for web-human seat stream"
+    if token is None:
+        return "token query parameter is required for web-human seat stream"
+    if expected_token is None or token != expected_token:
+        return "Invalid seat token"
+    if seat != web_seat:
+        return "Seat does not match the human player seat for this run"
+    return None
 
 
 def _read_alert_count(run_dir: Path) -> int:
@@ -81,73 +134,53 @@ def _has_human_player(players_config: PlayersConfig) -> bool:
     return any(player.model == "human" for player in players_config.players)
 
 
-def _write_full_roster(engine: Any, run_dir: Path) -> None:
-    """Persist god-view roster (seat -> role/camp/model) at game start for /view."""
-    state = getattr(engine, "game_state", None)
-    if state is None:
-        return
-    players = []
-    for player in state.players:
-        camp = None
-        role = getattr(player, "role", None)
-        if role is not None and getattr(role, "camp", None) is not None:
-            camp = role.camp.value
-        seat = _seat_of(player.player_id)
-        if seat is None:
-            logger.warning(
-                "Skipping roster entry with unparseable player_id: %r",
-                getattr(player, "player_id", None),
-            )
-            continue
-        players.append({
-            "seat": seat,
-            "player_id": player.player_id,
-            "name": player.name,
-            "role": player.get_role_name(),
-            "camp": camp,
-            "model": getattr(player, "ai_model", "unknown"),
-        })
-    players.sort(key=lambda p: p["seat"])
-    (run_dir / "roster.json").write_text(
-        json.dumps({"players": players}, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+def _override_seat_to_web_human(players_config: PlayersConfig, seat: int) -> PlayersConfig:
+    """Return a copy with ``seat`` (1-based) switched to the ``web-human`` builtin model.
 
-
-def _captured_last_night(captured: dict | None) -> "LastNight | None":
-    """Convert a capture_phase_snapshot() dict into the typed LastNight model.
-
-    Returns None when no capture exists yet (live composition is then the fallback).
+    Clears any LLM credentials (model_env/api_key_env/base_url) so the seat stays builtin
+    and no key is ever resolved or persisted for it.
     """
-    from llm_werewolf.interface.api.models.state import LastNight, NightDeath
-
-    if not captured:
-        return None
-    deaths = [
-        NightDeath(seat=d["seat"], cause=d.get("cause"))
-        for d in captured.get("deaths", [])
-        if isinstance(d, dict) and d.get("seat") is not None
-    ]
-    return LastNight(
-        deaths=deaths,
-        saved_seat=captured.get("saved_seat"),
-        guarded_seat=captured.get("guarded_seat"),
-        poisoned_seat=captured.get("poisoned_seat"),
+    roster = list(players_config.players)
+    index = seat - 1
+    if index < 0 or index >= len(roster):
+        msg = f"human seat {seat} is out of range for {len(roster)} players"
+        raise ValueError(msg)
+    roster[index] = roster[index].model_copy(
+        update={
+            "model": "web-human",
+            "model_env": None,
+            "api_key_env": None,
+            "base_url": None,
+        }
     )
+    return _rebuild_players_config(players_config, roster)
 
 
-def _dump_roster_without_secrets(players_config: PlayersConfig) -> dict:
-    """Serialize roster for disk, stripping per-seat literal api_key."""
-    data = players_config.model_dump(mode="json", exclude={"use_agentscope_backend"})
-    for player in data.get("players", []):
-        player.pop("api_key", None)
-    return data
+def _write_god_roster(run_dir: Path, engine: object) -> None:
+    """Persist the god-view roster (seat -> role/camp/alive) for spectate.
 
-
-def _playing_event() -> asyncio.Event:
-    """Control gate that starts in the 'playing' (set) state."""
-    ev = asyncio.Event()
-    ev.set()
-    return ev
+    Best-effort: never let roster I/O break a game run.
+    """
+    try:
+        players = list(getattr(getattr(engine, "game_state", None), "players", []) or [])
+        roster = []
+        for idx, p in enumerate(players, start=1):
+            role = getattr(p, "role", None)
+            cfg = role.get_config() if role is not None and hasattr(role, "get_config") else None
+            alive_attr = getattr(p, "is_alive", True)
+            is_alive = alive_attr() if callable(alive_attr) else alive_attr
+            roster.append({
+                "seat": idx,
+                "name": getattr(p, "name", f"Player{idx}"),
+                "role": getattr(cfg, "name", None) or getattr(role, "name", None) or "Unknown",
+                "camp": getattr(getattr(cfg, "camp", None), "value", None),
+                "is_alive": bool(is_alive),
+            })
+        (run_dir / "god_roster.json").write_text(
+            json.dumps(roster, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception as exc:  # pragma: no cover - best effort
+        logger.warning("Failed to write god_roster for %s: %s", run_dir.name, exc)
 
 
 class GameSessionStatus(str, Enum):
@@ -156,18 +189,6 @@ class GameSessionStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
-
-# Base mapping from session lifecycle status -> response status string, shared by
-# get_view() and get_state(). (get_state additionally collapses a paused RUNNING
-# session to "paused"; that override lives at the call site.)
-_SESSION_STATUS_MAP = {
-    GameSessionStatus.RUNNING: "running",
-    GameSessionStatus.PENDING: "running",
-    GameSessionStatus.COMPLETED: "ended",
-    GameSessionStatus.CANCELLED: "cancelled",
-    GameSessionStatus.FAILED: "error",
-}
 
 
 @dataclass
@@ -187,49 +208,12 @@ class GameSession:
     participation: str | None = None
     rules: str | None = None
     human_seats: list[int] = field(default_factory=list)
-    hub: "EventHub" = field(default_factory=lambda: EventHub())
-    current_sub_phase: str | None = None
-    current_actor_seat: int | None = None
-    engine: Any | None = None
-    gate: asyncio.Event = field(default_factory=lambda: _playing_event())
-    step_once: bool = False
-    speed: int = 1
-    last_night: dict[str, Any] = field(default_factory=dict)
     post_game_status: str | None = None
     alert_count: int = 0
-
-    def capture_phase_snapshot(self) -> None:
-        """Snapshot night results BEFORE the next NIGHT entry clears them.
-
-        The pump calls this right after engine.step(), by which point the NIGHT
-        branch of step() has already run next_phase() and advanced the phase to a
-        post-resolution phase (DAY_DISCUSSION / SHERIFF_ELECTION / DAY_VOTING, or
-        ENDED when the night kill ended the game). night_deaths and friends stay
-        populated through those phases and are only cleared on the
-        DAY_VOTING -> NIGHT transition, so we must capture WHILE the data is
-        present (phase != NIGHT), NOT while phase == NIGHT (when it is empty).
-        """
-        engine = self.engine
-        state = getattr(engine, "game_state", None) if engine else None
-        if state is None:
-            return
-        # No night data is present while still in NIGHT (it has been reset at
-        # NIGHT entry and the resolution's results land only after next_phase()),
-        # nor during SETUP. Capturing then would clobber the real snapshot.
-        if state.get_phase() in (GamePhase.NIGHT, GamePhase.SETUP):
-            return
-        deaths = [
-            {"seat": _seat_of(pid), "cause": state.death_causes.get(pid)}
-            for pid in sorted(state.night_deaths)
-        ]
-        self.last_night = {
-            "deaths": [d for d in deaths if d["seat"] is not None],
-            "saved_seat": _seat_of(state.witch_saved_target) if state.witch_saved_target else None,
-            "guarded_seat": _seat_of(state.guard_protected) if state.guard_protected else None,
-            "poisoned_seat": (
-                _seat_of(state.witch_poison_target) if state.witch_poison_target else None
-            ),
-        }
+    broadcaster: Any | None = None
+    player_token: str | None = None
+    human_seat: int | None = None
+    input_broker: Any | None = None
 
 
 class IncrementalEventWriter:
@@ -240,55 +224,8 @@ class IncrementalEventWriter:
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
     def __call__(self, event: object) -> None:
-        self._write_row(event_to_dict(event))
-
-    def _write_row(self, row: dict) -> None:
         with self._path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-
-_SPEECH_EVENT_TYPES = {
-    "player_speech",
-    "player_discussion",
-    "role_acting",
-    "sheriff_candidate_speech",  # view.py classifies campaign speeches as a speech UI event
-}
-
-
-def _track_phase_signals(session: "GameSession", row: dict) -> None:
-    """Maintain session.current_sub_phase / current_actor_seat from the event stream."""
-    etype = str(row.get("event_type", ""))
-    data = row.get("data") or {}
-    if etype == "sub_phase":
-        session.current_sub_phase = data.get("name")
-    elif etype == "phase_changed":
-        # A new GamePhase ends any night sub-phase and any in-progress actor.
-        session.current_sub_phase = None
-        session.current_actor_seat = None
-    if etype in _SPEECH_EVENT_TYPES:
-        seat = _seat_of(str(data.get("player_id") or ""))
-        if seat is not None:
-            session.current_actor_seat = seat
-
-
-def make_fanout_on_event(
-    writer: IncrementalEventWriter, session: "GameSession"
-) -> Callable[[object], None]:
-    """One source, two sinks: append to events.jsonl AND publish to the hub.
-
-    The same ``event_to_dict`` row is used for both so the hub seq stays
-    aligned with the events.jsonl line index (the 0-based /view cursor). The
-    wrapper also tracks transient stream signals (sub_phase / current_actor_seat)
-    on the session for /state.
-    """
-
-    def _fanout(event: object) -> None:
-        row = event_to_dict(event)
-        writer._write_row(row)
-        session.hub.publish(row)
-        _track_phase_signals(session, row)
-
-    return _fanout
+            fh.write(json.dumps(event_to_dict(event), ensure_ascii=False) + "\n")
 
 
 class GameSessionManager:
@@ -300,9 +237,6 @@ class GameSessionManager:
 
     def reset(self) -> None:
         self._sessions.clear()
-
-    def get_session(self, run_id: str) -> GameSession | None:
-        return self._sessions.get(run_id)
 
     async def start_game(
         self,
@@ -326,6 +260,13 @@ class GameSessionManager:
         if _has_human_player(effective_players_config):
             msg = "Web human-player games are not supported yet; use the CLI werewolf command for human mixed games."
             raise ValueError(msg)
+        human_seat: int | None = None
+        if request.human is not None:
+            human_seat = request.human.seat
+            # Override the requested seat to the builtin web-human model and persist the
+            # effective config so _run_game / launch_roster.json reflect it.
+            players_config = _override_seat_to_web_human(effective_players_config, human_seat)
+            effective_players_config = players_config
         custom_roster = has_roster_customizations(request)
         badge_flow = bool(request.badge_flow)
         human_seats = list(request.human_seats or [])
@@ -336,6 +277,9 @@ class GameSessionManager:
         run_id = f"{label}-{ts}"
         run_dir = runs_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
+
+        # Stable per-seat token (not auth): lets the browser claim the seat stream + /input.
+        player_token = f"seat{human_seat}-{run_id}" if human_seat is not None else None
 
         meta = {
             "run_id": run_id,
@@ -350,13 +294,20 @@ class GameSessionManager:
             "human_seats": human_seats,
             "badge_flow": badge_flow,
         }
+        if human_seat is not None:
+            meta["web_human_seat"] = human_seat
+            meta["player_token"] = player_token
         (run_dir / "run_meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         if players_config is not None:
             (run_dir / "launch_roster.json").write_text(
-                json.dumps(_dump_roster_without_secrets(players_config), ensure_ascii=False, indent=2),
+                json.dumps(
+                    players_config.model_dump(mode="json", exclude={"use_agentscope_backend"}),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
                 encoding="utf-8",
             )
 
@@ -370,6 +321,8 @@ class GameSessionManager:
             participation=participation,
             rules=rules,
             human_seats=human_seats,
+            human_seat=human_seat,
+            player_token=player_token,
         )
 
         async with self._lock:
@@ -382,12 +335,19 @@ class GameSessionManager:
         session.status = GameSessionStatus.RUNNING
 
         amp = "&"
+        game_page_path = f"/game?run_id={run_id}{amp}source=runs"
+        seat_page_path = None
+        if human_seat is not None and player_token is not None:
+            seat_page_path = (
+                f"{game_page_path}{amp}view=seat{amp}seat={human_seat}"
+                f"{amp}token={player_token}"
+            )
         return StartGameResponse(
             run_id=run_id,
             status=session.status.value,
             config_id=stem,
             run_dir=str(run_dir.as_posix()),
-            game_page_path=f"/game?run_id={run_id}{amp}source=runs",
+            game_page_path=game_page_path,
             status_path=f"/api/v1/games/{run_id}/status{amp}source=runs",
             replay_page_path=f"/replay/{run_id}{amp}source=runs",
             participation=participation,
@@ -396,22 +356,10 @@ class GameSessionManager:
             human_seats=human_seats,
             badge_flow=badge_flow,
             custom_roster=custom_roster,
+            player_token=player_token,
+            stream_path=f"/api/v1/games/{run_id}/stream" if human_seat is not None else None,
+            seat_page_path=seat_page_path,
         )
-
-    @staticmethod
-    async def _run_step_pump(session: GameSession, *, dwell: float = 0.4) -> str:
-        """Pump engine.step() one phase at a time, honoring the control gate."""
-        engine = session.engine
-        while not engine.is_over():
-            await session.gate.wait()                 # honor pause/step
-            await engine.step()                       # one phase
-            session.capture_phase_snapshot()          # snapshot BEFORE next clear
-            if session.step_once:
-                session.step_once = False
-                session.gate.clear()
-            if dwell:
-                await asyncio.sleep(dwell / max(session.speed, 1))
-        return engine.final_result_text()
 
     async def _run_game(self, session: GameSession) -> None:
         attach_run_log_handler(session.run_dir)
@@ -420,19 +368,45 @@ class GameSessionManager:
             players, roles, game_config = prepare_game_roster(players_config)
             if session.badge_flow:
                 game_config = game_config.model_copy(update={"enable_sheriff": True})
+            if session.human_seat is not None:
+                relaxed = WEB_HUMAN_RELAXED_TIMEOUT_S
+                game_config = game_config.model_copy(
+                    update={
+                        "night_timeout": relaxed,
+                        "day_timeout": relaxed,
+                        "vote_timeout": relaxed,
+                    }
+                )
             engine = GameEngine(
                 game_config,
                 language=players_config.language,
                 information_hub=create_information_hub(),
             )
             writer = IncrementalEventWriter(session.run_dir)
-            engine.on_event = make_fanout_on_event(writer, session)
+            broadcaster = get_or_create_broadcaster(session.run_id)
+            session.broadcaster = broadcaster
+
+            # Wire the web-human seat to its input broker (must run after the broadcaster
+            # exists so awaiting_input events can fan out to the seat stream).
+            if session.human_seat is not None:
+                broker = get_or_create_input_broker(
+                    session.run_id, session.human_seat, broadcaster
+                )
+                agent = players[session.human_seat - 1]
+                agent.seat = session.human_seat
+                agent.broker = broker
+                session.input_broker = broker
+
+            def _on_event(event: object) -> None:
+                writer(event)
+                broadcaster.publish(event_to_dict(event))
+
+            engine.on_event = _on_event
             engine.setup_game(players=players, roles=roles)
-            session.engine = engine
-            _write_full_roster(engine, session.run_dir)
+            _write_god_roster(session.run_dir, engine)
             wire_agentscope_after_setup(engine, players_config)
 
-            result = await self._run_step_pump(session)
+            result = await engine.play_game()
             session.result_text = result
             persist_run_artifacts(engine, session.run_dir)
             post = await finalize_run(
@@ -468,26 +442,11 @@ class GameSessionManager:
             except Exception as alert_exc:
                 logger.warning("Alert dispatch failed for %s: %s", session.run_id, alert_exc)
         finally:
-            if session.error and session.status is GameSessionStatus.FAILED:
-                # Spec §8: terminal type=system error event onto the hub BEFORE close,
-                # so connected SSE clients (and hub-backfill reconnects) receive it.
-                # Also persist the SAME row to events.jsonl so a client that reconnects
-                # after the session is evicted from memory still gets it via the disk
-                # backfill path (the run-error event would otherwise be hub-only).
-                error_row = {
-                    "event_type": "system",
-                    "round_number": 0,
-                    "phase": "ended",
-                    "message": session.error,
-                    "data": {"error": session.error},
-                }
-                session.hub.publish(error_row)
-                try:
-                    IncrementalEventWriter(session.run_dir)._write_row(error_row)
-                except OSError:
-                    logger.exception("Failed to persist terminal error event for %s", session.run_id)
-            session.hub.close()
             detach_run_log_handler()
+            if session.broadcaster is not None:
+                session.broadcaster.close()
+            remove_broadcaster(session.run_id)
+            remove_input_broker(session.run_id)
             session.completed_at = datetime.now().isoformat(timespec="seconds")
             self._write_meta(session)
 
@@ -578,94 +537,6 @@ class GameSessionManager:
             alert_count=alert_count,
         )
 
-    def get_view(
-        self, run_id: str, *, runs_dir: Path, eval_runs_dir: Path,
-        since: int = 0, source: str | None = None,
-    ) -> "ViewResponse | None":
-        from llm_werewolf.interface.api.services.view import build_view
-
-        session = self._sessions.get(run_id)
-        if session is not None:
-            run_dir = session.run_dir
-            status = _SESSION_STATUS_MAP.get(session.status, "running")
-            error = session.error
-        else:
-            detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
-            if detail is None:
-                return None
-            run_dir = Path(detail.path)
-            status, error = "ended", None
-        if not run_dir.is_dir():
-            return None
-        return build_view(run_dir, since=since, status=status, error=error)
-
-    def get_state(
-        self, run_id: str, *, runs_dir: Path, eval_runs_dir: Path,
-        source: str | None = None,
-    ) -> "GameStateResponse | None":
-        from llm_werewolf.game_runtime.state.serialization import serialize_game_state
-        from llm_werewolf.interface.api.services.state import (
-            build_state_from_snapshot,
-            build_state_from_view,
-        )
-        from llm_werewolf.interface.api.services.view import build_view
-
-        session = self._sessions.get(run_id)
-        if session is not None and session.engine is not None:
-            engine = session.engine
-            game_state = getattr(engine, "game_state", None)
-            if game_state is not None:
-                snapshot = serialize_game_state(game_state)
-                camps = {
-                    p.player_id: p.get_camp().value
-                    for p in game_state.players
-                    if getattr(p, "role", None) is not None
-                }
-                cursor = self._count_events(session.run_dir)
-                base_status = _SESSION_STATUS_MAP.get(session.status, "running")
-                play_state = "playing" if session.gate.is_set() else "paused"
-                # spec §5.1: a paused RUNNING game collapses status -> "paused"
-                status = (
-                    "paused"
-                    if (base_status == "running" and play_state == "paused")
-                    else base_status
-                )
-                captured = _captured_last_night(session.last_night)
-                return build_state_from_snapshot(
-                    snapshot,
-                    status=status,
-                    error=session.error,
-                    cursor=cursor,
-                    camps=camps,
-                    play_state=play_state,
-                    speed=session.speed,
-                    captured_last_night=captured,
-                    sub_phase=session.current_sub_phase,
-                    current_actor_seat=session.current_actor_seat,
-                )
-
-        if session is not None:
-            run_dir = session.run_dir
-            status = _SESSION_STATUS_MAP.get(session.status, "running")
-            error = session.error
-        else:
-            detail = get_run_detail(run_id, runs_dir, eval_runs_dir, source=source or "runs")
-            if detail is None:
-                return None
-            run_dir = Path(detail.path)
-            status, error = "ended", None
-        if not run_dir.is_dir():
-            return None
-        view = build_view(run_dir, since=0, status=status, error=error)
-        return build_state_from_view(view)
-
-    @staticmethod
-    def _count_events(run_dir: Path) -> int:
-        path = run_dir / "events.jsonl"
-        if not path.is_file():
-            return 0
-        return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
-
     async def cancel_game(self, run_id: str) -> CancelGameResponse | None:
         session = self._sessions.get(run_id)
         if session is None:
@@ -682,33 +553,6 @@ class GameSessionManager:
             run_id=run_id,
             status=session.status.value,
             message="Game task cancelled",
-        )
-
-    async def control(
-        self, run_id: str, *, action: str, value: int | None = None
-    ) -> ControlGameResponse | None:
-        session = self._sessions.get(run_id)
-        if session is None:
-            return None
-        if action == "pause":
-            session.gate.clear()
-        elif action == "resume":
-            session.gate.set()
-        elif action == "step":
-            session.step_once = True
-            session.gate.set()
-        elif action == "speed":
-            if value not in (1, 2, 4):
-                msg = f"speed value must be one of 1, 2, 4; got {value}"
-                raise ValueError(msg)
-            session.speed = value
-        state = getattr(session.engine, "game_state", None)
-        phase = state.get_phase().value if state else GamePhase.SETUP.value
-        return ControlGameResponse(
-            run_id=run_id,
-            play_state="playing" if session.gate.is_set() else "paused",
-            speed=session.speed,
-            phase=phase,
         )
 
     async def trigger_post_game(

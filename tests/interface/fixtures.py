@@ -77,25 +77,27 @@ def write_sample_run(run_dir: Path) -> Path:
     return run_dir
 
 
-def write_demo_config(configs_dir: Path) -> Path:
+def write_standard_demo_config(configs_dir: Path, *, player_count: int = 6) -> Path:
+    """Fast offline board for tests (demo agents, no API key)."""
     configs_dir.mkdir(parents=True, exist_ok=True)
-    path = configs_dir / "demo-6.yaml"
+    config_id = f"standard-{player_count}p"
+    path = configs_dir / f"{config_id}.yaml"
+    players = "\n".join(
+        f"  - name: Player{i}\n    model: demo" for i in range(1, player_count + 1)
+    )
     path.write_text(
-        """language: zh-CN
-players:
-  - name: DemoPlayer1
-    model: demo
-  - name: DemoPlayer2
-    model: demo
-  - name: DemoPlayer3
-    model: demo
-  - name: DemoPlayer4
-    model: demo
-  - name: DemoPlayer5
-    model: demo
-  - name: DemoPlayer6
-    model: demo
-""",
+        f"language: zh-CN\nplayers:\n{players}\n",
         encoding="utf-8",
     )
     return path
+
+
+def write_all_standard_demo_configs(configs_dir: Path) -> None:
+    for count in (4, 6, 8, 12, 16):
+        write_standard_demo_config(configs_dir, player_count=count)
+
+
+def write_demo_config(configs_dir: Path) -> Path:
+    """Backward-compatible alias: ensure all standard demo boards exist for API tests."""
+    write_all_standard_demo_configs(configs_dir)
+    return configs_dir / "standard-6p.yaml"

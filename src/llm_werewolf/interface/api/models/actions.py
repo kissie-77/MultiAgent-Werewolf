@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from pydantic import Field, BaseModel, field_validator
 
-# Runtime (not TYPE_CHECKING) import: used in pydantic model fields below, so they
-# must be resolvable for model_rebuild. pages.py does not import actions -> no cycle.
+# Runtime import required (not TYPE_CHECKING): GameStatusResponse and
+# ModelCompareResponse use these as pydantic field types; with
+# `from __future__ import annotations` they must be resolvable at model-build
+# time or instantiation raises PydanticUserError ("not fully defined").
 from llm_werewolf.interface.api.models.pages import GameSnapshot, ModelComparePageData
 
 
@@ -15,8 +17,6 @@ class PlayerRosterDefaults(BaseModel):
     api_key_env: str | None = Field(default=None, description="Env var name for API key")
     model_env: str | None = Field(default=None, description="Env var name for model/endpoint id")
     plan: str | None = Field(default=None, description="AgentScope plan strategy name")
-    api_key: str | None = Field(default=None, description="Literal API key (inline mode; not persisted)")
-    temperature: float | None = Field(default=None, ge=0.0, le=2.0, description="Per-seat sampling temperature")
 
 
 class PlayerRosterSlot(BaseModel):
@@ -26,8 +26,14 @@ class PlayerRosterSlot(BaseModel):
     api_key_env: str | None = Field(default=None, description="Env var name for API key")
     model_env: str | None = Field(default=None, description="Env var name for model/endpoint id")
     plan: str | None = Field(default=None, description="AgentScope plan strategy name")
-    api_key: str | None = Field(default=None, description="Literal API key (inline mode; not persisted)")
-    temperature: float | None = Field(default=None, ge=0.0, le=2.0, description="Per-seat sampling temperature")
+
+
+class HumanSeatSpec(BaseModel):
+    seat: int = Field(..., ge=1, le=20, description="1-based seat for the single human player")
+    role: str | None = Field(
+        default=None,
+        description="Optional fixed role (ignored until Enhancement A8; random deal for now)",
+    )
 
 
 class StartGameRequest(BaseModel):
@@ -44,15 +50,15 @@ class StartGameRequest(BaseModel):
     run_label: str | None = Field(default=None, description="Optional run directory prefix")
     player_count: int | None = Field(
         default=None,
-        ge=6,
+        ge=4,
         le=20,
-        description="Optional seat count override (6-20)",
+        description="Optional seat count override (4-20); prefer standard-{N}p config_id",
     )
     human_seats: list[int] | None = Field(
         default=None,
         description=(
-            "1-based seat numbers for human players. CLI-only for now; "
-            "the Web API rejects human-player games until browser input is implemented."
+            "1-based seat numbers for CLI stdin humans (model=human). "
+            "For browser play use ``human`` instead."
         ),
     )
     badge_flow: bool | None = Field(
@@ -66,6 +72,10 @@ class StartGameRequest(BaseModel):
     players: list[PlayerRosterSlot] | None = Field(
         default=None,
         description="Per-seat overrides by index (sparse list allowed)",
+    )
+    human: HumanSeatSpec | None = Field(
+        default=None,
+        description="Single human seat for human-vs-AI; None = pure-LLM spectate",
     )
 
     @field_validator("human_seats")
@@ -110,6 +120,29 @@ class StartGameResponse(BaseModel):
     human_seats: list[int] = Field(default_factory=list)
     badge_flow: bool = False
     custom_roster: bool = False
+    player_token: str | None = None
+    stream_path: str | None = None
+    seat_page_path: str | None = Field(
+        default=None,
+        description="Full frontend route for the human seat view (includes view/seat/token query params)",
+    )
+
+
+class HumanInputRequest(BaseModel):
+    token: str = Field(..., description="Per-seat token from StartGameResponse.player_token")
+    request_id: str = Field(..., description="awaiting_input request id the browser is answering")
+    kind: str = Field(..., description="Decision kind: seat|multi|yesno|witch|speech")
+    payload: str = Field(..., description="Normalized decision text (bridge contract)")
+
+
+class HumanInputResponse(BaseModel):
+    run_id: str
+    accepted: bool
+    message: str | None = None
+    reject_code: str | None = Field(
+        default=None,
+        description="When accepted=false: no_input_broker | invalid_token | expired_or_unknown | already_consumed",
+    )
 
 
 class GameStatusResponse(BaseModel):
@@ -129,26 +162,6 @@ class CancelGameResponse(BaseModel):
     run_id: str
     status: str
     message: str | None = None
-
-
-class ControlGameRequest(BaseModel):
-    action: str = Field(..., pattern="^(pause|resume|step|speed)$")
-    value: int | None = Field(default=None, description="Speed factor; required for action=speed")
-
-    @field_validator("value")
-    @classmethod
-    def validate_value(cls, value: int | None) -> int | None:
-        if value is not None and value not in (1, 2, 4):
-            msg = f"speed value must be one of 1, 2, 4; got {value}"
-            raise ValueError(msg)
-        return value
-
-
-class ControlGameResponse(BaseModel):
-    run_id: str
-    play_state: str
-    speed: int
-    phase: str
 
 
 class ModelCompareRequest(BaseModel):

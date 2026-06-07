@@ -156,6 +156,7 @@ def list_runs(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     source: Annotated[str | None, Query(pattern="^(runs|eval)$")] = None,
+    replay_only: Annotated[bool, Query()] = False,
     runs_dir=Depends(get_runs_dir),
     eval_runs_dir=Depends(get_eval_runs_dir),
 ) -> ApiResponse[RunListPageData]:
@@ -167,6 +168,7 @@ def list_runs(
                 page=page,
                 page_size=page_size,
                 source=source,
+                replay_only=replay_only,
             )
         )
     )

@@ -15,6 +15,8 @@ def test_actions_spec(api_client: TestClient) -> None:
     assert resp.status_code == 200
     actions = resp.json()["data"]["actions"]
     assert any(a["action"] == "start_game" for a in actions)
+    assert any(a["action"] == "stream_events" for a in actions)
+    assert any(a["action"] == "submit_human_input" for a in actions)
 
 
 def test_start_game_unknown_config(api_client: TestClient) -> None:
@@ -24,7 +26,7 @@ def test_start_game_unknown_config(api_client: TestClient) -> None:
 
 def test_start_game_returns_run_id(api_client: TestClient) -> None:
     with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
-        resp = api_client.post("/api/v1/games/start", json={"config_id": "demo-6"})
+        resp = api_client.post("/api/v1/games/start", json={"config_id": "standard-6p"})
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["run_id"]
@@ -38,7 +40,7 @@ def test_start_game_default_mode(api_client: TestClient) -> None:
         resp = api_client.post("/api/v1/games/start", json={})
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["config_id"] == "llm-12p-kimi"
+    assert data["config_id"] == "standard-6p"
     assert data["rules"] == "basic"
 
 
@@ -57,7 +59,7 @@ def test_start_game_custom_roster(api_client: TestClient) -> None:
         resp = api_client.post(
             "/api/v1/games/start",
             json={
-                "config_id": "demo-6",
+                "config_id": "standard-6p",
                 "player_count": 8,
                 "players": [{"name": "SeatOne"}, {"name": "SeatTwo"}],
             },
@@ -76,7 +78,7 @@ def test_start_game_rejects_human_seats_for_web(api_client: TestClient) -> None:
     with patch.object(game_session_manager, "_run_game", new=AsyncMock()):
         resp = api_client.post(
             "/api/v1/games/start",
-            json={"config_id": "demo-6", "human_seats": [1], "badge_flow": True},
+            json={"config_id": "standard-6p", "human_seats": [1], "badge_flow": True},
         )
     assert resp.status_code == 400
     assert "human-player games are not supported" in resp.json()["detail"]
@@ -119,6 +121,9 @@ def test_list_start_modes(api_client: TestClient) -> None:
     modes = resp.json()["data"]["modes"]
     assert any(m["rules"] == "basic" for m in modes)
     assert all(m["participation"] != "human_mixed" for m in modes)
+    assert any(m["participation"] == "human_vs_ai" for m in modes)
+    assert any(m["config_id"] == "standard-6p" for m in modes)
+    assert any(m["config_id"] == "standard-12p" for m in modes)
     assert all(m["config_id"] != "human-6p-demo" for m in modes)
     assert resp.json()["data"]["default_rules"] == "basic"
 
@@ -168,33 +173,3 @@ def test_trigger_post_game_missing(api_client: TestClient) -> None:
 def test_cancel_unknown_session(api_client: TestClient) -> None:
     resp = api_client.post("/api/v1/games/not-started/cancel")
     assert resp.status_code == 404
-
-
-def test_view_endpoint_returns_projection(tmp_path, monkeypatch):
-    import json
-    from fastapi.testclient import TestClient
-    from llm_werewolf.interface.api.app import create_app
-    from llm_werewolf.interface.api import deps
-
-    run_dir = tmp_path / "runs" / "demo-1"
-    run_dir.mkdir(parents=True)
-    (run_dir / "roster.json").write_text(json.dumps({"players": [
-        {"seat": 1, "player_id": "player_1", "name": "P1", "role": "预言家", "camp": "villager", "model": "demo"},
-    ]}), encoding="utf-8")
-    (run_dir / "events.jsonl").write_text(
-        json.dumps({"event_type": "player_speech", "round_number": 1, "phase": "day_discussion",
-                    "message": "P1: hi", "data": {"player_id": "player_1", "player_name": "P1", "speech": "hi"}}) + "\n",
-        encoding="utf-8")
-    (run_dir / "run_meta.json").write_text(json.dumps({"status": "running"}), encoding="utf-8")
-
-    app = create_app()
-    app.dependency_overrides[deps.get_runs_dir] = lambda: tmp_path / "runs"
-    app.dependency_overrides[deps.get_eval_runs_dir] = lambda: tmp_path / "runs"
-    client = TestClient(app)
-
-    res = client.get("/api/v1/games/demo-1/view?since=0")
-    assert res.status_code == 200
-    body = res.json()["data"] if "data" in res.json() else res.json()
-    assert body["cursor"] == 1
-    assert body["events"][0]["type"] == "speech"
-    assert body["snapshot"]["players"][0]["role"] == "预言家"

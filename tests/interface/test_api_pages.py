@@ -74,7 +74,7 @@ def test_pages_game_with_run(api_client: TestClient) -> None:
 
 
 def test_pages_game_with_config_id(api_client: TestClient) -> None:
-    resp = api_client.get("/api/v1/pages/game", params={"config_id": "demo-6"})
+    resp = api_client.get("/api/v1/pages/game", params={"config_id": "standard-6p"})
     body = resp.json()
     assert resp.status_code == 200
     assert body["data"]["board_preset"]["player_count"] == 6

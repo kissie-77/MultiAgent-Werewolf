@@ -1,293 +1,803 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGameStore } from "../store";
+import { ApiClient } from "../api/client";
+import { mapRunRow } from "../utils/runRows";
+import type { RunRow } from "../utils/runRows";
+import {
+  type EnvFieldStatus,
+  type ProviderSchema,
+  fetchApiKeysStatus,
+  fetchProviders,
+  saveProviderFieldsToServer,
+} from "../lib/config";
+import {
+  clampPlayerCount,
+  nearestStandardConfigId,
+  MIN_PLAYER_COUNT,
+  MAX_PLAYER_COUNT,
+} from "../lib/boardConfig";
 import { motion, AnimatePresence } from "motion/react";
-import { Cpu, ChevronLeft, Flame, Play } from "lucide-react";
-import { PROVIDER_PRESETS, getApiKey, setApiKey, providerById } from "../lib/api-keys";
-import { SeatConfig } from "../types";
+import { Users, Shield, Cpu, Zap, Eye, Skull, Flame, Settings, Play, Key } from "lucide-react";
+
+import { getRoleImage } from "../utils/roles";
 
 export default function GameSetup() {
-  const startGame = useGameStore((state) => state.startGame);
-  const status = useGameStore((state) => state.status);
+  const setSetupCount = useGameStore((state) => state.setSetupCount);
+  const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
 
-  const [isConfiguring, setIsConfiguring] = useState(false);
+  // setupStep represents the startup screen flow phase
+  const [setupStep, setSetupStep] = useState<"landing" | "settings">("landing");
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [gameMode, setGameMode] = useState<"llmOnly" | "humanVsAI">("humanVsAI");
   const [playerCount, setPlayerCount] = useState<number>(6);
-  const [enableSheriff, setEnableSheriff] = useState(false);
-  const [defaultProvider, setDefaultProvider] = useState<string>(PROVIDER_PRESETS[0].id);
-  const [defaultModel, setDefaultModel] = useState<string>(PROVIDER_PRESETS[0].models[0]);
-  const [seats, setSeats] = useState<SeatConfig[]>([]);
-  // 每个 provider 的 key 输入（受控）
-  const [keys, setKeys] = useState<Record<string, string>>(() =>
-    Object.fromEntries(PROVIDER_PRESETS.map((p) => [p.id, getApiKey(p.id)]))
-  );
+  const [userRole, setUserRole] = useState<string>("预言家");
+  const [humanSeat, setHumanSeat] = useState<number>(1);
+  const [hasSheriff, setHasSheriff] = useState<boolean>(true);
+  const [providers, setProviders] = useState<ProviderSchema[]>([]);
+  const [selectedProviderId, setSelectedProviderId] = useState<string>("doubao");
+  const [envFieldValues, setEnvFieldValues] = useState<Record<string, string>>({});
+  const [envFieldStatus, setEnvFieldStatus] = useState<Record<string, EnvFieldStatus>>({});
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [spectatableRuns, setSpectatableRuns] = useState<RunRow[]>([]);
+  const [spectateRunId, setSpectateRunId] = useState<string>("");
+  const [spectateRunsLoading, setSpectateRunsLoading] = useState(false);
+  const [spectateRunsError, setSpectateRunsError] = useState<string | null>(null);
 
-  // 人数变化时同步座位列表，套用默认 provider/model
-  useEffect(() => {
-    setSeats((prev) => {
-      const next: SeatConfig[] = [];
-      for (let i = 0; i < playerCount; i++) {
-        next.push(prev[i] || {
-          seat: i + 1, name: `Player${i + 1}`,
-          provider: defaultProvider, model: defaultModel,
-          base_url: providerById(defaultProvider)?.base_url || "",
-        });
-      }
-      return next;
-    });
-  }, [playerCount, defaultProvider, defaultModel]);
+  const selectedProvider =
+    providers.find((p) => p.provider_id === selectedProviderId) ?? providers[0] ?? null;
 
-  const updateSeat = (idx: number, patch: Partial<SeatConfig>) =>
-    setSeats((s) => s.map((seat, i) => (i === idx ? { ...seat, ...patch } : seat)));
-
-  const saveKey = (provider: string, val: string) => {
-    setKeys((k) => ({ ...k, [provider]: val }));
-    setApiKey(provider, val);
+  const fieldPlaceholder = (envName: string, fallback: string) => {
+    const status = envFieldStatus[envName];
+    if (status?.configured && status.masked) {
+      return `已配置 ${status.masked}`;
+    }
+    return fallback;
   };
 
+  useEffect(() => {
+    if (!showSettingsModal) return;
+    setSettingsError(null);
+    Promise.all([fetchProviders(), fetchApiKeysStatus()])
+      .then(([provData, keyData]) => {
+        setProviders(provData.providers);
+        setSelectedProviderId(provData.default_provider_id || "doubao");
+        setEnvFieldStatus(keyData.env_fields ?? {});
+        setEnvFieldValues({});
+      })
+      .catch((err) =>
+        setSettingsError(err instanceof Error ? err.message : String(err))
+      );
+  }, [showSettingsModal]);
+
+  const saveSettings = async () => {
+    if (!selectedProvider) return;
+    setSettingsError(null);
+    setSettingsSaving(true);
+    try {
+      const payload: Record<string, string> = {};
+      for (const field of selectedProvider.fields) {
+        const value = envFieldValues[field.env_name]?.trim();
+        if (value) payload[field.env_name] = value;
+      }
+      if (Object.keys(payload).length === 0) {
+        setSettingsError("请至少填写一个要保存的字段");
+        return;
+      }
+      const data = await saveProviderFieldsToServer(payload);
+      setEnvFieldStatus(data.env_fields ?? {});
+      setEnvFieldValues({});
+      setShowSettingsModal(false);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  React.useEffect(() => {
+    setSetupCount(playerCount);
+  }, [playerCount, setSetupCount]);
+
+  // Keep the human seat within the current player-count range.
+  React.useEffect(() => {
+    setHumanSeat((seat) => Math.min(Math.max(1, seat), playerCount));
+  }, [playerCount]);
+
+  React.useEffect(() => {
+    return () => {
+      setSetupCount(null);
+    };
+  }, [setSetupCount]);
+
+  useEffect(() => {
+    if (setupStep !== "settings" || gameMode !== "llmOnly") return;
+    let cancelled = false;
+    setSpectateRunsLoading(true);
+    ApiClient.getSpectatableRuns(1, 40)
+      .then((data) => {
+        if (cancelled) return;
+        const rows = data.runs.items.map(mapRunRow).filter((r) => r.hasReplay);
+        setSpectatableRuns(rows);
+        setSpectateRunId((prev) => prev || rows[0]?.runId || "");
+        setSpectateRunsError(null);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSpectateRunsError(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .finally(() => !cancelled && setSpectateRunsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [setupStep, gameMode]);
+
   const startMatch = async () => {
-    await startGame(seats, { enableSheriff });
+    if (starting) return;
+    setStartError(null);
+    setStarting(true);
+    setSetupCount(null);
+    try {
+      const count = clampPlayerCount(playerCount);
+      const res = await ApiClient.startGame({
+        config_id: nearestStandardConfigId(count),
+        player_count: count,
+        badge_flow: hasSheriff,
+        // 人机模式下占用一个人类座位；纯观战模式不传 human。
+        ...(gameMode === "humanVsAI" ? { human: { seat: humanSeat } } : {}),
+      });
+      // 人机模式：用后端返回的座位令牌进入本人座位视角；否则进上帝观战。
+      if (gameMode === "humanVsAI" && res.player_token) {
+        const sep = res.game_page_path.includes("?") ? "&" : "?";
+        navigate(
+          `${res.game_page_path}${sep}view=seat&seat=${humanSeat}&token=${encodeURIComponent(res.player_token)}`
+        );
+      } else {
+        navigate(res.game_page_path); // "/game?run_id=...&source=runs"
+      }
+    } catch (e) {
+      setStartError(e instanceof Error ? e.message : String(e));
+      setStarting(false);
+    }
+  };
+
+  const getRolesDescription = (count: number) => {
+    if (count === 1) return "1 预言家 (无狼人，完全探索模式)";
+    if (count === 2) return "1 狼人 | 1 预言家";
+    if (count === 3) return "1 狼人 | 1 预言家 | 1 女巫";
+    if (count === 4) return "1 狼人 | 1 预言家 | 1 女巫 | 1 村民";
+    
+    const wolves = count <= 6 ? 2 : count <= 11 ? 3 : 4;
+    const citizens = count - 3 - wolves; // Seer, Witch, Hunter = 3 special roles
+    return `${wolves} 狼人 | 1 预言家 | 1 女巫 | 1 猎人 ${citizens > 0 ? `| ${citizens} 村民` : ""}`;
+  };
+
+  const roleDetails = {
+    预言家: {
+      name: "预言家 (Seer)",
+      desc: "查验底牌，指引真相。每个黑夜可以查验一名玩家的真实阵营，是指引好人阵营在白昼认清形势的明灯。",
+      color: "border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)] text-amber-500",
+      icon: <Eye className="w-5 h-5" />,
+      tag: "神职 · 阵营向导"
+    },
+    女巫: {
+      name: "女巫 (Witch)",
+      desc: "掌控生死，双药并济。拥有一瓶能使夜间牺牲者复苏的解药，以及一瓶可以毒杀任意玩家的强力毒药。",
+      color: "border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)] text-purple-400",
+      icon: <Shield className="w-5 h-5" />,
+      tag: "神职 · 双面利刃"
+    },
+    猎人: {
+      name: "猎人 (Hunter)",
+      desc: "终局威慑，退场带人。在被投票流放或狼人袭击出局时（除被女巫毒死外），可开枪击杀任意一名玩家。",
+      color: "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-emerald-400",
+      icon: <Zap className="w-5 h-5" />,
+      tag: "神职 · 强力威慑"
+    },
+    狼人: {
+      name: "狼人 (Werewolf)",
+      desc: "夜里袭杀，白天煽动。每个夜晚与狼人同伴会合啃食一名好人玩家，白天在人群中隐藏身份并煽动投票。",
+      color: "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] text-red-500",
+      icon: <Skull className="w-5 h-5" />,
+      tag: "狼队 · 暗夜袭杀者"
+    },
+    村民: {
+      name: "村民 (Villager)",
+      desc: "逻辑分析，多数表决。不具备特殊技能，主要通过在白天听取发言、推导逻辑并利用选票放逐狼人。",
+      color: "border-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.2)] text-slate-300",
+      icon: <Users className="w-5 h-5" />,
+      tag: "平民 · 逻辑基石"
+    }
   };
 
   const handlePlayerCountChange = (val: number) => {
-    setPlayerCount(Math.max(6, Math.min(20, val)));
+    const nextVal = clampPlayerCount(val);
+    setPlayerCount(nextVal);
+    
+    // Auto adjust player role if chosen role is unavailable due to low occupant count
+    if (nextVal === 1) {
+      setUserRole("预言家");
+    } else if (nextVal === 2) {
+      if (userRole !== "预言家" && userRole !== "狼人") {
+        setUserRole("预言家");
+      }
+    } else if (nextVal === 3) {
+      if (userRole === "猎人" || userRole === "村民") {
+        setUserRole("预言家");
+      }
+    } else if (nextVal === 4) {
+      if (userRole === "猎人") {
+        setUserRole("预言家");
+      }
+    }
   };
 
   return (
-    <div className="w-full max-w-4xl px-4 flex flex-col justify-center items-center py-6 select-none relative z-10 bg-transparent">
-
-      <AnimatePresence mode="wait">
-        {!isConfiguring ? (
-          /* STATE 1: LANDING SCREEN - ONLY THE "START GAME" BUTTON */
+    <div className={`w-full h-full absolute inset-0 z-10 overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-500 ${setupStep === "settings" ? "" : ""}`}>
+      <div className={`w-full min-h-full ${setupStep === "settings" ? "max-w-4xl px-2 sm:px-4 mx-auto flex flex-col items-center justify-center py-12" : "max-w-[1400px] mx-auto flex items-center justify-start px-8 md:px-24 xl:px-40 py-12"} select-none relative bg-transparent`}>
+        <AnimatePresence mode="wait">
+          {setupStep === "landing" ? (
           <motion.div
             key="landing"
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -15 }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="w-full max-w-md bg-transparent p-8 relative text-center"
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50, filter: "blur(4px)" }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="w-full max-w-[20rem] p-4 lg:p-6 flex flex-col items-center sm:items-start text-center sm:text-left relative z-10"
           >
-            {/* Gothic Accents */}
-            <div className="absolute top-2 left-2 text-[10px] text-zinc-650 font-mono">🕀</div>
-            <div className="absolute top-2 right-2 text-[10px] text-zinc-650 font-mono">🕀</div>
-            <div className="absolute bottom-2 left-2 text-[10px] text-zinc-650 font-mono">✝</div>
-            <div className="absolute bottom-2 right-2 text-[10px] text-zinc-650 font-mono">✝</div>
-
-            <div className="inline-block px-3 py-1 bg-zinc-900/80 border border-zinc-800 text-[9.5px] text-yellow-500 font-mono tracking-[0.25em] uppercase mb-4">
-              🔮 诸神交错 · 狼月落尘 🔮
+            {/* Glowing Moon / Crest at Top */}
+            <div className="w-12 h-12 rounded-full border border-amber-600/30 bg-amber-500/5 shadow-[0_0_50px_rgba(245,158,11,0.15)] flex items-center justify-center mb-8 relative">
+              <Eye className="w-5 h-5 text-amber-500/80" />
+              <div className="absolute inset-0 rounded-full border-[1px] border-amber-500/20 animate-ping" style={{ animationDuration: "3.5s" }} />
+              {/* Tarot style diamond accents */}
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-amber-500/60 rotate-45" />
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-amber-500/60 rotate-45" />
+              <div className="absolute top-1/2 -left-2 -translate-y-1/2 w-1.5 h-1.5 bg-amber-500/60 rotate-45" />
+              <div className="absolute top-1/2 -right-2 -translate-y-1/2 w-1.5 h-1.5 bg-amber-500/60 rotate-45" />
             </div>
 
-            <h1 className="font-serif text-4xl text-[#e5e5e0] tracking-[0.2em] font-black uppercase mb-3 ink-shadow">
-              宿命审判
+            <div className="flex border-t border-b border-amber-600/30 py-2 mb-6 relative w-full justify-center sm:justify-start">
+               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1 bg-amber-500/60 rotate-45 hidden sm:block" />
+              <span className="text-[9px] text-amber-500/80 font-serif tracking-[0.2em] uppercase sm:pl-3">
+                ~ 经典狼人杀 ∙ 智能大模型博弈 ~
+              </span>
+            </div>
+            
+            <h1 className="font-serif text-3xl lg:text-4xl font-medium text-transparent bg-clip-text bg-gradient-to-b from-amber-100 via-amber-300 to-amber-700 tracking-widest mb-2 drop-shadow-lg" style={{textShadow: "0 4px 20px rgba(245, 158, 11, 0.4)"}}>
+              智能狼人杀
             </h1>
-
-            <p className="text-[11px] font-mono text-zinc-400 tracking-[0.08em] leading-relaxed max-w-xs mx-auto mb-8">
-              在大理石圆盘刻纹和微温烛台前，AI 智能体们展开狼人杀对决。
+            <h2 className="font-gothic text-xl lg:text-2xl text-amber-500/60 tracking-[0.1em] mb-6 opacity-90 drop-shadow">
+              The Artificial Intelligence
+            </h2>
+            
+            <p className="text-[10px] lg:text-xs font-serif text-amber-50/70 tracking-[0.1em] leading-[2] max-w-[18rem] mb-8 opacity-90 relative">
+              大语言模型驱动的人机对弈平台。<br/>
+              亲临圆桌，扮演神职与群狼勾心斗角；<br/>
+              退居幕后，开启上帝视角，静观推演。
             </p>
 
-            {/* THE ONLY BUTTON */}
-            <button
-              onClick={() => setIsConfiguring(true)}
-              className="stone-btn relative w-full px-8 py-5 font-serif font-black text-[#f5f5f5] text-lg uppercase tracking-[0.25em] transition-all duration-300 rounded shadow-2xl flex items-center justify-center gap-3 cursor-pointer group active:translate-y-1"
-              style={{
-                clipPath: "polygon(4% 0%, 96% 0%, 100% 18%, 100% 100%, 0% 100%, 0% 18%)",
-              }}
-            >
-              <div className="absolute inset-x-0 top-0 h-1 bg-zinc-500/30" />
-              <Flame className="w-5 h-5 text-red-500 group-hover:animate-bounce" />
-              <span>开始游戏</span>
-              <Flame className="w-5 h-5 text-red-500 group-hover:animate-bounce" />
-            </button>
+            {/* Action Buttons Section */}
+            <div className="w-full flex flex-col gap-3 relative z-20 mt-2">
+              {/* Main Play Button */}
+              <button
+                onClick={() => setSetupStep("settings")}
+                className="relative w-full px-4 py-3 font-gothic text-amber-950 text-base lg:text-lg tracking-[0.15em] transition-all duration-300 rounded overflow-hidden group shadow-[0_0_20px_rgba(245,158,11,0.1)] hover:shadow-[0_0_40px_rgba(245,158,11,0.3)] active:translate-y-px"
+                style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%)" }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-700" />
+                <div className="absolute inset-x-0 top-0 h-px bg-white/40" />
+                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 rounded border border-amber-300/30 m-0.5 pointer-events-none" />
+                <div className="relative flex items-center justify-center gap-2">
+                   <span className="font-serif font-black text-[10px] lg:text-xs uppercase tracking-[0.2em]">进入盘面</span>
+                   <span className="mx-1 opacity-60 font-serif text-[10px]">•</span>
+                   <span>Play</span>
+                </div>
+              </button>
 
-            <div className="font-mono text-[8px] text-zinc-600 tracking-widest mt-6 uppercase">
-              — 点击入座 浮雕圆盘将静静旋转 —
+              {/* Nav down to Home Page Dashboard */}
+              <Link
+                to="/home"
+                className="flex py-2.5 px-4 font-gothic text-sm lg:text-base rounded border border-amber-900/40 bg-black/40 text-amber-500/70 hover:text-amber-300 hover:bg-black/60 hover:border-amber-700/60 w-full transition-all items-center justify-center gap-2 cursor-pointer backdrop-blur-sm group"
+                style={{ clipPath: "polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px)" }}
+              >
+                <Cpu className="w-3.5 h-3.5 group-hover:text-amber-400 transition-colors" />
+                <span className="font-serif font-bold text-[10px] lg:text-xs tracking-[0.25em] uppercase">观测后台</span>
+                <span className="mx-1 opacity-50 font-serif text-[10px]">•</span>
+                <span>Dashboard</span>
+              </Link>
             </div>
           </motion.div>
         ) : (
-          /* STATE 2: INTERACTIVE GAME CONFIGURATION PAGE */
           <motion.div
-            key="config"
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -15 }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="w-full max-w-2xl bg-transparent p-4 md:p-5 relative"
+            key="settings"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="w-full relative tarot-card p-5 md:p-8 flex flex-col flex-grow md:flex-grow-0 my-8 text-slate-300 transform-gpu"
           >
-            {/* Corner cracks */}
-            <div className="absolute top-2 left-2 text-[10px] text-zinc-650 font-mono">🕀</div>
-            <div className="absolute top-2 right-2 text-[10px] text-zinc-650 font-mono">🕀</div>
-            <div className="absolute bottom-2 left-2 text-[10px] text-zinc-650 font-mono">✝</div>
-            <div className="absolute bottom-2 right-2 text-[10px] text-zinc-650 font-mono">✝</div>
+            {/* Background texture layering */}
+            <div className="absolute inset-0 bg-woodcut-dark opacity-30 pointer-events-none mix-blend-overlay" />
+            
+            {/* Corner Decorative Ornaments */}
+            <div className="absolute top-3 left-3 w-4 h-4 border-t-[1px] border-l-[1px] border-amber-600/40 rounded-tl" />
+            <div className="absolute top-3 right-3 w-4 h-4 border-t-[1px] border-r-[1px] border-amber-600/40 rounded-tr" />
+            <div className="absolute bottom-3 left-3 w-4 h-4 border-b-[1px] border-l-[1px] border-amber-600/40 rounded-bl" />
+            <div className="absolute bottom-3 right-3 w-4 h-4 border-b-[1px] border-r-[1px] border-amber-600/40 rounded-br" />
 
-            {/* Go back helper */}
-            <button
-              onClick={() => setIsConfiguring(false)}
-              className="absolute top-3 left-4 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white px-2 py-0.5 text-[9px] font-mono tracking-wider uppercase rounded flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              <ChevronLeft className="w-2.5 h-2.5" /> 返回
-            </button>
-
-            {/* Header Block / Board style */}
-            <div className="text-center mb-3 border-b border-zinc-900/40 pb-2 relative mt-2">
-              <span className="inline-block px-2.5 py-0.5 bg-zinc-900/60 border border-zinc-800 text-[8px] text-yellow-500 font-mono tracking-[0.2em] uppercase mb-1">
-                🔮 契 约 编 织 🔮
-              </span>
-              <h2 className="font-serif text-lg md:text-xl text-[#e5e5e0] tracking-[0.1em] font-black uppercase mb-0.5">
-                审 判 席 位 律 令
-              </h2>
-              <p className="text-[9px] font-mono text-zinc-450 max-w-sm mx-auto leading-normal">
-                规划 AI 席位与逐座位模型配置。
-              </p>
+            {/* Header with back button */}
+            <div className="w-full flex items-center justify-between border-b border-amber-900/40 pb-4 mb-6 relative z-10">
+              <button
+                onClick={() => setSetupStep("landing")}
+                className="flex items-center gap-2 px-4 py-2 rounded bg-black/40 border border-amber-900/30 text-[10px] text-amber-500/70 hover:text-amber-400 hover:border-amber-500/50 hover:bg-black/60 transition-all font-sans font-bold tracking-widest cursor-pointer active:scale-95"
+              >
+                ← 返 回 <span className="font-gothic text-xs ml-1">Back</span>
+              </button>
+              <div className="flex flex-col items-end">
+                <span className="font-serif text-lg md:text-xl font-medium text-amber-500 tracking-[0.2em] uppercase drop-shadow-md">
+                  启示录 ∙ 规则仪轨
+                </span>
+                <span className="font-gothic text-xs text-amber-500/50 tracking-[0.2em] uppercase">
+                  Match Configuration
+                </span>
+              </div>
             </div>
 
-            <div className="space-y-3.5">
-
-              {/* SEC 2: PLAYER COUNT STEPPER SELECTOR (6 - 20) */}
-              <div className="flex flex-col gap-1.5">
-                <span className="font-mono text-[11px] text-yellow-500 font-bold uppercase tracking-widest flex items-center gap-2">
-                  <span>席 位 议 员 (Player Seats: 6 - 20)</span>
-                  <span className="inline-block h-px flex-grow bg-zinc-900/40" />
-                </span>
-
-                <div className="flex flex-col md:flex-row items-center gap-3 bg-transparent border border-zinc-900/60 p-2.5 rounded">
-                  {/* Stepper Control */}
-                  <div className="flex items-center gap-2.5">
+            <div className="w-full flex flex-col lg:flex-row gap-6 relative z-10">
+              {/* Left Column: Basic Settings */}
+              <div className="flex-1 flex flex-col gap-6">
+                {/* Ⅰ. 游戏模式 */}
+                <div className="flex flex-col gap-3">
+                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
+                    <span className="font-gothic text-amber-700 text-sm">I.</span> 模式抉择 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Game Mode</span>
+                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
+                  </span>
+                  <div className="grid grid-cols-1 gap-3">
                     <button
                       type="button"
-                      onClick={() => handlePlayerCountChange(playerCount - 1)}
-                      className="w-7 h-7 rounded border border-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-900 flex items-center justify-center font-bold text-sm select-none transition-colors cursor-pointer"
+                      onClick={() => setGameMode("humanVsAI")}
+                      className={`flex flex-col text-left p-4 rounded border transition-all duration-300 relative cursor-pointer group ${
+                        gameMode === "humanVsAI"
+                          ? "bg-amber-900/20 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+                          : "bg-black/40 border-slate-800 hover:bg-slate-900/80 hover:border-amber-900/40"
+                      }`}
                     >
-                      -
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Shield className={`w-4 h-4 ${gameMode === "humanVsAI" ? "text-amber-500" : "text-slate-500"}`} />
+                          <span className={`font-sans text-xs font-bold tracking-widest uppercase ${gameMode === "humanVsAI" ? "text-amber-400" : "text-slate-400"}`}>
+                            亲临圆桌对战
+                          </span>
+                        </div>
+                        {gameMode === "humanVsAI" && (
+                          <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.8)] animate-pulse" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed font-sans">
+                        你将作为席位之一加入对局，与大语言模型扮演的玩家斗智斗勇。
+                      </p>
                     </button>
 
-                    <div className="w-12 text-center animate-pulse">
-                      <span className="text-xl font-mono font-black text-yellow-500 block leading-none">
-                        {playerCount}
-                      </span>
-                      <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mt-0.5">席位 Seats</span>
-                    </div>
-
                     <button
                       type="button"
-                      onClick={() => handlePlayerCountChange(playerCount + 1)}
-                      className="w-7 h-7 rounded border border-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-900 flex items-center justify-center font-bold text-sm select-none transition-colors cursor-pointer"
+                      onClick={() => setGameMode("llmOnly")}
+                      className={`flex flex-col text-left p-4 rounded border transition-all duration-300 relative cursor-pointer group ${
+                        gameMode === "llmOnly"
+                          ? "bg-red-900/20 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                          : "bg-black/40 border-slate-800 hover:bg-slate-900/80 hover:border-red-900/40"
+                      }`}
                     >
-                      +
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Cpu className={`w-4 h-4 ${gameMode === "llmOnly" ? "text-red-500" : "text-slate-500"}`} />
+                          <span className={`font-sans text-xs font-bold tracking-widest uppercase ${gameMode === "llmOnly" ? "text-red-400" : "text-slate-400"}`}>
+                            上帝观战模式
+                          </span>
+                        </div>
+                        {gameMode === "llmOnly" && (
+                          <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)] animate-pulse" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed font-sans">
+                        化身上帝视角，退居幕后，观察纯 AI 之间的自动推演和厮杀。
+                      </p>
                     </button>
                   </div>
+                </div>
 
-                  {/* Vertical Divider */}
-                  <div className="hidden md:block w-px h-7 bg-zinc-900" />
-
-                  {/* Quick Preset Badges */}
-                  <div className="flex flex-wrap items-center gap-1.5 flex-grow justify-center md:justify-start">
-                    <span className="text-[8px] text-[#ef4444] border border-red-950/40 bg-red-950/10 px-1 py-0.5 rounded font-black uppercase tracking-wider block">
-                      常用刻位:
-                    </span>
-                    {[6, 8, 9, 12, 16].map((num) => (
+                {/* Ⅱ. 游戏人数 */}
+                <div className="flex flex-col gap-3">
+                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
+                    <span className="font-gothic text-amber-700 text-sm">II.</span> 席位编排 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Player Seats</span>
+                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
+                  </span>
+                  
+                  <div className="flex flex-col items-center gap-4 bg-black/40 border border-slate-800 p-4 rounded">
+                    <div className="w-full flex items-center justify-between">
                       <button
-                        key={num}
                         type="button"
-                        onClick={() => handlePlayerCountChange(num)}
-                        className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold border transition-all duration-200 cursor-pointer ${
-                          playerCount === num
-                            ? "bg-yellow-500/10 text-yellow-500 border-yellow-500 shadow-sm"
-                            : "bg-transparent text-zinc-550 border-zinc-900 hover:text-zinc-300 hover:border-zinc-800"
-                        }`}
+                        onClick={() => handlePlayerCountChange(playerCount - 1)}
+                        className="w-10 h-10 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
                       >
-                        {num}人席
+                        -
                       </button>
-                    ))}
+                      
+                      <div className="flex flex-col items-center">
+                        <span className="text-3xl font-serif font-black text-amber-500 leading-none drop-shadow-[0_2px_4px_rgba(245,158,11,0.2)]">
+                          {playerCount}
+                        </span>
+                        <span className="text-[8px] text-slate-500 uppercase tracking-widest mt-1">
+                          入局玩家数量
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePlayerCountChange(playerCount + 1)}
+                        className="w-10 h-10 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <p className="w-full text-center text-[9px] text-slate-500 font-mono pt-2 border-t border-slate-800/50">
+                      支持 {MIN_PLAYER_COUNT}–{MAX_PLAYER_COUNT} 人自由编排（基于最近标准板子缩放）
+                    </p>
+                  </div>
+
+                  <div className="px-4 py-3 bg-slate-900/60 border border-slate-800 rounded text-[10px] font-serif text-slate-400 flex flex-col gap-1.5 shadow-inner">
+                    <div className="flex items-start gap-2">
+                      <span className="text-amber-600/80 mt-0.5">⚖️</span>
+                      <div>
+                        <span className="text-slate-500 mr-2 uppercase tracking-wide text-[9px]">阵营配置:</span>
+                        <span className="text-amber-100/90 font-bold">{getRolesDescription(playerCount)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ⅳ. 警长选举 */}
+                <div className="flex flex-col gap-3">
+                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
+                    <span className="font-gothic text-amber-700 text-sm">IV.</span> 警长竞选 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Sheriff</span>
+                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
+                  </span>
+                  
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setHasSheriff(true)}
+                      className={`flex-1 p-3 rounded border transition-all duration-300 font-sans text-[11px] tracking-widest font-bold uppercase ${
+                        hasSheriff
+                          ? "bg-amber-500/15 border-amber-500/50 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.1)]"
+                          : "bg-black/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700"
+                      }`}
+                    >
+                      开启警徽流
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHasSheriff(false)}
+                      className={`flex-1 p-3 rounded border transition-all duration-300 font-sans text-[11px] tracking-widest font-bold uppercase ${
+                        !hasSheriff
+                          ? "bg-indigo-500/15 border-indigo-500/50 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.1)]"
+                          : "bg-black/40 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700"
+                      }`}
+                    >
+                      无警徽局
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* SEC: 默认模型 + 警长流 */}
-              <div className="flex flex-col gap-1.5">
-                <span className="font-mono text-[11px] text-yellow-500 font-bold uppercase tracking-widest">Ⅰ. 默认模型 (Default Model)</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select value={defaultProvider}
-                    onChange={(e) => { const p = e.target.value; setDefaultProvider(p); setDefaultModel((providerById(p) ?? PROVIDER_PRESETS[0]).models[0]); }}
-                    className="bg-black border border-zinc-800 text-zinc-200 px-2 py-1 text-xs rounded">
-                    {PROVIDER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  </select>
-                  <select value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)}
-                    className="bg-black border border-zinc-800 text-zinc-200 px-2 py-1 text-xs rounded">
-                    {(providerById(defaultProvider) ?? PROVIDER_PRESETS[0]).models.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  <label className="flex items-center gap-1.5 text-xs text-zinc-300 font-mono ml-2">
-                    <input type="checkbox" checked={enableSheriff} onChange={(e) => setEnableSheriff(e.target.checked)} className="accent-yellow-500" />
-                    警长·警徽流
-                  </label>
-                </div>
-              </div>
+              {/* Right Column: Roles and Launch Button */}
+              <div className="flex-1 flex flex-col gap-6">
+                {/* Ⅲ. 你的游戏底牌 */}
+                <div 
+                  className="flex flex-col gap-3 transition-opacity duration-300 flex-grow"
+                  style={{
+                    opacity: gameMode === "humanVsAI" ? 1 : 0.3,
+                    pointerEvents: gameMode === "humanVsAI" ? "auto" : "none"
+                  }}
+                >
+                  <span className="font-serif text-[11px] text-amber-500 font-bold tracking-[0.2em] flex items-center gap-2">
+                    <span className="font-gothic text-amber-700 text-sm">III.</span> 抽取底牌 <span className="font-gothic text-xs uppercase opacity-70 ml-1">Your Role</span>
+                    <span className="inline-block h-px flex-grow bg-gradient-to-r from-amber-900/50 to-transparent ml-2" />
+                  </span>
 
-              {/* SEC: 各 provider 的 API Key */}
-              <div className="flex flex-col gap-1.5">
-                <span className="font-mono text-[11px] text-yellow-500 font-bold uppercase tracking-widest">Ⅱ. API Key (存于本地 localStorage)</span>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {PROVIDER_PRESETS.map((p) => (
-                    <div key={p.id} className="flex items-center gap-2">
-                      <span className="text-[10px] text-zinc-400 font-mono w-24 shrink-0">{p.label}</span>
-                      <input type="password" value={keys[p.id] || ""} placeholder="sk-..."
-                        onChange={(e) => saveKey(p.id, e.target.value)}
-                        className="flex-grow bg-zinc-950/40 border border-zinc-800 text-zinc-200 px-2 py-1 text-xs rounded font-mono" />
+
+                  <div className="flex flex-row items-stretch gap-4 h-full bg-black/40 border border-slate-800 rounded p-4 relative overflow-hidden">
+                    {/* Tarot preview portrait */}
+                    <div className="w-1/3 max-w-[140px] shrink-0 border-2 border-amber-900/40 rounded overflow-hidden shadow-inner relative">
+                        <img 
+                          src={getRoleImage(userRole)} 
+                          alt={userRole} 
+                          className="w-full h-full object-cover object-top mix-blend-luminosity hover:mix-blend-normal transition-all"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none"/>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* SEC: 逐座位配置 */}
-              <div className="flex flex-col gap-1.5">
-                <span className="font-mono text-[11px] text-yellow-500 font-bold uppercase tracking-widest flex items-center gap-2">
-                  <Cpu className="w-3 h-3" /> Ⅲ. 逐座位模型 (Per-seat)
-                </span>
-                <div className="max-h-56 overflow-y-auto flex flex-col gap-1.5 pr-1">
-                  {seats.map((seat, idx) => (
-                    <div key={seat.seat} className="flex items-center gap-2 bg-zinc-950/30 border border-zinc-900/60 rounded px-2 py-1">
-                      <span className="text-yellow-500 font-mono text-[11px] w-8 shrink-0">#{seat.seat}</span>
-                      <input value={seat.name} onChange={(e) => updateSeat(idx, { name: e.target.value })}
-                        className="w-24 bg-black border border-zinc-800 text-zinc-200 px-1.5 py-0.5 text-[11px] rounded" />
-                      <select value={seat.provider}
-                        onChange={(e) => { const p = e.target.value; const preset = providerById(p) ?? PROVIDER_PRESETS[0]; updateSeat(idx, { provider: p, model: preset.models[0], base_url: preset.base_url }); }}
-                        className="bg-black border border-zinc-800 text-zinc-300 px-1.5 py-0.5 text-[11px] rounded">
-                        {PROVIDER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                      </select>
-                      <select value={seat.model} onChange={(e) => updateSeat(idx, { model: e.target.value })}
-                        className="flex-grow bg-black border border-zinc-800 text-zinc-300 px-1.5 py-0.5 text-[11px] rounded">
-                        {(providerById(seat.provider) ?? PROVIDER_PRESETS[0]).models.map((m) => <option key={m} value={m}>{m}</option>)}
-                      </select>
+                    
+                    {/* Select Form */}
+                    <div className="flex-1 flex flex-col justify-center gap-3 relative z-10 w-full outline-none">
+                       <label className="text-[10px] text-amber-500/80 font-serif tracking-widest uppercase">Select Arcana</label>
+                       <select
+                         value={userRole}
+                         onChange={(e) => setUserRole(e.target.value)}
+                         className="bg-black/60 border border-amber-500/30 text-amber-100 px-4 py-3 text-sm font-bold select-none cursor-pointer focus:outline-none focus:border-amber-500 shadow-md transition-colors w-full break-words outline-none appearance-none"
+                         style={{ boxShadow: "inset 0 0 10px rgba(0,0,0,0.8)" }}
+                       >
+                          <optgroup label="好人阵营">
+                            <option value="预言家">预言家 (Seer)</option>
+                            <option value="女巫">女巫 (Witch)</option>
+                            <option value="猎人">猎人 (Hunter)</option>
+                            <option value="守卫">守卫 (Guard)</option>
+                            <option value="白痴">白痴 (Idiot)</option>
+                            <option value="长老">长老 (Elder)</option>
+                            <option value="骑士">骑士 (Knight)</option>
+                            <option value="魔术师">魔术师 (Magician)</option>
+                            <option value="乌鸦">乌鸦 (Raven)</option>
+                            <option value="守墓人">守墓人 (Graveyard Keeper)</option>
+                            <option value="村民">村民 (Villager)</option>
+                          </optgroup>
+                          <optgroup label="狼人阵营">
+                            <option value="狼人">狼人 (Werewolf)</option>
+                            <option value="狼王">狼王 (Alpha Wolf)</option>
+                            <option value="白狼">白狼 (White Wolf)</option>
+                            <option value="狼美人">狼美人 (Wolf Beauty)</option>
+                            <option value="守卫狼">守卫狼 (Guardian Wolf)</option>
+                            <option value="隐狼">隐狼 (Hidden Wolf)</option>
+                            <option value="血月使徒">血月使徒 (Blood Moon Apostle)</option>
+                            <option value="梦魇狼">梦魇狼 (Nightmare Wolf)</option>
+                          </optgroup>
+                          <optgroup label="中立阵营">
+                            <option value="盗贼">盗贼 (Thief)</option>
+                            <option value="丘比特">丘比特 (Cupid)</option>
+                            <option value="恋人">恋人 (Lover)</option>
+                          </optgroup>
+                       </select>
+                       <span className="text-[10px] text-zinc-500 mt-2 font-mono leading-relaxed">
+                         The engine will adapt to your chosen identity role automatically.
+                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
+                  {/* Seat selection: which chair the human occupies (role is random). */}
+                  <div className="flex flex-col gap-2 bg-black/40 border border-slate-800 rounded p-4">
+                    <label className="text-[10px] text-amber-500/80 font-serif tracking-widest uppercase">
+                      入座席位 · Your Seat
+                    </label>
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setHumanSeat((s) => Math.max(1, s - 1))}
+                        className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
+                      >
+                        -
+                      </button>
+                      <div className="flex flex-col items-center">
+                        <span className="text-2xl font-serif font-black text-amber-500 leading-none">
+                          {humanSeat} 号
+                        </span>
+                        <span className="text-[8px] text-slate-500 uppercase tracking-widest mt-1">
+                          共 {playerCount} 席
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setHumanSeat((s) => Math.min(playerCount, s + 1))}
+                        className="w-9 h-9 rounded border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 flex items-center justify-center font-bold text-lg select-none transition-all cursor-pointer text-slate-400 hover:text-amber-400"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="text-[9px] text-zinc-500 font-mono leading-relaxed">
+                      其余席位由大语言模型扮演；身份随机发牌。
+                    </span>
+                  </div>
+              </div>
+              </div>
             </div>
+            
+            {gameMode === "llmOnly" && (
+              <div className="w-full flex flex-col gap-3 mt-4 relative z-20 border border-red-900/30 rounded-lg p-4 bg-black/30">
+                <span className="font-serif text-[11px] text-red-400 font-bold tracking-[0.2em] flex items-center gap-2">
+                  <Eye className="w-3.5 h-3.5" />
+                  载入历史对局 · Log Replay
+                </span>
+                <p className="text-[10px] text-slate-500 font-sans leading-relaxed">
+                  从服务端 artifacts 中的 events.jsonl 选择已有对局，以日志回放方式观战（无需活跃 session）。
+                </p>
+                {spectateRunsLoading ? (
+                  <p className="text-[10px] text-zinc-500 font-mono">读取对局日志列表…</p>
+                ) : spectateRunsError ? (
+                  <p className="text-[10px] text-red-400/90 font-mono">{spectateRunsError}</p>
+                ) : spectatableRuns.length === 0 ? (
+                  <p className="text-[10px] text-zinc-500 font-mono">暂无可回放的对局日志</p>
+                ) : (
+                  <select
+                    value={spectateRunId}
+                    onChange={(e) => setSpectateRunId(e.target.value)}
+                    className="w-full bg-black/60 border border-red-900/40 text-amber-100 px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-red-500/60"
+                  >
+                    {spectatableRuns.map((run) => (
+                      <option key={run.runId} value={run.runId}>
+                        {run.playerCount}人 · {run.createdAt || "未知时间"} · #{run.runId}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  disabled={!spectateRunId || spectateRunsLoading}
+                  onClick={() => navigate(`/game?run_id=${encodeURIComponent(spectateRunId)}`)}
+                  className="w-full px-4 py-3 border border-red-800/60 bg-red-950/40 hover:bg-red-900/30 text-red-200 text-xs font-mono uppercase tracking-widest rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  从日志载入观战
+                </button>
+              </div>
+            )}
 
-            {/* Action Button Segment */}
-            <div className="mt-4 pt-3 border-t border-zinc-900/40 flex flex-col items-center w-full">
+            {/* Launch Match Button */}
+            <div className="w-full flex flex-col gap-3 mt-6 relative z-20">
               <button
                 onClick={startMatch}
-                disabled={status === "running"}
-                className="stone-btn relative w-full md:w-2/3 px-5 py-3 font-serif font-black text-[#f5f5f5] text-xs md:text-sm uppercase tracking-[0.2em] transition-all duration-300 rounded shadow-xl flex items-center justify-center gap-2 cursor-pointer active:translate-y-1"
-                style={{
-                  clipPath: "polygon(4% 0%, 96% 0%, 100% 18%, 100% 100%, 0% 100%, 0% 18%)",
-                }}
+                disabled={starting}
+                className="relative w-full px-8 py-5 flex items-center justify-center font-serif text-amber-950 transition-all duration-300 rounded overflow-hidden group shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_40px_rgba(245,158,11,0.4)] active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)" }}
               >
-                <div className="absolute inset-x-0 top-0 h-0.5 bg-zinc-500/30" />
-                <Flame className="w-4 h-4 text-red-500 animate-pulse" />
-                <Play className="w-4 h-4 text-emerald-400" />
-                <span>开启 AI 对决 (Launch LLM Game)</span>
-                <Flame className="w-4 h-4 text-red-500 animate-pulse" />
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-700 opacity-90" />
+                <div className="absolute inset-x-0 top-0 h-px bg-white/60" />
+                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute inset-0 rounded border border-amber-300/30 m-1 pointer-events-none" />
+                <div className="relative flex items-center justify-center gap-3">
+                  <Play className="w-4 h-4 fill-amber-950 drop-shadow-sm group-hover:scale-110 transition-transform" />
+                  <span className="font-serif font-black text-sm uppercase tracking-[0.3em]">{starting ? "真灵召唤中" : "拨转命盘 ∙ 开启对局"}</span>
+                  <span className="mx-1 opacity-60 font-serif text-[10px]">•</span>
+                  <span className="font-gothic text-xl tracking-[0.1em]">{starting ? "Summoning" : "Launch Match"}</span>
+                </div>
               </button>
-
-              <div className="font-mono text-[7.5px] text-zinc-500/80 tracking-widest mt-1.5 uppercase">
-                AI 玩家将自动运行，你可观战并控制播放速度。
-              </div>
+              {startError && (
+                <p className="mt-2 text-center text-[11px] font-mono text-red-400/90">
+                  开局失败：{startError}
+                </p>
+              )}
             </div>
 
+            <div className="text-center font-mono text-[9px] text-amber-900/50 tracking-[0.2em] mt-6 uppercase relative z-20">
+              — 棋盘浮雕将在入座后自适应折叠并载入 —
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      <button
+        onClick={() => setShowSettingsModal(true)}
+        className="fixed top-6 right-6 md:top-8 md:right-8 z-50 p-2 md:p-2.5 bg-zinc-900/60 border border-zinc-800/80 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-xl backdrop-blur-md transition-all active:scale-95"
+      >
+        <Settings className="w-5 h-5 md:w-6 md:h-6" />
+      </button>
+
+      {/* Settings Modal */}
+      {createPortal(
+        <AnimatePresence>
+          {showSettingsModal && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none"
+              onClick={() => setShowSettingsModal(false)}
+              onKeyDown={(e) => e.key === "Escape" && setShowSettingsModal(false)}
+              role="presentation"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="w-full max-w-md bg-slate-950 bg-woodcut-dark border border-amber-900/40 p-6 md:p-8 rounded-xl relative shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+              {/* Corner Ornaments */}
+              <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-amber-600/40" />
+              <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-amber-600/40" />
+              <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-amber-600/40" />
+              <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-amber-600/40" />
+
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowSettingsModal(false);
+                }}
+                className="absolute top-3 right-3 text-slate-500 hover:text-amber-500 transition-colors p-2 z-50 rounded-md bg-black/40 border border-slate-800/80 hover:border-amber-900/50"
+                aria-label="关闭设置"
+              >
+                ✕
+              </button>
+              
+              <h2 className="text-lg font-serif font-black text-amber-500 uppercase tracking-widest mb-6 border-b border-amber-900/30 pb-3 flex items-center gap-2 relative z-10 drop-shadow-md pr-10">
+                <Settings className="w-5 h-5 text-amber-600" />
+                枢纽引擎 ∙ 密钥档案
+              </h2>
+
+              <div className="flex flex-col gap-5 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar relative z-10">
+                <div className="flex flex-col gap-2">
+                  <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    选择供应商 · Provider
+                  </label>
+                  <select
+                    value={selectedProviderId}
+                    onChange={(e) => {
+                      setSelectedProviderId(e.target.value);
+                      setEnvFieldValues({});
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="relative z-20 bg-black/60 border border-amber-500/30 text-amber-100 px-3 py-2.5 text-sm font-bold cursor-pointer focus:outline-none focus:border-amber-500 w-full"
+                  >
+                    {providers.map((p) => (
+                      <option key={p.provider_id} value={p.provider_id}>
+                        {p.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedProvider?.fields.map((field) => (
+                  <div key={field.env_name} className="flex flex-col gap-2">
+                    <label className="font-sans text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Key className="w-4 h-4 text-amber-500/80" />
+                      {field.label}
+                      <span className="text-zinc-600 font-mono normal-case">{field.env_name}</span>
+                    </label>
+                    <div className="flex items-center gap-2 bg-black/60 border border-slate-800 hover:border-amber-900/50 focus-within:border-amber-500/50 focus-within:bg-black/80 p-2 rounded transition-colors shadow-inner">
+                      <input
+                        type={field.secret ? "password" : "text"}
+                        placeholder={fieldPlaceholder(field.env_name, field.example || "")}
+                        value={envFieldValues[field.env_name] ?? ""}
+                        onChange={(e) =>
+                          setEnvFieldValues((prev) => ({
+                            ...prev,
+                            [field.env_name]: e.target.value,
+                          }))
+                        }
+                        className="bg-transparent border-none outline-none font-mono text-amber-100 text-xs flex-grow w-full placeholder:text-slate-700"
+                      />
+                    </div>
+                    {field.description && (
+                      <p className="text-[9px] text-zinc-500 font-sans pl-1">{field.description}</p>
+                    )}
+                  </div>
+                ))}
+
+                <p className="text-[10px] text-slate-500 leading-relaxed font-sans mt-3 border-l-2 border-amber-900/50 pl-3">
+                  密钥写入服务器 <code className="text-amber-600/80">.env</code>；仅提交当前供应商下你填写的字段。
+                </p>
+                {settingsError && (
+                  <p className="text-[10px] text-red-400 font-sans mt-2">{settingsError}</p>
+                )}
+              </div>
+
+              <div className="mt-8 pt-4 border-t border-amber-900/30 flex justify-end relative z-10">
+                <button
+                  onClick={saveSettings}
+                  disabled={settingsSaving}
+                  className="px-6 py-2.5 bg-amber-950/40 border border-amber-600/50 text-amber-500 font-sans font-black text-xs uppercase tracking-widest hover:bg-amber-900/60 hover:text-amber-400 transition-all rounded disabled:opacity-50"
+                >
+                  {settingsSaving ? "保存中…" : "铭刻设定 (SAVE)"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </div>
     </div>
   );
 }

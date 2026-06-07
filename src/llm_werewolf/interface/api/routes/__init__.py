@@ -11,6 +11,7 @@ from llm_werewolf.interface.api.routes.legacy import (
     content_router,
 )
 from llm_werewolf.interface.api.routes.actions import router as actions_router
+from llm_werewolf.interface.api.routes.settings import router as settings_router
 
 __all__ = [
     "actions_router",
@@ -22,4 +23,5 @@ __all__ = [
     "replay_router",
     "roles_router",
     "runs_router",
+    "settings_router",
 ]

@@ -3,61 +3,49 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-import contextlib
 
-from llm_werewolf.game_runtime.support.utils import load_config
-from llm_werewolf.interface.cli.runtime.modes import list_modes
+from llm_werewolf.game_runtime.config.standard_boards import (
+    STANDARD_BOARD_SIZES,
+    standard_config_id,
+)
 from llm_werewolf.interface.api.models.actions import StartGameModeOption, StartGameModesResponse
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+_BOARD_DESCRIPTIONS: dict[int, str] = {
+    4: "4-player standard board (1 wolf / seer / witch / villager)",
+    6: "6-player standard board (2 wolves / seer / witch / 2 villagers)",
+    8: "8-player standard board (2 wolves / core specials / villagers)",
+    12: "12-player standard board (3 wolves / extended specials)",
+    16: "16-player standard board (5 wolves / full specials)",
+}
+
 
 def build_start_modes(configs_dir: Path) -> StartGameModesResponse:
     modes: list[StartGameModeOption] = []
-    for mode in list_modes():
-        if mode.participation == "human_mixed":
-            continue
-        player_count: int | None = None
-        config_id = mode.config_path.stem
-        candidate = configs_dir / f"{config_id}.yaml"
-        config_path = candidate if candidate.is_file() else mode.config_path
-        try:
-            cfg = load_config(config_path)
-            player_count = len(cfg.players)
-        except (ValueError, OSError):
-            pass
-        modes.append(
-            StartGameModeOption(
-                participation=mode.participation,
-                rules=mode.rules,
-                config_id=config_id,
-                description=mode.description,
-                player_count=player_count,
-            )
-        )
 
-    extras = [
-        ("llm-6p-doubao", "6-player Doubao LLM game"),
-        ("llm-12p-kimi", "12-player Kimi/VibeAPI LLM game"),
-    ]
-    seen = {item.config_id for item in modes}
-    for config_id, description in extras:
-        if config_id in seen:
-            continue
+    web_human = StartGameModeOption(
+        participation="human_vs_ai",
+        rules="basic",
+        config_id=standard_config_id(6),
+        description="Browser human vs LLM agents on the 6-player standard board",
+        player_count=6,
+    )
+    modes.append(web_human)
+
+    for count in STANDARD_BOARD_SIZES:
+        config_id = standard_config_id(count)
         path = configs_dir / f"{config_id}.yaml"
         if not path.is_file():
             continue
-        extra_count: int | None = None
-        with contextlib.suppress(ValueError, OSError):
-            extra_count = len(load_config(path).players)
         modes.append(
             StartGameModeOption(
                 participation="all_agent",
-                rules="custom",
+                rules="standard",
                 config_id=config_id,
-                description=description,
-                player_count=extra_count,
+                description=_BOARD_DESCRIPTIONS[count],
+                player_count=count,
             )
         )
 

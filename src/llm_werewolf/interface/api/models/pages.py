@@ -6,9 +6,11 @@ from typing import Any
 
 from pydantic import Field, BaseModel
 
-# Runtime (not TYPE_CHECKING) import: these types appear in pydantic model fields
-# below, so they must be resolvable for model_rebuild — common.py does not import
-# pages, so there is no circular dependency.
+# NOTE: these MUST be runtime imports (not under TYPE_CHECKING). With
+# `from __future__ import annotations`, pydantic resolves field annotations
+# against the module namespace at model-build time; hiding them under
+# TYPE_CHECKING leaves models like RunListPageData "not fully defined" and
+# raises PydanticUserError when they are instantiated.
 from llm_werewolf.interface.api.models.common import (
     NavLink,
     RunDetail,

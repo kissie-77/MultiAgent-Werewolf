@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-04
+> **最后更新**：2026-06-07
 > **关联代码**：`src/llm_werewolf/interface/`
 > **关联测试**：`tests/interface/`
 
@@ -58,14 +58,17 @@ uv run werewolf
 # 18 人人机扩展局（示例：8 号位为人类）
 uv run werewolf --participation human_mixed --rules extended_roles --players 18 --human_seat 8
 
-# 12 人 Kimi/VibeAPI LLM 对局（首参为 YAML 路径，无 play 子命令）
-uv run werewolf configs/llm-12p-kimi.yaml
+# 标准对局（4/6/8/12/16 人，默认豆包）— 见 configs/standard-*p.yaml
+uv run werewolf configs/standard-12p.yaml
+uv run werewolf configs/standard-6p.yaml --human_seat 1
 
-# Doubao 历史配置仍可用；改 ARK_API_KEY / ARK_EP 后可先跑这个
+# 校验豆包连通性（需 .env 中 ARK_API_KEY + ARK_EP）
 uv run python scripts/test_ark_connectivity.py
 
-# 启动 Web API（默认 127.0.0.1:8000）
-uv run werewolf-api
+# 启动 Web API（默认 127.0.0.1:8000；联调常用 8010）
+uv run werewolf-api --port 8010
+
+# 8 家供应商 env 模板见 docs/interface/PROVIDERS.md
 
 # 批量离线正确性评测
 uv run werewolf-eval --scenario smoke_6p_basic --games 3 --output_dir eval_runs/manual-smoke
@@ -77,11 +80,6 @@ uv run werewolf-evidence
 uv run werewolf-vote-swing <run_dir>
 
 # PostGame：对局结束后 finalize_run 自动触发，或 POST /api/v1/runs/{run_id}/post-game
-
-# 纯 LLM 观战（引擎驱动 API：/state · /stream(SSE) · /control）
-#   一键：双击 start-spectate.bat（等前端就绪自动开 http://127.0.0.1:5173；务必用 127.0.0.1，勿用 localhost）
-#   手动：uv run werewolf-api --host 127.0.0.1 --port 8000  ＋  cd frontend && npm run dev:spectate
-#   进页面在 DeepSeek 栏填 key、model 选 deepseek-chat 即可开局；顶部控制条暂停/单步/变速。详见 DESIGN §11。
 
 # 告警巡检（默认只写 artifacts/alerts/alerts.json）
 uv run werewolf-watch --since 24h

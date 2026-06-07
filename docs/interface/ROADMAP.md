@@ -2,7 +2,7 @@
 
 > **模块**：interface
 > **状态**：active
-> **最后更新**：2026-06-05
+> **最后更新**：2026-06-07
 
 ## 模块目录结构
 
@@ -44,9 +44,12 @@ interface/
 | 控制台展示 | ✅ Done | CLI 挂载 `ui.ConsolePresenter`（TUI 已移除） |
 | 人机对战 | ✅ Done | `--human_seat` 混合座位 |
 | API 回放功能 | 🔄 In Progress | replay / runs 页面 API |
-| CLI 12 人 LLM 对局验证 | ✅ Done | `llm-12p-kimi.yaml` + VibeAPI/Kimi 配置 |
-| Web 前端对接 | 📋 Planned | 与 frontend 模块对接 |
-| 引擎驱动观战 API（/state·/stream·/control）| ✅ Done | 保活引擎 + step 泵 + 控制闸 + SSE + 真机联调 |
+| 标准板子 YAML（4/6/8/12/16） | ✅ Done | `standard-*p.yaml`，默认豆包 |
+| 供应商 env 模板 | ✅ Done | 8 家 · [PROVIDERS.md](./PROVIDERS.md) |
+| 设置 API（浏览器写 `.env`） | ✅ Done | `GET/POST /settings/api-keys` + `GET /settings/providers` |
+| Web 人机 + 观战 SSE | ✅ Done | 座位 token、输入 reject_code、分享 `/share/{id}` |
+| 日志观战 / run 元数据 | ✅ Done | SSE 快照补 roster；`replay_only`；`effective_player_count` + `_load_run_roster`（`f1f655d`） |
+| 同台多模型（按座 provider） | 📋 Planned | Provider Registry 开局解析 |
 
 ## 已完成
 
@@ -73,27 +76,25 @@ interface/
 
 - [x] ARK 连通性脚本（`scripts/test_ark_connectivity.py`）
 - [x] 目录重组：删除 10 个根目录 backward-compat shim 文件，所有 CLI 模块统一归入 `cli/` 子目录；`watch_cli.py` 迁移至 `cli/watch.py`；17 处外部 import 同步更新
-- [x] 引擎驱动观战：保活引擎 + `engine.step()` 逐阶段泵 + 控制闸（暂停/继续/单步/变速）
-- [x] `GET /games/{id}/state`（权威实时 + 读盘兜底）、SSE `GET /games/{id}/stream`（`Last-Event-ID` 续传）、`POST /games/{id}/control`
-- [x] `on_event` 一源两写（`events.jsonl` + 内存 `EventHub`）；真 DeepSeek 端到端联调通过
 
 ## 进行中
 
-- [ ] 对局回放 API 完善
+- [ ] 信念矩阵日志聚合 API（前端目前从 replay 时间线自行扫描 `belief_snapshot`）
 - [ ] API 文档自动生成（OpenAPI/Swagger）
 
 ## 计划中
 
 - [ ] Web 前端对接（与 frontend 模块协作）
 - [ ] 多房间支持（并发多局游戏）
+- [x] 观战模式（旁观者视角：SSE live + 磁盘日志回放）
 - [ ] 对局录制与回放增强
 
 ## 变更记录
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-07 | 日志观战：`replay_only`、run 元数据推断、providers API、SSE roster 回退；`f1f655d`：`effective_player_count`、god_roster 容错、分享/模型页人数 |
 | 2026-06-05 | 目录重组：删除 10 个根目录 shim，`watch_cli.py→cli/watch.py`，17 处 import + pyproject.toml 同步更新 |
-| 2026-06-04 | 引擎驱动观战 API：保活引擎 + step 泵 + 控制闸 + `GET /state` + SSE `GET /stream`（Last-Event-ID 续传）+ `POST /control`；真 DeepSeek 端到端联调通过（详见 DESIGN §11） |
 | 2026-06-02 | 人机混战：显式配置优先级、极简人类输入提示、提交后等待提示 |
 | 2026-06-02 | 文档：TUI 移除、ARK 连通验证、12p 配置、产物路径；CLI 入口新增人数选择；人机混战按人数校验座位；修正 CORS 来源解析；默认模型配置切换为 `kimi-k2.5` |
 | 2026-05-23 | 修正 CLI/API 文档与实现对齐 |

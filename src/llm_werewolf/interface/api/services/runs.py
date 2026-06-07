@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from datetime import datetime
 import contextlib
@@ -16,7 +17,13 @@ from llm_werewolf.interface.api.models.common import (
     PlayerBrief,
     PaginatedList,
 )
-from llm_werewolf.evaluation.post_game.run_context import load_run_context
+from llm_werewolf.evaluation.post_game.run_context import (
+    PlayerRosterEntry,
+    _read_jsonl,
+    load_run_context,
+    roster_from_events,
+    winner_from_events,
+)
 
 
 def _dir_mtime_iso(path: Path) -> str | None:
@@ -26,22 +33,130 @@ def _dir_mtime_iso(path: Path) -> str | None:
         return None
 
 
+def _player_count_from_run_id(run_id: str) -> int | None:
+    match = re.search(r"(?:^|[-_])(\d+)p(?:[-_]|$)", run_id, re.IGNORECASE)
+    if not match:
+        return None
+    count = int(match.group(1))
+    return count if count > 0 else None
+
+
+def _player_count_from_files(run_dir: Path) -> int | None:
+    god_path = run_dir / "god_roster.json"
+    if god_path.is_file():
+        with contextlib.suppress(json.JSONDecodeError, OSError):
+            data = json.loads(god_path.read_text(encoding="utf-8"))
+            if isinstance(data, list) and data:
+                return len(data)
+
+    launch_path = run_dir / "launch_roster.json"
+    if launch_path.is_file():
+        with contextlib.suppress(json.JSONDecodeError, OSError):
+            raw = json.loads(launch_path.read_text(encoding="utf-8"))
+            players = raw.get("players") if isinstance(raw, dict) else None
+            if isinstance(players, list) and players:
+                return len(players)
+    return None
+
+
+def _scan_run_metadata(path: Path) -> tuple[int | None, str | None]:
+    """Best-effort player_count / winner_camp from on-disk logs (no live session)."""
+    events_path = path / "events.jsonl"
+    player_count: int | None = None
+    winner_camp: str | None = None
+
+    if events_path.is_file():
+        events = _read_jsonl(events_path)
+        roster = roster_from_events(events)
+        if roster:
+            player_count = len(roster)
+        winner_camp, _ = winner_from_events(events)
+
+    if player_count is None or player_count <= 0:
+        player_count = _player_count_from_files(path)
+    if player_count is None or player_count <= 0:
+        player_count = _player_count_from_run_id(path.name)
+
+    if winner_camp is None and events_path.is_file():
+        with contextlib.suppress(Exception):
+            ctx = load_run_context(path)
+            winner_camp = ctx.winner_camp
+            if not player_count and ctx.roster:
+                player_count = len(ctx.roster)
+
+    return player_count, winner_camp
+
+
+def effective_player_count(
+    *,
+    run_id: str,
+    player_count: int | None,
+    roster_size: int,
+) -> int:
+    """Resolve display seat count when roster parsing is incomplete."""
+    inferred = _player_count_from_run_id(run_id)
+    counts = [c for c in (player_count, roster_size, inferred) if isinstance(c, int) and c > 0]
+    if not counts:
+        return 0
+    if inferred:
+        return max(inferred, *counts)
+    return max(counts)
+
+
+def _roster_from_god_json(run_dir: Path) -> dict[str, PlayerRosterEntry]:
+    god_path = run_dir / "god_roster.json"
+    if not god_path.is_file():
+        return {}
+    with contextlib.suppress(json.JSONDecodeError, OSError):
+        data = json.loads(god_path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return {}
+        roster: dict[str, PlayerRosterEntry] = {}
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            seat = item.get("seat")
+            if not isinstance(seat, int) or seat <= 0:
+                continue
+            player_id = f"player_{seat}"
+            roster[player_id] = PlayerRosterEntry(
+                player_id=player_id,
+                player_name=str(item.get("name") or f"Player{seat}"),
+                role_name=item.get("role"),
+                camp=item.get("camp"),
+            )
+        return roster
+    return {}
+
+
+def _load_run_roster(run_dir: Path) -> tuple[dict[str, PlayerRosterEntry], str | None]:
+    """Best-effort roster + optional game_result_text from on-disk artifacts."""
+    game_result_text: str | None = None
+    with contextlib.suppress(Exception):
+        ctx = load_run_context(run_dir)
+        if ctx.roster:
+            return ctx.roster, ctx.game_result_text
+        game_result_text = ctx.game_result_text
+
+    events = _read_jsonl(run_dir / "events.jsonl")
+    roster = roster_from_events(events)
+    if roster:
+        return roster, game_result_text
+
+    god_roster = _roster_from_god_json(run_dir)
+    if god_roster:
+        return god_roster, game_result_text
+
+    return {}, game_result_text
+
+
 def _scan_run_dir(path: Path, *, source: str) -> RunSummary | None:
     if not path.is_dir():
         return None
     events_path = path / "events.jsonl"
-    has_replay = events_path.is_file()
+    has_replay = events_path.is_file() and events_path.stat().st_size > 0
     has_post_game = (path / "post_game_manifest.json").is_file()
-    winner_camp: str | None = None
-    player_count: int | None = None
-
-    if has_replay:
-        try:
-            ctx = load_run_context(path)
-            winner_camp = ctx.winner_camp
-            player_count = len(ctx.roster)
-        except Exception:
-            pass
+    player_count, winner_camp = _scan_run_metadata(path)
 
     return RunSummary(
         run_id=path.name,
@@ -87,10 +202,13 @@ def paginate_runs(
     page: int = 1,
     page_size: int = 20,
     source: str | None = None,
+    replay_only: bool = False,
 ) -> PaginatedList[RunSummary]:
     all_runs = list_run_dirs(runs_dir, eval_runs_dir)
     if source:
         all_runs = [r for r in all_runs if r.source == source]
+    if replay_only:
+        all_runs = [r for r in all_runs if r.has_replay]
     total = len(all_runs)
     start = max(page - 1, 0) * page_size
     end = start + page_size
@@ -153,7 +271,7 @@ def get_run_detail(
     if summary is None:
         return None
 
-    ctx = load_run_context(path)
+    roster_map, game_result_text = _load_run_roster(path)
     roster = [
         PlayerBrief(
             player_id=e.player_id,
@@ -161,7 +279,7 @@ def get_run_detail(
             role_name=e.role_name,
             camp=e.camp,
         )
-        for e in ctx.roster.values()
+        for e in roster_map.values()
     ]
 
     extra: dict = {}
@@ -170,13 +288,44 @@ def get_run_detail(
         with contextlib.suppress(json.JSONDecodeError):
             extra["post_game_manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
 
+    detail_data = summary.model_dump()
+    detail_data["player_count"] = effective_player_count(
+        run_id=run_id,
+        player_count=detail_data.get("player_count"),
+        roster_size=len(roster),
+    )
+
     return RunDetail(
-        **summary.model_dump(),
+        **detail_data,
         roster=roster,
-        game_result_text=ctx.game_result_text,
+        game_result_text=game_result_text,
         artifacts=_list_artifacts(path),
         extra=extra,
     )
+
+
+def _load_launch_roster_models(run_dir: Path) -> dict[str, str]:
+    """Read per-player model ids from launch_roster.json when event-derived roster lacks them."""
+    path = run_dir / "launch_roster.json"
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    players = raw.get("players") if isinstance(raw, dict) else None
+    if not isinstance(players, list):
+        return {}
+
+    model_by_name: dict[str, str] = {}
+    for item in players:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        model = item.get("model") or item.get("model_env")
+        if isinstance(name, str) and name and isinstance(model, str) and model:
+            model_by_name[name] = model
+    return model_by_name
 
 
 def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | None = None) -> list[ModelUsageStat]:
@@ -189,13 +338,13 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
     stats: dict[str, dict] = {}
     for summary in list_run_dirs(runs_dir, eval_runs_dir):
         path = Path(summary.path)
-        try:
-            ctx = load_run_context(path)
-        except Exception:
+        roster_map, _ = _load_run_roster(path)
+        if not roster_map:
             continue
-        winner_camp = ctx.winner_camp
-        for entry in ctx.roster.values():
-            model = getattr(entry, "ai_model", None)
+        winner_camp = _scan_run_metadata(path)[1]
+        launch_models = _load_launch_roster_models(path)
+        for entry in roster_map.values():
+            model = getattr(entry, "ai_model", None) or launch_models.get(entry.player_name)
             if not model:
                 continue
             bucket = stats.setdefault(model, {"runs": set(), "wins": 0})

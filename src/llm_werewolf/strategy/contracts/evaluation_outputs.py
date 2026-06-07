@@ -31,3 +31,41 @@ class SkillExtractionDecision(BaseModel):
     rationale: str = ""
     skill_card: SkillCardFields = Field(default_factory=SkillCardFields)
     quality_passed: bool = False
+
+
+class LlmPromptProposalItem(BaseModel):
+    """LLM 资产提取：单条 Prompt 提案。"""
+
+    prompt_role_key: str
+    kind: str = "llm_coaching"
+    suggested_patch_text_zh: str = ""
+    rationale: str = ""
+    confidence_score: float = 0.8
+    evidence_round: int | None = None
+    target_layer: str | None = None
+    evidence_excerpt: str | None = None
+
+
+class LlmSkillItem(BaseModel):
+    """LLM 资产提取：单条 Skill 卡片。"""
+
+    prompt_role_key: str
+    title_zh: str = ""
+    when_to_use: str = ""
+    belief_trigger_zh: str = ""
+    wolf_camp_trigger_zh: str = ""
+    public_behavior: str = ""
+    avoid: str = ""
+    rationale: str = ""
+    quality_passed: bool = False
+    source_player_id: str | None = None
+    evidence_round: int | None = None
+    evidence_phase: str | None = None
+
+
+class PostGameAssetExtractionDecision(BaseModel):
+    """LLM 资产提取结构化输出。"""
+
+    prompt_proposals: list[LlmPromptProposalItem] = Field(default_factory=list)
+    skills: list[LlmSkillItem] = Field(default_factory=list)
+    extraction_notes: str = ""

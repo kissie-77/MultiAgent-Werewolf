@@ -24,12 +24,15 @@ async def test_request_resolves_on_submit():
     )
     await asyncio.sleep(0)  # 让 request 登记并推事件
     rid = next(iter(broker.pending_ids()))
-    assert spy.events and spy.events[0]["event_type"] == "awaiting_input"
-    assert spy.events[0]["visible_to"] == ["player_1"]
-    assert spy.events[0]["seat"] == 1
-    assert spy.events[0]["request_id"] == rid
-    assert spy.events[0]["kind"] == "seat"
-    assert spy.events[0]["valid_targets"] == [2, 3]
+    assert spy.events and spy.events[0]["event_type"] == "actor_thinking"
+    assert spy.events[0]["visible_to"] is None
+    awaiting = spy.events[1]
+    assert awaiting["event_type"] == "awaiting_input"
+    assert awaiting["visible_to"] == ["player_1"]
+    assert awaiting["seat"] == 1
+    assert awaiting["request_id"] == rid
+    assert awaiting["kind"] == "seat"
+    assert awaiting["valid_targets"] == [2, 3]
     ok, code = broker.submit(request_id=rid, payload="2")
     assert ok is True and code is None
     assert await task == "2"

@@ -128,6 +128,14 @@ async def main(
     run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    if players_config.role_shuffle_seed is None:
+        import zlib
+
+        players_config = players_config.model_copy(
+            update={"role_shuffle_seed": zlib.adler32(str(run_dir).encode("utf-8")) & 0x7FFFFFFF}
+        )
+        game_config = game_config.model_copy(update={"role_shuffle_seed": players_config.role_shuffle_seed})
+
     engine.setup_game(players=agents, roles=roles)
     human_viewers = _human_viewer_ids(engine)
 

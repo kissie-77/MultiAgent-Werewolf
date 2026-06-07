@@ -52,6 +52,16 @@ class NightSkillScheduler:
         self._wolf_role_names = get_werewolf_roles()
         self._wolf_vote_role_names = night_roles_with_wolf_vote()
         self._explicit_night_role_names = explicit_night_role_names()
+        self.active_sub_phase: str | None = None
+
+    def _emit_sub_phase(self, name: str) -> None:
+        """发出轻量级 SUB_PHASE 显示提示（非 GamePhase，非暂停点）。"""
+        self.active_sub_phase = name
+        self._log_event(
+            EventType.SUB_PHASE,
+            "",
+            data={"name": name},
+        )
 
     async def run(self) -> tuple[list[Action], list[str]]:
         """预狼批次，随后收集狼票（旧版合并入口）。"""

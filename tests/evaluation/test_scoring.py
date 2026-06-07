@@ -94,12 +94,14 @@ def test_benefit_scores_partial_metrics(tmp_path: Path) -> None:
         ctx, camp, intention_by_player=intention.get("by_player"), mvp_payload=mvp_payload
     )
     assert benefit["schema"] == "benefit_scores_v2"
-    assert benefit["phase"] == "mvp_integrated"
+    assert benefit["phase"] == "full_rules"
     assert benefit["players"]
-    mvp_by_player = {row["player_id"]: row for row in mvp_payload["players"]}
+    assert benefit["summary"]["total_score"] >= 0
+    winner_rows = [row for row in benefit["players"] if row.get("game_won") == 1]
+    assert winner_rows
     for row in benefit["players"]:
-        pid = row["player_id"]
-        assert row["total"] == round(float(mvp_by_player[pid]["mvp_total"]), 1)
+        assert "camp_persuasion_sum" in row
+        assert "rule_total" in row["breakdown"]
 
 
 def test_benefit_scores_preserves_zero_mvp_total(tmp_path: Path) -> None:
@@ -123,5 +125,6 @@ def test_benefit_scores_preserves_zero_mvp_total(tmp_path: Path) -> None:
         ],
     }
     benefit = build_benefit_scores(ctx, camp, mvp_payload=mvp_payload)
-    assert benefit["phase"] == "mvp_integrated"
-    assert all(row["total"] == 0.0 for row in benefit["players"])
+    assert benefit["phase"] == "full_rules"
+    for row in benefit["players"]:
+        assert row["breakdown"]["mvp_total"] == 0.0

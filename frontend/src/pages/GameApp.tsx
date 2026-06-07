@@ -16,6 +16,7 @@ import CastSkillOverlay from "../components/CastSkillOverlay";
 import AlertOverlays from "../components/AlertOverlays";
 import HumanInputPanel from "../components/HumanInputPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
+import LiveCueAnchors from "../components/LiveCueAnchors";
 
 export default function GameApp() {
   const navigate = useNavigate();
@@ -232,6 +233,7 @@ export default function GameApp() {
       <div className={`absolute inset-x-0 bottom-0 h-2 bg-gradient-to-t pointer-events-none z-50 transition-colors duration-[2000ms] ${isNight ? "from-[#3b82f6]/40" : "from-[#f59e0b]/40"} to-transparent`} />
 
       <AlertOverlays />
+      <LiveCueAnchors />
       {!isLiveRun && <CastSkillOverlay />}
       {isSeatView && <HumanInputPanel />}
     </div>

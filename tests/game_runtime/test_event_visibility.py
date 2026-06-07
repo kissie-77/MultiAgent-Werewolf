@@ -140,3 +140,11 @@ def test_typed_private_skill_events_visible_to_actor_only() -> None:
         )
 
         assert visible == ["actor_1"]
+
+
+def test_sub_phase_is_public() -> None:
+    assert resolve_visible_to(EventType.SUB_PHASE, {"name": "werewolf_chat"}) is None
+
+
+def test_actor_thinking_is_public() -> None:
+    assert resolve_visible_to(EventType.ACTOR_THINKING, {"player_id": "player_1"}) is None

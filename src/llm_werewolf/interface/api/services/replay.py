@@ -142,6 +142,7 @@ def _score_blocks(run_dir: Path) -> list[ReplayScoreBlock]:
         "camp_persuasion_summary.json": ("persuasion", "阵营说服"),
         "vote_swing_summary.json": ("swing", "投票摇摆"),
         "game_quality_report.json": ("quality", "对局质量"),
+        "belief_calibration.json": ("belief_calibration", "信念校准"),
     }
     for filename, (kind, title) in mapping.items():
         payload = _load_json(run_dir / filename)

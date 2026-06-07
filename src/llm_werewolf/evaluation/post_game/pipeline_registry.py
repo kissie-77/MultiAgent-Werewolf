@@ -30,6 +30,11 @@ POST_GAME_STEP_SPECS: tuple[PostGameStepSpec, ...] = (
         depends_on=("load_context",),
     ),
     PostGameStepSpec(
+        "belief_calibration",
+        artifacts=("belief_calibration.json",),
+        depends_on=("load_context",),
+    ),
+    PostGameStepSpec(
         "log_views",
         artifacts=("views/", "views_manifest.json"),
         depends_on=("camp_persuasion",),

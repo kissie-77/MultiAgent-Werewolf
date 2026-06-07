@@ -24,6 +24,16 @@ class SheriffElectionMixin:
             return
 
         self._log_event(
+            EventType.PHASE_CHANGED,
+            self.locale.get("sheriff_campaign_started"),
+            data={
+                "phase": GamePhase.SHERIFF_ELECTION.value,
+                "round": self.game_state.round_number,
+                "stage": "campaign",
+            },
+        )
+
+        self._log_event(
             EventType.SHERIFF_CAMPAIGN_STARTED, self.locale.get("sheriff_campaign_started")
         )
 
@@ -126,7 +136,13 @@ class SheriffElectionMixin:
                     "candidate_speech", candidate=speaker.name, speech=decision.public_speech
                 ),
                 data=merge_agent_decision_into_event_data(
-                    {"player_id": speaker.player_id, "speech": decision.public_speech},
+                    {
+                        "player_id": speaker.player_id,
+                        "player_name": speaker.name,
+                        "role": speaker.get_role_name(),
+                        "speech": decision.public_speech,
+                        "private_thought": decision.private_thought,
+                    },
                     getattr(speaker, "agent", None),
                 ),
                 visible_to=None,
@@ -188,6 +204,15 @@ class SheriffElectionMixin:
         self._log_event(
             EventType.MESSAGE, self.locale.get("sheriff_voting_start", count=len(voters))
         )
+        self._log_event(
+            EventType.PHASE_CHANGED,
+            self.locale.get("sheriff_voting_start", count=len(voters)),
+            data={
+                "phase": GamePhase.SHERIFF_ELECTION.value,
+                "round": self.game_state.round_number,
+                "stage": "vote",
+            },
+        )
 
         interaction = self.game_state.require_phase_interaction()
         vote_counts: dict[str, int] = {c.player_id: 0 for c in candidates}
@@ -198,6 +223,16 @@ class SheriffElectionMixin:
                 continue
 
             try:
+                self._log_event(
+                    EventType.ACTOR_THINKING,
+                    "",
+                    data={
+                        "player_id": voter.player_id,
+                        "player_name": voter.name,
+                        "role": voter.get_role_name(),
+                        "context": "sheriff_vote",
+                    },
+                )
                 context = self._build_sheriff_voting_context(voter, available)
                 vote_target = await interaction.request_seat_choice(
                     voter,

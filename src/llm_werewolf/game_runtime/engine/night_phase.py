@@ -324,12 +324,24 @@ class NightPhaseMixin:
 
         messages.append("")
 
+        scheduler_holder: list[NightSkillScheduler | None] = [None]
+
         def _log_role_acting(player: PlayerProtocol) -> None:
             role_name = player.get_role_name()
+            data: dict[str, str] = {
+                "player_id": player.player_id,
+                "player_name": player.name,
+                "role": role_name,
+                "context": "night_skill",
+            }
+            sched = scheduler_holder[0]
+            sub_phase = sched.active_sub_phase if sched is not None else None
+            if sub_phase:
+                data["sub_phase"] = sub_phase
             self._log_event(
                 EventType.ROLE_ACTING,
                 self.locale.get("role_acting", role=role_name, player=player.name),
-                data={"player_id": player.player_id, "role": role_name},
+                data=data,
             )
 
         scheduler = NightSkillScheduler(
@@ -339,6 +351,7 @@ class NightPhaseMixin:
             resolve_werewolf_votes=self._resolve_werewolf_votes,
             log_role_acting=_log_role_acting,
         )
+        scheduler_holder[0] = scheduler
 
         # 先执行预狼阶段（梦魇狼在讨论前封锁技能）
         pre_wolf_actions = await scheduler.run_pre_wolf_phase()

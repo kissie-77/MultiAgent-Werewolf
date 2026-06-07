@@ -69,6 +69,18 @@ class HumanInputBroker:
         self._pending[rid] = PendingRequest(
             request_id=rid, seat=self.seat, kind=kind, future=future
         )
+        self._publish_public(
+            {
+                "event_type": "actor_thinking",
+                "data": {
+                    "player_id": f"player_{self.seat}",
+                    "player_name": f"Player{self.seat}",
+                    "role": "",
+                    "context": _thinking_context_for_kind(kind),
+                },
+                "visible_to": None,
+            }
+        )
         self._publish(
             {
                 "event_type": "awaiting_input",
@@ -131,6 +143,21 @@ class HumanInputBroker:
         # visible_to includes only this seat -> seat stream + god view see it;
         # other seats never learn this player is being asked to act.
         self._broadcaster.publish({**event, "visible_to": [f"player_{self.seat}"]})
+
+    def _publish_public(self, event: dict[str, Any]) -> None:
+        if self._broadcaster is None:
+            return
+        self._broadcaster.publish(event)
+
+
+def _thinking_context_for_kind(kind: str) -> str:
+    if kind == "speech":
+        return "day_speech"
+    if kind in {"witch", "seat", "multi"}:
+        return "night_skill"
+    if kind == "yesno":
+        return "sheriff_speech"
+    return "general"
 
 
 _registry: dict[str, HumanInputBroker] = {}

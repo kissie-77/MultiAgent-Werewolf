@@ -70,6 +70,32 @@ class InformationHub:
         self._night_step_timeout: float | None = None
         self._day_step_timeout: float | None = None
         self._vote_step_timeout: float | None = None
+        self._on_actor_thinking: Callable[[PlayerProtocol, str], None] | None = None
+
+    def set_actor_thinking_callback(
+        self, callback: Callable[[PlayerProtocol, str], None] | None
+    ) -> None:
+        """Register a sync hook fired immediately before an LLM speech/decision step."""
+        self._on_actor_thinking = callback
+
+    @staticmethod
+    def resolve_thinking_context(*, channel: VisibilityChannel, phase: str) -> str:
+        normalized = phase.strip().lower()
+        if normalized == "sheriff_election":
+            return "sheriff_speech"
+        if channel == VisibilityChannel.WOLF_TEAM:
+            return "werewolf_chat"
+        if normalized == "day_discussion":
+            return "day_speech"
+        if normalized == "day_voting":
+            return "day_speech"
+        return "general"
+
+    def _emit_actor_thinking(self, actor: PlayerProtocol, *, channel: VisibilityChannel, phase: str) -> None:
+        if self._on_actor_thinking is None:
+            return
+        context = self.resolve_thinking_context(channel=channel, phase=phase)
+        self._on_actor_thinking(actor, context)
 
     def configure_step_timeouts(
         self,
@@ -626,6 +652,7 @@ class InformationHub:
                 from llm_werewolf.strategy.contracts.phase_outputs import resolve_roundtable_phase
 
                 rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
+                self._emit_actor_thinking(speaker, channel=channel, phase=phase)
                 decision = await self._await_step(
                     WerewolfAdapterBridge.request_speech(
                         speaker.agent, context, instruction, roundtable_phase=rt_phase
@@ -878,6 +905,7 @@ class InformationHub:
 
         self._refresh_actor_belief_skills(speaker)
         rt_phase = resolve_roundtable_phase(channel=channel.value, phase=phase)
+        self._emit_actor_thinking(speaker, channel=channel, phase=phase)
         decision = await WerewolfAdapterBridge.request_speech(
             speaker.agent, context, instruction, roundtable_phase=rt_phase
         )

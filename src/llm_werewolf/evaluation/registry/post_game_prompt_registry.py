@@ -14,9 +14,11 @@ import yaml
 _EVAL_ROOT = Path(__file__).resolve().parent.parent
 _REPLAY_PROMPTS_ROOT = _EVAL_ROOT / "prompts" / "replay"
 _COACH_PROMPTS_ROOT = _EVAL_ROOT / "prompts" / "coach"
+_ASSETS_PROMPTS_ROOT = _EVAL_ROOT / "prompts" / "assets"
 _GENERATED_POST_GAME_ROOT = Path("artifacts") / "prompt_post_game"
 _EXTRA_REPLAY_ROOTS: list[Path] = []
 _EXTRA_COACH_ROOTS: list[Path] = []
+_EXTRA_ASSETS_ROOTS: list[Path] = []
 
 _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
 
@@ -34,6 +36,16 @@ def replay_prompt_search_roots() -> list[Path]:
 def coach_prompt_search_roots() -> list[Path]:
     roots = [_COACH_PROMPTS_ROOT, _GENERATED_POST_GAME_ROOT / "coach", *_EXTRA_COACH_ROOTS]
     env_roots = os.getenv("LLM_WEREWOLF_POST_GAME_COACH_PROMPT_ROOTS", "")
+    for raw in env_roots.split(os.pathsep):
+        value = raw.strip()
+        if value:
+            roots.append(Path(value))
+    return _dedupe_roots(roots)
+
+
+def assets_prompt_search_roots() -> list[Path]:
+    roots = [_ASSETS_PROMPTS_ROOT, _GENERATED_POST_GAME_ROOT / "assets", *_EXTRA_ASSETS_ROOTS]
+    env_roots = os.getenv("LLM_WEREWOLF_POST_GAME_ASSETS_PROMPT_ROOTS", "")
     for raw in env_roots.split(os.pathsep):
         value = raw.strip()
         if value:
@@ -67,6 +79,13 @@ def register_coach_prompt_search_root(root: str | Path) -> None:
     _clear_coach_caches()
 
 
+def register_assets_prompt_search_root(root: str | Path) -> None:
+    path = Path(root)
+    if path not in _EXTRA_ASSETS_ROOTS:
+        _EXTRA_ASSETS_ROOTS.append(path)
+    _clear_assets_caches()
+
+
 def _clear_replay_caches() -> None:
     list_replay_versions.cache_clear()
     resolve_replay_prompt_dir.cache_clear()
@@ -77,6 +96,12 @@ def _clear_coach_caches() -> None:
     list_coach_versions.cache_clear()
     resolve_coach_prompt_dir.cache_clear()
     load_coach_semantic_extract_bundle.cache_clear()
+
+
+def _clear_assets_caches() -> None:
+    list_assets_versions.cache_clear()
+    resolve_assets_prompt_dir.cache_clear()
+    load_assets_prompt_bundle.cache_clear()
 
 
 def render_template(template: str, **values: object) -> str:
@@ -97,6 +122,11 @@ def list_replay_versions(*, fallback: str = "v1") -> tuple[str, ...]:
 @lru_cache(maxsize=8)
 def list_coach_versions(*, fallback: str = "v1") -> tuple[str, ...]:
     return _list_versions(coach_prompt_search_roots(), marker="semantic_extract.yaml", fallback=fallback)
+
+
+@lru_cache(maxsize=8)
+def list_assets_versions(*, fallback: str = "v1") -> tuple[str, ...]:
+    return _list_versions(assets_prompt_search_roots(), marker="user_template.yaml", fallback=fallback)
 
 
 def _list_versions(roots: list[Path], *, marker: str, fallback: str) -> tuple[str, ...]:
@@ -126,6 +156,12 @@ def resolve_latest_coach_version(*, fallback: str = "v1") -> str:
     return pick_latest_version(list_coach_versions(fallback=fallback), fallback=fallback)
 
 
+def resolve_latest_assets_version(*, fallback: str = "v1") -> str:
+    from llm_werewolf.strategy.registry.role_version_manifest import pick_latest_version
+
+    return pick_latest_version(list_assets_versions(fallback=fallback), fallback=fallback)
+
+
 @lru_cache(maxsize=16)
 def resolve_replay_prompt_dir(version: str) -> Path:
     for root in replay_prompt_search_roots():
@@ -146,6 +182,16 @@ def resolve_coach_prompt_dir(version: str) -> Path:
     raise FileNotFoundError(msg)
 
 
+@lru_cache(maxsize=16)
+def resolve_assets_prompt_dir(version: str) -> Path:
+    for root in assets_prompt_search_roots():
+        candidate = root / version
+        if (candidate / "user_template.yaml").is_file():
+            return candidate
+    msg = f"Unknown assets prompt package '{version}'. Searched: {assets_prompt_search_roots()}"
+    raise FileNotFoundError(msg)
+
+
 @dataclass(frozen=True)
 class ReplayPromptBundle:
     version: str
@@ -163,6 +209,15 @@ class CoachSemanticExtractBundle:
     result_win: str
     result_loss: str
     episode_line: str
+
+
+@dataclass(frozen=True)
+class AssetsPromptBundle:
+    version: str
+    system_prompt: str
+    user_template: dict[str, Any]
+    json_reminder: str
+    plain_json_fallback: str
 
 
 @lru_cache(maxsize=8)
@@ -204,4 +259,22 @@ def load_coach_semantic_extract_bundle(version: str | None = None) -> CoachSeman
         result_win=str(data.get("result_win", "本局结果：胜利")),
         result_loss=str(data.get("result_loss", "本局结果：失败")),
         episode_line=str(data.get("episode_line", "第{round_number}轮：{messages}")),
+    )
+
+
+@lru_cache(maxsize=8)
+def load_assets_prompt_bundle(version: str | None = None) -> AssetsPromptBundle:
+    resolved = version or resolve_latest_assets_version()
+    prompt_dir = resolve_assets_prompt_dir(resolved)
+    system_prompt = (prompt_dir / "system.md").read_text(encoding="utf-8").strip()
+    user_data = yaml.safe_load((prompt_dir / "user_template.yaml").read_text(encoding="utf-8")) or {}
+    if not isinstance(user_data, dict):
+        msg = f"Invalid assets prompt package: {prompt_dir}"
+        raise ValueError(msg)
+    return AssetsPromptBundle(
+        version=resolved,
+        system_prompt=system_prompt,
+        user_template=user_data,
+        json_reminder=str(user_data.get("json_reminder", "")),
+        plain_json_fallback=str(user_data.get("plain_json_fallback", "")).strip(),
     )

@@ -27,6 +27,7 @@ import { mapReplayPage } from "../lib/replayMap";
 import { mapModelsPage } from "../lib/modelsMap";
 import { mapSharePage } from "../lib/shareMap";
 import { mapHomePage } from "../lib/homeMap";
+import { fetchWithRetry } from "./retry";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -50,7 +51,7 @@ export function unwrap<T>(json: unknown): T {
 
 export class ApiClient {
   private static async get<T>(url: string): Promise<T> {
-    const response = await fetch(`${API_BASE}${url}`);
+    const response = await fetchWithRetry(`${API_BASE}${url}`);
     if (!response.ok) {
       throw new Error(`API error fetching ${url}: ${response.statusText}`);
     }
@@ -58,7 +59,7 @@ export class ApiClient {
   }
 
   private static async post<T>(url: string, body: unknown): Promise<T> {
-    const response = await fetch(`${API_BASE}${url}`, {
+    const response = await fetchWithRetry(`${API_BASE}${url}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

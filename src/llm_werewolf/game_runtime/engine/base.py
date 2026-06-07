@@ -103,6 +103,21 @@ class GameEngineBase:
         self.game_state.information_hub = self.information_hub
         self.game_state.phase_interaction = self.phase_interaction
         self.game_state.event_logger = self.event_logger
+        if self.information_hub is not None:
+            self.information_hub.set_actor_thinking_callback(self._emit_actor_thinking)
+
+    def _emit_actor_thinking(self, player: PlayerProtocol, context: str) -> None:
+        """Public UI cue: an actor is waiting on an LLM/human decision."""
+        self._log_event(
+            EventType.ACTOR_THINKING,
+            "",
+            data={
+                "player_id": player.player_id,
+                "player_name": player.name,
+                "role": player.get_role_name(),
+                "context": context,
+            },
+        )
 
     def _init_vote_intention_tracking(self) -> None:
         track_intentions = True if self.config is None else self.config.track_vote_intentions

@@ -157,7 +157,7 @@ async def run_llm_asset_extraction(
 
 
 def write_llm_assets(ctx: RunContext, payload: dict[str, Any]) -> Path:
-    path = ctx.run_dir / "llm_assets.json"
+    path = Path(ctx.run_dir) / "llm_assets.json"
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 

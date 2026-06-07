@@ -5,13 +5,17 @@ status: active
 source: initial_curated
 camp: werewolf
 quality_passed: True
-weight: 1.1
-win_count: 0
-use_count: 0
+weight: 1.20
+win_count: 1
+use_count: 1
 when_to_use: 白天讨论阶段，被其他玩家公开查杀或点名踩为狼人时；狼队矩阵触发：自身被他人狼信≥0.8存在被扛推风险，场上好人信念分散或部分好人处于观望状态时
 belief_pattern: concentrated
 belief_signals: b1_target_certain,b1_top_above_0_7,b2_top_above_0_8_on_me,vote_intention_set
+created_at: 2026-06-07T08:59:26+00:00
+updated_at: 2026-06-07T08:59:26+00:00
 ---
+
+描述：白天讨论阶段，被其他玩家公开查杀或点名踩为狼人时；狼队矩阵触发：自身被他人狼信≥0.8存在被扛推风险，场上好人信念分散或部分好人处于观望状态时的情况下，使用该 skill
 
 # 接查杀反咬煽动扛推
 

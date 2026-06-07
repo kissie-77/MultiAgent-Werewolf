@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import json
 from typing import TYPE_CHECKING, Any
+from pathlib import Path
 from dataclasses import field, dataclass
 
 if TYPE_CHECKING:
@@ -459,7 +460,7 @@ class BeliefDistributionSummary:
 
 
 def load_belief_rows(run_dir) -> list[dict[str, Any]]:
-    path = run_dir / "beliefs.jsonl"
+    path = Path(run_dir) / "beliefs.jsonl"
     if not path.is_file():
         return []
     rows: list[dict[str, Any]] = []

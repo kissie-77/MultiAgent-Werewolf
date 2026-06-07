@@ -106,6 +106,7 @@ class EventType(str, Enum):
     PLAYER_REVIVED = "player_revived"
     ROLE_REVEALED = "role_revealed"
     ROLE_ACTING = "role_acting"
+    ACTOR_THINKING = "actor_thinking"
 
     WEREWOLF_KILLED = "werewolf_killed"
     WITCH_SAVED = "witch_saved"

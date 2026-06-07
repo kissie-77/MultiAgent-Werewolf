@@ -3,6 +3,7 @@ import { MessageSquare, Scroll, BrainCircuit, ChevronDown, ChevronUp } from "luc
 import { useGameStore } from "../store";
 import { motion, AnimatePresence } from "motion/react";
 import { getRoleImage } from "../utils/roles";
+import { THINKING_CONTEXT_LABEL } from "../lib/liveCue";
 
 export default function SpeechConsole({
   highlightSelfSeat = false,
@@ -14,6 +15,7 @@ export default function SpeechConsole({
   const humanSeat = useGameStore((state) => state.humanSeat);
   const speechLogs = gameState?.speechLogs || [];
   const currentSpeakerId = gameState?.currentSpeakerId;
+  const thinkingCue = gameState?.liveCue?.thinking ?? null;
   const currentNarration = gameState?.narration || "幽暗城堡的丧钟敲响，所有人各就各位...";
 
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -244,22 +246,25 @@ export default function SpeechConsole({
           </AnimatePresence>
         )}
         {/* Dynamic bottom cushion so elements do not overlap or cover scrollable speech lines */}
-        {currentSpeakerId !== null && currentSpeakerId !== 1 && (
-          <div className="h-10 shrink-0" />
-        )}
+        {thinkingCue && <div className="h-10 shrink-0" />}
         <div ref={listEndRef} />
       </div>
 
-      {/* Floating typing state if active AI is thinking */}
-      {currentSpeakerId !== null && currentSpeakerId !== 1 && (
-        <div className="absolute bottom-4 left-6 bg-black border-2 border-yellow-500/80 px-4 py-2 rounded shadow-2xl animate-pulse flex items-center gap-2 z-20">
+      {/* Live cue: only visible while backend reports actor_thinking */}
+      {thinkingCue && (
+        <div
+          className="absolute bottom-4 left-6 bg-black border-2 border-yellow-500/80 px-4 py-2 rounded shadow-2xl flex items-center gap-2 z-20"
+          data-live-cue="thinking"
+          data-seat={thinkingCue.seat}
+          data-context={thinkingCue.context}
+        >
           <div className="flex gap-1">
-            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce delay-75" />
-            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce delay-150" />
-            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce delay-200" />
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" />
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:120ms]" />
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:240ms]" />
           </div>
           <span className="font-mono text-[10px] text-yellow-400 font-black uppercase tracking-wider ml-1">
-            玩家 {currentSpeakerId} 号 撰写逻辑论稿与台词中...
+            {thinkingCue.playerName}（{thinkingCue.seat}号）正在思考 — {THINKING_CONTEXT_LABEL[thinkingCue.context]}
           </span>
         </div>
       )}

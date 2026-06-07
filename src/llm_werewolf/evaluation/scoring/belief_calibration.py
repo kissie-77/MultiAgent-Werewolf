@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING, Any
+from datetime import datetime, timezone
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from llm_werewolf.evaluation.post_game.run_context import RunContext
 
 
 def _load_belief_rows(run_dir: Path) -> list[dict[str, Any]]:
@@ -75,3 +79,33 @@ def compute_belief_brier_scores(
         "sample_count": len(all_scores),
         "observers": observer_summary,
     }
+
+
+def seat_roles_from_roster(roster: dict[str, Any]) -> dict[int, str]:
+    """Map 1-based seat -> runtime role name for calibration truth labels."""
+    seat_roles: dict[int, str] = {}
+    for player_id, entry in roster.items():
+        if isinstance(entry, dict):
+            role = str(entry.get("role_name") or entry.get("role") or "")
+            pid = str(entry.get("player_id") or player_id)
+        else:
+            role = str(getattr(entry, "role_name", "") or "")
+            pid = str(getattr(entry, "player_id", player_id))
+        match = re.search(r"(\d+)$", pid)
+        seat = int(match.group(1)) if match else 0
+        if seat > 0 and role:
+            seat_roles[seat] = role
+    return seat_roles
+
+
+def write_belief_calibration(ctx: RunContext) -> Path:
+    """Persist belief_calibration.json for PostGame / replay consumers."""
+    seat_roles = seat_roles_from_roster(
+        {pid: entry.to_dict() if hasattr(entry, "to_dict") else entry for pid, entry in ctx.roster.items()}
+    )
+    payload = compute_belief_brier_scores(ctx.run_dir, seat_roles=seat_roles)
+    payload["generated_at"] = datetime.now(timezone.utc).isoformat()
+    payload["run_dir"] = str(ctx.run_dir)
+    path = ctx.run_dir / "belief_calibration.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path

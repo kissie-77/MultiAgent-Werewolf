@@ -1,4 +1,5 @@
-import type { GameState, Player } from "../types";
+import type { GameState, LiveCue, Player } from "../types";
+import { initialLiveCue, parseThinkingContext } from "./liveCue";
 
 export interface SseEvent {
   event_type: string;
@@ -20,8 +21,16 @@ const PHASE_MAP: Record<string, GameState["phase"]> = {
   ended: "GAME_OVER",
 };
 
+const NIGHT_SUB_PHASE_TO_UI: Record<string, GameState["phase"]> = {
+  pre_wolf: "NIGHT_WOLF",
+  werewolf_kill: "NIGHT_WOLF",
+  werewolf_chat: "NIGHT_WOLF",
+  witch_decide: "NIGHT_WITCH",
+  seer_check: "NIGHT_SEER",
+};
+
 function seatOf(data: Record<string, any> | undefined): number | null {
-  const pid = data?.player_id ?? data?.shooter_id;
+  const pid = data?.player_id ?? data?.shooter_id ?? data?.voter_id;
   if (typeof pid === "string") {
     const m = pid.match(/(\d+)$/);
     if (m) return Number(m[1]);
@@ -54,6 +63,85 @@ function speechContent(ev: SseEvent): string {
   return ev.message ?? "";
 }
 
+function reasoningOf(data: Record<string, any> | undefined): string | undefined {
+  const r = data?.reasoning ?? data?.private_thought;
+  return typeof r === "string" && r.trim() ? r : undefined;
+}
+
+function cloneLiveCue(cue: LiveCue): LiveCue {
+  return {
+    thinking: cue.thinking ? { ...cue.thinking } : null,
+    nightSubPhase: cue.nightSubPhase,
+    nightSkill: cue.nightSkill ? { ...cue.nightSkill } : null,
+    sheriffStage: cue.sheriffStage,
+  };
+}
+
+function clearThinking(s: GameState): void {
+  s.liveCue = { ...s.liveCue, thinking: null };
+}
+
+function setThinkingFromEvent(s: GameState, ev: SseEvent): void {
+  const seat = seatOf(ev.data);
+  if (seat == null) return;
+  const context = parseThinkingContext(ev.data?.context);
+  s.liveCue = {
+    ...s.liveCue,
+    thinking: {
+      seat,
+      playerName: String(ev.data?.player_name ?? `P${seat}`),
+      role: String(ev.data?.role ?? s.players.find((p) => p.id === seat)?.role ?? ""),
+      context,
+    },
+    nightSkill: context === "night_skill" ? s.liveCue.nightSkill : s.liveCue.nightSkill,
+  };
+  s.currentSpeakerId = null;
+}
+
+function applySpeech(
+  s: GameState,
+  ev: SseEvent,
+  speechContext: "day" | "sheriff" | "wolf",
+): void {
+  const seat = seatOf(ev.data);
+  const content = speechContent(ev);
+  if (seat == null || !content) return;
+
+  clearThinking(s);
+  s.currentSpeakerId = seat;
+  const playerName = ev.data?.player_name ?? `P${seat}`;
+  upsertPlayer(s, seat, { name: playerName, lastSpeech: content });
+  const p = s.players.find((x) => x.id === seat);
+  s.speechLogs.push({
+    playerId: seat,
+    playerName: p?.name ?? playerName,
+    role: p?.role ?? String(ev.data?.role ?? ""),
+    content,
+    reasoning: reasoningOf(ev.data),
+    day: ev.round_number ?? s.dayNumber,
+    isNight: ev.phase === "night" || speechContext === "wolf",
+    speechContext,
+  });
+}
+
+function applyNightSubPhase(s: GameState, name: string): void {
+  s.liveCue = {
+    ...s.liveCue,
+    nightSubPhase: name,
+    nightSkill: null,
+  };
+  const mapped = NIGHT_SUB_PHASE_TO_UI[name];
+  if (mapped) s.phase = mapped;
+}
+
+function clearNightCues(s: GameState): void {
+  s.liveCue = {
+    ...s.liveCue,
+    nightSubPhase: null,
+    nightSkill: null,
+  };
+}
+
 export function initialSpectateState(): GameState {
   return {
     players: [], dayNumber: 0, phase: "START_SCREEN", currentSpeakerId: null,
@@ -61,13 +149,18 @@ export function initialSpectateState(): GameState {
     wolfKilledTarget: null, witchSaved: false, witchPoisonedTarget: null,
     seerVerifiedTarget: null, seerVerificationResult: null, victimId: null,
     discussionIndex: 0, executionId: null, gameMode: "llmOnly",
+    liveCue: initialLiveCue(),
   };
 }
 
 export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
-  const s: GameState = { ...prev, players: prev.players.map((p) => ({ ...p })), speechLogs: [...prev.speechLogs] };
+  const s: GameState = {
+    ...prev,
+    players: prev.players.map((p) => ({ ...p })),
+    speechLogs: [...prev.speechLogs],
+    liveCue: cloneLiveCue(prev.liveCue),
+  };
 
-  // any event carries a phase/round -> keep phase + dayNumber fresh
   if (ev.phase && PHASE_MAP[ev.phase]) s.phase = PHASE_MAP[ev.phase];
   if (typeof ev.round_number === "number" && ev.round_number > 0) s.dayNumber = ev.round_number;
 
@@ -82,7 +175,38 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       }
       break;
     }
-    case "role_acting":
+    case "actor_thinking": {
+      setThinkingFromEvent(s, ev);
+      break;
+    }
+    case "sub_phase": {
+      const name = ev.data?.name;
+      if (typeof name === "string" && name) applyNightSubPhase(s, name);
+      break;
+    }
+    case "role_acting": {
+      const seat = seatOf(ev.data);
+      const role = ev.data?.role;
+      if (seat != null && role) {
+        upsertPlayer(s, seat, {
+          name: ev.data?.player_name ?? `P${seat}`,
+          role: String(role),
+        });
+        if (ev.data?.context === "night_skill" || ev.phase === "night") {
+          clearThinking(s);
+          s.liveCue = {
+            ...s.liveCue,
+            nightSkill: {
+              seat,
+              playerName: String(ev.data?.player_name ?? `P${seat}`),
+              role: String(role),
+              subPhase: typeof ev.data?.sub_phase === "string" ? ev.data.sub_phase : s.liveCue.nightSubPhase,
+            },
+          };
+        }
+      }
+      break;
+    }
     case "role_revealed": {
       const seat = seatOf(ev.data);
       const role = ev.data?.role;
@@ -94,21 +218,24 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       }
       break;
     }
-    case "player_speech":
+    case "player_speech": {
+      applySpeech(s, ev, "day");
+      break;
+    }
     case "player_discussion": {
-      const seat = seatOf(ev.data);
-      const content = speechContent(ev);
-      if (seat != null && content) {
-        s.currentSpeakerId = seat;
-        const playerName = ev.data?.player_name ?? `P${seat}`;
-        upsertPlayer(s, seat, { name: playerName, lastSpeech: content });
-        const p = s.players.find((x) => x.id === seat);
-        s.speechLogs.push({
-          playerId: seat, playerName: p?.name ?? playerName, role: p?.role ?? "",
-          content, reasoning: ev.data?.reasoning,
-          day: ev.round_number ?? s.dayNumber, isNight: ev.phase === "night",
-        });
-      }
+      applySpeech(s, ev, "wolf");
+      break;
+    }
+    case "sheriff_candidate_speech": {
+      s.phase = "DAY_SHERIFF_RUN";
+      s.liveCue = { ...s.liveCue, sheriffStage: "campaign" };
+      applySpeech(s, ev, "sheriff");
+      break;
+    }
+    case "sheriff_campaign_started": {
+      s.phase = "DAY_SHERIFF_RUN";
+      s.liveCue = { ...s.liveCue, sheriffStage: "campaign" };
+      if (ev.message) s.narration = ev.message;
       break;
     }
     case "game_started": {
@@ -126,6 +253,17 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       if (phaseKey && PHASE_MAP[String(phaseKey)]) {
         s.phase = PHASE_MAP[String(phaseKey)];
       }
+      if (phaseKey && String(phaseKey) !== "night") {
+        clearNightCues(s);
+      }
+      const stage = ev.data?.stage;
+      if (stage === "campaign") {
+        s.liveCue = { ...s.liveCue, sheriffStage: "campaign" };
+      } else if (stage === "vote") {
+        s.liveCue = { ...s.liveCue, sheriffStage: "vote" };
+      } else if (phaseKey === "day_discussion" || phaseKey === "day_voting") {
+        s.liveCue = { ...s.liveCue, sheriffStage: null };
+      }
       if (ev.message) s.narration = ev.message;
       break;
     }
@@ -142,12 +280,17 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
     }
     case "sheriff_elected": {
       s.sheriffId = seatOf(ev.data);
+      s.liveCue = { ...s.liveCue, sheriffStage: null };
+      clearThinking(s);
       break;
     }
     case "game_ended": {
       s.phase = "GAME_OVER";
       const camp = ev.data?.winner_camp;
       s.winner = camp === "werewolf" ? "WOLVES" : camp === "villager" ? "VILLAGERS" : s.winner;
+      clearThinking(s);
+      clearNightCues(s);
+      s.liveCue = { ...s.liveCue, sheriffStage: null };
       break;
     }
     default: {

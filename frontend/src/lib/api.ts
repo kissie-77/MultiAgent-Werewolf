@@ -1,4 +1,5 @@
 import { ControlRequest, ControlResponse, GamePhase, GameStateResponse } from "../types";
+import { fetchWithRetry } from "../api/retry";
 
 export const API = "/api/v1";
 
@@ -13,13 +14,13 @@ export function streamUrl(runId: string): string {
 }
 
 export async function fetchState(runId: string): Promise<GameStateResponse> {
-  const res = await fetch(`${API}/games/${runId}/state`);
+  const res = await fetchWithRetry(`${API}/games/${runId}/state`);
   if (!res.ok) throw new Error(`state failed: HTTP ${res.status}`);
   return unwrap<GameStateResponse>(await res.json());
 }
 
 export async function postControl(runId: string, req: ControlRequest): Promise<ControlResponse> {
-  const res = await fetch(`${API}/games/${runId}/control`, {
+  const res = await fetchWithRetry(`${API}/games/${runId}/control`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

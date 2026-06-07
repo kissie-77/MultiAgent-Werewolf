@@ -107,7 +107,11 @@ async def test_web_human_game_pauses_and_resumes(tmp_path, monkeypatch) -> None:
         driver.cancel()
 
     # The game advanced to a terminal state instead of hanging on the human seat.
-    assert session.status in {GameSessionStatus.COMPLETED, GameSessionStatus.FAILED}
+    assert session.status in {
+        GameSessionStatus.COMPLETED,
+        GameSessionStatus.POST_GAME_FAILED,
+        GameSessionStatus.FAILED,
+    }
 
     # Broker was wired into the session and into the seat-1 agent (deterministic proof).
     assert session.input_broker is not None

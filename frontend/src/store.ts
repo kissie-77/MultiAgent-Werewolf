@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { GameState, Player } from "./types";
 import { getCustomApiKey } from "./lib/config";
 import { ApiClient } from "./api/client";
+import { fetchWithRetry } from "./api/retry";
 import { streamUrl } from "./api/sse";
 import { initialSpectateState, reduceEvent } from "./lib/gameReducer";
 import { mapBeliefEvent, mapVoteEvent } from "./lib/insightMap";
@@ -113,14 +114,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setSetupCount: (count) => set({ setupCount: count }),
 
   fetchState: async () => {
+    const prev = get().state;
     try {
-      const res = await fetch("/api/game/state", {
-        headers: { "X-Deepseek-Api-Key": getCustomApiKey() }
+      const res = await fetchWithRetry("/api/game/state", {
+        headers: { "X-Deepseek-Api-Key": getCustomApiKey() },
       });
+      if (!res.ok) {
+        throw new Error(`state failed: HTTP ${res.status}`);
+      }
       const data = await res.json();
       set({ state: data });
     } catch (err) {
       console.error("Failed to fetch game state:", err);
+      const inGame = prev && prev.phase !== "START_SCREEN";
+      if (inGame) {
+        set({ state: prev });
+      }
     }
   },
 

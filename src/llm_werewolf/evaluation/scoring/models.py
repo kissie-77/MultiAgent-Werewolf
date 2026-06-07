@@ -51,6 +51,9 @@ class PlayerBenefitScore:
             "player_name": self.player_name,
             "role_name": self.role_name,
             "camp": self.camp,
+            "game_won": self.game_won,
+            "elimination_aligned": self.elimination_aligned,
+            "camp_persuasion_sum": self.camp_persuasion_sum,
             "breakdown": self.breakdown,
             "total": self.total,
         }

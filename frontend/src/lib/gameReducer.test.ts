@@ -77,4 +77,94 @@ describe("gameReducer", () => {
     expect(s.phase).toBe("GAME_OVER");
     expect(s.winner).toBe("WOLVES");
   });
+
+  it("sets thinking cue on actor_thinking and clears on speech", () => {
+    let s = reduceEvent(initialSpectateState(), snapshot as any);
+    s = reduceEvent(s, {
+      event_type: "actor_thinking",
+      round_number: 2,
+      phase: "day_discussion",
+      data: {
+        player_id: "player_2",
+        player_name: "P2",
+        role: "Werewolf",
+        context: "day_speech",
+      },
+    } as any);
+    expect(s.liveCue.thinking).toMatchObject({
+      seat: 2,
+      playerName: "P2",
+      context: "day_speech",
+    });
+    expect(s.currentSpeakerId).toBeNull();
+
+    s = reduceEvent(s, {
+      event_type: "player_speech",
+      round_number: 2,
+      phase: "day_discussion",
+      data: { player_id: "player_2", player_name: "P2", speech: "过" },
+    } as any);
+    expect(s.liveCue.thinking).toBeNull();
+    expect(s.currentSpeakerId).toBe(2);
+  });
+
+  it("handles sheriff candidate speech and campaign stage", () => {
+    let s = reduceEvent(initialSpectateState(), snapshot as any);
+    s = reduceEvent(s, {
+      event_type: "sheriff_campaign_started",
+      round_number: 1,
+      phase: "sheriff_election",
+      message: "警长竞选开始",
+    } as any);
+    expect(s.phase).toBe("DAY_SHERIFF_RUN");
+    expect(s.liveCue.sheriffStage).toBe("campaign");
+
+    s = reduceEvent(s, {
+      event_type: "actor_thinking",
+      phase: "sheriff_election",
+      data: {
+        player_id: "player_1",
+        player_name: "P1",
+        role: "Seer",
+        context: "sheriff_speech",
+      },
+    } as any);
+    expect(s.liveCue.thinking?.context).toBe("sheriff_speech");
+
+    s = reduceEvent(s, {
+      event_type: "sheriff_candidate_speech",
+      phase: "sheriff_election",
+      data: { player_id: "player_1", player_name: "P1", role: "Seer", speech: "我上警" },
+    } as any);
+    expect(s.liveCue.thinking).toBeNull();
+    expect(s.speechLogs.at(-1)?.speechContext).toBe("sheriff");
+  });
+
+  it("tracks night sub_phase and skill placeholder", () => {
+    let s = reduceEvent(initialSpectateState(), snapshot as any);
+    s = reduceEvent(s, {
+      event_type: "sub_phase",
+      phase: "night",
+      data: { name: "witch_decide" },
+    } as any);
+    expect(s.liveCue.nightSubPhase).toBe("witch_decide");
+    expect(s.phase).toBe("NIGHT_WITCH");
+
+    s = reduceEvent(s, {
+      event_type: "role_acting",
+      phase: "night",
+      data: {
+        player_id: "player_4",
+        player_name: "Witch",
+        role: "Witch",
+        context: "night_skill",
+        sub_phase: "witch_decide",
+      },
+    } as any);
+    expect(s.liveCue.nightSkill).toMatchObject({
+      seat: 4,
+      role: "Witch",
+      subPhase: "witch_decide",
+    });
+  });
 });

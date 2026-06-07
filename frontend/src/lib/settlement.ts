@@ -15,6 +15,15 @@ export function isPostGameReady(
   return status?.has_post_game === true;
 }
 
+/** True when the engine finished but PostGame pipeline failed. */
+export function isPostGameFailed(
+  status: GameStatusResponse | null | undefined,
+): boolean {
+  if (!status) return false;
+  if (status.status === "post_game_failed") return true;
+  return status.post_game_status === "failed";
+}
+
 /** Frontend route for the deep replay of a given run. */
 export function replayPathFor(runId: string): string {
   return `/replay/${runId}`;

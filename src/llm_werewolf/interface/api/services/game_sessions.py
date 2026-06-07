@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 import json
+import zlib
 from typing import TYPE_CHECKING, Any
 import asyncio
 import logging
@@ -187,8 +188,20 @@ class GameSessionStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
+    POST_GAME_FAILED = "post_game_failed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+def _derive_role_shuffle_seed(run_id: str) -> int:
+    """Stable per-run seed so web sessions remain reproducible."""
+    return zlib.adler32(run_id.encode("utf-8")) & 0x7FFFFFFF
+
+
+def _ensure_role_shuffle_seed(players_config: Any, *, run_id: str) -> Any:
+    if getattr(players_config, "role_shuffle_seed", None) is not None:
+        return players_config
+    return players_config.model_copy(update={"role_shuffle_seed": _derive_role_shuffle_seed(run_id)})
 
 
 @dataclass
@@ -365,6 +378,8 @@ class GameSessionManager:
         attach_run_log_handler(session.run_dir)
         try:
             players_config = session.players_config or load_config(config_path=session.config_path)
+            players_config = _ensure_role_shuffle_seed(players_config, run_id=session.run_id)
+            session.players_config = players_config
             players, roles, game_config = prepare_game_roster(players_config)
             if session.badge_flow:
                 game_config = game_config.model_copy(update={"enable_sheriff": True})
@@ -422,9 +437,11 @@ class GameSessionManager:
                 stage_errors=post.stage_errors or None,
             )
             session.alert_count = _read_alert_count(session.run_dir)
-            if post.error:
+            if post.error or session.post_game_status == "failed":
                 logger.warning("PostGame failed for %s: %s", session.run_id, post.error)
-            session.status = GameSessionStatus.COMPLETED
+                session.status = GameSessionStatus.POST_GAME_FAILED
+            else:
+                session.status = GameSessionStatus.COMPLETED
         except asyncio.CancelledError:
             session.status = GameSessionStatus.CANCELLED
             session.error = "cancelled by client"
@@ -472,6 +489,8 @@ class GameSessionManager:
         )
         if session.post_game_status is not None:
             meta["post_game_status"] = session.post_game_status
+        if session.players_config is not None and session.players_config.role_shuffle_seed is not None:
+            meta["role_shuffle_seed"] = session.players_config.role_shuffle_seed
         if session.alert_count:
             meta["alert_count"] = session.alert_count
         meta_path.write_text(
@@ -545,7 +564,11 @@ class GameSessionManager:
             session.task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await session.task
-        if session.status not in {GameSessionStatus.COMPLETED, GameSessionStatus.FAILED}:
+        if session.status not in {
+            GameSessionStatus.COMPLETED,
+            GameSessionStatus.POST_GAME_FAILED,
+            GameSessionStatus.FAILED,
+        }:
             session.status = GameSessionStatus.CANCELLED
             session.completed_at = datetime.now().isoformat(timespec="seconds")
             self._write_meta(session)

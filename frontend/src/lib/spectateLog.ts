@@ -3,7 +3,11 @@ import type { SseEvent } from "./gameReducer";
 import { initialSpectateState, reduceEvent } from "./gameReducer";
 import type { GameState } from "../types";
 
-const SPEECH_EVENTS = new Set(["player_speech", "player_discussion"]);
+const SPEECH_EVENTS = new Set([
+  "player_speech",
+  "player_discussion",
+  "sheriff_candidate_speech",
+]);
 const INSIGHT_EVENTS = new Set(["belief_snapshot", "vote_intention_snapshot"]);
 
 /** Map a replay timeline row (from events.jsonl via pages/replay) into reducer input. */
@@ -32,6 +36,10 @@ export function delayForLogEvent(ev: BackendReplayEventItem): number {
   if (INSIGHT_EVENTS.has(ev.event_type)) return 250;
   if (ev.event_type === "game_ended") return 500;
   if (ev.event_type === "phase_changed") return 350;
+  if (ev.event_type === "actor_thinking") return 700;
+  if (ev.event_type === "sub_phase") return 400;
+  if (ev.event_type === "role_acting") return 500;
+  if (ev.event_type === "sheriff_campaign_started") return 450;
   return 70;
 }
 

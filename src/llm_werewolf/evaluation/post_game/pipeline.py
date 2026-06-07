@@ -10,6 +10,7 @@ from dataclasses import field, dataclass
 
 from llm_werewolf.evaluation.log_views import write_log_views
 from llm_werewolf.evaluation.scoring.benefit import write_benefit_scores
+from llm_werewolf.evaluation.scoring.belief_calibration import write_belief_calibration
 from llm_werewolf.evaluation.scoring.intention import (
     build_intention_scores,
     write_intention_scores,
@@ -170,6 +171,17 @@ async def run_post_game_pipeline(
         return result
 
     _on_registered_step_done(result, steps, "load_context", loaded)
+
+    _on_registered_step_done(
+        result,
+        steps,
+        "belief_calibration",
+        _run_registered_step(
+            steps,
+            "belief_calibration",
+            lambda: write_belief_calibration(_ctx()),
+        ),
+    )
 
     _on_registered_step_done(
         result,

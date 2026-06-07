@@ -16,7 +16,7 @@ from llm_werewolf.interface.api.models.pages import (
     ReplayScoreBlock,
     ShareReplayPageData,
 )
-from llm_werewolf.interface.api.services.runs import get_run_detail
+from llm_werewolf.interface.api.services.runs import effective_player_count, get_run_detail
 from llm_werewolf.evaluation.log_views.filters import event_is_visible_to
 from llm_werewolf.evaluation.post_game.run_context import load_run_context
 from llm_werewolf.evaluation.post_game.turning_points import build_turning_points
@@ -204,7 +204,12 @@ def get_share_replay_page(
         highlights.append(player)
 
     winner_label = detail.winner_camp or "未知"
-    summary = f"{len(detail.roster)} 人局 · 胜方：{winner_label}"
+    seats = effective_player_count(
+        run_id=run_id,
+        player_count=detail.player_count,
+        roster_size=len(detail.roster),
+    )
+    summary = f"{seats} 人局 · 胜方：{winner_label}"
 
     return ShareReplayPageData(
         run_id=run_id,

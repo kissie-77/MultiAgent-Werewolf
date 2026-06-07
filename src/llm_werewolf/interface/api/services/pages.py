@@ -24,6 +24,7 @@ from llm_werewolf.interface.api.models.pages import (
     StrategyPageData,
     HowToPlayPageData,
     ModelListPageData,
+    ModelConfigBrief,
     NightPhasePageData,
     RoleDetailPageData,
     ModelDetailPageData,
@@ -300,6 +301,16 @@ def build_models_list_page(runs_dir: Path, eval_runs_dir: Path, configs_dir: Pat
     )
 
 
+def _config_for_player_slots(configs: list[ModelConfigBrief]) -> ModelConfigBrief | None:
+    """Pick a representative board when a model appears in multiple standard YAMLs."""
+    if not configs:
+        return None
+    preferred = next((c for c in configs if c.config_id == "standard-6p"), None)
+    if preferred is not None:
+        return preferred
+    return min(configs, key=lambda c: c.player_count or 999)
+
+
 def build_model_detail_page(
     model_id: str, runs_dir: Path, eval_runs_dir: Path, configs_dir: Path
 ) -> ModelDetailPageData:
@@ -308,9 +319,10 @@ def build_model_detail_page(
     base.usage = usage_map.get(model_id, base.usage)
 
     slots: list[ModelPlayerSlot] = []
-    if base.configs:
+    slot_config = _config_for_player_slots(base.configs)
+    if slot_config is not None:
         try:
-            cfg_path = Path(base.configs[0].config_path)
+            cfg_path = Path(slot_config.config_path)
             raw = load_config(cfg_path)
             for idx, player in enumerate(raw.players, start=1):
                 slots.append(
@@ -441,8 +453,15 @@ def build_share_replay_page_enriched(
     mvp = build_mvp_ranking(run_dir)
     mvp_winner = mvp[0] if mvp else None
     moments = build_turning_point_lines(run_dir)[:3]
+    from llm_werewolf.interface.api.services.runs import effective_player_count
+
     winner = base.winner_camp or "未知"
-    stats_line = f"{len(base.highlight_players)} 人 · 胜方 {winner}"
+    seats = effective_player_count(
+        run_id=run_id,
+        player_count=detail.player_count,
+        roster_size=len(detail.roster),
+    )
+    stats_line = f"{seats} 人 · 胜方 {winner}"
     if mvp_winner:
         stats_line += f" · MVP {mvp_winner.player_name}"
 

@@ -63,6 +63,52 @@ def service_dirs(tmp_path: Path) -> dict[str, Path]:
     }
 
 
+def test_effective_player_count_prefers_summary_then_roster_then_run_id() -> None:
+    from llm_werewolf.interface.api.services.runs import effective_player_count
+
+    assert effective_player_count(run_id="6p-x", player_count=6, roster_size=0) == 6
+    assert effective_player_count(run_id="6p-x", player_count=0, roster_size=4) == 6
+    assert effective_player_count(run_id="6p-x", player_count=None, roster_size=0) == 6
+    assert effective_player_count(run_id="no-count", player_count=4, roster_size=2) == 4
+
+
+def test_get_run_detail_falls_back_to_god_roster(tmp_path: Path) -> None:
+    run_dir = tmp_path / "artifacts" / "runs" / "6p-god-only-20260607-120000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+    (run_dir / "god_roster.json").write_text(
+        json.dumps(
+            [
+                {"seat": 1, "name": "A", "role": "Seer", "camp": "villager", "is_alive": True},
+                {"seat": 2, "name": "B", "role": "Werewolf", "camp": "werewolf", "is_alive": True},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    detail = get_run_detail(
+        run_dir.name,
+        tmp_path / "artifacts" / "runs",
+        tmp_path / "artifacts" / "eval_runs",
+    )
+    assert detail is not None
+    assert detail.player_count == 6
+    assert len(detail.roster) == 2
+
+
+def test_share_page_uses_player_count_not_empty_roster(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_dir = tmp_path / "artifacts" / "runs" / "6p-share-20260607-120000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "events.jsonl").write_text("", encoding="utf-8")
+    page = get_share_replay_page(
+        run_dir.name,
+        tmp_path / "artifacts" / "runs",
+        tmp_path / "artifacts" / "eval_runs",
+    )
+    assert page is not None
+    assert "6 人局" in page.share_summary
+
+
 def test_scan_run_metadata_infers_player_count_from_run_id(tmp_path: Path) -> None:
     from llm_werewolf.interface.api.services.runs import _scan_run_dir
 
@@ -266,7 +312,9 @@ def test_config_service(service_dirs: dict[str, Path]) -> None:
     files = list_config_files(service_dirs["configs_dir"])
     assert files
 
-    brief = parse_config_brief(files[0])
+    six_p = next((p for p in files if p.stem == "standard-6p"), None)
+    assert six_p is not None, "expected standard-6p.yaml in test configs"
+    brief = parse_config_brief(six_p)
     assert brief is not None
     assert brief.config_id == "standard-6p"
     assert brief.models == ["demo"] * 6

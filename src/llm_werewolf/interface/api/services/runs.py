@@ -18,6 +18,7 @@ from llm_werewolf.interface.api.models.common import (
     PaginatedList,
 )
 from llm_werewolf.evaluation.post_game.run_context import (
+    PlayerRosterEntry,
     _read_jsonl,
     load_run_context,
     roster_from_events,
@@ -84,6 +85,69 @@ def _scan_run_metadata(path: Path) -> tuple[int | None, str | None]:
                 player_count = len(ctx.roster)
 
     return player_count, winner_camp
+
+
+def effective_player_count(
+    *,
+    run_id: str,
+    player_count: int | None,
+    roster_size: int,
+) -> int:
+    """Resolve display seat count when roster parsing is incomplete."""
+    inferred = _player_count_from_run_id(run_id)
+    counts = [c for c in (player_count, roster_size, inferred) if isinstance(c, int) and c > 0]
+    if not counts:
+        return 0
+    if inferred:
+        return max(inferred, *counts)
+    return max(counts)
+
+
+def _roster_from_god_json(run_dir: Path) -> dict[str, PlayerRosterEntry]:
+    god_path = run_dir / "god_roster.json"
+    if not god_path.is_file():
+        return {}
+    with contextlib.suppress(json.JSONDecodeError, OSError):
+        data = json.loads(god_path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return {}
+        roster: dict[str, PlayerRosterEntry] = {}
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            seat = item.get("seat")
+            if not isinstance(seat, int) or seat <= 0:
+                continue
+            player_id = f"player_{seat}"
+            roster[player_id] = PlayerRosterEntry(
+                player_id=player_id,
+                player_name=str(item.get("name") or f"Player{seat}"),
+                role_name=item.get("role"),
+                camp=item.get("camp"),
+            )
+        return roster
+    return {}
+
+
+def _load_run_roster(run_dir: Path) -> tuple[dict[str, PlayerRosterEntry], str | None]:
+    """Best-effort roster + optional game_result_text from on-disk artifacts."""
+    game_result_text: str | None = None
+    with contextlib.suppress(Exception):
+        ctx = load_run_context(run_dir)
+        if ctx.roster:
+            return ctx.roster, ctx.game_result_text
+        game_result_text = ctx.game_result_text
+
+    events = _read_jsonl(run_dir / "events.jsonl")
+    roster = roster_from_events(events)
+    if roster:
+        return roster, game_result_text
+
+    god_roster = _roster_from_god_json(run_dir)
+    if god_roster:
+        return god_roster, game_result_text
+
+    return {}, game_result_text
 
 
 def _scan_run_dir(path: Path, *, source: str) -> RunSummary | None:
@@ -207,7 +271,7 @@ def get_run_detail(
     if summary is None:
         return None
 
-    ctx = load_run_context(path)
+    roster_map, game_result_text = _load_run_roster(path)
     roster = [
         PlayerBrief(
             player_id=e.player_id,
@@ -215,7 +279,7 @@ def get_run_detail(
             role_name=e.role_name,
             camp=e.camp,
         )
-        for e in ctx.roster.values()
+        for e in roster_map.values()
     ]
 
     extra: dict = {}
@@ -224,10 +288,17 @@ def get_run_detail(
         with contextlib.suppress(json.JSONDecodeError):
             extra["post_game_manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
 
+    detail_data = summary.model_dump()
+    detail_data["player_count"] = effective_player_count(
+        run_id=run_id,
+        player_count=detail_data.get("player_count"),
+        roster_size=len(roster),
+    )
+
     return RunDetail(
-        **summary.model_dump(),
+        **detail_data,
         roster=roster,
-        game_result_text=ctx.game_result_text,
+        game_result_text=game_result_text,
         artifacts=_list_artifacts(path),
         extra=extra,
     )
@@ -267,13 +338,12 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
     stats: dict[str, dict] = {}
     for summary in list_run_dirs(runs_dir, eval_runs_dir):
         path = Path(summary.path)
-        try:
-            ctx = load_run_context(path)
-        except Exception:
+        roster_map, _ = _load_run_roster(path)
+        if not roster_map:
             continue
-        winner_camp = ctx.winner_camp
+        winner_camp = _scan_run_metadata(path)[1]
         launch_models = _load_launch_roster_models(path)
-        for entry in ctx.roster.values():
+        for entry in roster_map.values():
             model = getattr(entry, "ai_model", None) or launch_models.get(entry.player_name)
             if not model:
                 continue

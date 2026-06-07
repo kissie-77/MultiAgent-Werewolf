@@ -1,8 +1,22 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./AppLayout";
+import ErrorBoundary from "./ErrorBoundary";
 import HomePage from "../pages/HomePage";
 import GameApp from "../pages/GameApp";
+
+// Full-screen fallback so a GameApp render crash (e.g. a corrupted game state)
+// shows a recoverable screen instead of an all-white page.
+const gameErrorFallback = (
+  <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center gap-4 text-zinc-200 text-center px-6">
+    <span className="text-2xl font-black tracking-widest">对局界面渲染异常</span>
+    <span className="font-mono text-xs text-zinc-500">已安全兜底，未白屏。</span>
+    <div className="flex gap-3">
+      <button onClick={() => window.location.reload()} className="px-4 py-2 bg-zinc-800 border border-zinc-700 rounded text-xs hover:border-zinc-500">重新加载</button>
+      <a href="/home" className="px-4 py-2 bg-blue-900/30 border border-blue-700/50 rounded text-xs text-blue-200 hover:border-blue-400">回到主界面</a>
+    </div>
+  </div>
+);
 import NotImplementedPage from "./NotImplementedPage";
 import RolesPage from "../pages/RolesPage";
 import RoleDetailPage from "../pages/RoleDetailPage";
@@ -23,10 +37,10 @@ export default function AppRouter() {
     <BrowserRouter>
       <Routes>
         {/* Full screen gameplay route doesn't use standard AppLayout navigation */}
-        <Route path="/" element={<GameApp />} />
+        <Route path="/" element={<ErrorBoundary label="GameApp" fallback={gameErrorFallback}><GameApp /></ErrorBoundary>} />
         {/* /game renders GameApp directly (NOT a redirect) so ?run_id= survives —
             the backend's start_game returns game_page_path="/game?run_id=..." */}
-        <Route path="/game" element={<GameApp />} />
+        <Route path="/game" element={<ErrorBoundary label="GameApp" fallback={gameErrorFallback}><GameApp /></ErrorBoundary>} />
 
         {/* Roles pages wrapped inside standard interactive AppLayout */}
         <Route

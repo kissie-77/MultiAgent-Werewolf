@@ -41,7 +41,7 @@ export function initialSpectateState(): GameState {
 }
 
 export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
-  const s: GameState = { ...prev, players: prev.players.map((p) => ({ ...p })), speechLogs: [...prev.speechLogs], eventLog: [...prev.eventLog] };
+  const s: GameState = { ...prev, players: (prev.players ?? []).map((p) => ({ ...p })), speechLogs: [...(prev.speechLogs ?? [])], eventLog: [...(prev.eventLog ?? [])] };
 
   // any event carries a phase/round -> keep phase + dayNumber fresh
   if (ev.phase && PHASE_MAP[ev.phase]) s.phase = PHASE_MAP[ev.phase];

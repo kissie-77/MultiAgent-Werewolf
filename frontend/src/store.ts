@@ -4,6 +4,21 @@ import { getCustomApiKey } from "./lib/config";
 import type { AwaitingInputEvent } from "./api/types";
 import type { HumanInputSelection } from "./lib/humanInput";
 
+/**
+ * The legacy /api/game/* mock endpoints are gone (404 in the SSE architecture).
+ * Guard every state-replacing fetch: a non-ok / non-GameState response (e.g. a
+ * 404 body `{detail:"Not Found"}`) must never be written into `state`, or the
+ * next render derefs an undefined `players`/`phase` and white-screens the app.
+ */
+function isGameState(x: unknown): x is GameState {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    Array.isArray((x as { players?: unknown }).players) &&
+    typeof (x as { phase?: unknown }).phase === "string"
+  );
+}
+
 interface GameStore {
   state: GameState | null;
   selectedCardId: number | null;
@@ -97,7 +112,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const res = await fetch("/api/game/state", {
         headers: { "X-Deepseek-Api-Key": getCustomApiKey() }
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data });
     } catch (err) {
       console.error("Failed to fetch game state:", err);
@@ -113,7 +129,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ userRole, playerCount, gameMode, startImmediately, hasSheriff })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false });
     } catch (err) {
       console.error("Failed to reset game:", err);
@@ -131,7 +148,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SPEECH_SUBMIT", text: userSpeechText })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, userSpeechText: "", selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to submit speech:", err);
@@ -198,7 +216,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "USER_VOTE", targetId: selectedCardId })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to cast vote:", err);
@@ -240,7 +259,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SHERIFF_VOTE", targetId: finalTargetId })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to cast sheriff vote:", err);
@@ -257,7 +277,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SIMULATE_NEXT_SPEAKER" })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false });
     } catch (err) {
       console.error("Failed to simulate speaker:", err);
@@ -323,7 +344,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: actionType, targetId, ...additional })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, selectedCardId: null, isLoading: false });
     } catch (err) {
       console.error("Failed to exert night action:", err);
@@ -340,7 +362,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "TRANSITION_TO_DEBATE" })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false });
     } catch (err) {
       console.error("Failed executing transition:", err);
@@ -357,7 +380,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         headers: { "Content-Type": "application/json", "X-Deepseek-Api-Key": getCustomApiKey() },
         body: JSON.stringify({ action: "SHERIFF_RUN_RESOLVE", userRuns })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !isGameState(data)) { set({ isLoading: false }); return; }
       set({ state: data, isLoading: false, selectedCardId: null });
     } catch (err) {
       console.error("Sheriff run resolve failed:", err);
@@ -366,18 +390,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   exitGame: async () => {
-    set({ isLoading: true, isAutoPlaying: false });
-    try {
-      const res = await fetch("/api/game/exit", {
-        method: "POST",
-        headers: { "X-Deepseek-Api-Key": getCustomApiKey() }
-      });
-      const data = await res.json();
-      set({ state: data, isLoading: false });
-    } catch (err) {
-      console.error("Failed executing exitGame:", err);
-      set({ isLoading: false });
-    }
+    // Legacy /api/game/exit is gone (404). Exit cleanly: stop autoplay, drop the
+    // live SSE stream and hard-navigate to the setup screen. Never POST to the dead
+    // mock — its 404 body used to be written into `state` and white-screen the app.
+    // A hard nav (vs. a local setState) guarantees no in-flight SSE event can
+    // repopulate the game view after exit.
+    set({ isAutoPlaying: false, isLoading: false, pendingInput: null });
+    get().disconnectSpectate();
+    window.location.href = "/";
   },
 
   setSelectedCardId: (id) => set({ selectedCardId: id }),

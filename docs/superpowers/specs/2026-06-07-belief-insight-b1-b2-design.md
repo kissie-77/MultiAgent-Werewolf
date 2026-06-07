@@ -83,6 +83,10 @@ export function matrixScale(n: number): MatrixScale {
 export function formatWolfProb(p: number): string {
   return `${Math.round(p * 100)}%`;
 }
+
+// 连续热力色,从 BeliefMatrixPanel.getHeatColor 抽出,供矩阵格 + B2 chip 共用。
+// p<=0.5: 深蓝→琥珀;p>0.5: 琥珀→暗红。
+export function heatColor(p: number): string { /* 见 §5.6 现有 getHeatColor 实现搬运 */ }
 ```
 
 - `BeliefMatrixPanel` 的 grid 列改为 `auto repeat(N, ${cell}px)`、格高与字号用 `scale.font` 派生（行高 ≈ `font + 14`px），不再写死。最小格宽即 13–16 档的 17px；若 `N*cell + 行头` 仍超面板宽，容器保留 `overflow-x-auto` 兜底（之前确认的方案 ii：可读性优先，允许少量横滚）。
@@ -141,12 +145,31 @@ export interface SecondOrderCell {
 - grid 列模板与字号用 `matrixScale(sortedPlayers.length)`。
 - 格内概率文本用 `formatWolfProb(p)`（替换 `p.toFixed(2).replace(...)` 那段）。
 
-### 5.7 `ExposureRadarStrip.tsx`（新，B2）
+### 5.7 B2 选择逻辑（纯函数）+ `ExposureRadarStrip.tsx`（薄壳）
 
-- props：`{ beliefs: BeliefSnapshot[]; speakerSeat: number|null; players: InsightPlayer[] }`。
-- 逻辑：`const me = beliefs.find(b => b.observer_seat === speakerSeat)`；取 `me?.second_order ?? []`，按 `suspects_me_as_wolf` 降序，渲染成一行热力 chip：`P{observer_seat} {color} {formatWolfProb(suspects_me_as_wolf)}`，hover 显示 `reason`。
-- 复用 `BeliefMatrixPanel` 的 `getHeatColor` 配色（抽到 `beliefFormat.ts` 或就地复制一份小函数，避免循环依赖；倾向抽到 `beliefFormat.ts` 复用）。
-- 空态：`speakerSeat==null` 或 `second_order` 为空 → 显示占位文案 `"P{n} 暂未记录被谁怀疑"`（无发言人时 `"等待发言…"`）。
+**纯函数 `selectExposureRow`（放 `lib/insightMap.ts`，可单测）**：
+
+```ts
+export interface ExposureCell { observer_seat: number; suspicion: number; reason: string | null; }
+
+// 取发言人那条 snapshot 的 second_order,按 suspicion 降序;无发言人/无 B2 → []
+export function selectExposureRow(
+  beliefs: BeliefSnapshot[] | null, speakerSeat: number | null,
+): ExposureCell[] {
+  if (!beliefs || speakerSeat == null) return [];
+  const me = beliefs.find((b) => b.observer_seat === speakerSeat);
+  const rows = me?.second_order ?? [];
+  return [...rows]
+    .map((r) => ({ observer_seat: r.observer_seat, suspicion: r.suspects_me_as_wolf, reason: r.reason }))
+    .sort((a, b) => b.suspicion - a.suspicion);
+}
+```
+
+**组件 `ExposureRadarStrip.tsx`（薄壳，靠真机验证，无单测）**：
+
+- props：`{ beliefs: BeliefSnapshot[]; speakerSeat: number|null }`。
+- 调 `selectExposureRow(beliefs, speakerSeat)` → 一行热力 chip：`P{observer_seat} {heatColor()} {formatWolfProb(suspicion)}`，hover 显示 `reason`。复用 `lib/beliefFormat.ts` 的 `heatColor`/`formatWolfProb`。
+- 空态：`speakerSeat==null` → `"等待发言…"`；有发言人但无 B2 → `"P{n} 暂未记录被谁怀疑"`。
 - 标题含发言人身份：`被怀疑雷达 · P{n}视角`。
 
 ### 5.8 `InsightDock.tsx`
@@ -162,16 +185,16 @@ export interface SecondOrderCell {
 
 ## 7. 测试
 
-**vitest（纯函数/组件）**
+**测试约束（实测 `frontend/vitest.config.ts`）**：`environment: "node"`、`include: ["src/**/*.test.ts"]`、**无 jsdom / testing-library**。→ 组件无法做渲染单测（`.test.tsx` 不会被收集）。策略：**全部可测逻辑抽成纯函数（lib/`*.ts`）单测，组件做薄壳、靠 Chrome DevTools 真机验证**（与现有 `lib/*.test.ts` + 真机的测试哲学一致）。
 
-- `beliefFormat.test.ts`：`matrixScale` 各档边界（6/7/9/10/12/13/16）；`formatWolfProb`（0→"0%"、0.05→"5%"、0.333→"33%"、1→"100%"）。
-- `insightMap.test.ts`（补）：`mapSpeakerSeat`（after_speech 取 seat；initial/空 speaker_id 返 null；speaker 不在 snapshots 返 null）。
-- `ExposureRadarStrip.test.tsx`：有 B2 数据时按降序渲染 + 颜色；空态文案；无发言人态。
-- `BeliefMatrixPanel`：currentSpeakerSeat 高亮正确行、null 不高亮；概率渲染为 `%`。
+**vitest 纯函数单测**
 
-**Chrome DevTools 真机**
+- `lib/beliefFormat.test.ts`：`matrixScale` 各档边界（6/7/9/10/12/13/16 → 期望 {cell,font}）；`formatWolfProb`（0→"0%"、0.05→"5%"、0.333→"33%"、1→"100%"）；`heatColor`（0/0.5/1 各返合法 `rgb(...)`，且 0.5 为两段交界值）。
+- `lib/insightMap.test.ts`（补）：`mapSpeakerSeat`（after_speech 取 seat；initial/空 speaker_id 返 null；speaker 不在 snapshots 返 null）；`selectExposureRow`（按 suspicion 降序；speakerSeat=null 返 []；该发言人无 second_order 返 []）。
 
-- 6 人真实局（已有运行环境：后端 8010 + vite 5183）：确认发言高亮跟随真实发言人移动、数字为 `%`、B2 strip 跟随发言人（有则排序、无则空态）。
+**Chrome DevTools 真机（组件层验证）**
+
+- 6 人真实局（已有运行环境：后端 8010 + vite 5183）：确认发言高亮跟随真实发言人移动、矩阵数字为 `%`、B2 strip 跟随发言人（有则降序、无则空态）。
 - 再开 12 人局：确认矩阵自动缩放、不再溢出成一团。
 
 ## 8. 延后：狼队面板（神职猜测矩阵 / 暴露雷达）

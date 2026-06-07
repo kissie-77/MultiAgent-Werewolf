@@ -409,7 +409,7 @@ class GameSessionManager:
             except Exception as alert_exc:
                 logger.warning("Alert dispatch failed for %s: %s", session.run_id, alert_exc)
         finally:
-            detach_run_log_handler()
+            detach_run_log_handler(session.run_dir)
             if session.broadcaster is not None:
                 session.broadcaster.close()
             remove_broadcaster(session.run_id)

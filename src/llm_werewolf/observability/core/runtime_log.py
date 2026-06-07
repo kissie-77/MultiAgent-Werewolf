@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import contextvars
 from typing import Any
 import logging
 from pathlib import Path
@@ -22,8 +23,13 @@ class RunObservabilityLogHandler(logging.Handler):
         self._run_dir = Path(run_dir)
         self._run_dir.mkdir(parents=True, exist_ok=True)
         self._path = self._run_dir / "provider_events.jsonl"
+        self._run_key = str(self._run_dir)
 
     def emit(self, record: logging.LogRecord) -> None:
+        # Only capture records produced within this run's context. Each game task
+        # sets its own context via set_current_run, so concurrent runs don't mix.
+        if _current_run.get() != self._run_key:
+            return
         try:
             message = record.getMessage()
         except Exception:
@@ -44,7 +50,15 @@ class RunObservabilityLogHandler(logging.Handler):
             fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
-_active_handler: RunObservabilityLogHandler | None = None
+_active_handlers: dict[str, RunObservabilityLogHandler] = {}
+_current_run: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "ww_current_run", default=None
+)
+
+
+def set_current_run(run_key: str | None) -> None:
+    """Tag the current async/sync context with the active run key."""
+    _current_run.set(run_key)
 
 
 def _classify_message(message: str) -> str | None:
@@ -82,18 +96,31 @@ def count_provider_events(events: list[dict[str, Any]], kind: str) -> int:
     return sum(1 for event in events if event.get("kind") == kind)
 
 
-def attach_run_log_handler(run_dir: Path) -> None:
-    """绑定到 llm_werewolf 根 logger；重复调用会先 detach。"""
-    global _active_handler
-    detach_run_log_handler()
+def attach_run_log_handler(run_dir: Path) -> str:
+    """Bind a per-run handler to the llm_werewolf root logger and mark it current.
+
+    Returns the run key (stringified run_dir). Safe to call concurrently for
+    different runs — each handler only emits for records produced within its own
+    run context (see ``RunObservabilityLogHandler.emit``).
+    """
+    key = str(Path(run_dir))
+    detach_run_log_handler(run_dir)
     handler = RunObservabilityLogHandler(run_dir)
     logging.getLogger(_ROOT_LOGGER).addHandler(handler)
-    _active_handler = handler
+    _active_handlers[key] = handler
+    set_current_run(key)
+    return key
 
 
-def detach_run_log_handler() -> None:
-    global _active_handler
-    if _active_handler is None:
+def detach_run_log_handler(run_dir: Path | None = None) -> None:
+    """Remove the handler for ``run_dir``; with no arg, remove all (legacy)."""
+    root = logging.getLogger(_ROOT_LOGGER)
+    if run_dir is None:
+        for handler in list(_active_handlers.values()):
+            root.removeHandler(handler)
+        _active_handlers.clear()
         return
-    logging.getLogger(_ROOT_LOGGER).removeHandler(_active_handler)
-    _active_handler = None
+    key = str(Path(run_dir))
+    handler = _active_handlers.pop(key, None)
+    if handler is not None:
+        root.removeHandler(handler)

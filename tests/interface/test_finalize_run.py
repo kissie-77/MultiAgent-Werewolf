@@ -80,6 +80,67 @@ def test_persist_run_artifacts_writes_beliefs(tmp_path) -> None:
     assert (run_dir / "beliefs.jsonl").is_file()
 
 
+def test_persist_run_artifacts_writes_wolf_camp_mind_from_minds_map(tmp_path) -> None:
+    """A real GameState exposes ``wolf_camp_minds`` (a per-wolf map), never the
+    long-removed singular ``wolf_camp_mind``. persist_run_artifacts must read the
+    map and write every wolf's history — without raising AttributeError.
+    """
+    mod = _finalize_module()
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    from types import SimpleNamespace
+
+    from llm_werewolf.strategy.wolf.camp_mind import (
+        merge_wolf_camp_delta,
+        init_private_wolf_camp_mind,
+    )
+    from llm_werewolf.strategy.contracts.decisions import GodRoleDelta, WolfCampDelta
+    from llm_werewolf.game_runtime.state.game_state import GameState
+
+    players = [SimpleNamespace(player_id=f"player_{i}") for i in (1, 3)]
+    state = GameState(players)
+    wolf_model = init_private_wolf_camp_mind(3)
+    merge_wolf_camp_delta(
+        wolf_model,
+        WolfCampDelta(god_role_intel=[GodRoleDelta(target_seat=2, delta={"Seer": 1.0})]),
+        contributor_seat=3,
+        round_number=1,
+    )
+    state.wolf_camp_minds = {3: wolf_model}
+
+    engine = SimpleNamespace(
+        event_logger=SimpleNamespace(events=[]),
+        game_state=state,
+    )
+
+    mod.persist_run_artifacts(engine, run_dir)
+
+    wolf_path = run_dir / "wolf_camp_mind.jsonl"
+    assert wolf_path.is_file()
+    content = wolf_path.read_text(encoding="utf-8")
+    assert '"owner_seat": 3' in content
+    assert "target_seat" in content
+
+
+def test_persist_run_artifacts_no_wolves_does_not_crash(tmp_path) -> None:
+    """Real GameState with no wolf minds (wolf_camp_minds is None) must not raise."""
+    mod = _finalize_module()
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    from types import SimpleNamespace
+
+    from llm_werewolf.game_runtime.state.game_state import GameState
+
+    state = GameState([SimpleNamespace(player_id="player_1")])
+    engine = SimpleNamespace(event_logger=SimpleNamespace(events=[]), game_state=state)
+
+    mod.persist_run_artifacts(engine, run_dir)
+
+    assert not (run_dir / "wolf_camp_mind.jsonl").exists()
+
+
 def test_persist_run_artifacts_skips_existing_files(tmp_path) -> None:
     mod = _finalize_module()
     run_dir = tmp_path / "run"

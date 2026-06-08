@@ -118,7 +118,7 @@ describe("selectWolfMatrices", () => {
       3: {
         schema: "wolf_camp_mind_v2" as const,
         owner_seat: 3,
-        round: 2,
+        round: 3,
         contributor_seat: 3,
         god_role_intel: {
           "2": {
@@ -139,8 +139,10 @@ describe("selectWolfMatrices", () => {
     expect(m3.god_role_intel["2"].threat_score).toBeCloseTo(0.92);
     expect(m3.god_role_intel["2"].priority).toBe("kill_tonight");
     expect(m3.god_role_intel["5"].threat_score).toBe(0);
+    expect(m3.round).toBe(3); // 有真实快照 → 用其自带轮次（3），而非传入的 2
     const m4 = out.find((m) => m.owner_seat === 4)!;
     expect(m4.god_role_intel["2"].threat_score).toBe(0);
+    expect(m4.round).toBe(2); // 纯骨架 → 回退到传入轮次
   });
 
   it("drops dead non-wolf targets from the skeleton", () => {

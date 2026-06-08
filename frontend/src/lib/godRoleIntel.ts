@@ -159,7 +159,8 @@ export function selectWolfMatrices(
     return {
       schema: "wolf_camp_mind_v2",
       owner_seat: wolf.seat,
-      round,
+      // 有真实快照时用其自带轮次（与信念流轮次可能不同）；纯骨架回退到传入轮次。
+      round: existing?.round ?? round,
       contributor_seat: wolf.seat,
       god_role_intel,
       exposure_radar: existing?.exposure_radar ?? {},

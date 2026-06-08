@@ -4,6 +4,7 @@ import { ApiClient } from "../api/client";
 import { ModelDetail, ModelUsageStat, ModelComparisonData } from "../api/types";
 import { ArrowLeft, Scale, Star, ShieldCheck, HeartPulse, Brain, Zap, HelpCircle, CheckCircle, Flame } from "lucide-react";
 import { motion } from "motion/react";
+import PageLoadState from "../components/PageLoadState";
 
 export default function ModelComparePage() {
   const [searchParams] = useSearchParams();
@@ -35,7 +36,6 @@ export default function ModelComparePage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error("Failed loading all models for guide list:", err);
         setLoadingAll(false);
       });
     return () => {
@@ -62,7 +62,6 @@ export default function ModelComparePage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error(err);
         setError("无法接轨高维对比星符，虚无之流翻滚。");
         setLoading(false);
       });
@@ -89,26 +88,17 @@ export default function ModelComparePage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs uppercase tracking-widest gap-2">
-        <div className="w-6 h-6 border-2 border-t-yellow-500 border-zinc-900 rounded-full animate-spin" />
-        <span>同步多维对弈沙盘属性...</span>
-      </div>
-    );
+    return <PageLoadState variant="loading" loadingText="同步多维对弈沙盘属性..." />;
   }
 
   if (error) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-4 gap-4">
-        <Scale className="w-10 h-10 text-red-500 animate-pulse" />
-        <p className="text-zinc-400 font-mono text-xs tracking-wider">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-zinc-950 border border-zinc-800 hover:border-yellow-500 text-xs font-mono text-zinc-300 hover:text-white"
-        >
-          重新校验 (RETRY)
-        </button>
-      </div>
+      <PageLoadState
+        variant="error"
+        errorText={error}
+        onRetry={() => window.location.reload()}
+        retryText="重新校验 (RETRY)"
+      />
     );
   }
 
@@ -154,7 +144,7 @@ export default function ModelComparePage() {
 
           <div className="space-y-3.5">
             {loadingAll ? (
-              <div className="text-[10px] font-sans text-zinc-650 tracking-wider">正在载入神圣席位...</div>
+              <div className="text-[10px] font-sans text-zinc-500 tracking-wider">正在载入神圣席位...</div>
             ) : (
               allModels.map((model) => {
                 const checked = ids.includes(model.model_id);
@@ -182,7 +172,7 @@ export default function ModelComparePage() {
                     <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 text-black uppercase text-[10px] font-bold ${
                       checked 
                         ? "bg-yellow-500 border-yellow-500" 
-                        : "border-zinc-700 bg-transparent group-hover:border-zinc-550"
+                        : "border-zinc-700 bg-transparent group-hover:border-zinc-500"
                     }`}>
                       {checked && "✓"}
                     </div>
@@ -217,7 +207,7 @@ export default function ModelComparePage() {
                 </p>
               </div>
 
-              <div className="w-10 h-px bg-zinc-850 mx-auto" />
+              <div className="w-10 h-px bg-zinc-800 mx-auto" />
 
               <div className="space-y-2 text-left max-w-md mx-auto bg-zinc-900/40 border border-zinc-900 p-4 rounded-lg">
                 <span className="text-[10px] font-sans text-zinc-500 tracking-widest block font-bold mb-2">如何开启对决：</span>
@@ -246,7 +236,7 @@ export default function ModelComparePage() {
                   {compareData.models.map((model) => (
                     <div key={model.id} className="bg-zinc-950/95 border border-zinc-900 p-4 rounded text-left relative overflow-hidden flex flex-col justify-between min-h-[140px] shadow-lg">
                       <div className="space-y-2">
-                        <div className="text-[9px] font-mono text-zinc-650 uppercase">
+                        <div className="text-[9px] font-mono text-zinc-500 uppercase">
                           {model.developer}
                         </div>
                         <h4 className="text-sm font-black font-sans text-zinc-100 uppercase tracking-wide">
@@ -310,12 +300,12 @@ export default function ModelComparePage() {
 
                 {/* 3. Overall Verdict Narrative Box */}
                 <div className="bg-[#0b0914] border border-[#a855f7]/25 p-6 rounded-lg relative overflow-hidden text-left space-y-3 shadow-2xl">
-                  <div className="absolute top-1 right-2 text-violet-850 font-mono text-[55px] select-none opacity-20 font-bold">
+                  <div className="absolute top-1 right-2 text-violet-800 font-mono text-[55px] select-none opacity-20 font-bold">
                     VERDICT
                   </div>
 
                   <div className="flex items-center gap-2 text-xs font-mono text-violet-400 uppercase tracking-widest font-extrabold">
-                    <Flame className="w-4.5 h-4.5 text-violet-400 animate-pulse" />
+                    <Flame className="w-[18px] h-[18px] text-violet-400 animate-pulse" />
                     圣会大祭司终审评述 (FINAL VERDICT)
                   </div>
 

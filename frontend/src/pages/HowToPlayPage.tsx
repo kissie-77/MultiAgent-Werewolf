@@ -24,8 +24,7 @@ export default function HowToPlayPage() {
         setData(res);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error(err);
+      .catch(() => {
         setError("规则内容加载失败，请稍后重试。");
         setLoading(false);
       });

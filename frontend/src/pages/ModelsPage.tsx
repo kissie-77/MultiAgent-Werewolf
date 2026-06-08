@@ -5,6 +5,7 @@ import { ModelUsageStat } from "../api/types";
 import { Brain, Star, Tag, Landmark, Sparkles, Scale, ArrowRight, CornerDownRight, CheckSquare, Square } from "lucide-react";
 import { motion } from "motion/react";
 import RadarCompare from "../components/RadarCompare";
+import PageLoadState from "../components/PageLoadState";
 
 export default function ModelsPage() {
   const navigate = useNavigate();
@@ -30,7 +31,6 @@ export default function ModelsPage() {
       })
       .catch((err) => {
         if (active) {
-          console.error(err);
           setError("命运迷雾阻扰，无法探寻大堂对弈天平智脑。");
           setLoading(false);
         }
@@ -53,26 +53,17 @@ export default function ModelsPage() {
   const sortedModels = [...models].sort((a, b) => b[sortOrder] - a[sortOrder]);
 
   if (loading) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs uppercase tracking-widest gap-2">
-        <div className="w-6 h-6 border-2 border-t-amber-500 border-zinc-900 rounded-full animate-spin" />
-        <span>同步沙场战报与智脑阶级...</span>
-      </div>
-    );
+    return <PageLoadState variant="loading" loadingText="同步沙场战报与智脑阶级..." />;
   }
 
   if (error) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-4 gap-4">
-        <Brain className="w-10 h-10 text-amber-500 animate-pulse" />
-        <p className="text-zinc-400 font-mono text-xs tracking-wider">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-zinc-950 border border-zinc-800 hover:border-amber-500 text-xs font-mono text-zinc-300 hover:text-white"
-        >
-          重新感应
-        </button>
-      </div>
+      <PageLoadState
+        variant="error"
+        errorText={error}
+        onRetry={() => window.location.reload()}
+        retryText="重新感应"
+      />
     );
   }
 
@@ -124,7 +115,18 @@ export default function ModelsPage() {
                </tr>
              </thead>
              <tbody className="text-sm font-sans divide-y divide-zinc-900/30">
-                {sortedModels.map((model, idx) => {
+                {sortedModels.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <Landmark className="w-8 h-8 text-zinc-700" />
+                        <p className="text-zinc-500 font-mono text-xs tracking-widest">暂无模型出战记录</p>
+                        <p className="text-zinc-600 text-[10px] font-mono">请先通过「对局引擎」发起一场对弈</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                sortedModels.map((model, idx) => {
                   const isSelected = selectedIds.includes(model.model_id);
                   return (
                     <tr key={model.model_id} className={`transition-colors hover:bg-zinc-900/20 ${isSelected ? 'bg-amber-500/5' : ''}`}>
@@ -134,7 +136,7 @@ export default function ModelsPage() {
                        <td className="px-6 py-4 text-right font-mono font-bold text-amber-500">{model.win_rate}%</td>
                        <td className="px-6 py-4 text-right font-mono text-blue-400">{model.avg_mvp.toFixed(1)}</td>
                        <td className="px-6 py-4 text-center">
-                          <button 
+                          <button
                             onClick={() => toggleSelect(model.model_id)}
                             className="text-zinc-500 hover:text-amber-500 transition-colors"
                           >
@@ -143,7 +145,8 @@ export default function ModelsPage() {
                        </td>
                     </tr>
                   )
-                })}
+                })
+                )}
              </tbody>
           </table>
         </div>

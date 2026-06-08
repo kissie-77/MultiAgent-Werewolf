@@ -1,5 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=JetBrains+Mono:wght@500;800&family=Noto+Serif+SC:wght@450;800&family=UnifrakturMaguntia&display=swap');
 @import "tailwindcss";
+@import '@fontsource/cinzel/700.css';
+@import '@fontsource/cinzel/900.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/800.css';
 
 @theme {
   --font-sans: "Noto Serif SC", ui-serif, "Georgia", serif;

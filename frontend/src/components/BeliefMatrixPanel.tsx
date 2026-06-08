@@ -1,6 +1,7 @@
 import React from "react";
 import { BeliefSnapshot } from "../api/insightTypes";
 import { Eye } from "lucide-react";
+import { matrixScale, formatWolfProb, heatColor } from "../lib/beliefFormat";
 
 interface BeliefMatrixPanelProps {
   beliefs: BeliefSnapshot[];
@@ -8,13 +9,14 @@ interface BeliefMatrixPanelProps {
   roundLabel: string;
   scope: "public" | "god";
   showIdentities?: boolean;
+  currentSpeakerSeat?: number | null;
 }
 
 const ROLE_ICONS: Record<string, string> = {
   Seer: "🔮", Witch: "🧪", Hunter: "🎯", Werewolf: "🐺", Villager: "👤"
 };
 
-export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope, showIdentities = false }: BeliefMatrixPanelProps) {
+export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope, showIdentities = false, currentSpeakerSeat = null }: BeliefMatrixPanelProps) {
   // 按座位排序玩家
   const sortedPlayers = [...players].sort((a, b) => a.seat - b.seat);
   
@@ -27,29 +29,8 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
     return obs.first_order.find(f => f.target_seat === targetSeat) || null;
   };
 
-  const getHeatColor = (p: number) => {
-    if (p <= 0.5) {
-      const ratio = p * 2; // 0 to 1
-      // 深蓝 (0.0) 到亮琥珀 (0.5) 以获取最大对比度
-      const r = Math.round(15 + ratio * (217 - 15));
-      const g = Math.round(50 + ratio * (119 - 50));
-      const b = Math.round(100 + ratio * (6 - 100));
-      return `rgb(${r},${g},${b})`;
-    } else {
-      const ratio = (p - 0.5) * 2; // 0 to 1
-      // 亮琥珀 (0.5) 到深猩红 (1.0)
-      const r = Math.round(217 + ratio * (153 - 217));
-      const g = Math.round(119 + ratio * (27 - 119));
-      const b = Math.round(6 + ratio * (27 - 6));
-      return `rgb(${r},${g},${b})`;
-    }
-  };
-
-  const isLatestSpeaker = (seat: number) => {
-    // 目前随机模拟发言者，或从属性获取。假设座位 2 用于模拟高亮
-    // 在模拟中，观察者 2 正在发言？"实时发言者"以不同方式传入，这里仅高亮 2
-    return seat === 2; 
-  };
+  const { cell, font } = matrixScale(sortedPlayers.length);
+  const rowH = font + 14;
 
   return (
     <div className="flex flex-col border border-amber-900/30 bg-[#0a0808]/90 rounded-md overflow-hidden text-amber-100 font-sans shadow-[0_4px_20px_rgba(0,0,0,0.6)] text-[10px] relative">
@@ -67,11 +48,11 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
       
       {/* Matrix */}
       <div className="p-2 overflow-x-auto relative z-10">
-        <div style={{ display: 'grid', gridTemplateColumns: `auto repeat(${sortedPlayers.length}, minmax(32px, 1fr))` }} className="gap-1 justify-items-center">
+        <div style={{ display: 'grid', gridTemplateColumns: `auto repeat(${sortedPlayers.length}, ${cell}px)` }} className="gap-1 justify-items-center">
           {/* Top Header Row (Targets) */}
           <div className="text-amber-400/80 text-right w-full pr-1 flex items-end justify-end uppercase font-serif text-[9px] tracking-widest pb-1 border-b border-amber-900/30 mb-1">目标→</div>
           {sortedPlayers.map(p => (
-            <div key={p.seat} className={`flex flex-col items-center pb-1 border-b ${isLatestSpeaker(p.seat) ? 'border-amber-500 text-amber-400' : 'border-amber-900/40 text-amber-500/80'} ${!p.alive ? 'opacity-40 grayscale' : ''} mb-1 w-full`}>
+            <div key={p.seat} className={`flex flex-col items-center pb-1 border-b ${p.seat === currentSpeakerSeat ? 'border-amber-500 text-amber-400' : 'border-amber-900/40 text-amber-500/80'} ${!p.alive ? 'opacity-40 grayscale' : ''} mb-1 w-full`}>
               <div className="font-serif font-bold text-[11px]">P{p.seat}</div>
               {showIdentities && (
                 <div className="text-[10px] mt-0.5">{scope === 'god' ? ROLE_ICONS[p.role] || '👤' : (!p.alive || p.seat === 1 ? (ROLE_ICONS[p.role] || '👤') : '❓')}</div>
@@ -81,7 +62,7 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
 
           {/* Rows (Observers) */}
           {observers.map(obs => {
-            const isSpeaker = isLatestSpeaker(obs.seat);
+            const isSpeaker = obs.seat === currentSpeakerSeat;
             return (
               <React.Fragment key={obs.id}>
                 {/* Row Header */}
@@ -95,7 +76,7 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
                   if (!target.alive) {
                     return (
                       <div key={target.seat} className="w-full flex items-center justify-center p-0.5 opacity-30 relative group">
-                        <div className="w-full h-6 flex items-center justify-center text-amber-700/80 bg-black/40 border border-amber-900/20 rounded-sm font-serif">†</div>
+                        <div className="w-full flex items-center justify-center text-amber-700/80 bg-black/40 border border-amber-900/20 rounded-sm font-serif" style={{ height: rowH }}>†</div>
                       </div>
                     );
                   }
@@ -117,11 +98,10 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
                     tooltip = `P${obs.seat} 是本人`;
                   } else if (cellData) {
                     const p = cellData.wolf_probability;
-                    bgCol = getHeatColor(p);
+                    bgCol = heatColor(p);
                     borderCol = "rgba(245, 158, 11, 0.2)";
-                    // 根据值决定内容，需求要求"颜色 + 数字"
-                    content = p.toFixed(2).replace('0.', '.');
-                    if (p === 1 || p === 0) content = p.toFixed(0);
+                    // 颜色 + 百分比数字
+                    content = formatWolfProb(p);
                     cls = "text-white font-mono drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.9)] font-bold";
                     tooltip = `P${obs.seat} 认为 P${target.seat} 狼概率 ${(p*100).toFixed(0)}% · ${cellData.reason || cellData.note || ''}`;
                   }
@@ -129,10 +109,10 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
                   return (
                     <div 
                       key={target.seat} 
-                      className={`w-full h-6 flex items-center justify-center rounded-sm cursor-crosshair group relative transition-all ${isSpeaker || isLatestSpeaker(target.seat) ? 'ring-1 ring-amber-500/40 z-10' : ''}`}
-                      style={{ backgroundColor: bgCol, borderColor: borderCol, borderWidth: borderCol !== 'transparent' ? '1px' : '0' }}
+                      className={`w-full flex items-center justify-center rounded-sm cursor-crosshair group relative transition-all ${isSpeaker || target.seat === currentSpeakerSeat ? 'ring-1 ring-amber-500/40 z-10' : ''}`}
+                      style={{ height: rowH, backgroundColor: bgCol, borderColor: borderCol, borderWidth: borderCol !== 'transparent' ? '1px' : '0' }}
                     >
-                      <span className={`text-[9px] ${cls}`}>{content}</span>
+                      <span className={cls} style={{ fontSize: font }}>{content}</span>
                       
                       {/* Tooltip */}
                       <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity z-50 bg-[#0f0a05] border border-amber-900/60 text-amber-100 px-2 flex flex-col py-1.5 rounded-sm bottom-full mb-1 whitespace-nowrap shadow-[0_5px_15px_rgba(0,0,0,0.8)] pointer-events-none w-max max-w-[200px] whitespace-normal break-words font-sans before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-amber-900/60">

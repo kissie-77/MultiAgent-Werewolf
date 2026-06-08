@@ -73,7 +73,7 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
         dragListener={false}
         dragControls={dragControls}
         dragMomentum={false}
-        className="pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden relative bg-[#0c0a09]/95 hidden md:flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl absolute right-6 top-12"
+        className={`pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] ${isExpanded ? 'overflow-visible' : 'overflow-hidden'} relative bg-[#0c0a09]/95 hidden md:flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl absolute right-6 top-12`}
         style={{
           width: `${width}px`,
           maxHeight: isExpanded ? 'calc(100vh - 4rem)' : '2.5rem'

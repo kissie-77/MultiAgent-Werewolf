@@ -24,12 +24,12 @@ async def test_request_resolves_on_submit():
     )
     await asyncio.sleep(0)  # 让 request 登记并推事件
     rid = next(iter(broker.pending_ids()))
-    assert spy.events and spy.events[0]["event_type"] == "awaiting_input"
-    assert spy.events[0]["visible_to"] == ["player_1"]
-    assert spy.events[0]["seat"] == 1
-    assert spy.events[0]["request_id"] == rid
-    assert spy.events[0]["kind"] == "seat"
-    assert spy.events[0]["valid_targets"] == [2, 3]
+    awaiting = next(e for e in spy.events if e["event_type"] == "awaiting_input")
+    assert awaiting["visible_to"] == ["player_1"]
+    assert awaiting["seat"] == 1
+    assert awaiting["request_id"] == rid
+    assert awaiting["kind"] == "seat"
+    assert awaiting["valid_targets"] == [2, 3]
     assert broker.submit(request_id=rid, payload="2") is True
     assert await task == "2"
     # 幂等：再次 submit 同 id 返回 False

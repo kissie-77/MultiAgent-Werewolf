@@ -55,6 +55,11 @@ class WebHumanAgent(BaseAgent):
             allow_skip=allow_skip,
             allow_witch_save=bool(ui["allow_witch_save"]),
             multi_count=int(ui["multi_count"]),
+            self_role=str(ui.get("self_role", "")),
+            kill_target_seat=ui.get("kill_target_seat"),
+            remaining_potions=ui.get("remaining_potions"),
+            question=str(ui.get("question", "")),
+            target_meta=list(ui.get("target_meta", []) or []),
         )
 
 

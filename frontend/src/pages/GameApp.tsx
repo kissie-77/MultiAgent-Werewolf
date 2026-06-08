@@ -9,7 +9,10 @@ import InsightDock from "../components/InsightDock";
 import { useGameStore } from "../store";
 import { Skull, Moon } from "lucide-react";
 import AlertOverlays from "../components/AlertOverlays";
-import HumanInputPanel from "../components/HumanInputPanel";
+import SeatCommandDock from "../components/SeatCommandDock";
+import IdentityHud from "../components/IdentityHud";
+import CardDeck from "../components/CardDeck";
+import CastSkillOverlay from "../components/CastSkillOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
 import LiveCueAnchors from "../components/LiveCueAnchors";
 import PhaseTransitionCard from "../components/PhaseTransitionCard";
@@ -173,6 +176,11 @@ export default function GameApp() {
         <PhaseBadge />
 
         <div className="flex-grow flex flex-row w-full min-h-0 relative">
+          {isSeatView && (
+            <div className="w-[300px] shrink-0 h-full overflow-y-auto pointer-events-auto hidden md:block">
+              <CardDeck />
+            </div>
+          )}
           <div className="flex-grow flex flex-col min-w-0 h-full relative pointer-events-auto bg-transparent">
             <div className="flex-grow flex flex-col min-h-0 overflow-hidden relative">
               {gameState?.winner && (
@@ -206,7 +214,9 @@ export default function GameApp() {
       <PhaseTransitionCard />
       <AlertOverlays />
       <LiveCueAnchors />
-      {isSeatView && <HumanInputPanel />}
+      <CastSkillOverlay />
+      {isSeatView && <IdentityHud />}
+      {isSeatView && <SeatCommandDock />}
     </div>
   );
 }

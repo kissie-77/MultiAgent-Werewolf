@@ -876,6 +876,16 @@ export interface AwaitingInputEvent {
   allow_skip?: boolean;
   allow_witch_save?: boolean;
   multi_count?: number;
+  /** One-line human-readable question (backend-derived). */
+  question?: string;
+  /** The seated human's own role (engine name, e.g. "Witch"). */
+  self_role?: string;
+  /** For witch: the seat the wolves attacked tonight. */
+  kill_target_seat?: number | null;
+  /** For witch: which potions remain. */
+  remaining_potions?: { save: boolean; poison: boolean } | null;
+  /** Display metadata for valid_targets, so the UI can show names. */
+  target_meta?: { seat: number; name: string }[];
 }
 
 export interface HumanInputRequest {

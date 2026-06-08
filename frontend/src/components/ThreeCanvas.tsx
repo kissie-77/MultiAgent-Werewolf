@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "../store";
+import { ESTABLISH_MS } from "../lib/phaseStage";
 
 function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
   const { scene } = useThree();
@@ -81,11 +82,24 @@ function CameraTracker() {
   const currentSpeakerId = gameState?.currentSpeakerId;
   const players = gameState?.players || [];
   const phase = gameState?.phase;
+  const stageFx = useGameStore((state) => state.stageFx);
 
   // 相机位置和目标位置的插值目标
   const targetCamPos = useRef(new THREE.Vector3(0, 8.5, 12.0));
   const targetLookAt = useRef(new THREE.Vector3(0, 0.4, 0));
   const currentLookAt = useRef(new THREE.Vector3(0, 0.4, 0));
+  // 阶段切换「建立镜头」窗口
+  const establishUntilRef = useRef<number>(0);
+  const lastFxNonceRef = useRef<number>(0);
+
+  // 每次新的过场信号 -> 开启一段拉回全景的建立镜头窗口
+  useEffect(() => {
+    const nonce = stageFx?.nonce ?? 0;
+    if (nonce && nonce !== lastFxNonceRef.current) {
+      lastFxNonceRef.current = nonce;
+      establishUntilRef.current = performance.now() + ESTABLISH_MS;
+    }
+  }, [stageFx?.nonce]);
 
   useEffect(() => {
     if (phase === "START_SCREEN") {
@@ -150,6 +164,14 @@ function CameraTracker() {
       const lookTarget = new THREE.Vector3(0, 0.4, 0).add(rightVec.multiplyScalar(-offsetScale));
       targetLookAt.current.copy(lookTarget);
     } 
+
+    // 阶段切换的脚本化建立镜头：拉回圆桌俯瞰全景，盖过发言者跟随
+    if (performance.now() < establishUntilRef.current && phase !== "START_SCREEN") {
+      const pCount = setupCount !== null ? setupCount : (players.length || 6);
+      const radius = Math.max(5, pCount * 0.72);
+      targetCamPos.current.set(0, radius * 1.85, radius * 2.6);
+      targetLookAt.current.set(0, 0.4, 0);
+    }
 
     // 平滑步进位置，帧率无关
     camera.position.x = THREE.MathUtils.damp(camera.position.x, targetCamPos.current.x, dampingSpeedPos, delta);
@@ -444,10 +466,11 @@ interface SpeakerPillarProps {
   isAlive: boolean;
   isUser: boolean;
   isSpeaking: boolean;
+  isThinking: boolean;
   angle: number;
 }
 
-function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPillarProps) {
+function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, angle }: SpeakerPillarProps) {
   const setupCount = useGameStore((state) => state.setupCount);
   const statePlayersCount = useGameStore((state) => state.state?.players?.length) || 0;
   const playersCount = setupCount !== null ? setupCount : (statePlayersCount || 6);
@@ -515,6 +538,13 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPi
               <mesh position={[0, -0.1, 0]} rotation={[Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.45, 0.65, 16]} />
                 <meshBasicMaterial color="#ec4899" side={THREE.DoubleSide} />
+              </mesh>
+            )}
+            {/* Soft cyan halo while waiting on the LLM (候场, distinct from speaking) */}
+            {isThinking && !isSpeaking && (
+              <mesh position={[0, -0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.5, 0.62, 24]} />
+                <meshBasicMaterial color="#22d3ee" transparent opacity={0.45} side={THREE.DoubleSide} />
               </mesh>
             )}
           </>
@@ -696,6 +726,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   const players = gameState?.players || [];
   const setupCount = useGameStore((state) => state.setupCount);
   const victimId = gameState?.victimId;
+  const thinkingSeat = gameState?.liveCue?.thinking?.seat ?? null;
 
   // 跟踪服务器日志中最近的 isNight 状态以正确反映叙事状态
   const lastLogIsNight = gameState?.speechLogs?.[gameState.speechLogs.length - 1]?.isNight;
@@ -832,6 +863,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
                 isAlive={p.isAlive}
                 isUser={p.isUser}
                 isSpeaking={p.isSpeaking}
+                isThinking={thinkingSeat === p.id}
                 angle={angle}
               />
             );

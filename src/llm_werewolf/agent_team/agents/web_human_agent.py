@@ -41,9 +41,7 @@ class WebHumanAgent(BaseAgent):
             return ""  # 未接 broker（防御）→ 交由引擎兜底，避免死锁
         ui = HumanInteractiveAgent.prepare_web_prompt(message)
         kind = str(ui["kind"])
-        # Seat 0 means "skip"; the UI already shows a dedicated "弃票 / 跳过" button
-        # when allow_skip is true, so exclude 0 from the target buttons.
-        option_seats = sorted(s for s in HumanInteractiveAgent._extract_option_seats(message) if s > 0)
+        option_seats = sorted(HumanInteractiveAgent._extract_option_seats(message))
         allow_skip = bool(ui["allow_skip"])
         fallback = HumanInteractiveAgent._fallback_after_invalid(kind, allow_skip)
         return await self.broker.request(

@@ -1,0 +1,19 @@
+# Node
+node_modules
+dist
+
+# IDE
+.vscode
+.idea
+.cursor
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+
+# Docs
+CODE_REVIEW.md

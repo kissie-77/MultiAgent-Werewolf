@@ -3,6 +3,7 @@ import { MessageSquare, Scroll, BrainCircuit, ChevronDown, ChevronUp } from "luc
 import { useGameStore } from "../store";
 import { motion, AnimatePresence } from "motion/react";
 import { getRoleImage } from "../utils/roles";
+import { THINKING_CONTEXT_LABEL } from "../lib/liveCue";
 import { isRoleRevealed } from "../lib/humanPrompt";
 
 export default React.memo(function SpeechConsole({
@@ -16,6 +17,9 @@ export default React.memo(function SpeechConsole({
   const pendingInput = useGameStore((state) => state.pendingInput);
   const speechLogs = gameState?.speechLogs || [];
   const currentSpeakerId = gameState?.currentSpeakerId;
+  const thinkingCue = gameState?.liveCue?.thinking ?? null;
+  const currentNarration = gameState?.narration || "幽暗城堡的丧钟敲响，所有人各就各位...";
+
   const listEndRef = useRef<HTMLDivElement>(null);
   
   // 跟踪哪些日志的思考过程已展开
@@ -38,13 +42,6 @@ export default React.memo(function SpeechConsole({
     return () => clearTimeout(timer);
   }, [speechLogs.length, currentSpeakerId, expandedThoughts, showPureTextHistory]);
 
-  // 监听底部通知栏的"纯文本记录"按钮事件
-  useEffect(() => {
-    const handler = () => setShowPureTextHistory((v) => !v);
-    window.addEventListener("toggle-pure-text-history", handler);
-    return () => window.removeEventListener("toggle-pure-text-history", handler);
-  }, []);
-
 
   const roleLabelForLog = (log: (typeof speechLogs)[number]) => {
     const rosterRole = gameState?.players?.find((p) => p.id === log.playerId)?.role;
@@ -63,6 +60,33 @@ export default React.memo(function SpeechConsole({
 
   return (
     <div className="flex flex-col flex-grow bg-transparent overflow-hidden relative z-10">
+      {/* Merged Thin Header & Narrative Banner */}
+      <div className="flex flex-col md:flex-row items-center justify-between bg-[#0a060e] px-4 py-2 border-b border-indigo-500/20 shadow-[0_4px_20px_rgba(30,58,138,0.1)] select-none shrink-0 relative z-10">
+        <div className="flex items-center gap-3 overflow-hidden flex-grow md:mr-4 w-full md:w-auto">
+          <div className="w-6 h-6 rounded shrink-0 bg-red-950/40 border border-red-800/60 flex items-center justify-center text-red-500 font-serif font-black text-xs shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
+            ☠
+          </div>
+          <div className="flex flex-col truncate min-w-0">
+             <span className="font-mono text-[8px] uppercase text-red-500 tracking-widest font-black block leading-none mb-0.5 animate-pulse">
+              [ 审判官裁决引导布告 ]
+             </span>
+             <p className="font-sans text-[11px] text-[#e0e0e0] leading-tight font-bold truncate">
+               {currentNarration}
+             </p>
+          </div>
+        </div>
+        
+        {/* Count indicators and Plain Text Toggle */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => setShowPureTextHistory(!showPureTextHistory)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/50 rounded font-mono text-[9px] text-[#e0e0e0] uppercase tracking-widest transition-colors cursor-pointer"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-yellow-500" />
+            <span>纯文本记录 / {speechLogs.length} 条</span>
+          </button>
+        </div>
+      </div>
 
       {showPureTextHistory && (
         <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur flex flex-col pt-12 pb-4 overflow-hidden">
@@ -104,11 +128,9 @@ export default React.memo(function SpeechConsole({
         }}
       >
         {speechLogs.length === 0 ? (
-          <div className="fixed inset-0 flex items-center justify-center text-zinc-600 gap-2 bg-transparent pointer-events-none z-0">
-            <div className="flex flex-col items-center gap-2">
-              <span className="font-serif text-4xl text-zinc-800 animate-pulse">☠</span>
-              <span className="font-sans text-xs text-zinc-700">风平浪静 虚无之地</span>
-            </div>
+          <div className="h-full flex flex-col items-center justify-center text-zinc-600 gap-2 py-8">
+            <span className="font-serif text-4xl text-zinc-800 animate-pulse">☠</span>
+            <span className="font-sans text-xs text-zinc-700">风平浪静 虚无之地</span>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -234,8 +256,32 @@ export default React.memo(function SpeechConsole({
             })}
           </AnimatePresence>
         )}
+        {/* Dynamic bottom cushion so elements do not overlap or cover scrollable speech lines */}
+        {thinkingCue && <div className="h-10 shrink-0" />}
         <div ref={listEndRef} />
       </div>
+
+      {/* Live cue: only visible while backend reports actor_thinking */}
+      {thinkingCue && !(highlightSelfSeat && pendingInput && thinkingCue.seat === humanSeat) && (
+        <div
+          className="absolute bottom-4 left-6 bg-black border-2 border-yellow-500/80 px-4 py-2 rounded shadow-2xl flex items-center gap-2 z-20"
+          data-live-cue="thinking"
+          data-seat={thinkingCue.seat}
+          data-context={thinkingCue.context}
+        >
+          <div className="flex gap-1">
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce" />
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:120ms]" />
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-bounce [animation-delay:240ms]" />
+          </div>
+          <span className="font-mono text-[10px] text-yellow-400 font-black uppercase tracking-wider ml-1">
+            {thinkingCue.playerName}（{thinkingCue.seat}号）正在思考
+            {isRoleRevealed(thinkingCue.role) ? ` · ${thinkingCue.role}` : ""}
+            {" — "}
+            {THINKING_CONTEXT_LABEL[thinkingCue.context]}
+          </span>
+        </div>
+      )}
     </div>
   );
 })

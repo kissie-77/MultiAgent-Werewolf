@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { GameState } from "./types";
+import type { ActiveCast } from "./types";
 import type { AwaitingInputEvent } from "./api/types";
 import type { HumanInputSelection } from "./lib/humanInput";
 import {
@@ -8,6 +9,7 @@ import {
 } from "./lib/gameReducer";
 import { streamUrl } from "./api/sse";
 import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat, mapWolfCampEvent } from "./lib/insightMap";
+import { castFromSkillSubmit, castFromEvent } from "./lib/castMap";
 import type { CoarseStage } from "./lib/phaseStage";
 import type { WolfCampMindV2 } from "./lib/godRoleIntel";
 
@@ -49,9 +51,11 @@ interface GameStore {
   submitHumanInput: (selection: HumanInputSelection) => Promise<void>;
   clearPendingInput: () => void;
   clearHumanInputError: () => void;
-  clearSkillFx: () => void;
 
-  /** Visual target selection (seat view): mirrored to the dock + 3D board ring. */
+  // Skill-cast cinematic + target selection (shared by sidebar/dock/3D board)
+  activeCast: ActiveCast | null;
+  triggerCast: (cast: ActiveCast) => void;
+  clearCast: () => void;
   selectedTargetSeat: number | null;
   setSelectedTargetSeat: (seat: number | null) => void;
 }
@@ -79,8 +83,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   insightWolfCampMinds: null,
   spectateRoster: null,
   stageFx: null,
-  selectedTargetSeat: null,
-  setSelectedTargetSeat: (seat) => set({ selectedTargetSeat: seat }),
 
   fireStageFx: (stage) =>
     set((s) => ({ stageFx: { stage, nonce: (s.stageFx?.nonce ?? 0) + 1 } })),
@@ -122,6 +124,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const ev = JSON.parse(e.data);
         const cur = get().state ?? initialSpectateState();
         set({ state: reduceEvent(cur, ev) });
+        const cast = castFromEvent(ev);
+        if (cast) get().triggerCast(cast);
         if (ev.event_type === "belief_snapshot") {
           set({ insightBeliefs: mapBeliefEvent(ev.data), insightSpeakerSeat: mapSpeakerSeat(ev.data) });
         } else if (ev.event_type === "vote_intention_snapshot") {
@@ -157,6 +161,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   seatRunId: null,
   humanInputError: null,
 
+  activeCast: null,
+  selectedTargetSeat: null,
+  triggerCast: (cast) => set({ activeCast: cast }),
+  clearCast: () => set({ activeCast: null }),
+  setSelectedTargetSeat: (seat) => set({ selectedTargetSeat: seat }),
+
   ingestSeatEvent: (ev) => {
     if (!ev || typeof ev !== "object") return false;
     const event = ev as AwaitingInputEvent;
@@ -178,11 +188,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clearPendingInput: () => set({ pendingInput: null }),
   clearHumanInputError: () => set({ humanInputError: null }),
 
-  clearSkillFx: () => {
-    const cur = get().state;
-    if (cur) set({ state: { ...cur, skillFx: null } });
-  },
-
   submitHumanInput: async (selection) => {
     const { pendingInput, playerToken, seatRunId } = get();
     if (!pendingInput || !playerToken || !seatRunId) return;
@@ -199,6 +204,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
         payload,
       });
       set({ pendingInput: null, humanInputError: null });
+      // Fire the local tarot-cast cinematic for the human's own skill action.
+      const kind = pendingInput.kind;
+      const players = get().state?.players ?? [];
+      const selfRole = pendingInput.self_role ?? players.find((p) => p.isUser)?.role ?? "";
+      if (selfRole && (kind === "seat" || kind === "witch")) {
+        const targetSeat = get().selectedTargetSeat;
+        const targetName =
+          targetSeat != null ? players.find((p) => p.id === targetSeat)?.name ?? null : null;
+        get().triggerCast(
+          castFromSkillSubmit({
+            selfRole,
+            selfName: players.find((p) => p.isUser)?.name ?? "你",
+            targetSeat,
+            targetName,
+          })
+        );
+      }
+      set({ selectedTargetSeat: null });
     } catch (err) {
       console.error("Failed to submit human input:", err);
       set({
@@ -219,7 +242,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       spectateRoster: null,
       pendingInput: null,
       humanInputError: null,
-      selectedTargetSeat: null,
       seatRunId: runId,
       playerToken: token,
       humanSeat: seat,
@@ -252,6 +274,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (get().ingestSeatEvent(ev)) return;
         const cur = get().state ?? initialSpectateState();
         set({ state: reduceEvent(cur, { ...ev, selfSeat: seat }) });
+        const cast = castFromEvent(ev);
+        if (cast) get().triggerCast(cast);
       } catch (err) {
         console.error("bad sse event", err);
       }

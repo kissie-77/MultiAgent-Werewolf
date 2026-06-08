@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { useGameInsight } from "../hooks/useGameInsight";
 import { useGameStore } from "../store";
 import BeliefMatrixPanel from "./BeliefMatrixPanel";
+import ExposureRadarStrip from "./ExposureRadarStrip";
 import VoteIntentionPanel from "./VoteIntentionPanel";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function InsightDock({ runId }: { runId: string | null }) {
-  const { beliefs, voteSnapshot, players } = useGameInsight(runId);
+  const { beliefs, voteSnapshot, players, speakerSeat } = useGameInsight(runId);
   const gameState = useGameStore(state => state.state);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showIdentities, setShowIdentities] = useState(true);
@@ -80,15 +81,18 @@ export default function InsightDock({ runId }: { runId: string | null }) {
 
         <div className={`w-[320px] flex flex-col h-full overflow-y-auto overflow-x-hidden p-3 custom-scrollbar z-10 relative transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>
           
-          <BeliefMatrixPanel 
-            beliefs={beliefs} 
-            players={players} 
-            roundLabel={roundLabel} 
-            scope="god" 
+          <BeliefMatrixPanel
+            beliefs={beliefs}
+            players={players}
+            roundLabel={roundLabel}
+            scope="god"
             showIdentities={canShowIdentities}
+            currentSpeakerSeat={speakerSeat}
           />
-          
-          <VoteIntentionPanel 
+
+          <ExposureRadarStrip beliefs={beliefs} speakerSeat={speakerSeat} />
+
+          <VoteIntentionPanel
             snapshot={voteSnapshot} 
             players={players} 
             showIdentities={canShowIdentities}
@@ -135,15 +139,18 @@ export default function InsightDock({ runId }: { runId: string | null }) {
                  )}
               </div>
               
-              <BeliefMatrixPanel 
-                beliefs={beliefs} 
-                players={players} 
-                roundLabel={roundLabel} 
-                scope="god" 
+              <BeliefMatrixPanel
+                beliefs={beliefs}
+                players={players}
+                roundLabel={roundLabel}
+                scope="god"
                 showIdentities={canShowIdentities}
+                currentSpeakerSeat={speakerSeat}
               />
-              
-              <VoteIntentionPanel 
+
+              <ExposureRadarStrip beliefs={beliefs} speakerSeat={speakerSeat} />
+
+              <VoteIntentionPanel
                 snapshot={voteSnapshot} 
                 players={players} 
                 showIdentities={canShowIdentities}

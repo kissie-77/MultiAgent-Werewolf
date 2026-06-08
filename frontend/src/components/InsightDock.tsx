@@ -80,7 +80,7 @@ export default function InsightDock({ runId }: { runId: string | null }) {
            </div>
         </div>
 
-        <div className={`w-[320px] flex flex-col h-full overflow-y-auto overflow-x-hidden p-3 custom-scrollbar z-10 relative transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`w-full flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 custom-scrollbar z-10 relative transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>
           
           <BeliefMatrixPanel
             beliefs={beliefs}
@@ -127,7 +127,7 @@ export default function InsightDock({ runId }: { runId: string | null }) {
                <div className="w-12 h-1 bg-amber-900/50 rounded-full" />
             </div>
             
-            <div className="flex-1 overflow-y-auto px-4 pb-6 mt-2 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-6 mt-2 space-y-4">
               <div className="text-amber-500 font-serif text-sm font-black uppercase flex items-center justify-between mb-2 drop-shadow">
                  <div className="flex items-center gap-2">
                    <span className="text-lg">👁</span> 观战读心 (Live)

@@ -35,7 +35,6 @@ export default function FeaturesPage() {
       })
       .catch((err) => {
         if (active) {
-          console.error(err);
           setError("虚空网络拥塞，无法检索高级对决特性之页。");
           setLoading(false);
         }

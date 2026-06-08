@@ -29,7 +29,6 @@ export default function NightPhasePage() {
       })
       .catch((err) => {
         if (active) {
-          console.error(err);
           setError("虚境网络受到暗流屏蔽，未寻获黑夜行纪规度。");
           setLoading(false);
         }

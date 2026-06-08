@@ -22,7 +22,6 @@ export default function AboutPage() {
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error(err);
         setError("项目介绍加载失败，请稍后重试。");
         setLoading(false);
       });
@@ -40,7 +39,6 @@ export default function AboutPage() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error(err);
         setError("项目介绍加载失败，请稍后重试。");
         setLoading(false);
       });

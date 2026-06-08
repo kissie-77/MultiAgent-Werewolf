@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Sun, Moon, Clock, Flame, LogOut, Home } from "lucide-react";
 import { useGameStore } from "../store";
 
-export default function TopHeader({
+export default React.memo(function TopHeader({
   onExit,
   isLiveRun = false,
 }: {
@@ -159,4 +159,4 @@ export default function TopHeader({
       </div>
     </div>
   );
-}
+})

@@ -29,7 +29,7 @@ export default function VoteSwing({ swings, timeline }: { swings: VoteSwingSpeec
             <span>改票量</span>
           </h4>
           <div className="space-y-3">
-             {swings.sort((a,b) => b.influence_score - a.influence_score).map(s => (
+             {[...swings].sort((a,b) => b.influence_score - a.influence_score).map(s => (
                <div 
                  key={s.id} 
                  onClick={() => setSelectedSwing(s.id)}

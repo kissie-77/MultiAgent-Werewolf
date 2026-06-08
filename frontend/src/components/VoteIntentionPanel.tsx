@@ -13,7 +13,7 @@ const ROLE_ICONS: Record<string, string> = {
   Seer: "🔮", Witch: "🧪", Hunter: "🎯", Werewolf: "🐺", Villager: "👤"
 };
 
-export default function VoteIntentionPanel({ snapshot, players, showIdentities = false }: VoteIntentionPanelProps) {
+export default React.memo(function VoteIntentionPanel({ snapshot, players, showIdentities = false }: VoteIntentionPanelProps) {
   const getPlayerInfo = (id: string | null) => {
     if (!id) return null;
     const p = players.find(p => p.id === id);
@@ -150,4 +150,4 @@ export default function VoteIntentionPanel({ snapshot, players, showIdentities =
       </div>
     </div>
   );
-}
+})

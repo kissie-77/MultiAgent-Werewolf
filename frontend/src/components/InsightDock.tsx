@@ -8,7 +8,7 @@ import VoteIntentionPanel from "./VoteIntentionPanel";
 import WolfExposurePanel from "./WolfExposurePanel";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-export default function InsightDock({ runId }: { runId: string | null }) {
+export default React.memo(function InsightDock({ runId }: { runId: string | null }) {
   const { beliefs, voteSnapshot, players, speakerSeat } = useGameInsight(runId);
   const gameState = useGameStore(state => state.state);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -174,4 +174,4 @@ export default function InsightDock({ runId }: { runId: string | null }) {
       </AnimatePresence>
     </>
   );
-}
+})

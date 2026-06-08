@@ -53,7 +53,6 @@ export default function ReplayPage() {
       })
       .catch((e) => {
         if (cancelled) return;
-        console.error(e);
         setErr("真意星流无法检索此局复盘，或虚境网络波动，请稍后再试。");
         setLoading(false);
       });
@@ -72,7 +71,6 @@ export default function ReplayPage() {
         setLoading(false);
       })
       .catch((e) => {
-        console.error(e);
         setErr("真意星流无法检索此局复盘，或虚境网络波动，请稍后再试。");
         setLoading(false);
       });
@@ -132,11 +130,28 @@ export default function ReplayPage() {
   // 轻量自定义 Markdown 渲染器，支持简洁语法而无需引入不受信任的依赖
   const renderMarkdown = (md: string) => {
     const lines = md.split("\n");
+    // 预处理：标记表格行，避免在 map 中修改数组
+    const tableStartLines = new Set<number>(); // 表格起始行索引
+    const tableSkipLines = new Set<number>();  // 表格中需要跳过的行（非首行）
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith("|") && lines[i + 1]?.trim().startsWith("| :---")) {
+        tableStartLines.add(i);
+        let j = i;
+        while (j < lines.length && lines[j].trim().startsWith("|")) {
+          if (j !== i) tableSkipLines.add(j);
+          j++;
+        }
+      }
+    }
+
     return (
       <div className="space-y-4 font-sans text-sm text-zinc-300 leading-relaxed">
         {lines.map((line, idx) => {
           const trimmed = line.trim();
           if (!trimmed) return <div key={idx} className="h-2" />;
+
+          // 跳过表格中非首行的行（已在表格渲染中处理）
+          if (tableSkipLines.has(idx)) return null;
 
           // 标题
           if (trimmed.startsWith("# ")) {
@@ -162,18 +177,14 @@ export default function ReplayPage() {
           }
 
           // 表格
-          if (trimmed.startsWith("|") && lines[idx + 1]?.startsWith("| :---")) {
-            // 下一行是表头分隔符，解析表格
+          if (tableStartLines.has(idx)) {
             const tableRows: string[][] = [];
             let i = idx;
-            // 向下扫描以累积此表格的所有行
             while (i < lines.length && lines[i].trim().startsWith("|")) {
               const cells = lines[i].split("|").map(col => col.trim()).filter((_, index, arr) => index > 0 && index < arr.length - 1);
               tableRows.push(cells);
               i++;
             }
-            // 跳过已处理的表格行索引
-            lines.splice(idx, i - idx); // 从数组中移除，避免重复处理
             const headers = tableRows[0];
             const dataRows = tableRows.slice(2); // 索引 1 是分隔符行
 
@@ -257,8 +268,10 @@ export default function ReplayPage() {
           <span className="text-zinc-700">|</span>
           {run.winner_camp === "VILLAGERS" ? (
              <span className="text-blue-400 flex items-center gap-1 font-bold">🏆好人胜</span>
-          ) : (
+          ) : run.winner_camp === "WOLVES" || run.winner_camp === "WEREWOLF" ? (
              <span className="text-red-500 flex items-center gap-1 font-bold">🐺狼人胜</span>
+          ) : (
+             <span className="text-zinc-500 flex items-center gap-1 font-bold">⚖️未知阵营</span>
           )}
           <span className="text-zinc-700">|</span>
           <span>{run.initial_players}人</span>

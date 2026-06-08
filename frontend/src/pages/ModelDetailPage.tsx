@@ -4,6 +4,7 @@ import { ApiClient } from "../api/client";
 import { ModelDetail } from "../api/types";
 import { ArrowLeft, Brain, Cpu, MessageSquare, ShieldCheck, ShieldAlert, Sparkles, Star } from "lucide-react";
 import { motion } from "motion/react";
+import PageLoadState from "../components/PageLoadState";
 
 export default function ModelDetailPage() {
   const { modelId } = useParams<{ modelId: string }>();
@@ -24,7 +25,6 @@ export default function ModelDetailPage() {
       })
       .catch((err) => {
         if (active) {
-          console.error(err);
           setError("命运卷宗残破，星盘上可能并无此款智脑刻痕，亦或传输错误。");
           setLoading(false);
         }
@@ -36,30 +36,23 @@ export default function ModelDetailPage() {
   }, [modelId]);
 
   if (loading) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs uppercase tracking-widest gap-2">
-        <div className="w-6 h-6 border-2 border-t-yellow-500 border-zinc-900 rounded-full animate-spin" />
-        <span>校阅虚境智脑规格卷宗...</span>
-      </div>
-    );
+    return <PageLoadState variant="loading" loadingText="校阅虚境智脑规格卷宗..." />;
   }
 
   if (error || !model) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 gap-6 relative">
-        <div className="absolute inset-10 border border-red-500/10 pointer-events-none rounded" />
-        <Brain className="w-14 h-14 text-yellow-500/60 animate-pulse" />
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold font-sans uppercase tracking-widest text-zinc-200">智脑已失散在虚无星河</h2>
-          <p className="text-zinc-500 font-sans text-xs max-w-sm">{error || "未在审判会成员中寻获此模型特征。"}</p>
-        </div>
-        <Link
-          to="/models"
-          className="px-5 py-2.5 bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-300 hover:border-yellow-550 hover:text-white rounded"
-        >
-          返回智脑主廊 (BACK)
-        </Link>
-      </div>
+      <PageLoadState
+        variant="error"
+        errorText={error || "未在审判会成员中寻获此模型特征。"}
+        action={
+          <Link
+            to="/models"
+            className="px-5 py-2.5 bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-300 hover:border-yellow-500 hover:text-white rounded"
+          >
+            返回智脑主廊 (BACK)
+          </Link>
+        }
+      />
     );
   }
 
@@ -82,7 +75,7 @@ export default function ModelDetailPage() {
         className="bg-zinc-950/90 border border-zinc-900 rounded shadow-2xl overflow-hidden p-6 md:p-10 space-y-10"
       >
         {/* Header Title section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-zinc-905 pb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-zinc-900 pb-8">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[10px] font-mono text-yellow-500 uppercase tracking-widest">
               <Cpu className="w-3.5 h-3.5 text-yellow-500" />
@@ -96,9 +89,9 @@ export default function ModelDetailPage() {
             </p>
           </div>
 
-          <div className="bg-zinc-900/60 border border-zinc-850 p-4 rounded-lg flex flex-col items-start md:items-end gap-1 shrink-0">
+          <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-lg flex flex-col items-start md:items-end gap-1 shrink-0">
             <div className="flex items-center gap-1 text-yellow-500 font-mono font-bold text-lg">
-              <Star className="w-4.5 h-4.5 fill-current" />
+              <Star className="w-[18px] h-[18px] fill-current" />
               <span>ELO {model.rating}</span>
             </div>
             <span className="text-[10px] font-mono text-zinc-500 uppercase">
@@ -138,7 +131,7 @@ export default function ModelDetailPage() {
             {/* Strengths */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 border-b border-zinc-900 pb-1.5">
-                <ShieldCheck className="w-4.5 h-4.5 text-emerald-450" />
+                <ShieldCheck className="w-[18px] h-[18px] text-emerald-400" />
                 <h3 className="text-xs font-mono font-extrabold uppercase tracking-widest text-zinc-300">
                   高维圣印 ∙ 核心长处 (STRENGTHS)
                 </h3>
@@ -156,7 +149,7 @@ export default function ModelDetailPage() {
             {/* Weaknesses */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 border-b border-zinc-900 pb-1.5">
-                <ShieldAlert className="w-4.5 h-4.5 text-red-500" />
+                <ShieldAlert className="w-[18px] h-[18px] text-red-500" />
                 <h3 className="text-xs font-mono font-extrabold uppercase tracking-widest text-zinc-300">
                   宿命死角 ∙ 逻辑破绽 (WEAKNESSES)
                 </h3>
@@ -209,7 +202,7 @@ export default function ModelDetailPage() {
             {/* Temperament summary */}
             <div className="space-y-2 bg-zinc-900/30 p-4 border border-zinc-900 rounded">
               <span className="text-[9px] font-sans text-zinc-500 tracking-widest">词锋脾性</span>
-              <p className="text-xs font-sans text-zinc-350 leading-relaxed font-semibold">
+              <p className="text-xs font-sans text-zinc-300 leading-relaxed font-semibold">
                 {model.temperament}
               </p>
             </div>
@@ -229,13 +222,13 @@ export default function ModelDetailPage() {
             审判庭现场辩证对话实录 (TRIAL SPOKEN RECORD)
           </div>
 
-          <blockquote className="text-xs text-zinc-300 leading-relaxed font-serif italic relative z-10 pl-3 border-l-2 border-[#a855f7]/55">
+          <blockquote className="text-xs text-zinc-300 leading-relaxed font-serif italic relative z-10 pl-3 border-l-2 border-[#a855f7]/50">
             {model.sampleQuote}
           </blockquote>
         </div>
 
         {/* Symmetrical footer */}
-        <div className="pt-6 border-t border-zinc-905 flex justify-between items-center text-[9px] font-mono text-zinc-650">
+        <div className="pt-6 border-t border-zinc-900 flex justify-between items-center text-[9px] font-mono text-zinc-500">
           <span>COSMIC DECISION INTEL v2.1</span>
           <span>ARCANUM MODEL REGISTERED</span>
         </div>

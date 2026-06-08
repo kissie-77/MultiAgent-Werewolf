@@ -12,7 +12,7 @@ interface MvpTabProps {
   runModel: string;
 }
 
-export default function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdown, runModel }: MvpTabProps) {
+export default React.memo(function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdown, runModel }: MvpTabProps) {
   // 合并 MVP 和得分数据
   const mergedPlayers = scores.map(score => {
     const mvpInfo = mvpRanking.find(m => m.playerName === score.playerName);
@@ -216,4 +216,4 @@ export default function MvpTab({ mvpRanking, scores, turningPoints, reportMarkdo
 
     </div>
   );
-}
+})

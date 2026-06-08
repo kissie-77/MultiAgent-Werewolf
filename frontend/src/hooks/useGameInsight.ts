@@ -6,6 +6,7 @@ export interface GameInsight {
   beliefs: BeliefSnapshot[] | null;
   voteSnapshot: VoteIntentionSnapshot | null;
   players: InsightPlayer[];
+  speakerSeat: number | null;
 }
 
 /**
@@ -15,11 +16,12 @@ export interface GameInsight {
 export function useGameInsight(_runId: string | null): GameInsight {
   const beliefs = useGameStore((s) => s.insightBeliefs);
   const voteSnapshot = useGameStore((s) => s.insightVote);
+  const speakerSeat = useGameStore((s) => s.insightSpeakerSeat);
   const roster = useGameStore((s) => s.spectateRoster);
   const statePlayers = useGameStore((s) => s.state?.players);
 
   const alive: Record<number, boolean> = {};
   (statePlayers ?? []).forEach((p) => { alive[p.id] = p.isAlive; });
 
-  return { beliefs, voteSnapshot, players: rosterToInsightPlayers(roster, alive) };
+  return { beliefs, voteSnapshot, players: rosterToInsightPlayers(roster, alive), speakerSeat };
 }

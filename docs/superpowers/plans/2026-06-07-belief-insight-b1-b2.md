@@ -579,3 +579,16 @@ curl -s -X POST http://localhost:8010/api/v1/games/start -H 'Content-Type: appli
 - **Spec 覆盖**：§5.1→Task1；§5.2/5.4→Task2；§5.3→Task3；§5.5→Task4；§5.6→Task5；§5.7→Task2(纯函数)+Task6(壳)；§5.8→Task7；§7→Task1/2 单测 + Task8 真机；§6 防作弊（座位流无 belief → strip 不渲染）由现有 `if (!beliefs||!voteSnapshot) return null` 保证，无需新增。✅
 - **占位符**：无 TBD/TODO；所有代码步给出完整代码。✅
 - **类型一致**：`matrixScale`/`formatWolfProb`/`heatColor`（beliefFormat）；`mapSpeakerSeat`/`selectExposureRow`/`ExposureCell`/`SecondOrderCell`（insightMap+insightTypes）；`insightSpeakerSeat`（store）；`speakerSeat`（useGameInsight/InsightDock）；`currentSpeakerSeat`（BeliefMatrixPanel prop）——跨任务命名一致。✅
+
+---
+
+## 验证结果（2026-06-08，werewolf_6_8）
+
+实现说明：Task 3 的 `store.ts` 按**当前静态-import 结构**改写（原计划假设的动态-import 版本已被前端重构取代）；其余 Task 1/2/4/5/6/7 与现状一致，原样落地。单测全绿（`beliefFormat` 3、`insightMap` 10），`tsc --noEmit` 与 `vite build` 均通过；既有套件无回归（唯一失败 `utils/roles.test.ts` 为预存在的角色素材缺失，与本特性无关）。
+
+真机验证（Playwright/Chrome DevTools，DeepSeek `deepseek-v4-flash` 实时对局）：
+
+- **6 人局** `b1b2-verify6`：30 格全为 `NN%`（无旧 `.NN`）；发言高亮唯一落在 `P5🔮`（当帧真实发言人，旧硬编码 P2 已消除）；B2「被怀疑雷达 · P5视角」显示空态「P5 暂未记录被谁怀疑」（该帧 `second_order` 为空，符合 spec §2 稀疏预期）；格高 24px=`font(10)+14`；0 console error。
+- **12 人局** `b1b2-verify12`：`gridTemplateColumns: auto repeat(12, 22px)`，格高 22px，自动缩放生效；132 格全为 `NN%`；该帧为 `initial` 锚点 → 无高亮、B2 显示「等待发言…」；`overflow-x:auto` 兜底在位；0 console error。
+
+附记（**非本特性**）：6 人局对局在信念渲染验证完成后于引擎侧崩溃，`run_meta.error = "'GameState' object has no attribute 'wolf_camp_mind'"`（应为 `wolf_camp_minds`，见 `engine/base.py`）——一个与前端无关的既存后端 bug，且不影响信念矩阵的实时渲染。建议另开 issue 修复。

@@ -485,3 +485,18 @@ curl -s -X POST http://127.0.0.1:8010/api/v1/games/start -H 'Content-Type: appli
 - **占位符**：无 TBD/TODO；每个代码步给出完整代码。✅
 - **类型一致**：`WolfStance`/`WolfSuspector`/`WolfExposureRow`/`stanceFromExposure`/`selectWolfExposure`（lib）；组件 props `{beliefs, players}`；`InsightDock` 透传 `beliefs`/`players`（均为其已有变量）；`STANCE_LABEL` 键与 `WolfStance` 全集一致。✅
 - **门控一致**：Task3 用 `canShowIdentities`（文件内已存在）包裹两处挂载，与 spec §5 一致；座位视角 InsightDock 整体不渲染（`GameApp.tsx:183`），无需额外处理。✅
+
+---
+
+## 验证结果（2026-06-08）
+
+单测：`wolfExposure.test.ts` 7/7 绿（stance 5 档边界、max、排除队友/自身、共领头±0.15、降序、空态）；`tsc`/`build` 通过；全套件无新增回归（唯一失败 `utils/roles.test.ts` 为预存在角色素材缺失）。
+
+真机（Playwright，DeepSeek `llm-12p-deepseek` god 局 `wolfexp-verify12`，4 狼）：
+- 面板「🐺 狼队·暴露雷达」渲染，4 行 = 4 只存活狼，角色中文正确：P2 狼王 / P5 白狼 / P8 狼人 / P10 狼人（验证 role-zh 映射 + 去空格归一对 "Alpha Wolf"/"White Wolf" 生效）。
+- 每行有暴露条（宽=%）、`NN%`、`最疑 Px,Py`、姿态徽标；行按暴露降序。
+- 早期帧全员 17%（1/6 基线先验）→ 全部 `😎 带节奏`（push），符合 <0.25 阈值。
+- **身份门控**：关闭「显示身份」→ 面板从 DOM 消失（`wolfPanelAfterOff=false`）；重新开启 → 面板恢复。
+- 全程 0 console error（仅 THREE.js deprecation 警告，既有无关）。截图 `.tmp/wolfexp-verify-12p.png`。
+
+附：本特性纯前端、零后端改动；与并行 `feature/phase-transition-polish` 完全隔离（本分支仅含 ④ 相关 5 个提交，基于 main）。

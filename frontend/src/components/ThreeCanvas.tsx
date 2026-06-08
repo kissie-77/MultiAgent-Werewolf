@@ -8,6 +8,7 @@ import { ESTABLISH_MS, isLobbyPhase } from "../lib/phaseStage";
 import { decideCamera, RECENTER_HOLD_MS } from "../lib/cameraDirector";
 import { buildPreviewSeats } from "../lib/previewSeats";
 import { resolveSceneMode, sceneTheme, type SceneMode } from "../lib/sceneTheme";
+import GroundPlane from "./GroundPlane";
 import type { GameState } from "../types";
 
 function EnvironmentController({ mode }: { mode: SceneMode }) {
@@ -502,7 +503,7 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, isTarg
   return (
     <group position={[x, 0, z]}>
       {/* Stone Pillar / Obelisk Base */}
-      <mesh position={[0, 0.5, 0]}>
+      <mesh position={[0, 0.5, 0]} castShadow>
         <cylinderGeometry args={[0.6, 0.75, 1.2, 8]} />
         <meshPhysicalMaterial
           color={stoneColor}
@@ -804,6 +805,13 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
         style={{ pointerEvents: "auto" }}
       >
         <EnvironmentController mode={sceneMode} />
+
+        {/* Multi-layer atmospheric ground (textured, shadow-receiving) + glowing rune rings */}
+        {(() => {
+          const radius = Math.max(5, previewPlayers.length * 0.72);
+          const groundTableRadius = Math.max(3.5, radius * 0.7);
+          return <GroundPlane mode={sceneMode} tableRadius={groundTableRadius} />;
+        })()}
 
         {/* Floating Sparks in the atmospheric space */}
         <MagicalSparks isNight={isNight} isMurderAlert={isMurderAlert} />

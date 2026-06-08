@@ -4,8 +4,9 @@ import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useReducedMotion } from "motion/react";
 import { useGameStore } from "../store";
-import { ESTABLISH_MS } from "../lib/phaseStage";
+import { ESTABLISH_MS, isLobbyPhase } from "../lib/phaseStage";
 import { decideCamera, RECENTER_HOLD_MS } from "../lib/cameraDirector";
+import { buildPreviewSeats } from "../lib/previewSeats";
 import type { GameState } from "../types";
 
 function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
@@ -120,7 +121,8 @@ function CameraTracker() {
 
   useFrame((state, delta) => {
     // Lobby keeps its bespoke slow-orbit framing, untouched.
-    if (phase === "START_SCREEN") {
+    // (undefined phase = pre-connect landing page, also lobby — see isLobbyPhase.)
+    if (isLobbyPhase(phase)) {
       const time = state.clock.getElapsedTime();
       const orbitSpeed = 0.08;
       const pCount = setupCount !== null ? setupCount : (players.length || 6);
@@ -742,25 +744,17 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   const lightColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c"; // 深霓虹紫环境光 vs 强烈旭日橙金环境光
   const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38; // 精细调优使选择性光束脱颖而出
 
-  // START_SCREEN 配置期间的座位动态预览数组
-  const previewPlayers = React.useMemo(() => {
-    if (phase === "START_SCREEN" && setupCount !== null) {
-      return Array.from({ length: setupCount }, (_, idx) => ({
-        id: idx + 1,
-        name: `席位 ${idx + 1}`,
-        isAlive: true,
-        isUser: idx === 0,
-        isSpeaking: false,
-      }));
-    }
-    return players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      isAlive: p.isAlive,
-      isUser: p.isUser,
-      isSpeaking: currentSpeakerId === p.id,
-    }));
-  }, [phase, setupCount, players, currentSpeakerId]);
+  // START_SCREEN / 落地页（phase=undefined）渲染预览圆桌；否则映射真实玩家。
+  const previewPlayers = React.useMemo(
+    () =>
+      buildPreviewSeats({
+        phase,
+        setupCount,
+        players,
+        currentSpeakerId: currentSpeakerId ?? null,
+      }),
+    [phase, setupCount, players, currentSpeakerId],
+  );
 
   // 计算活跃发言者位置以将戏剧性灯光聚焦于其上
   let speakerLight = null;

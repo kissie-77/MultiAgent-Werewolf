@@ -415,21 +415,22 @@ function ChessPiece({ isSpeaking, isUser, isAlive, playerId }: HoodedFigureProps
     metalness: isSpeaking ? 0.4 : 0.8,
     clearcoat: 1.0,
     clearcoatRoughness: 0.1,
-    transmission: isSpeaking ? 0.2 : 0, 
     emissive: theme.primaryAccent,
     emissiveIntensity: isSpeaking ? 0.7 : (isUser ? 0.2 : 0.05),
   };
 
   return (
     <group position={[0, 0.4, 0]}>
-       <pointLight
-        position={[0, 1.5, 0]}
-        distance={4.0}
-        intensity={isSpeaking ? 1.5 : 0.3}
-        color={theme.primaryAccent}
-      />
+       {isSpeaking && (
+         <pointLight
+          position={[0, 1.5, 0]}
+          distance={4.0}
+          intensity={1.5}
+          color={theme.primaryAccent}
+        />
+       )}
       {/* Main body lathe */}
-      <mesh>
+      <mesh castShadow>
         <latheGeometry args={[points, 64]} />
         <meshPhysicalMaterial {...materialProps} />
       </mesh>
@@ -703,8 +704,6 @@ function CentralEnergyOrb({ isNight, isMurderAlert }: { isNight: boolean, isMurd
         ref={lightRef}
         intensity={10}
         distance={12}
-        castShadow
-        shadow-bias={-0.0005}
       />
       <mesh ref={meshRef}>
         <dodecahedronGeometry args={[0.32, 1]} />
@@ -770,9 +769,6 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
             penumbra={0.7}
             intensity={isNight ? 32.0 : 25.0} // 动态高功率主题光束
             color={isNight ? "#d946ef" : "#ff6a00"} // 皇家紫 vs 炽烈日落橙
-            castShadow
-            shadow-mapSize-width={512}
-            shadow-mapSize-height={512}
           />
           {/* Neon secondary light aura on the hooded figure */}
           <pointLight
@@ -802,7 +798,8 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-none">
       <Canvas
         shadows
-        gl={{ antialias: true }}
+        dpr={[1, 1.5]}
+        gl={{ antialias: true, powerPreference: "high-performance" }}
         camera={{ position: [0, 9.25, 13], fov: 45 }}
         style={{ pointerEvents: "auto" }}
       >

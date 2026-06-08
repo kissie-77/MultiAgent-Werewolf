@@ -444,10 +444,11 @@ interface SpeakerPillarProps {
   isAlive: boolean;
   isUser: boolean;
   isSpeaking: boolean;
+  isThinking: boolean;
   angle: number;
 }
 
-function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPillarProps) {
+function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, angle }: SpeakerPillarProps) {
   const setupCount = useGameStore((state) => state.setupCount);
   const statePlayersCount = useGameStore((state) => state.state?.players?.length) || 0;
   const playersCount = setupCount !== null ? setupCount : (statePlayersCount || 6);
@@ -515,6 +516,13 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, angle }: SpeakerPi
               <mesh position={[0, -0.1, 0]} rotation={[Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.45, 0.65, 16]} />
                 <meshBasicMaterial color="#ec4899" side={THREE.DoubleSide} />
+              </mesh>
+            )}
+            {/* Soft cyan halo while waiting on the LLM (候场, distinct from speaking) */}
+            {isThinking && !isSpeaking && (
+              <mesh position={[0, -0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.5, 0.62, 24]} />
+                <meshBasicMaterial color="#22d3ee" transparent opacity={0.45} side={THREE.DoubleSide} />
               </mesh>
             )}
           </>
@@ -696,6 +704,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   const players = gameState?.players || [];
   const setupCount = useGameStore((state) => state.setupCount);
   const victimId = gameState?.victimId;
+  const thinkingSeat = gameState?.liveCue?.thinking?.seat ?? null;
 
   // 跟踪服务器日志中最近的 isNight 状态以正确反映叙事状态
   const lastLogIsNight = gameState?.speechLogs?.[gameState.speechLogs.length - 1]?.isNight;
@@ -832,6 +841,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
                 isAlive={p.isAlive}
                 isUser={p.isUser}
                 isSpeaking={p.isSpeaking}
+                isThinking={thinkingSeat === p.id}
                 angle={angle}
               />
             );

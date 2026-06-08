@@ -7,7 +7,7 @@ import {
   reduceEvent,
 } from "./lib/gameReducer";
 import { streamUrl } from "./api/sse";
-import { mapBeliefEvent, mapVoteEvent } from "./lib/insightMap";
+import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat } from "./lib/insightMap";
 
 /** Monotonic token so stale SSE connect callbacks are ignored after disconnect/switch. */
 let sseConnectGen = 0;
@@ -26,6 +26,7 @@ interface GameStore {
   spectateError: string | null;
   insightBeliefs: import("./api/insightTypes").BeliefSnapshot[] | null;
   insightVote: import("./api/insightTypes").VoteIntentionSnapshot | null;
+  insightSpeakerSeat: number | null;
   spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
   connectSpectate: (runId: string) => void;
   disconnectSpectate: () => void;
@@ -62,6 +63,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   spectateError: null,
   insightBeliefs: null,
   insightVote: null,
+  insightSpeakerSeat: null,
   spectateRoster: null,
 
   connectSpectate: (runId) => {
@@ -70,6 +72,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       insightBeliefs: null,
       insightVote: null,
+      insightSpeakerSeat: null,
       spectateRoster: null,
       spectateError: null,
       humanInputError: null,
@@ -99,7 +102,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const cur = get().state ?? initialSpectateState();
         set({ state: reduceEvent(cur, ev) });
         if (ev.event_type === "belief_snapshot") {
-          set({ insightBeliefs: mapBeliefEvent(ev.data) });
+          set({ insightBeliefs: mapBeliefEvent(ev.data), insightSpeakerSeat: mapSpeakerSeat(ev.data) });
         } else if (ev.event_type === "vote_intention_snapshot") {
           set({ insightVote: mapVoteEvent(ev.data) });
         }
@@ -183,6 +186,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       insightBeliefs: null,
       insightVote: null,
+      insightSpeakerSeat: null,
       spectateRoster: null,
       pendingInput: null,
       humanInputError: null,

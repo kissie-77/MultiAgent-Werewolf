@@ -5,6 +5,13 @@ export interface BeliefCell {
   note: string | null;
 }
 
+export interface SecondOrderCell {
+  observer_seat: number;
+  suspects_me_as_wolf: number;
+  reason: string | null;
+  note: string | null;
+}
+
 export interface BeliefSnapshot {
   round: number;
   phase: string;
@@ -13,6 +20,7 @@ export interface BeliefSnapshot {
   observer_seat: number;
   vote_intention: { seat: number; reason: string };
   first_order: BeliefCell[];
+  second_order?: SecondOrderCell[];
 }
 
 export interface VoteEntry {

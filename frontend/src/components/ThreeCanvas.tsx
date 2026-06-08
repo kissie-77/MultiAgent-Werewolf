@@ -7,59 +7,50 @@ import { useGameStore } from "../store";
 import { ESTABLISH_MS, isLobbyPhase } from "../lib/phaseStage";
 import { decideCamera, RECENTER_HOLD_MS } from "../lib/cameraDirector";
 import { buildPreviewSeats } from "../lib/previewSeats";
+import { resolveSceneMode, sceneTheme, type SceneMode } from "../lib/sceneTheme";
 import type { GameState } from "../types";
 
-function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
+function EnvironmentController({ mode }: { mode: SceneMode }) {
   const { scene } = useThree();
-  
-  const theme = React.useMemo(() => {
-     const bg = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02";
-     const ambientColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c";
-     const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38;
-     const dirColor = isMurderAlert ? "#dc2626" : isNight ? "#d946ef" : "#ff6a00";
-     const dirPos = isNight ? new THREE.Vector3(-10, 14, -5) : new THREE.Vector3(10, 15, 5);
-     const dirIntensity = isNight ? 4.5 : 5.5;
 
-     return {
-       bg: new THREE.Color(bg),
-       ambientColor: new THREE.Color(ambientColor),
-       ambientIntensity,
-       dirColor: new THREE.Color(dirColor),
-       dirPos,
-       dirIntensity
-     };
-  }, [isNight, isMurderAlert]);
+  const theme = React.useMemo(() => {
+    const t = sceneTheme(mode);
+    return {
+      bg: new THREE.Color(t.bg),
+      ambientColor: new THREE.Color(t.ambientColor),
+      ambientIntensity: t.ambientIntensity,
+      dirColor: new THREE.Color(t.dirColor),
+      dirPos: new THREE.Vector3(t.dirPos[0], t.dirPos[1], t.dirPos[2]),
+      dirIntensity: t.dirIntensity,
+    };
+  }, [mode]);
 
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const dirRef = useRef<THREE.DirectionalLight>(null);
 
   useEffect(() => {
-    scene.fog = new THREE.Fog(theme.bg, 10, 30);
+    scene.fog = new THREE.Fog(theme.bg, 12, 38);
     scene.background = theme.bg.clone();
     return () => {
       scene.fog = null;
       scene.background = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene]);
 
-  useFrame((state, delta) => {
-    const s = 1 - Math.exp(-3 * delta); // 平滑帧率无关衰减
+  useFrame((_, delta) => {
+    const s = 1 - Math.exp(-3 * delta); // 帧率无关的平滑衰减
 
-    // 背景和雾效线性插值
     if (scene.background instanceof THREE.Color) {
       scene.background.lerp(theme.bg, s);
     }
-    if (scene.fog && 'color' in scene.fog) {
+    if (scene.fog && "color" in scene.fog) {
       (scene.fog as THREE.Fog).color.lerp(theme.bg, s);
     }
-
-    // 环境光线性插值
     if (ambientRef.current) {
       ambientRef.current.color.lerp(theme.ambientColor, s);
       ambientRef.current.intensity = THREE.MathUtils.lerp(ambientRef.current.intensity, theme.ambientIntensity, s);
     }
-
-    // 方向光线性插值
     if (dirRef.current) {
       dirRef.current.color.lerp(theme.dirColor, s);
       dirRef.current.intensity = THREE.MathUtils.lerp(dirRef.current.intensity, theme.dirIntensity, s);
@@ -75,6 +66,13 @@ function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, i
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
+        shadow-bias={-0.0004}
+        shadow-camera-near={1}
+        shadow-camera-far={60}
+        shadow-camera-left={-24}
+        shadow-camera-right={24}
+        shadow-camera-top={24}
+        shadow-camera-bottom={-24}
       />
     </>
   );
@@ -739,10 +737,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   // 根据昼夜切换切换环境颜色
   const isNight = phase?.startsWith("NIGHT") || lastLogIsNight || false;
   const isMurderAlert = phase === "DAY_ANNOUNCEMENT" && victimId !== null && victimId !== undefined;
-  
-  const fogColor = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02"; // 神秘深紫雾 vs 燃烧赤陶金橙尘
-  const lightColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c"; // 深霓虹紫环境光 vs 强烈旭日橙金环境光
-  const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38; // 精细调优使选择性光束脱颖而出
+  const sceneMode: SceneMode = resolveSceneMode(Boolean(isNight), Boolean(isMurderAlert));
 
   // START_SCREEN / 落地页（phase=undefined）渲染预览圆桌；否则映射真实玩家。
   const previewPlayers = React.useMemo(
@@ -811,7 +806,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
         camera={{ position: [0, 9.25, 13], fov: 45 }}
         style={{ pointerEvents: "auto" }}
       >
-        <EnvironmentController isNight={isNight} isMurderAlert={isMurderAlert} />
+        <EnvironmentController mode={sceneMode} />
 
         {/* Floating Sparks in the atmospheric space */}
         <MagicalSparks isNight={isNight} isMurderAlert={isMurderAlert} />

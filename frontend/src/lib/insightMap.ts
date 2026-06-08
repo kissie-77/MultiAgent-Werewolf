@@ -1,4 +1,5 @@
 import type { BeliefSnapshot, VoteIntentionSnapshot } from "../api/insightTypes";
+import type { WolfCampMindV2 } from "./godRoleIntel";
 
 export interface RosterEntry {
   seat: number;
@@ -84,4 +85,14 @@ export function selectExposureRow(
   return [...rows]
     .map((r) => ({ observer_seat: r.observer_seat, suspicion: r.suspects_me_as_wolf, reason: r.reason }))
     .sort((a, b) => b.suspicion - a.suspicion);
+}
+
+/** wolf_camp_snapshot 事件 data.minds[] → 以 owner_seat 为键的字典（整批替换语义）。 */
+export function mapWolfCampEvent(data: any): Record<number, WolfCampMindV2> {
+  const minds = Array.isArray(data?.minds) ? data.minds : [];
+  const out: Record<number, WolfCampMindV2> = {};
+  for (const m of minds) {
+    if (m && typeof m.owner_seat === "number") out[m.owner_seat] = m as WolfCampMindV2;
+  }
+  return out;
 }

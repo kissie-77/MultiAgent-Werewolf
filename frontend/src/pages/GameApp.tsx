@@ -7,11 +7,13 @@ import GameSetup from "../components/GameSetup";
 import GameOverPanel from "../components/GameOverPanel";
 import InsightDock from "../components/InsightDock";
 import { useGameStore } from "../store";
-import { Skull } from "lucide-react";
+import { Skull, Moon } from "lucide-react";
 import AlertOverlays from "../components/AlertOverlays";
 import HumanInputPanel from "../components/HumanInputPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import LiveCueAnchors from "../components/LiveCueAnchors";
+import PhaseTransitionCard from "../components/PhaseTransitionCard";
+import PhaseBadge from "../components/PhaseBadge";
 
 export default function GameApp() {
   const navigate = useNavigate();
@@ -112,12 +114,21 @@ export default function GameApp() {
 
   if (spectateBooting) {
     return (
-      <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs uppercase tracking-widest gap-3">
-        <div className="w-8 h-8 border-2 border-t-amber-500 border-zinc-800 rounded-full animate-spin" />
-        <span>从对局日志载入圆桌...</span>
-        <span className="text-[10px] text-zinc-600 normal-case tracking-normal font-sans">
-          {runId}
-        </span>
+      <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center gap-5 text-zinc-400">
+        <div className="relative w-20 h-20 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border border-violet-700/40 animate-ping" />
+          <div className="absolute inset-2 rounded-full border border-amber-700/30 animate-ping [animation-delay:400ms]" />
+          <Moon className="w-9 h-9 text-violet-300/90 animate-pulse" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="font-serif font-black text-sm tracking-[0.4em] text-zinc-200 uppercase">
+            候场集结
+          </span>
+          <span className="font-mono text-[11px] tracking-widest text-zinc-500 uppercase">
+            等待 LLM 入场…
+          </span>
+        </div>
+        <span className="text-[10px] text-zinc-600 font-sans">{runId}</span>
       </div>
     );
   }
@@ -159,6 +170,8 @@ export default function GameApp() {
           <TopHeader onExit={handleExitGame} isLiveRun={isLiveRun} />
         </div>
 
+        <PhaseBadge />
+
         <div className="flex-grow flex flex-row w-full min-h-0 relative">
           <div className="flex-grow flex flex-col min-w-0 h-full relative pointer-events-auto bg-transparent">
             <div className="flex-grow flex flex-col min-h-0 overflow-hidden relative">
@@ -190,6 +203,7 @@ export default function GameApp() {
       <div className={`absolute inset-y-0 right-0 w-2 bg-gradient-to-l pointer-events-none z-50 transition-colors duration-[2000ms] ${isNight ? "from-[#8b5cf6]/30" : "from-[#d97706]/30"} to-transparent`} />
       <div className={`absolute inset-x-0 bottom-0 h-2 bg-gradient-to-t pointer-events-none z-50 transition-colors duration-[2000ms] ${isNight ? "from-[#3b82f6]/40" : "from-[#f59e0b]/40"} to-transparent`} />
 
+      <PhaseTransitionCard />
       <AlertOverlays />
       <LiveCueAnchors />
       {isSeatView && <HumanInputPanel />}

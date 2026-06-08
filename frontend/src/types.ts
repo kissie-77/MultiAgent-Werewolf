@@ -85,7 +85,8 @@ export interface GameState {
 
 /** Skill-cast effect category — drives the tarot overlay theme + SFX. */
 export type EffectType =
-  | "inspect" | "heal" | "poison" | "bite" | "shoot" | "vote" | "rally";
+  | "inspect" | "heal" | "poison" | "bite" | "shoot" | "vote" | "rally"
+  | "guard" | "charm" | "mark" | "link" | "duel" | "swap" | "corpse" | "fear";
 
 /** A transient skill-cast cinematic signal consumed by CastSkillOverlay. */
 export interface ActiveCast {

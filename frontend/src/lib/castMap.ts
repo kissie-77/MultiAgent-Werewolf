@@ -12,11 +12,42 @@ function isWolf(role: string): boolean {
 export function effectTypeForRole(role: string): EffectType {
   if (!role) return "rally";
   if (isWolf(role)) return "bite";
-  if (role.includes("预言") || role.toLowerCase().includes("seer") || role.toLowerCase().includes("prophet")) return "inspect";
-  if (role.includes("女巫") || role.toLowerCase().includes("witch")) return "heal";
-  if (role.includes("猎人") || role.toLowerCase().includes("hunter")) return "shoot";
-  if (role.includes("村民") || role.toLowerCase().includes("villager")) return "vote";
+  const r = role.toLowerCase();
+  if (role.includes("预言") || r.includes("seer") || r.includes("prophet")) return "inspect";
+  if (role.includes("女巫") || r.includes("witch")) return "heal";
+  if (role.includes("猎人") || r.includes("hunter")) return "shoot";
+  if (role.includes("守墓") || r.includes("graveyard")) return "corpse";
+  if (role.includes("守卫") || r.includes("guard")) return "guard";
+  if (role.includes("骑士") || r.includes("knight")) return "duel";
+  if (role.includes("魔术") || r.includes("magician")) return "swap";
+  if (role.includes("乌鸦") || r.includes("raven")) return "mark";
+  if (role.includes("丘比特") || r.includes("cupid")) return "link";
+  if (role.includes("村民") || r.includes("villager")) return "vote";
   return "rally";
+}
+
+/** 后端技能结果事件 → effectType（声音用；不含 vote_cast）。 */
+const SKILL_EVENT_EFFECT: Record<string, EffectType> = {
+  seer_checked: "inspect",
+  witch_saved: "heal",
+  witch_poison_used: "poison",
+  witch_poisoned: "poison",
+  werewolf_killed: "bite",
+  hunter_revenge: "shoot",
+  white_wolf_killed: "shoot",
+  guard_protected: "guard",
+  guardian_wolf_protected: "guard",
+  wolf_beauty_charmed: "charm",
+  raven_marked: "mark",
+  lovers_linked: "link",
+  knight_duel: "duel",
+  magician_swapped: "swap",
+  graveyard_keeper_check: "corpse",
+  nightmare_blocked: "fear",
+};
+
+export function effectTypeForEvent(eventType: string): EffectType | null {
+  return SKILL_EVENT_EFFECT[eventType] ?? null;
 }
 
 export function skillMetaForRole(role: string): { skillName: string; skillSub: string } {

@@ -5,6 +5,7 @@ import { useGameStore } from "../store";
 import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import ExposureRadarStrip from "./ExposureRadarStrip";
 import VoteIntentionPanel from "./VoteIntentionPanel";
+import WolfExposurePanel from "./WolfExposurePanel";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function InsightDock({ runId }: { runId: string | null }) {
@@ -93,10 +94,12 @@ export default function InsightDock({ runId }: { runId: string | null }) {
           <ExposureRadarStrip beliefs={beliefs} speakerSeat={speakerSeat} />
 
           <VoteIntentionPanel
-            snapshot={voteSnapshot} 
-            players={players} 
+            snapshot={voteSnapshot}
+            players={players}
             showIdentities={canShowIdentities}
           />
+
+          {canShowIdentities && <WolfExposurePanel beliefs={beliefs} players={players} />}
         </div>
       </motion.div>
 
@@ -151,10 +154,12 @@ export default function InsightDock({ runId }: { runId: string | null }) {
               <ExposureRadarStrip beliefs={beliefs} speakerSeat={speakerSeat} />
 
               <VoteIntentionPanel
-                snapshot={voteSnapshot} 
-                players={players} 
+                snapshot={voteSnapshot}
+                players={players}
                 showIdentities={canShowIdentities}
               />
+
+              {canShowIdentities && <WolfExposurePanel beliefs={beliefs} players={players} />}
             </div>
             
             {/* Close button for mobile */}

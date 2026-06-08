@@ -3,14 +3,6 @@ import { useGameStore } from "../store";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Eye, Skull, Flame, Crosshair, HelpCircle, ShieldAlert } from "lucide-react";
 import { getRoleImage } from "../utils/roles";
-import {
-  playInspectSFX,
-  playHealSFX,
-  playPoisonSFX,
-  playBiteSFX,
-  playShootSFX,
-  playVoteSFX
-} from "../utils/audio";
 
 export default function CastSkillOverlay() {
   const activeCast = useGameStore((state) => state.activeCast);
@@ -21,29 +13,6 @@ export default function CastSkillOverlay() {
   useEffect(() => {
     if (!activeCast) return;
     
-    // Play SFX matching effect type
-    switch (activeCast.effectType) {
-      case "inspect":
-        playInspectSFX();
-        break;
-      case "heal":
-        playHealSFX();
-        break;
-      case "poison":
-        playPoisonSFX();
-        break;
-      case "bite":
-        playBiteSFX();
-        break;
-      case "shoot":
-        playShootSFX();
-        break;
-      case "vote":
-      case "rally":
-        playVoteSFX();
-        break;
-    }
-
     // Auto generate floating particle details
     const list = Array.from({ length: 25 }).map((_, i) => ({
       id: i,

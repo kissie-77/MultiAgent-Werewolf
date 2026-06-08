@@ -114,3 +114,55 @@ export function selectGodRoleRows(record: WolfCampMindV2 | null | undefined): Go
 
   return rows.sort((a, b) => b.threat - a.threat || a.targetSeat - b.targetSeat);
 }
+
+/** 单个目标的全 0 神职信念（初始骨架格）。 */
+export function zeroBelief(targetSeat: number, round: number): GodRoleBeliefV2 {
+  const role_distribution = {} as Record<GodRole, number>;
+  for (const role of GOD_ROLES) role_distribution[role] = 0;
+  return {
+    target_seat: targetSeat,
+    role_distribution,
+    threat_score: 0,
+    priority: "low",
+    evidence: [],
+    updated_round: round,
+    contributors: [],
+  };
+}
+
+/**
+ * 从 roster 派生「每只存活狼 × 每个存活非狼目标」的神职矩阵骨架（全 0），
+ * 并用 store 中各狼的真实 god_role_intel 覆盖已预测的目标行；未预测的目标保持 0。
+ * 无存活狼 → []。
+ */
+export function selectWolfMatrices(
+  players: { seat: number; camp: string; alive: boolean }[] | null | undefined,
+  minds: Record<number, WolfCampMindV2> | null | undefined,
+  round: number,
+): WolfCampMindV2[] {
+  if (!players || players.length === 0) return [];
+  const wolves = players
+    .filter((p) => p.camp === "werewolf" && p.alive)
+    .sort((a, b) => a.seat - b.seat);
+  if (wolves.length === 0) return [];
+  const targets = players
+    .filter((p) => p.camp !== "werewolf" && p.alive)
+    .sort((a, b) => a.seat - b.seat);
+
+  return wolves.map((wolf) => {
+    const existing = minds?.[wolf.seat];
+    const god_role_intel: Record<string, GodRoleBeliefV2> = {};
+    for (const t of targets) {
+      const key = String(t.seat);
+      god_role_intel[key] = existing?.god_role_intel?.[key] ?? zeroBelief(t.seat, round);
+    }
+    return {
+      schema: "wolf_camp_mind_v2",
+      owner_seat: wolf.seat,
+      round,
+      contributor_seat: wolf.seat,
+      god_role_intel,
+      exposure_radar: existing?.exposure_radar ?? {},
+    };
+  });
+}

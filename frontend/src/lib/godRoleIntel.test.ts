@@ -3,9 +3,11 @@ import {
   GOD_ROLES,
   topRoleOf,
   selectGodRoleRows,
+  selectWolfMatrices,
   type WolfCampMindV2,
   type GodRoleBeliefV2,
 } from "./godRoleIntel";
+import type { InsightPlayer } from "./insightMap";
 
 function belief(
   target_seat: number,
@@ -76,5 +78,74 @@ describe("selectGodRoleRows", () => {
     expect(rows[0].distribution.Hunter).toBe(0);
     expect(rows[0].topRole).toBe("Seer");
     expect(rows[0].topProb).toBeCloseTo(0.75);
+  });
+});
+
+function ip(seat: number, camp: string, alive = true, role = "Villager"): InsightPlayer {
+  return { seat, id: `player_${seat}`, name: `P${seat}`, role, camp, alive };
+}
+
+describe("selectWolfMatrices", () => {
+  // P1女巫 P2预言家 P3狼 P4狼 P5村 P6村
+  const players: InsightPlayer[] = [
+    ip(1, "good", true, "Witch"),
+    ip(2, "good", true, "Seer"),
+    ip(3, "werewolf", true, "Werewolf"),
+    ip(4, "werewolf", true, "Werewolf"),
+    ip(5, "good", true, "Villager"),
+    ip(6, "good", true, "Villager"),
+  ];
+
+  it("returns [] when no living wolves", () => {
+    const noWolves = players.map((p) => (p.camp === "werewolf" ? { ...p, alive: false } : p));
+    expect(selectWolfMatrices(noWolves, null, 1)).toEqual([]);
+  });
+
+  it("builds one matrix per living wolf, with an all-zero skeleton over living non-wolf targets", () => {
+    const out = selectWolfMatrices(players, null, 2);
+    expect(out.map((m) => m.owner_seat)).toEqual([3, 4]);
+    const m3 = out[0];
+    expect(Object.keys(m3.god_role_intel).sort()).toEqual(["1", "2", "5", "6"]);
+    const t2 = m3.god_role_intel["2"];
+    expect(t2.threat_score).toBe(0);
+    expect(t2.priority).toBe("low");
+    expect(t2.role_distribution).toEqual({ Seer: 0, Witch: 0, Guard: 0, Hunter: 0, Villager: 0 });
+    expect(t2.updated_round).toBe(2);
+  });
+
+  it("overlays real god_role_intel onto the skeleton, keeping un-predicted targets at 0", () => {
+    const minds = {
+      3: {
+        schema: "wolf_camp_mind_v2" as const,
+        owner_seat: 3,
+        round: 2,
+        contributor_seat: 3,
+        god_role_intel: {
+          "2": {
+            target_seat: 2,
+            role_distribution: { Seer: 0.9, Witch: 0.05, Guard: 0.02, Hunter: 0, Villager: 0.03 },
+            threat_score: 0.92,
+            priority: "kill_tonight" as const,
+            evidence: ["2号跳预言家"],
+            updated_round: 2,
+            contributors: [3],
+          },
+        },
+        exposure_radar: {},
+      },
+    };
+    const out = selectWolfMatrices(players, minds, 2);
+    const m3 = out.find((m) => m.owner_seat === 3)!;
+    expect(m3.god_role_intel["2"].threat_score).toBeCloseTo(0.92);
+    expect(m3.god_role_intel["2"].priority).toBe("kill_tonight");
+    expect(m3.god_role_intel["5"].threat_score).toBe(0);
+    const m4 = out.find((m) => m.owner_seat === 4)!;
+    expect(m4.god_role_intel["2"].threat_score).toBe(0);
+  });
+
+  it("drops dead non-wolf targets from the skeleton", () => {
+    const p = players.map((x) => (x.seat === 6 ? { ...x, alive: false } : x));
+    const out = selectWolfMatrices(p, null, 1);
+    expect(Object.keys(out[0].god_role_intel).sort()).toEqual(["1", "2", "5"]);
   });
 });

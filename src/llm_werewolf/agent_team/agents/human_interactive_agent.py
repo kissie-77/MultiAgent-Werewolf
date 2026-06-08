@@ -310,6 +310,47 @@ class HumanInteractiveAgent(BaseAgent):
         return "轮到你了"
 
     @staticmethod
+    def _extract_self_role(message: str) -> str:
+        m = re.search(r"身份为\s*([A-Za-z][A-Za-z ]*)", message)
+        return m.group(1).strip() if m else ""
+
+    @staticmethod
+    def _extract_kill_target_seat(message: str) -> int | None:
+        m = re.search(r"今晚狼人目标是\s*Player\s*(\d+)", message, re.IGNORECASE)
+        return int(m.group(1)) if m else None
+
+    @staticmethod
+    def _extract_remaining_potions(message: str, kind: str) -> dict[str, bool] | None:
+        if kind != _KIND_WITCH:
+            return None
+        save = HumanInteractiveAgent._witch_save_allowed(message)
+        poison_blocked = any(
+            marker in message
+            for marker in ("毒药已用完", "毒药已耗尽", "毒药不可用", "不能下毒")
+        )
+        return {"save": bool(save), "poison": not poison_blocked}
+
+    @staticmethod
+    def _extract_target_meta(message: str) -> list[dict[str, object]]:
+        meta: list[dict[str, object]] = []
+        for line in message.splitlines():
+            m = re.match(r"\s*-\s*座位\s*(\d+)[：:]\s*([^（(]+)", line)
+            if m:
+                meta.append({"seat": int(m.group(1)), "name": m.group(2).strip()})
+        return meta
+
+    @staticmethod
+    def _question_for(kind: str, title: str, message: str) -> str:
+        if kind == _KIND_WITCH:
+            seat = HumanInteractiveAgent._extract_kill_target_seat(message)
+            if seat is not None:
+                return f"今夜 {seat} 号被狼人袭击，是否用解药？"
+            return "今夜女巫行动：用药或跳过。"
+        if kind == _KIND_YESNO:
+            return f"{title}：是 / 否。"
+        return f"请选择一名目标（{title}）。"
+
+    @staticmethod
     def prepare_web_prompt(message: str) -> dict[str, object]:
         """Sanitize an engine prompt for browser human UI."""
         kind, n, allow_skip = HumanInteractiveAgent._classify(message)
@@ -330,6 +371,13 @@ class HumanInteractiveAgent(BaseAgent):
             "allow_skip": allow_skip,
             "allow_witch_save": allow_witch_save,
             "multi_count": n if kind == _KIND_MULTI else 0,
+            "self_role": HumanInteractiveAgent._extract_self_role(message),
+            "kill_target_seat": HumanInteractiveAgent._extract_kill_target_seat(message),
+            "remaining_potions": HumanInteractiveAgent._extract_remaining_potions(message, kind),
+            "question": HumanInteractiveAgent._question_for(
+                kind, HumanInteractiveAgent._title_for_kind(kind, message), message
+            ),
+            "target_meta": HumanInteractiveAgent._extract_target_meta(message),
         }
 
     @staticmethod

@@ -5,15 +5,19 @@ status: active
 source: initial_curated
 camp: villager
 quality_passed: True
-weight: 0.85
+weight: 0.75
 win_count: 0
-use_count: 3
+use_count: 5
 when_to_use: 第2轮及以后夜间：解药已用或场上已形成较清晰狼坑，需用毒药收轮次时；信念矩阵触发：对单一目标狼信≥0.7且该目标与白天票型/验人信息一致时
 belief_pattern: concentrated
 belief_signals: b1_top_above_0_7,vote_intention_set
 created_at: 2026-06-07T15:41:20+00:00
-updated_at: 2026-06-07T15:51:25+00:00
+updated_at: 2026-06-08T16:27:40+00:00
 ---
+
+描述：第2轮及以后夜间：解药已用或场上已形成较清晰狼坑，需用毒药收轮次时；信念矩阵触发：对单一目标狼信≥0.7且该目标与白天票型/验人信息一致时的情况下，使用该 skill
+
+描述：第2轮及以后夜间：解药已用或场上已形成较清晰狼坑，需用毒药收轮次时；信念矩阵触发：对单一目标狼信≥0.7且该目标与白天票型/验人信息一致时的情况下，使用该 skill
 
 描述：第2轮及以后夜间：解药已用或场上已形成较清晰狼坑，需用毒药收轮次时；信念矩阵触发：对单一目标狼信≥0.7且该目标与白天票型/验人信息一致时的情况下，使用该 skill
 

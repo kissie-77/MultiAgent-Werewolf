@@ -9,7 +9,7 @@ import WolfExposurePanel from "./WolfExposurePanel";
 import { clampDockWidth } from "../lib/dockWidth";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-export default React.memo(function InsightDock({ runId }: { runId: string | null }) {
+export default React.memo(function InsightDock({ runId, inStack }: { runId: string | null; inStack?: boolean }) {
   const { beliefs, voteSnapshot, players, speakerSeat } = useGameInsight(runId);
   const gameState = useGameStore(state => state.state);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -20,7 +20,7 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
 
   if (!beliefs || !voteSnapshot) {
     return (
-      <div className="pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden bg-[#0c0a09]/95 hidden md:flex flex-col z-40 rounded-b-xl absolute right-6 top-12"
+      <div className={`pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden bg-[#0c0a09]/95 flex flex-col z-40 rounded-b-xl ${inStack ? '' : 'absolute right-6 top-12 hidden md:flex'}`}
         style={{ width: '320px', maxHeight: 'calc(100vh - 4rem)' }}
       >
         <div className="text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 h-[2.5rem] shrink-0">
@@ -66,13 +66,13 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
         dragListener={false}
         dragControls={dragControls}
         dragMomentum={false}
-        className="pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden relative bg-[#0c0a09]/95 hidden md:flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl absolute right-6 top-12"
+        className={`pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden relative bg-[#0c0a09]/95 flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl ${inStack ? '' : 'absolute right-6 top-12 hidden md:flex'}`}
         style={{
           width: `${width}px`,
-          maxHeight: isExpanded ? 'calc(100vh - 4rem)' : '2.5rem'
+          maxHeight: isExpanded ? (inStack ? '40vh' : 'calc(100vh - 4rem)') : '2.5rem'
         }}
       >
-        {isExpanded && (
+        {isExpanded && !inStack && (
           <div
             onPointerDown={onResizeDown}
             onPointerMove={onResizeMove}
@@ -85,11 +85,11 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
         {/* Subtle gothic border styling inside */}
         <div className="absolute inset-0 pointer-events-none border border-amber-500/10 m-1 rounded-b-lg"></div>
 
-        {/* Accordion Toggle Header */}
+        {/* Accordion Toggle Header — draggable only when standalone */}
         <div 
           onClick={() => setIsExpanded(!isExpanded)}
-          onPointerDown={(e) => dragControls.start(e)}
-          className="text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 drop-shadow cursor-grab active:cursor-grabbing hover:bg-black/40 transition-colors z-20 h-[2.5rem] shrink-0"
+          onPointerDown={inStack ? undefined : (e) => dragControls.start(e)}
+          className={`text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 drop-shadow hover:bg-black/40 transition-colors z-20 h-[2.5rem] shrink-0 ${inStack ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
         >
            <div className="flex items-center gap-2 relative">
              <span className="text-[14px]">👁</span> 观战读心

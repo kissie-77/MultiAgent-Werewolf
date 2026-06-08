@@ -47,6 +47,7 @@ interface GameStore {
   submitHumanInput: (selection: HumanInputSelection) => Promise<void>;
   clearPendingInput: () => void;
   clearHumanInputError: () => void;
+  clearSkillFx: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -164,6 +165,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   clearPendingInput: () => set({ pendingInput: null }),
   clearHumanInputError: () => set({ humanInputError: null }),
+
+  clearSkillFx: () => {
+    const cur = get().state;
+    if (cur) set({ state: { ...cur, skillFx: null } });
+  },
 
   submitHumanInput: async (selection) => {
     const { pendingInput, playerToken, seatRunId } = get();

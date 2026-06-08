@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from datetime import datetime
@@ -16,6 +17,10 @@ from llm_werewolf.interface.api.models.common import (
     ArtifactRef,
     PlayerBrief,
     PaginatedList,
+)
+from llm_werewolf.game_runtime.config.provider_registry import (
+    PROVIDER_REGISTRY,
+    model_display_env_name,
 )
 from llm_werewolf.evaluation.post_game.run_context import (
     PlayerRosterEntry,
@@ -339,6 +344,32 @@ def _launch_roster_models(run_dir: Path) -> dict[str, str]:
     return out
 
 
+def _launch_roster_model_envs(run_dir: Path) -> dict[str, str]:
+    """Map model_id -> model_env from launch_roster.json.
+
+    Used to resolve friendly display names via ``{MODEL_ENV}_DISPLAY`` env vars.
+    """
+    path = run_dir / "launch_roster.json"
+    out: dict[str, str] = {}
+    if not path.is_file():
+        return out
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return out
+    players = data.get("players") if isinstance(data, dict) else None
+    if not isinstance(players, list):
+        return out
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        model = player.get("model")
+        model_env = player.get("model_env")
+        if model and model_env:
+            out[str(model)] = str(model_env)
+    return out
+
+
 def _resolve_seat_model(
     player_id: str, player_name: str | None, launch_models: dict[str, str]
 ) -> str | None:
@@ -349,6 +380,29 @@ def _resolve_seat_model(
     if not model or model in _HUMAN_SEAT_MODELS:
         return None
     return model
+
+
+def _resolve_display_name(model_id: str, model_env_map: dict[str, str]) -> str:
+    """Resolve a friendly display name for a model_id.
+
+    Priority:
+    1. ``{MODEL_ENV}_DISPLAY`` env var (user-defined friendly name)
+    2. Provider's ``default_model`` from registry (if model_id matches)
+    3. The raw model_id itself (fallback)
+    """
+    model_env = model_env_map.get(model_id)
+    if model_env:
+        # Check for {MODEL_ENV}_DISPLAY env var
+        display_env = model_display_env_name(model_env)
+        display_val = os.environ.get(display_env, "").strip()
+        if display_val:
+            return display_val
+        # If model_id is an endpoint id (ep-...), try provider registry for default_model
+        for spec in PROVIDER_REGISTRY.values():
+            if spec.model_env == model_env and spec.default_model:
+                return spec.default_model
+    # Fallback: return raw model_id
+    return model_id
 
 
 def _mvp_rows(run_dir: Path) -> list[dict]:
@@ -382,6 +436,8 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
         eval_runs_dir = Path("artifacts/eval_runs")
 
     stats: dict[str, dict] = {}
+    # model_id -> model_env mapping (collected across all runs)
+    model_env_map: dict[str, str] = {}
 
     def _bucket(model: str) -> dict:
         return stats.setdefault(model, {"runs": 0, "wins": 0, "mvp": []})
@@ -392,10 +448,18 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
         if not roster_map:
             continue
         launch_models = _launch_roster_models(path)
-        winner_camp = ctx.winner_camp
+        # Collect model_env mappings for display name resolution
+        model_env_map.update(_launch_roster_model_envs(path))
+        winner_camp = summary.winner_camp
+
+        ctx = None
+        with contextlib.suppress(Exception):
+            ctx = load_run_context(path)
 
         models_in_run: set[str] = set()
         winners_in_run: set[str] = set()
+        if ctx is None:
+            continue
         for entry in ctx.roster.values():
             model = getattr(entry, "ai_model", None) or _resolve_seat_model(
                 entry.player_id, entry.player_name, launch_models
@@ -428,10 +492,11 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
         run_count = bucket.get("runs", 0)
         wins = bucket.get("wins", 0)
         mvp_scores = bucket.get("mvp", [])
+        display_name = _resolve_display_name(model_id, model_env_map)
         result.append(
             ModelUsageStat(
                 model_id=model_id,
-                display_name=model_id,
+                display_name=display_name,
                 run_count=run_count,
                 win_rate=(wins / run_count) if run_count else None,
                 avg_mvp=(sum(mvp_scores) / len(mvp_scores)) if mvp_scores else None,

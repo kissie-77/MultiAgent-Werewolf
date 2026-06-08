@@ -43,6 +43,46 @@ export interface Player {
   votedFor?: number;
 }
 
+/** A single night action record — displayed in the NightActionLog component. */
+export interface NightActionEntry {
+  /** Monotonic id for React keys / animation. */
+  id: number;
+  /** Which night round this action belongs to. */
+  round: number;
+  /** The actor's seat. */
+  seat: number;
+  /** The actor's role name in Chinese (e.g. "预言家", "女巫", "狼人"). */
+  role: string;
+  /** SSE event_type string (e.g. "seer_checked", "werewolf_killed"). */
+  actionType: string;
+  /** Target seat, or null when the event doesn't have a single target. */
+  targetSeat: number | null;
+  /** Human-readable target name. */
+  targetName: string;
+  /** Optional result string (e.g. "好人" / "狼人" for seer checks). */
+  result: string | null;
+  /** Raw message from the backend (with emoji prefix). */
+  message: string;
+}
+
+/** A transient skill-effect overlay triggered when a night action result arrives. */
+export interface SkillFx {
+  /** Monotonic nonce so React treats each occurrence as a new animation. */
+  nonce: number;
+  /** SSE event_type (e.g. "seer_checked", "werewolf_killed"). */
+  actionType: string;
+  /** Actor's seat number. */
+  seat: number;
+  /** Actor's role name in Chinese. */
+  role: string;
+  /** Target seat, or null. */
+  targetSeat: number | null;
+  /** Human-readable target name. */
+  targetName: string;
+  /** Optional result (e.g. "好人" / "狼人" for seer). */
+  result: string | null;
+}
+
 export interface GameState {
   players: Player[];
   dayNumber: number;
@@ -61,6 +101,8 @@ export interface GameState {
     speechContext?: "day" | "sheriff" | "wolf";
   }[];
   eventLog: { round: number; phase: string; type: string; message: string }[];
+  /** Night action entries accumulated during the night, cleared when day breaks. */
+  nightActionLog: NightActionEntry[];
   /** Animation hooks — see `LiveCue` JSDoc. */
   liveCue: LiveCue;
   narration: string;
@@ -78,6 +120,8 @@ export interface GameState {
   hasSheriff?: boolean;
   sheriffId?: number | null;
   sheriffCandidates?: number[];
+  /** Transient skill-effect overlay (drives NightSkillOverlay). */
+  skillFx: SkillFx | null;
   /** Set when the backend reports the run crashed (game_failed SSE event). */
   failed?: boolean;
   failureMessage?: string;

@@ -20,7 +20,6 @@ help:
 	@echo "$(BOLD)MultiAgent-Werewolf 开发命令$(RESET)"
 	@echo ""
 	@echo "$(CYAN)环境$(RESET)"
-	@echo "  $(BOLD)make check-env$(RESET)      检查本地开发环境（Python / uv / Node.js / Docker）"
 	@echo "  $(BOLD)make setup$(RESET)          一键初始化：安装所有依赖 + 创建 .env + 配置 pre-commit"
 	@echo "  $(BOLD)make install$(RESET)        仅安装运行时 + 开发 + 测试依赖（不含 docs）"
 	@echo "  $(BOLD)make install-all$(RESET)    安装全部依赖组（含 docs）"
@@ -56,7 +55,7 @@ help:
 # ─── 环境 ───────────────────────────────────────────────────────────────────
 .PHONY: setup
 setup: _check-uv _reports-dir
-	@echo "$(GREEN)▶ 安装 Python 依赖（dev + test 组）...$(RESET)"
+	@echo "$(GREEN)▶ 安装依赖（dev + test 组）...$(RESET)"
 	$(UV) sync --group dev --group test
 	@if [ ! -f .env ]; then \
 		cp .env.example .env; \
@@ -66,16 +65,9 @@ setup: _check-uv _reports-dir
 	fi
 	@echo "$(GREEN)▶ 安装 pre-commit hooks...$(RESET)"
 	$(RUN) pre-commit install --install-hooks 2>/dev/null || true
-	@echo "$(GREEN)▶ 检查前端环境并安装依赖...$(RESET)"
-	@if command -v node >/dev/null 2>&1; then \
-		cd frontend && npm install && echo "$(GREEN)✔ 前端依赖安装完成$(RESET)"; \
-	else \
-		echo "$(YELLOW)⚠ Node.js 未检测到 — 跳过前端安装（仅后端可用）$(RESET)"; \
-		echo "$(YELLOW)  安装 Node.js ≥ 18 后运行: cd frontend && npm install$(RESET)"; \
-	fi
 	@echo ""
 	@echo "$(GREEN)✅ 环境初始化完成！$(RESET)"
-	@echo "   下一步：编辑 .env 填入 API Key，然后运行 $(BOLD)make dev$(RESET) 或 $(BOLD).\\dev.ps1$(RESET)（Windows）"
+	@echo "   下一步：编辑 .env 填入 API Key，然后运行 $(BOLD)make demo$(RESET) 测试。"
 
 .PHONY: install
 install: _check-uv _reports-dir
@@ -167,20 +159,6 @@ _check-uv:
 		echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"; \
 		exit 1; \
 	}
-
-# ── 环境自检 ─────────────────────────────────────────────────────────────
-.PHONY: check-env
-check-env:
-	@if [ "$$(uname -s)" = "Linux" ] || [ "$$(uname -s)" = "Darwin" ]; then \
-		bash ./scripts/check-env.sh; \
-	elif command -v pwsh >/dev/null 2>&1; then \
-		pwsh -ExecutionPolicy Bypass -File ./scripts/check-env.ps1; \
-	elif command -v powershell >/dev/null 2>&1; then \
-		powershell -ExecutionPolicy Bypass -File ./scripts/check-env.ps1; \
-	else \
-		echo "❌ 无法检测操作系统；请手动运行 scripts/check-env.sh 或 scripts/check-env.ps1"; \
-		exit 1; \
-	fi
 
 .PHONY: _reports-dir
 _reports-dir:

@@ -157,15 +157,6 @@ body,
   background: #3f3f46;
 }
 
-/* Hide scrollbar but keep scroll functionality */
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-none {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 @keyframes spin-slow {
   from {
     transform: rotate(0deg);

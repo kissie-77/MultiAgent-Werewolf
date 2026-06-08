@@ -6,21 +6,25 @@ import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import ExposureRadarStrip from "./ExposureRadarStrip";
 import VoteIntentionPanel from "./VoteIntentionPanel";
 import WolfExposurePanel from "./WolfExposurePanel";
+import WolfGodRoleColumn from "./WolfGodRoleColumn";
+import GodRoleIntelPanel from "./GodRoleIntelPanel";
+import { selectWolfMatrices } from "../lib/godRoleIntel";
 import { clampDockWidth } from "../lib/dockWidth";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-export default React.memo(function InsightDock({ runId, inStack }: { runId: string | null; inStack?: boolean }) {
-  const { beliefs, voteSnapshot, players, speakerSeat } = useGameInsight(runId);
+export default React.memo(function InsightDock({ runId }: { runId: string | null }) {
+  const { beliefs, voteSnapshot, players, speakerSeat, wolfCampMinds } = useGameInsight(runId);
   const gameState = useGameStore(state => state.state);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showIdentities, setShowIdentities] = useState(true);
+  const [godRoleOpen, setGodRoleOpen] = useState(false);
   const [width, setWidth] = useState(320);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const dragControls = useDragControls();
 
   if (!beliefs || !voteSnapshot) {
     return (
-      <div className={`pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden bg-[#0c0a09]/95 flex flex-col z-40 rounded-b-xl ${inStack ? '' : 'absolute right-6 top-12 hidden md:flex'}`}
+      <div className="pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden bg-[#0c0a09]/95 hidden md:flex flex-col z-40 rounded-b-xl absolute right-6 top-12"
         style={{ width: '320px', maxHeight: 'calc(100vh - 4rem)' }}
       >
         <div className="text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 h-[2.5rem] shrink-0">
@@ -40,6 +44,9 @@ export default React.memo(function InsightDock({ runId, inStack }: { runId: stri
   const roundLabel = beliefs.length > 0 ? `R${beliefs[0].round}·昼` : "-";
   const isLLMOnly = gameState?.gameMode === "llmOnly";
   const canShowIdentities = isLLMOnly && showIdentities;
+
+  const round = beliefs.length > 0 ? beliefs[0].round : 0;
+  const wolfMatrices = selectWolfMatrices(players, wolfCampMinds, round);
 
   const onResizeDown = (e: React.PointerEvent) => {
     e.stopPropagation(); // 阻止 framer-motion 的「拖拽移动面板」
@@ -66,13 +73,13 @@ export default React.memo(function InsightDock({ runId, inStack }: { runId: stri
         dragListener={false}
         dragControls={dragControls}
         dragMomentum={false}
-        className={`pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden relative bg-[#0c0a09]/95 flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl ${inStack ? '' : 'absolute right-6 top-12 hidden md:flex'}`}
+        className={`pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] ${isExpanded ? 'overflow-visible' : 'overflow-hidden'} relative bg-[#0c0a09]/95 hidden md:flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl absolute right-6 top-12`}
         style={{
           width: `${width}px`,
-          maxHeight: isExpanded ? (inStack ? '40vh' : 'calc(100vh - 4rem)') : '2.5rem'
+          maxHeight: isExpanded ? 'calc(100vh - 4rem)' : '2.5rem'
         }}
       >
-        {isExpanded && !inStack && (
+        {isExpanded && !(canShowIdentities && godRoleOpen) && (
           <div
             onPointerDown={onResizeDown}
             onPointerMove={onResizeMove}
@@ -82,14 +89,24 @@ export default React.memo(function InsightDock({ runId, inStack }: { runId: stri
           />
         )}
 
+        {isExpanded && canShowIdentities && (
+          <WolfGodRoleColumn
+            matrices={wolfMatrices}
+            players={players}
+            round={round}
+            isOpen={godRoleOpen}
+            onToggle={() => setGodRoleOpen((v) => !v)}
+          />
+        )}
+
         {/* Subtle gothic border styling inside */}
         <div className="absolute inset-0 pointer-events-none border border-amber-500/10 m-1 rounded-b-lg"></div>
 
-        {/* Accordion Toggle Header — draggable only when standalone */}
+        {/* Accordion Toggle Header */}
         <div 
           onClick={() => setIsExpanded(!isExpanded)}
-          onPointerDown={inStack ? undefined : (e) => dragControls.start(e)}
-          className={`text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 drop-shadow hover:bg-black/40 transition-colors z-20 h-[2.5rem] shrink-0 ${inStack ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+          onPointerDown={(e) => dragControls.start(e)}
+          className="text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 drop-shadow cursor-grab active:cursor-grabbing hover:bg-black/40 transition-colors z-20 h-[2.5rem] shrink-0"
         >
            <div className="flex items-center gap-2 relative">
              <span className="text-[14px]">👁</span> 观战读心
@@ -194,8 +211,19 @@ export default React.memo(function InsightDock({ runId, inStack }: { runId: stri
               />
 
               {canShowIdentities && <WolfExposurePanel beliefs={beliefs} players={players} />}
+
+              {canShowIdentities && wolfMatrices.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <div className="text-rose-400 font-serif font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                    🔪 狼·神职预测 <span className="text-rose-500/60 text-[10px] font-sans">R{round}</span>
+                  </div>
+                  {wolfMatrices.map((m) => (
+                    <GodRoleIntelPanel key={m.owner_seat} record={m} players={players} />
+                  ))}
+                </div>
+              )}
             </div>
-            
+
             {/* Close button for mobile */}
             <button 
               onClick={() => setIsExpanded(false)}

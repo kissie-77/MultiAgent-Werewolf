@@ -44,13 +44,6 @@ const roleDetails: Record<string, { name: string; desc: string; color: string; i
     color: "border-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.2)] text-slate-300",
     icon: <Users className="w-5 h-5" />,
     tag: "平民 · 逻辑基石"
-  },
-  平民: {
-    name: "村民 (Villager)",
-    desc: "逻辑分析，多数表决。不具备特殊技能，主要通过在白天听取发言、推导逻辑并利用选票放逐狼人。",
-    color: "border-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.2)] text-slate-300",
-    icon: <Users className="w-5 h-5" />,
-    tag: "平民 · 逻辑基石"
   }
 };
 
@@ -418,7 +411,6 @@ const SettingsPage = React.memo(function _SettingsPage({
               <div className="flex flex-col gap-4 bg-black/40 border border-slate-800 rounded p-4 relative overflow-hidden">
                 <div className="w-full max-w-[180px] mx-auto aspect-[3/4] border-2 border-amber-900/50 rounded-lg overflow-hidden shadow-[0_0_24px_rgba(245,158,11,0.12)] relative bg-black/60">
                   <img
-                    key={userRole}
                     src={getTarotImage(userRole)}
                     alt={userRole}
                     className="w-full h-full object-cover object-top"
@@ -440,15 +432,11 @@ const SettingsPage = React.memo(function _SettingsPage({
                       <option key={opt.key} value={opt.label}>{opt.label}</option>
                     ))}
                   </select>
-                  {(() => {
-                    const detail = roleDetails[userRole];
-                    if (!detail) return null;
-                    return (
-                      <p className="text-[10px] text-zinc-400 font-sans leading-relaxed text-center px-1">
-                        {detail.desc}
-                      </p>
-                    );
-                  })()}
+                  {roleDetails[userRole as keyof typeof roleDetails] && (
+                    <p className="text-[10px] text-zinc-400 font-sans leading-relaxed text-center px-1">
+                      {roleDetails[userRole as keyof typeof roleDetails].desc}
+                    </p>
+                  )}
                   <span className="text-[9px] text-zinc-500 font-mono leading-relaxed text-center">
                     仅可选择本局阵容中包含的身份；其余席位由 AI 随机发牌。
                   </span>

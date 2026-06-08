@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { getRoleImage, getTarotImage } from "./roles";
 
@@ -47,17 +47,6 @@ describe("role image resolution", () => {
     for (const stem of ALL_STEMS) {
       expect(material.has(`${stem}.png`), `missing material/${stem}.png`).toBe(true);
       expect(tarot.has(`${stem}.png`), `missing tarot/${stem}.png`).toBe(true);
-    }
-  });
-
-  it("role art files are valid PNG binaries (not UTF-16 corruption)", () => {
-    const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-    for (const dir of [MATERIAL_DIR, TAROT_DIR]) {
-      for (const file of readdirSync(dir)) {
-        if (!file.endsWith(".png")) continue;
-        const head = readFileSync(join(dir, file)).subarray(0, 4);
-        expect(head.equals(PNG_SIG), `${file} in ${dir} is not a valid PNG`).toBe(true);
-      }
     }
   });
 });

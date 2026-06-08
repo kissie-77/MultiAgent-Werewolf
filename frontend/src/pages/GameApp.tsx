@@ -2,19 +2,21 @@ import React, { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ThreeCanvas from "../components/ThreeCanvas";
 import SpeechConsole from "../components/SpeechConsole";
-import UnifiedGameHeader from "../components/UnifiedGameHeader";
+import TopHeader from "../components/TopHeader";
 import GameSetup from "../components/GameSetup";
 import GameOverPanel from "../components/GameOverPanel";
-
+import InsightDock from "../components/InsightDock";
 import { useGameStore } from "../store";
-import { Skull, Moon, MessageSquare } from "lucide-react";
+import { Skull, Moon } from "lucide-react";
 import AlertOverlays from "../components/AlertOverlays";
 import SeatCommandDock from "../components/SeatCommandDock";
 import IdentityHud from "../components/IdentityHud";
+import CardDeck from "../components/CardDeck";
+import CastSkillOverlay from "../components/CastSkillOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
+import LiveCueAnchors from "../components/LiveCueAnchors";
 import PhaseTransitionCard from "../components/PhaseTransitionCard";
-import RightPanelColumn from "../components/RightPanelColumn";
-import NightSkillOverlay from "../components/NightSkillOverlay";
+import PhaseBadge from "../components/PhaseBadge";
 
 export default function GameApp() {
   const navigate = useNavigate();
@@ -168,10 +170,17 @@ export default function GameApp() {
 
       <div className="absolute inset-0 flex flex-col pointer-events-none z-10 w-full h-full">
         <div className="pointer-events-auto">
-          <UnifiedGameHeader onExit={handleExitGame} isLiveRun={isLiveRun} />
+          <TopHeader onExit={handleExitGame} isLiveRun={isLiveRun} />
         </div>
 
+        <PhaseBadge />
+
         <div className="flex-grow flex flex-row w-full min-h-0 relative">
+          {isSeatView && (
+            <div className="w-[300px] shrink-0 h-full overflow-y-auto pointer-events-auto hidden md:block">
+              <CardDeck />
+            </div>
+          )}
           <div className="flex-grow flex flex-col min-w-0 h-full relative pointer-events-auto bg-transparent">
             <div className="flex-grow flex flex-col min-h-0 overflow-hidden relative">
               {gameState?.winner && (
@@ -192,41 +201,11 @@ export default function GameApp() {
             </div>
           </div>
 
-          {/* Right-side multi-module panel column */}
-          {insightEnabled && !isSeatView && (
-            <div className="w-[300px] shrink-0 pointer-events-auto overflow-y-auto py-3 pr-3 scrollbar-none">
-              <RightPanelColumn runId={runId} />
-            </div>
-          )}
-        </div>
-
-        {/* ═══ Bottom: Narration bar + 纯文本记录 ═══ */}
-        <div className="pointer-events-auto shrink-0">
-          <div className="w-full bg-gradient-to-t from-black/70 via-black/50 to-transparent px-5 py-2.5 flex items-center gap-3 border-t border-white/5">
-            <div className="w-7 h-7 rounded shrink-0 bg-red-950/40 border border-red-800/60 flex items-center justify-center text-red-500 font-serif font-black text-sm shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
-              ☠
-            </div>
-            <div className="flex flex-col truncate min-w-0 flex-1">
-              <span className="font-mono text-[10px] uppercase text-red-500 tracking-widest font-black leading-none mb-0.5 animate-pulse">
-                [ 审判官裁决引导布告 ]
-              </span>
-              <p className="font-sans text-sm text-zinc-200 leading-tight font-bold truncate">
-                {gameState?.narration || "幽暗城堡的丧钟敲响，所有人各就各位..."}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                // trigger the pure text history overlay in SpeechConsole via a custom event
-                window.dispatchEvent(new CustomEvent("toggle-pure-text-history"));
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/50 rounded-lg font-mono text-xs text-zinc-300 uppercase tracking-widest transition-colors cursor-pointer shrink-0"
-            >
-              <MessageSquare className="w-4 h-4 text-yellow-500" />
-              <span>纯文本记录 / {gameState?.speechLogs?.length ?? 0} 条</span>
-            </button>
-          </div>
+          {insightEnabled && !isSeatView && <InsightDock runId={runId} />}
         </div>
       </div>
+
+      <div className={`absolute inset-0 pointer-events-none border-[6px] z-50 rounded-2xl transition-colors duration-[2000ms] ${isNight ? "border-indigo-900/40 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]" : "border-amber-900/40 shadow-[inset_0_0_60px_rgba(30,10,0,0.8)]"}`} />
       <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-b pointer-events-none z-50 transition-colors duration-[2000ms] ${isNight ? "from-[#3b82f6]/40" : "from-[#f59e0b]/40"} to-transparent`} />
       <div className={`absolute inset-y-0 left-0 w-2 bg-gradient-to-r pointer-events-none z-50 transition-colors duration-[2000ms] ${isNight ? "from-[#8b5cf6]/30" : "from-[#d97706]/30"} to-transparent`} />
       <div className={`absolute inset-y-0 right-0 w-2 bg-gradient-to-l pointer-events-none z-50 transition-colors duration-[2000ms] ${isNight ? "from-[#8b5cf6]/30" : "from-[#d97706]/30"} to-transparent`} />
@@ -234,7 +213,8 @@ export default function GameApp() {
 
       <PhaseTransitionCard />
       <AlertOverlays />
-      <NightSkillOverlay />
+      <LiveCueAnchors />
+      <CastSkillOverlay />
       {isSeatView && <IdentityHud />}
       {isSeatView && <SeatCommandDock />}
     </div>

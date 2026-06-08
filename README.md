@@ -10,95 +10,62 @@
 
 ## 快速开始
 
-以下流程适用于 **Python CLI 模式**和 **Web 全栈开发**。
+### 前提
 
-### 1. 环境自检
-
-先检查本机是否满足所有开发前提：
-
-```bash
-# macOS / Linux（或 Git Bash）
-make check-env
-
-# Windows PowerShell
-.\scripts\check-env.ps1
-
-# 仅检查后端（跳过 Node.js）
-.\scripts\check-env.ps1 -SkipFrontend
-```
-
-脚本会检测以下工具是否存在、版本是否达标，并对缺失工具给出安装指引：
-
-| 工具 | 版本 | 用途 |
+| 工具 | 版本 | 安装 |
 |------|------|------|
-| Python | ≥ 3.10 | 运行后端游戏引擎 |
-| [uv](https://docs.astral.sh/uv/) | ≥ 0.4 | Python 依赖管理（uv 会自动获取 Python） |
-| Node.js | ≥ 18 | 前端 React 开发（仅全栈开发需要） |
-| npm | 随 Node.js | 前端依赖安装 |
-| Docker（可选） | 20+ | 生产部署 |
+| [uv](https://docs.astral.sh/uv/) | ≥ 0.4 | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Python | 3.10+ | 由 uv 自动管理（无需手动安装） |
 
-### 2. 一键初始化
+### 一键初始化（推荐）
 
 ```bash
-make setup
+git clone https://github.com/kissie-77/MultiAgent-Werewolf.git
+cd MultiAgent-Werewolf
+
+make setup          # 安装依赖 + 创建 .env + 配置 pre-commit
 ```
 
-`make setup` 会依次完成：
+`make setup` 会自动完成：安装 `dev` + `test` 依赖组、复制 `.env.example → .env`、安装 pre-commit hooks。
 
-1. **安装 Python 依赖**（`uv sync --group dev --group test`）
-2. **创建 `.env` 配置文件**（从 `.env.example` 复制，首次需要）
-3. **安装 pre-commit hooks**（代码质量自动检查）
-4. **安装前端依赖**（检测到 Node.js 时自动执行 `npm install`）
-
-> **Windows 用户注意**：如果本机没有 `make`，可以使用 Git Bash（`winget install Git.Git`），或手动执行：
-> ```powershell
-> uv sync --group dev --group test
-> if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-> cd frontend; npm install; cd ..
+> **不喜欢 Makefile？** 等价命令：
+> ```bash
+> uv sync --group dev --group test   # 安装依赖
+> cp .env.example .env               # 创建配置文件
 > ```
 
-### 3. 启动开发
+### 配置 API
 
-**全栈开发（Web 界面 + 后端）**：
-
-```powershell
-# Windows PowerShell（仓库根目录）
-.\dev.ps1
-
-# 打开浏览器
-.\dev.ps1 -OpenBrowser
-
-# 仅后端或仅前端
-.\dev.ps1 -BackendOnly
-.\dev.ps1 -FrontendOnly
-```
+编辑 `.env` 填入密钥，再复制/编辑对局配置：
 
 ```bash
-# macOS / Linux（仓库根目录）
-./dev.sh
-
-# 或
-make dev
+cp configs/example.yaml configs/my_game.yaml
+# 编辑 configs/my_game.yaml 与 .env
 ```
 
-默认端口：后端 `8010`，前端 `5173`（Vite 被占用时自动顺延）。
+YAML 里用 `api_key_env` / `model_env` 引用环境变量名，密钥只写进 `.env`：
 
-**CLI 模式（无需前端）**：
+```yaml
+language: en-US
+
+players:
+  - name: Player1
+    model: your-model-name        # 或 model_env: ARK_EP（Doubao）
+    base_url: https://your-api-url/v1
+    api_key_env: OPENAI_API_KEY   # 对应 .env 中的变量名
+  # ... 6-20 个玩家
+```
+
+支持任何兼容 OpenAI Chat Completions 格式的 API（DeepSeek、SiliconFlow、通义千问等）。
+
+### 运行游戏
 
 ```bash
-make demo                         # 6 人 Demo（无需 API Key）
-make demo9                        # 9 人 + 警徽流
+make demo                         # Demo 模式（无需 API Key，6 人随机 Agent）
+make demo9                        # Demo 模式（9 人 + 警徽流）
 
-uv run werewolf configs/my_game.yaml          # 自定义配置
+uv run werewolf configs/my_game.yaml          # 使用自定义配置
 uv run llm-werewolf --config configs/llm-6p-deepseek.yaml  # LLM 对战
-```
-
-**Docker 部署**：
-
-```bash
-cp .env.example .env              # 填入 API Key
-make docker-up                    # 构建并启动
-# → 访问 http://localhost
 ```
 
 ### 对局模式（命令行参数）
@@ -128,49 +95,63 @@ uv run llm-werewolf --config configs/human-6p-demo.yaml --players 9 --badge_flow
 > API Key 仅 LLM 玩家需要（写入 `.env`）；`human` / `demo` 座位无需 Key。详见
 > [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)。
 
-### 配置 API
+## 本地全栈开发（前端 + 后端）
 
-编辑 `.env` 填入密钥，再复制/编辑对局配置：
+Web 联调默认端口：**后端 `8010`**，**前端 `5173`**（占用时自动顺延）。
+
+### 一键启动（推荐）
+
+```powershell
+# Windows — 在仓库根目录执行（新开 API 窗口 + 当前窗口跑 Vite）
+.\dev.ps1
+```
 
 ```bash
-cp configs/example.yaml configs/my_game.yaml
-# 编辑 configs/my_game.yaml 与 .env
+# macOS / Linux — 在仓库根目录执行
+./dev.sh
+# 或 make dev（等价于 ./dev.sh）
 ```
 
-YAML 里用 `api_key_env` / `model_env` 引用环境变量名，密钥只写进 `.env`：
+分开启动：`make dev-api` 与 `make dev-web`（两个终端）。约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，排错见 [docs/frontend/DEV.md](docs/frontend/DEV.md)。
 
-```yaml
-language: en-US
+### 手动分步启动
 
-players:
-  - name: Player1
-    model: your-model-name        # 或 model_env: ARK_EP（Doubao）
-    base_url: https://your-api-url/v1
-    api_key_env: OPENAI_API_KEY   # 对应 .env 中的变量名
-  # ... 6-20 个玩家
-```
-
-支持任何兼容 OpenAI Chat Completions 格式的 API（DeepSeek、SiliconFlow、通义千问等）。
-
-## 全栈开发
-
-Web 联调默认端口：**后端 `8010`**，**前端 `5173`**。
-
-### 手动分步启动（两个终端）
-
-**终端 1 — 后端**
+**1) 启动后端 API**
 
 ```bash
-OBS_READY_REQUIRE_LLM=0 uv run werewolf-api --port 8010
+# 仓库根目录；注入有效 LLM Key（仅 AI 座位需要），端口 8010
+DEEPSEEK_API_KEY=sk-xxxx OBS_READY_REQUIRE_LLM=0 uv run werewolf-api --port 8010
 ```
 
-**终端 2 — 前端**
+- `DEEPSEEK_API_KEY`：AI 座位调用 LLM 用的密钥（也可写进 `.env`）；纯 demo 观战可省略。
+- `OBS_READY_REQUIRE_LLM=0`：让 `/ready` 不强制校验 LLM，没真 Key 时也能通过就绪检查。
+- 健康检查：`GET http://localhost:8010/health` → `{"status":"ok"}`；`GET /ready` → `{"status":"ready"}`。
+
+**2) 启动前端**
 
 ```bash
-cd frontend && npm install && npm run dev
+cd frontend
+npm install          # 首次
+npm run dev
 ```
 
-更多排查见 [docs/frontend/DEV.md](docs/frontend/DEV.md) 和 [docs/reports/前后端打通与人机对战-2026-06-06.md](docs/reports/前后端打通与人机对战-2026-06-06.md)。
+- 开发代理默认指向 `http://127.0.0.1:8010`（见 `frontend/.env.development` 与 `frontend/vite.config.ts`）。
+- 若后端换端口，改 `frontend/.env.development` 里的 `VITE_API_PROXY`，或临时：`$env:VITE_API_PROXY="http://127.0.0.1:8010"; npm run dev`（PowerShell）。
+- Vite 默认开在 `http://localhost:5173`（端口被占用时自动顺延，以终端打印为准）。
+- 更多排查见 [docs/frontend/DEV.md](docs/frontend/DEV.md)。
+
+**3) 进入游戏**
+
+浏览器打开 Vite 打印的地址 →「进入盘面」：
+
+- **观战（god 视角）**：直接看 6 个 AI 互相博弈（白天发言 / 黑夜狼聊 / 投票全程，SSE 实时下行）。
+- **人机对战（座位视角）**：在开局设置里选模式 + 座位；开局后带 `player_token` 跳到座位视图，URL 形如
+  `/game?run_id=<id>&view=seat&seat=<N>&token=<player_token>`，轮到你时弹层让你发言 / 投票 / 用药。
+
+> 端口一致性：后端用哪个端口，前端 `VITE_API_PROXY` 就填哪个，否则 `/api` 转发 404。
+> 密钥安全：AI 座位的 Key 只在服务端环境变量里（不进前端、不进请求体）；座位令牌 `seat{N}-{run_id}` 仅防误操作。
+
+前后端打通与人机对战的完整说明见 [docs/reports/前后端打通与人机对战-2026-06-06.md](docs/reports/前后端打通与人机对战-2026-06-06.md)。
 
 ## 并行多栈（fleet）：同时开多局
 

@@ -2,14 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useGameStore } from "../store";
 import { motion, AnimatePresence } from "motion/react";
 import { getTarotImage } from "../utils/roles";
-import {
-  playInspectSFX,
-  playHealSFX,
-  playPoisonSFX,
-  playBiteSFX,
-  playShootSFX,
-  playVoteSFX,
-} from "../utils/audio";
 
 /** Per-effect accent color (card glow + ambient flash) and particle tint. */
 function themeFor(effectType: string): { accentColor: string; particleColor: string } {
@@ -44,16 +36,6 @@ export default function CastSkillOverlay() {
   // Trigger SFX + particles on each new cast, then auto-dismiss.
   useEffect(() => {
     if (!activeCast) return;
-
-    switch (activeCast.effectType) {
-      case "inspect": playInspectSFX(); break;
-      case "heal": playHealSFX(); break;
-      case "poison": playPoisonSFX(); break;
-      case "bite": playBiteSFX(); break;
-      case "shoot": playShootSFX(); break;
-      case "vote":
-      case "rally": playVoteSFX(); break;
-    }
 
     setParticleList(
       Array.from({ length: 25 }).map((_, i) => ({

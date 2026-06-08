@@ -8,6 +8,7 @@ import {
 } from "./lib/gameReducer";
 import { streamUrl } from "./api/sse";
 import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat } from "./lib/insightMap";
+import type { CoarseStage } from "./lib/phaseStage";
 
 /** Monotonic token so stale SSE connect callbacks are ignored after disconnect/switch. */
 let sseConnectGen = 0;
@@ -28,6 +29,10 @@ interface GameStore {
   insightVote: import("./api/insightTypes").VoteIntentionSnapshot | null;
   insightSpeakerSeat: number | null;
   spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
+  /** Transient phase-transition signal (drives the cinematic card, flash, and camera). */
+  stageFx: { stage: CoarseStage; nonce: number } | null;
+  fireStageFx: (stage: CoarseStage) => void;
+  clearStageFx: () => void;
   connectSpectate: (runId: string) => void;
   disconnectSpectate: () => void;
 
@@ -65,6 +70,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   insightVote: null,
   insightSpeakerSeat: null,
   spectateRoster: null,
+  stageFx: null,
+
+  fireStageFx: (stage) =>
+    set((s) => ({ stageFx: { stage, nonce: (s.stageFx?.nonce ?? 0) + 1 } })),
+  clearStageFx: () => set({ stageFx: null }),
 
   connectSpectate: (runId) => {
     get().disconnectSpectate();
@@ -125,7 +135,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     sseConnectGen += 1;
     const es = get().spectateSource;
     if (es) es.close();
-    set({ spectateSource: null });
+    set({ spectateSource: null, stageFx: null });
   },
 
   pendingInput: null,

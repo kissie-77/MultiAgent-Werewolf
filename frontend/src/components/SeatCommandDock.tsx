@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useGameStore } from "../store";
+import { soundManager } from "../audio/soundManager";
 import { remainingSeconds } from "../lib/countdown";
 import type { HumanInputSelection } from "../lib/humanInput";
 
@@ -44,6 +45,15 @@ export default function SeatCommandDock() {
   }, [requestId, deadlineSec]);
 
   const remaining = remainingSeconds(deadlineSec, startedAtMs, nowMs);
+
+  const prevRemainingRef = useRef<number>(remaining);
+  useEffect(() => {
+    if (remaining !== prevRemainingRef.current) {
+      if (remaining > 0 && remaining <= 10) soundManager.playUi("ui_tick");
+      prevRemainingRef.current = remaining;
+    }
+  }, [remaining]);
+
   const expired = deadlineSec > 0 && remaining <= 0;
   const locked = submitting || expired;
 
@@ -137,7 +147,7 @@ export default function SeatCommandDock() {
           <div className="flex flex-col gap-3">
             <div className="flex gap-2 overflow-x-auto pb-1">
               {targets.map((seat) => (
-                <TargetCard key={seat} seat={seat} active={selected === seat} onClick={() => setSelected(selected === seat ? null : seat)} />
+                <TargetCard key={seat} seat={seat} active={selected === seat} onClick={() => { soundManager.playUi("ui_click"); setSelected(selected === seat ? null : seat); }} />
               ))}
             </div>
             <div className="flex gap-2">
@@ -182,7 +192,7 @@ export default function SeatCommandDock() {
                 <span className="font-mono text-[10px] text-purple-300/80 uppercase tracking-widest">毒药目标</span>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {targets.map((seat) => (
-                    <TargetCard key={seat} seat={seat} active={selected === seat} onClick={() => setSelected(selected === seat ? null : seat)} />
+                    <TargetCard key={seat} seat={seat} active={selected === seat} onClick={() => { soundManager.playUi("ui_click"); setSelected(selected === seat ? null : seat); }} />
                   ))}
                 </div>
                 <button type="button" disabled={locked || selected == null}
@@ -215,7 +225,7 @@ export default function SeatCommandDock() {
             )}
             <div className="flex gap-2 overflow-x-auto pb-1">
               {targets.map((seat) => (
-                <TargetCard key={seat} seat={seat} active={multiSel.includes(seat)} onClick={() => toggleMulti(seat)} />
+                <TargetCard key={seat} seat={seat} active={multiSel.includes(seat)} onClick={() => { soundManager.playUi("ui_click"); toggleMulti(seat); }} />
               ))}
             </div>
             <button type="button"

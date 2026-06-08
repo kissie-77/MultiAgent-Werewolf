@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { soundManager } from "../audio/soundManager";
 import { motion, AnimatePresence, useDragControls } from "motion/react";
 import { useGameInsight } from "../hooks/useGameInsight";
 import { useGameStore } from "../store";
@@ -103,8 +104,12 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
         <div className="absolute inset-0 pointer-events-none border border-amber-500/10 m-1 rounded-b-lg"></div>
 
         {/* Accordion Toggle Header */}
-        <div 
-          onClick={() => setIsExpanded(!isExpanded)}
+        <div
+          onClick={() => {
+            const next = !isExpanded;
+            soundManager.playUi(next ? "ui_panel_open" : "ui_panel_close");
+            setIsExpanded(next);
+          }}
           onPointerDown={(e) => dragControls.start(e)}
           className="text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 drop-shadow cursor-grab active:cursor-grabbing hover:bg-black/40 transition-colors z-20 h-[2.5rem] shrink-0"
         >
@@ -157,7 +162,11 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
       {/* Mobile Bottom Drawer Toggle (Always visible button on mobile) */}
       <div className="md:hidden absolute top-[70%] right-0 pointer-events-auto z-40">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={() => {
+            const next = !isExpanded;
+            soundManager.playUi(next ? "ui_panel_open" : "ui_panel_close");
+            setIsExpanded(next);
+          }}
           className="bg-zinc-950 border-y border-l border-amber-900/60 text-amber-500 w-8 h-12 rounded-l cursor-pointer flex items-center justify-center shadow-[-4px_0_15px_rgba(0,0,0,0.8)]"
         >
            <span className="text-xs font-bold">👁</span>
@@ -225,8 +234,11 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
             </div>
 
             {/* Close button for mobile */}
-            <button 
-              onClick={() => setIsExpanded(false)}
+            <button
+              onClick={() => {
+                soundManager.playUi("ui_panel_close");
+                setIsExpanded(false);
+              }}
               className="absolute top-3 right-4 w-8 h-8 flex items-center justify-center bg-zinc-900 border border-amber-900/50 rounded-full text-amber-500 cursor-pointer"
             >
               ✕

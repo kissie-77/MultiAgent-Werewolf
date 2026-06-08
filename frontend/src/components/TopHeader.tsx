@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Clock, Flame, LogOut, Home } from "lucide-react";
+import { Sun, Moon, Clock, Flame, LogOut, Home, Volume2, VolumeX } from "lucide-react";
 import { useGameStore } from "../store";
 
 export default React.memo(function TopHeader({
@@ -13,6 +13,10 @@ export default React.memo(function TopHeader({
   const phase = gameState?.phase;
   const dayNumber = gameState?.dayNumber || 1;
   const exitGame = useGameStore((state) => state.exitGame);
+  const audioMuted = useGameStore((s) => s.audioMuted);
+  const sfxVolume = useGameStore((s) => s.sfxVolume);
+  const setAudioMuted = useGameStore((s) => s.setAudioMuted);
+  const setSfxVolume = useGameStore((s) => s.setSfxVolume);
 
   const [localSecondsLeft, setLocalSecondsLeft] = useState<number>(30);
   const [confirmExit, setConfirmExit] = useState(false);
@@ -99,6 +103,22 @@ export default React.memo(function TopHeader({
       </div>
 
       <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setAudioMuted(!audioMuted)}
+            aria-label={audioMuted ? "取消静音" : "静音"}
+            className="h-7 w-7 rounded border border-zinc-800 bg-zinc-950/30 hover:bg-zinc-900/50 text-zinc-300 flex items-center justify-center cursor-pointer"
+          >
+            {audioMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+          </button>
+          <input
+            type="range" min={0} max={1} step={0.05} value={sfxVolume}
+            onChange={(e) => setSfxVolume(Number(e.target.value))}
+            aria-label="音效音量"
+            className="w-16 accent-yellow-500 cursor-pointer hidden sm:block"
+          />
+        </div>
         <button
           type="button"
           onClick={() => window.history.back()}

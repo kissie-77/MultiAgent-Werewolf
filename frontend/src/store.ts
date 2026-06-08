@@ -9,9 +9,33 @@ import {
 } from "./lib/gameReducer";
 import { streamUrl } from "./api/sse";
 import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat, mapWolfCampEvent } from "./lib/insightMap";
-import { castFromSkillSubmit, castFromEvent } from "./lib/castMap";
+import { castFromSkillSubmit, castFromEvent, effectTypeForEvent, effectTypeForRole } from "./lib/castMap";
+import { soundManager } from "./audio/soundManager";
+import { effectTypeSfx, eventSfx, type SfxId } from "./audio/soundMap";
+import type { SseEvent } from "./lib/gameReducer";
 import type { CoarseStage } from "./lib/phaseStage";
 import type { WolfCampMindV2 } from "./lib/godRoleIntel";
+
+function readAudioPref(): { muted: boolean; volume: number } {
+  try {
+    const raw = localStorage.getItem("ww_audio");
+    if (raw) {
+      const p = JSON.parse(raw);
+      return { muted: !!p.muted, volume: typeof p.volume === "number" ? p.volume : 0.8 };
+    }
+  } catch { /* ignore */ }
+  return { muted: false, volume: 0.8 };
+}
+function writeAudioPref(p: { muted: boolean; volume: number }): void {
+  try { localStorage.setItem("ww_audio", JSON.stringify(p)); } catch { /* ignore */ }
+}
+
+/** 单点：从一条 SSE 事件派发"技能/事件"音（座位安全由流可见性保证）。 */
+function dispatchSseSound(ev: SseEvent): void {
+  const et = effectTypeForEvent(ev.event_type);
+  const sid: SfxId | null = et ? effectTypeSfx[et] : eventSfx(ev);
+  if (sid) soundManager.playGameplay(sid, ev.event_id);
+}
 
 /** Monotonic token so stale SSE connect callbacks are ignored after disconnect/switch. */
 let sseConnectGen = 0;
@@ -21,6 +45,10 @@ interface GameStore {
   isLoading: boolean;
   setupCount: number | null;
   insightEnabled: boolean;
+  audioMuted: boolean;
+  sfxVolume: number;
+  setAudioMuted: (m: boolean) => void;
+  setSfxVolume: (v: number) => void;
   setSetupCount: (count: number | null) => void;
   setInsightEnabled: (enabled: boolean) => void;
   exitGame: () => void;
@@ -65,6 +93,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isLoading: false,
   setupCount: null,
   insightEnabled: true,
+  audioMuted: readAudioPref().muted,
+  sfxVolume: readAudioPref().volume,
+  setAudioMuted: (m) => {
+    soundManager.setMuted(m);
+    writeAudioPref({ muted: m, volume: get().sfxVolume });
+    set({ audioMuted: m });
+  },
+  setSfxVolume: (v) => {
+    soundManager.setSfxVolume(v);
+    writeAudioPref({ muted: get().audioMuted, volume: v });
+    set({ sfxVolume: v });
+  },
 
   setSetupCount: (count) => set({ setupCount: count }),
   setInsightEnabled: (enabled) => set({ insightEnabled: enabled }),
@@ -126,6 +166,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ state: reduceEvent(cur, ev) });
         const cast = castFromEvent(ev, get().state?.players);
         if (cast) get().triggerCast(cast);
+        dispatchSseSound(ev);
         if (ev.event_type === "belief_snapshot") {
           set({ insightBeliefs: mapBeliefEvent(ev.data), insightSpeakerSeat: mapSpeakerSeat(ev.data) });
         } else if (ev.event_type === "vote_intention_snapshot") {
@@ -173,6 +214,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const t = event.event_type;
     if (t === "awaiting_input") {
       set({ pendingInput: event, humanInputError: null, selectedTargetSeat: null });
+      soundManager.playUi("ui_your_turn");
       return true;
     }
     if (t === "input_received" || t === "input_timeout") {
@@ -180,6 +222,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (cur && (event.request_id == null || event.request_id === cur.request_id)) {
         set({ pendingInput: null });
       }
+      if (t === "input_timeout") soundManager.playUi("ui_timeout");
       return true;
     }
     return false;
@@ -204,6 +247,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         payload,
       });
       set({ pendingInput: null, humanInputError: null });
+      soundManager.playUi("ui_submit");
       // Fire the local tarot-cast cinematic for the human's own skill action.
       const kind = pendingInput.kind;
       const players = get().state?.players ?? [];
@@ -220,6 +264,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             targetName,
           })
         );
+        soundManager.playGameplay(effectTypeSfx[effectTypeForRole(selfRole)]);
       }
       set({ selectedTargetSeat: null });
     } catch (err) {
@@ -280,6 +325,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const cast = castFromEvent(ev, get().state?.players);
           if (cast) get().triggerCast(cast);
         }
+        dispatchSseSound(ev);
       } catch (err) {
         console.error("bad sse event", err);
       }
@@ -294,3 +340,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ spectateSource: es });
   },
 }));
+
+{
+  const init = useGameStore.getState();
+  soundManager.setMuted(init.audioMuted);
+  soundManager.setSfxVolume(init.sfxVolume);
+}

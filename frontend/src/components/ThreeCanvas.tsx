@@ -2,8 +2,11 @@ import React, { useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
+import { useReducedMotion } from "motion/react";
 import { useGameStore } from "../store";
 import { ESTABLISH_MS } from "../lib/phaseStage";
+import { decideCamera, RECENTER_HOLD_MS } from "../lib/cameraDirector";
+import type { GameState } from "../types";
 
 function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
   const { scene } = useThree();
@@ -79,64 +82,45 @@ function CameraTracker() {
   const { camera } = useThree();
   const gameState = useGameStore((state) => state.state);
   const setupCount = useGameStore((state) => state.setupCount);
-  const currentSpeakerId = gameState?.currentSpeakerId;
+  const currentSpeakerId = gameState?.currentSpeakerId ?? null;
   const players = gameState?.players || [];
   const phase = gameState?.phase;
-  const stageFx = useGameStore((state) => state.stageFx);
+  const reducedMotion = useReducedMotion() ?? false;
 
-  // 相机位置和目标位置的插值目标
-  const targetCamPos = useRef(new THREE.Vector3(0, 8.5, 12.0));
+  // Damp targets (seeded at the unified home framing for a 6-seat table).
+  const targetCamPos = useRef(new THREE.Vector3(0, 9.25, 13));
   const targetLookAt = useRef(new THREE.Vector3(0, 0.4, 0));
   const currentLookAt = useRef(new THREE.Vector3(0, 0.4, 0));
-  // 阶段切换「建立镜头」窗口
-  const establishUntilRef = useRef<number>(0);
-  const lastFxNonceRef = useRef<number>(0);
 
-  // 每次新的过场信号 -> 开启一段拉回全景的建立镜头窗口
+  // "Wide window" timers (performance.now() deadlines; 0 = inactive).
+  const establishUntilRef = useRef<number>(0);
+  const recenterUntilRef = useRef<number>(0);
+  const prevPhaseRef = useRef<GameState["phase"] | undefined>(phase);
+  const prevSpeakerRef = useRef<number | null>(currentSpeakerId);
+
+  // Any in-game phase change (coarse day/night OR a sub-phase like vote/sheriff/
+  // night-skill) opens a wide "establish" beat. Lobby is excluded (it orbits).
   useEffect(() => {
-    const nonce = stageFx?.nonce ?? 0;
-    if (nonce && nonce !== lastFxNonceRef.current) {
-      lastFxNonceRef.current = nonce;
+    const prev = prevPhaseRef.current;
+    if (phase && phase !== prev && phase !== "START_SCREEN") {
       establishUntilRef.current = performance.now() + ESTABLISH_MS;
     }
-  }, [stageFx?.nonce]);
+    prevPhaseRef.current = phase;
+  }, [phase]);
 
+  // A speech ending (speaker moving away from a previous speaker) opens a wide
+  // "hold" beat that deliberately survives into the next speaker's first moments.
   useEffect(() => {
-    if (phase === "START_SCREEN") {
-      return; // 已在 useFrame 中直接处理缓慢轨道运动
+    const prev = prevSpeakerRef.current;
+    if (prev != null && currentSpeakerId !== prev) {
+      recenterUntilRef.current = performance.now() + RECENTER_HOLD_MS;
     }
-    if (currentSpeakerId) {
-      // 查找发言者位置
-      const speakerIndex = players.findIndex((p) => p.id === currentSpeakerId);
-      if (speakerIndex !== -1) {
-        const total = Math.max(1, players.length);
-        const angle = (speakerIndex / total) * Math.PI * 2;
-        const radius = Math.max(5, total * 0.72); // 动态半径
-
-        // 相机靠近发言者
-        const sX = Math.sin(angle) * radius;
-        const sZ = Math.cos(angle) * radius;
-
-        // 相机定位到活跃发言者兜帽人偶附近
-        targetCamPos.current.set(sX * 1.55, radius * 1.2, sZ * 1.55);
-        targetLookAt.current.set(sX * 0.8, 0.8, sZ * 0.8);
-      }
-    } else {
-      // 返回圆桌全景视角
-      const radius = Math.max(5, players.length * 0.72);
-      targetCamPos.current.set(0, radius * 1.5, radius * 2.2);
-      targetLookAt.current.set(0, 0.4, 0);
-    }
-  }, [currentSpeakerId, players, phase]);
+    prevSpeakerRef.current = currentSpeakerId;
+  }, [currentSpeakerId]);
 
   useFrame((state, delta) => {
-    // MathUtils.damp 参数：(当前值, 目标值, lambda, dt)
-    // lambda：平滑因子（值越大越快）
-    const dampingSpeedPos = 3.5;
-    const dampingSpeedLookAt = 4.0;
-    
+    // Lobby keeps its bespoke slow-orbit framing, untouched.
     if (phase === "START_SCREEN") {
-      // 背景轨道缓慢旋转运动
       const time = state.clock.getElapsedTime();
       const orbitSpeed = 0.08;
       const pCount = setupCount !== null ? setupCount : (players.length || 6);
@@ -145,44 +129,55 @@ function CameraTracker() {
 
       const x = Math.sin(time * orbitSpeed) * orbitRadius;
       const z = Math.cos(time * orbitSpeed) * orbitRadius;
-
       targetCamPos.current.set(x, radius * 1.6, z);
-      
-      // 基于相机向量计算局部左偏移目标 
-      // 让圆桌视觉上偏移到屏幕右侧
-      const dirVec = new THREE.Vector3().subVectors(new THREE.Vector3(0, 0.4, 0), targetCamPos.current).normalize();
+
+      // Offset the look target so the round table sits to the screen's right.
+      const dirVec = new THREE.Vector3()
+        .subVectors(new THREE.Vector3(0, 0.4, 0), targetCamPos.current)
+        .normalize();
       const upVec = new THREE.Vector3(0, 1, 0);
       const rightVec = new THREE.Vector3().crossVectors(dirVec, upVec).normalize();
-      
-      // 将注视目标稍微向左偏移（使视觉中心向右移动）
-      // 使用 window.innerWidth 缩放偏移量。如果宽度小于高度，则不偏移。
       let offsetScale = 0;
-      if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
+      if (typeof window !== "undefined" && window.innerWidth > window.innerHeight) {
         offsetScale = radius * 0.8;
       }
-      
       const lookTarget = new THREE.Vector3(0, 0.4, 0).add(rightVec.multiplyScalar(-offsetScale));
       targetLookAt.current.copy(lookTarget);
-    } 
 
-    // 阶段切换的脚本化建立镜头：拉回圆桌俯瞰全景，盖过发言者跟随
-    if (performance.now() < establishUntilRef.current && phase !== "START_SCREEN") {
-      const pCount = setupCount !== null ? setupCount : (players.length || 6);
-      const radius = Math.max(5, pCount * 0.72);
-      targetCamPos.current.set(0, radius * 1.85, radius * 2.6);
-      targetLookAt.current.set(0, 0.4, 0);
+      camera.position.x = THREE.MathUtils.damp(camera.position.x, targetCamPos.current.x, 3.5, delta);
+      camera.position.y = THREE.MathUtils.damp(camera.position.y, targetCamPos.current.y, 3.5, delta);
+      camera.position.z = THREE.MathUtils.damp(camera.position.z, targetCamPos.current.z, 3.5, delta);
+      currentLookAt.current.x = THREE.MathUtils.damp(currentLookAt.current.x, targetLookAt.current.x, 4.0, delta);
+      currentLookAt.current.y = THREE.MathUtils.damp(currentLookAt.current.y, targetLookAt.current.y, 4.0, delta);
+      currentLookAt.current.z = THREE.MathUtils.damp(currentLookAt.current.z, targetLookAt.current.z, 4.0, delta);
+      camera.lookAt(currentLookAt.current);
+      return;
     }
 
-    // 平滑步进位置，帧率无关
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, targetCamPos.current.x, dampingSpeedPos, delta);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, targetCamPos.current.y, dampingSpeedPos, delta);
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, targetCamPos.current.z, dampingSpeedPos, delta);
+    const count = players.length > 0 ? players.length : (setupCount ?? 6);
+    const speakerIndex =
+      currentSpeakerId != null ? players.findIndex((p) => p.id === currentSpeakerId) : -1;
 
-    // 平滑步进注视坐标
-    currentLookAt.current.x = THREE.MathUtils.damp(currentLookAt.current.x, targetLookAt.current.x, dampingSpeedLookAt, delta);
-    currentLookAt.current.y = THREE.MathUtils.damp(currentLookAt.current.y, targetLookAt.current.y, dampingSpeedLookAt, delta);
-    currentLookAt.current.z = THREE.MathUtils.damp(currentLookAt.current.z, targetLookAt.current.z, dampingSpeedLookAt, delta);
-    
+    const decision = decideCamera({
+      phase,
+      speakerIndex: speakerIndex >= 0 ? speakerIndex : null,
+      count,
+      nowMs: performance.now(),
+      establishUntilMs: establishUntilRef.current,
+      recenterUntilMs: recenterUntilRef.current,
+      reducedMotion,
+    });
+
+    targetCamPos.current.set(decision.pos[0], decision.pos[1], decision.pos[2]);
+    targetLookAt.current.set(decision.look[0], decision.look[1], decision.look[2]);
+
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, targetCamPos.current.x, decision.posLambda, delta);
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, targetCamPos.current.y, decision.posLambda, delta);
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, targetCamPos.current.z, decision.posLambda, delta);
+
+    currentLookAt.current.x = THREE.MathUtils.damp(currentLookAt.current.x, targetLookAt.current.x, decision.lookLambda, delta);
+    currentLookAt.current.y = THREE.MathUtils.damp(currentLookAt.current.y, targetLookAt.current.y, decision.lookLambda, delta);
+    currentLookAt.current.z = THREE.MathUtils.damp(currentLookAt.current.z, targetLookAt.current.z, decision.lookLambda, delta);
     camera.lookAt(currentLookAt.current);
   });
 
@@ -810,7 +805,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
       <Canvas
         shadows
         gl={{ antialias: true }}
-        camera={{ position: [0, 8.5, 12.0], fov: 45 }}
+        camera={{ position: [0, 9.25, 13], fov: 45 }}
         style={{ pointerEvents: "auto" }}
       >
         <EnvironmentController isNight={isNight} isMurderAlert={isMurderAlert} />

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { soundManager } from "./audio/soundManager";
 import { useGameStore } from "./store";
 import { ApiClient } from "./api/client";
 import type { AwaitingInputEvent } from "./api/types";
@@ -123,5 +124,27 @@ describe("store: cast + selection", () => {
     expect(useGameStore.getState().selectedTargetSeat).toBe(4);
     useGameStore.getState().setSelectedTargetSeat(null);
     expect(useGameStore.getState().selectedTargetSeat).toBeNull();
+  });
+});
+
+describe("store: seat prompt sounds", () => {
+  it("plays your_turn on awaiting_input", () => {
+    const spy = vi.spyOn(soundManager, "playUi");
+    useGameStore.getState().ingestSeatEvent({
+      event_type: "awaiting_input", request_id: "r1", kind: "seat", seat: 1,
+    });
+    expect(spy).toHaveBeenCalledWith("ui_your_turn");
+    spy.mockRestore();
+  });
+  it("plays timeout on input_timeout", () => {
+    useGameStore.getState().ingestSeatEvent({
+      event_type: "awaiting_input", request_id: "r2", kind: "seat", seat: 1,
+    });
+    const spy = vi.spyOn(soundManager, "playUi");
+    useGameStore.getState().ingestSeatEvent({
+      event_type: "input_timeout", request_id: "r2", kind: "seat", seat: 1,
+    });
+    expect(spy).toHaveBeenCalledWith("ui_timeout");
+    spy.mockRestore();
   });
 });

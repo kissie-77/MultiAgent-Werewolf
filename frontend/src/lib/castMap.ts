@@ -31,37 +31,119 @@ export function skillMetaForRole(role: string): { skillName: string; skillSub: s
   }
 }
 
-function seatFrom(data: Record<string, unknown> | undefined): number | null {
-  const pid = (data?.player_id ?? data?.shooter_id ?? data?.voter_id) as string | undefined;
+/** Verb shown on the caster→target line for the seated human's own action. */
+function verbForEffect(e: EffectType): string {
+  switch (e) {
+    case "bite": return "击杀";
+    case "inspect": return "查验";
+    case "heal": return "救治";
+    case "poison": return "毒杀";
+    case "shoot": return "开枪击杀";
+    case "vote": return "投票";
+    default: return "指向";
+  }
+}
+
+/** Parse a 1-based seat from an id like "player_5", or a bare number. */
+function seatFromId(pid: unknown): number | null {
   if (typeof pid === "string") {
     const m = pid.match(/(\d+)$/);
     if (m) return Number(m[1]);
   }
-  if (typeof data?.seat === "number") return data.seat as number;
+  if (typeof pid === "number") return pid;
   return null;
 }
 
-/** Build an ActiveCast from an SSE skill-cast / reveal event, or null if not applicable / role hidden. */
-export function castFromEvent(ev: {
-  event_type: string;
-  data?: Record<string, unknown>;
-}): ActiveCast | null {
+function seatFrom(data: Record<string, unknown> | undefined): number | null {
+  return (
+    seatFromId(data?.player_id ?? data?.shooter_id ?? data?.voter_id) ??
+    (typeof data?.seat === "number" ? (data.seat as number) : null)
+  );
+}
+
+/** Resolve a seat to a display name from the live roster, falling back to "<n>号". */
+function nameForSeat(seat: number, players?: { id: number; name: string }[]): string {
+  return players?.find((p) => p.id === seat)?.name ?? `${seat}号`;
+}
+
+/**
+ * Backend skill-RESULT event_type -> tarot card metadata. These are the meaningful
+ * "skill landed" moments that carry a target; god view sees them all, so the card
+ * can show「击杀了 Player5」etc. (mirrors the retired NightSkillOverlay table).
+ */
+const RESULT_CAST: Record<
+  string,
+  { role: string; skillName: string; skillSub: string; verb: string; effectType?: EffectType }
+> = {
+  werewolf_killed: { role: "狼人", skillName: "狼人袭击", skillSub: "獠牙撕裂黑夜", verb: "击杀" },
+  white_wolf_killed: { role: "白狼", skillName: "白狼出刀", skillSub: "自爆的獠牙", verb: "击杀" },
+  seer_checked: { role: "预言家", skillName: "预言查验", skillSub: "窥探灵魂真伪", verb: "查验" },
+  witch_saved: { role: "女巫", skillName: "女巫解药", skillSub: "起死回生", verb: "救治", effectType: "heal" },
+  witch_poison_used: { role: "女巫", skillName: "女巫毒药", skillSub: "剧毒蚀骨", verb: "毒杀", effectType: "poison" },
+  witch_poisoned: { role: "女巫", skillName: "女巫毒药", skillSub: "剧毒蚀骨", verb: "毒杀", effectType: "poison" },
+  guard_protected: { role: "守卫", skillName: "守卫守护", skillSub: "以身御灾", verb: "守护", effectType: "heal" },
+  guardian_wolf_protected: { role: "守卫狼", skillName: "守卫狼守护", skillSub: "暗影庇护", verb: "保护" },
+  hunter_revenge: { role: "猎人", skillName: "猎人开枪", skillSub: "临终一击", verb: "开枪击杀", effectType: "shoot" },
+  lovers_linked: { role: "丘比特", skillName: "丘比特连心", skillSub: "命运红线", verb: "连结", effectType: "rally" },
+  wolf_beauty_charmed: { role: "狼美人", skillName: "狼美人魅惑", skillSub: "致命之吻", verb: "魅惑" },
+  nightmare_blocked: { role: "梦魇狼", skillName: "梦魇封锁", skillSub: "噩梦缠身", verb: "封锁" },
+  raven_marked: { role: "乌鸦", skillName: "乌鸦标记", skillSub: "不祥之印", verb: "标记", effectType: "vote" },
+  graveyard_keeper_check: { role: "守墓人", skillName: "守墓查验", skillSub: "亡者低语", verb: "查验", effectType: "inspect" },
+  magician_swapped: { role: "魔术师", skillName: "魔术师换牌", skillSub: "偷天换日", verb: "交换", effectType: "rally" },
+};
+
+/**
+ * Build an ActiveCast from an SSE event, or null if not applicable.
+ * Driven by skill-RESULT events (they carry the target) plus `role_revealed`
+ * (身份揭示, no target). `players` resolves seat ids to display names.
+ */
+export function castFromEvent(
+  ev: { event_type: string; data?: Record<string, unknown> },
+  players?: { id: number; name: string }[],
+): ActiveCast | null {
   const t = ev.event_type;
-  if (t !== "role_acting" && t !== "role_revealed") return null;
-  const role = String(ev.data?.role ?? "");
-  if (!role) return null; // redacted in seat view -> no reveal
-  const seat = seatFrom(ev.data);
-  if (seat == null) return null;
-  const meta = skillMetaForRole(role);
+  const data = ev.data ?? {};
+
+  if (t === "role_revealed") {
+    const role = String(data.role ?? "");
+    if (!role) return null; // redacted in seat view -> no reveal
+    const seat = seatFrom(data);
+    if (seat == null) return null;
+    return {
+      casterId: seat,
+      casterName: String(data.player_name ?? `Player${seat}`),
+      role,
+      skillName: "身份揭示",
+      skillSub: role,
+      targetId: null,
+      targetName: null,
+      targetVerb: "",
+      effectType: effectTypeForRole(role),
+    };
+  }
+
+  const m = RESULT_CAST[t];
+  if (!m) return null;
+
+  const targetId =
+    seatFromId(data.target_id) ?? (typeof data.target_seat === "number" ? (data.target_seat as number) : null);
+  const targetName =
+    (typeof data.target_name === "string" && data.target_name) ||
+    (targetId != null ? nameForSeat(targetId, players) : null);
+
+  const casterId = seatFromId(data.player_id);
+  const casterName = casterId != null ? nameForSeat(casterId, players) : m.role; // team kill -> role name
+
   return {
-    casterId: seat,
-    casterName: String(ev.data?.player_name ?? `Player${seat}`),
-    role,
-    skillName: t === "role_revealed" ? "身份揭示" : meta.skillName,
-    skillSub: t === "role_revealed" ? role : meta.skillSub,
-    targetId: null,
-    targetName: null,
-    effectType: effectTypeForRole(role),
+    casterId: casterId ?? -1,
+    casterName,
+    role: m.role,
+    skillName: m.skillName,
+    skillSub: m.skillSub,
+    targetId,
+    targetName,
+    targetVerb: m.verb,
+    effectType: m.effectType ?? effectTypeForRole(m.role),
   };
 }
 
@@ -73,6 +155,7 @@ export function castFromSkillSubmit(args: {
   targetName: string | null;
 }): ActiveCast {
   const meta = skillMetaForRole(args.selfRole);
+  const effectType = effectTypeForRole(args.selfRole);
   return {
     casterId: "USER",
     casterName: args.selfName,
@@ -81,6 +164,7 @@ export function castFromSkillSubmit(args: {
     skillSub: meta.skillSub,
     targetId: args.targetSeat,
     targetName: args.targetName,
-    effectType: effectTypeForRole(args.selfRole),
+    targetVerb: args.targetSeat != null ? verbForEffect(effectType) : "",
+    effectType,
   };
 }

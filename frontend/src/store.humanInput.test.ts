@@ -111,7 +111,7 @@ describe("store: cast + selection", () => {
     useGameStore.getState().triggerCast({
       casterId: "USER", casterName: "Player1", role: "Witch",
       skillName: "女巫施药", skillSub: "解药 / 毒药",
-      targetId: 3, targetName: "Player3", effectType: "heal",
+      targetId: 3, targetName: "Player3", targetVerb: "救治", effectType: "heal",
     });
     expect(useGameStore.getState().activeCast?.effectType).toBe("heal");
     useGameStore.getState().clearCast();

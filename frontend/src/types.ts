@@ -96,5 +96,7 @@ export interface ActiveCast {
   skillSub: string;
   targetId: number | null;
   targetName: string | null;
+  /** Action verb for the caster→target line, e.g. "击杀" / "查验" ("" when no target). */
+  targetVerb: string;
   effectType: EffectType;
 }

@@ -124,7 +124,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const ev = JSON.parse(e.data);
         const cur = get().state ?? initialSpectateState();
         set({ state: reduceEvent(cur, ev) });
-        const cast = castFromEvent(ev);
+        const cast = castFromEvent(ev, get().state?.players);
         if (cast) get().triggerCast(cast);
         if (ev.event_type === "belief_snapshot") {
           set({ insightBeliefs: mapBeliefEvent(ev.data), insightSpeakerSeat: mapSpeakerSeat(ev.data) });
@@ -274,8 +274,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (get().ingestSeatEvent(ev)) return;
         const cur = get().state ?? initialSpectateState();
         set({ state: reduceEvent(cur, { ...ev, selfSeat: seat }) });
-        const cast = castFromEvent(ev);
-        if (cast) get().triggerCast(cast);
+        // Seat view: the human's own skill is announced by castFromSkillSubmit; only
+        // surface public 身份揭示 reveals here to avoid double-firing the same action.
+        if (ev.event_type === "role_revealed") {
+          const cast = castFromEvent(ev, get().state?.players);
+          if (cast) get().triggerCast(cast);
+        }
       } catch (err) {
         console.error("bad sse event", err);
       }

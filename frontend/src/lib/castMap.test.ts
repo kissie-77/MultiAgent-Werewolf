@@ -24,24 +24,78 @@ describe("skillMetaForRole", () => {
   });
 });
 
-describe("castFromEvent", () => {
-  it("builds a cast from role_acting with a role", () => {
+const PLAYERS = [
+  { id: 2, name: "Bob" },
+  { id: 5, name: "Eve" },
+] as { id: number; name: string }[];
+
+describe("castFromEvent (result-event driven)", () => {
+  it("builds a cast from werewolf_killed with target carried on the event", () => {
     const cast = castFromEvent({
-      event_type: "role_acting",
-      data: { player_id: "player_3", player_name: "Player3", role: "预言家" },
+      event_type: "werewolf_killed",
+      data: { target_id: "player_5", target_name: "Eve" },
     });
     expect(cast).not.toBeNull();
-    expect(cast!.casterId).toBe(3);
-    expect(cast!.effectType).toBe("inspect");
+    expect(cast!.role).toBe("狼人");
+    expect(cast!.effectType).toBe("bite");
+    expect(cast!.targetId).toBe(5);
+    expect(cast!.targetName).toBe("Eve");
+    expect(cast!.targetVerb).toBe("击杀");
+    expect(cast!.casterName).toBe("狼人"); // team kill — no single caster seat
   });
-  it("returns null when role is hidden (redacted)", () => {
+
+  it("resolves caster + target names from the roster for seer_checked", () => {
+    const cast = castFromEvent(
+      { event_type: "seer_checked", data: { player_id: "player_2", target_id: "player_5" } },
+      PLAYERS,
+    );
+    expect(cast).not.toBeNull();
+    expect(cast!.role).toBe("预言家");
+    expect(cast!.effectType).toBe("inspect");
+    expect(cast!.casterId).toBe(2);
+    expect(cast!.casterName).toBe("Bob");
+    expect(cast!.targetId).toBe(5);
+    expect(cast!.targetName).toBe("Eve");
+    expect(cast!.targetVerb).toBe("查验");
+  });
+
+  it("falls back to '<n>号' when the target name is unknown", () => {
+    const cast = castFromEvent({
+      event_type: "witch_poison_used",
+      data: { player_id: "player_4", target_id: "player_6" },
+    });
+    expect(cast!.role).toBe("女巫");
+    expect(cast!.effectType).toBe("poison");
+    expect(cast!.targetVerb).toBe("毒杀");
+    expect(cast!.targetName).toBe("6号");
+  });
+
+  it("maps guard_protected to a protect cast", () => {
+    const cast = castFromEvent(
+      { event_type: "guard_protected", data: { player_id: "player_1", target_id: "player_2" } },
+      PLAYERS,
+    );
+    expect(cast!.role).toBe("守卫");
+    expect(cast!.targetVerb).toBe("守护");
+    expect(cast!.targetName).toBe("Bob");
+  });
+
+  it("still builds a 身份揭示 cast from role_revealed (no target)", () => {
+    const cast = castFromEvent({
+      event_type: "role_revealed",
+      data: { player_id: "player_3", player_name: "P3", role: "猎人" },
+    });
+    expect(cast!.skillName).toBe("身份揭示");
+    expect(cast!.targetId).toBeNull();
+    expect(cast!.targetVerb).toBe("");
+  });
+
+  it("no longer triggers on role_acting (the card is result-event driven now)", () => {
     expect(
-      castFromEvent({
-        event_type: "role_acting",
-        data: { player_id: "player_3", role: "" },
-      })
+      castFromEvent({ event_type: "role_acting", data: { player_id: "player_3", role: "预言家" } }),
     ).toBeNull();
   });
+
   it("returns null for unrelated events", () => {
     expect(castFromEvent({ event_type: "phase_changed", data: {} })).toBeNull();
   });

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useGameInsight } from "../hooks/useGameInsight";
 import { useGameStore } from "../store";
@@ -6,6 +6,7 @@ import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import ExposureRadarStrip from "./ExposureRadarStrip";
 import VoteIntentionPanel from "./VoteIntentionPanel";
 import WolfExposurePanel from "./WolfExposurePanel";
+import { clampDockWidth } from "../lib/dockWidth";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function InsightDock({ runId }: { runId: string | null }) {
@@ -37,6 +38,26 @@ export default function InsightDock({ runId }: { runId: string | null }) {
   const isLLMOnly = gameState?.gameMode === "llmOnly";
   const canShowIdentities = isLLMOnly && showIdentities;
 
+  const [width, setWidth] = useState(320);
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const onResizeDown = (e: React.PointerEvent) => {
+    e.stopPropagation(); // 阻止 framer-motion 的「拖拽移动面板」
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    resizeRef.current = { startX: e.clientX, startWidth: width };
+  };
+  const onResizeMove = (e: React.PointerEvent) => {
+    if (!resizeRef.current) return;
+    const { startX, startWidth } = resizeRef.current;
+    // 面板右锚定：向左拖（clientX 变小）→ 变宽
+    setWidth(clampDockWidth(startWidth + (startX - e.clientX), window.innerWidth));
+  };
+  const onResizeUp = (e: React.PointerEvent) => {
+    resizeRef.current = null;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
   return (
     <>
       {/* Desktop Down-Accordion Panel */}
@@ -45,10 +66,20 @@ export default function InsightDock({ runId }: { runId: string | null }) {
         dragMomentum={false}
         className="pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden relative bg-[#0c0a09]/95 hidden md:flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl absolute right-6 top-12"
         style={{
-          width: '320px',
+          width: `${width}px`,
           maxHeight: isExpanded ? 'calc(100vh - 4rem)' : '2.5rem'
         }}
       >
+        {isExpanded && (
+          <div
+            onPointerDown={onResizeDown}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeUp}
+            className="absolute left-0 top-0 h-full w-1.5 z-30 cursor-ew-resize bg-amber-500/0 hover:bg-amber-500/40 transition-colors"
+            title="拖拽调整宽度"
+          />
+        )}
+
         {/* Subtle gothic border styling inside */}
         <div className="absolute inset-0 pointer-events-none border border-amber-500/10 m-1 rounded-b-lg"></div>
 

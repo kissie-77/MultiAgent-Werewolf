@@ -100,7 +100,9 @@ export function playHealSFX() {
   } catch {
     // Web Audio blocked by browser policy — silently ignored
   }
-}() {
+}
+
+export function playPoisonSFX() {
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;

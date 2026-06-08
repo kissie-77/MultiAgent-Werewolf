@@ -272,3 +272,19 @@ curl -s -X POST http://127.0.0.1:8010/api/v1/games/start -H 'Content-Type: appli
 - **占位符**：无 TBD/TODO；每个代码步给完整代码与精确锚点（多行 style 块避开单行加载占位）。✅
 - **类型一致**：`clampDockWidth`/`DOCK_MIN_WIDTH`/`DOCK_MAX_WIDTH`（lib，Task1↔Task3 用法一致）；`width:number` state、`resizeRef<{startX,startWidth}>`、三个 `on Resize*` handler 命名贯穿 Task3。✅
 - **YAGNI**：宽度不持久化；未触碰其它面板/移动端布局（仅补 `min-h-0`）。✅
+
+---
+
+## 验证结果（2026-06-08）
+
+单测：`dockWidth.test.ts` 4/4 绿；全套件 166/166（含先前因素材缺失而挂的 `roles.test`，现已被 main 合入的素材修复）。`tsc`/`build` 通过。
+
+真机（Playwright，DeepSeek `llm-12p-deepseek` god 局）——真机验证额外抓出并修复了 2 个 bug：
+1. **Rules-of-Hooks 崩溃**：resize 的 `useState/useRef` 最初放在 `if(!beliefs) return` 早返回之后，数据到达后 hook 数变化 → GameApp 落入 ErrorBoundary。已上移到早返回之前。
+2. **面板被压扁而非滚动**：滚动容器原为 `flex flex-col`，内部各面板（`overflow-hidden`）作为可收缩 flex 子项被压扁（信念矩阵 460→59px、雷达 124→17px）。改为 block-flow（仅保留 `flex-1 min-h-0` 作为 motion.div 的 flex 子项）后，面板保持自然高度、容器真正滚动。
+3. **拖手柄导致面板漂移**：framer-motion 的 drag 监听在面板自身，手柄的 React `stopPropagation` 拦不住 → 拓宽时面板同时被移动（right 1256→956）。改用 `dragListener=false` + `useDragControls`，移动仅从头部发起，手柄只改宽度。
+
+最终断言（viewport 1280×800 与 1100×360）：
+- 短视口下内容溢出（scrollHeight 1595 > clientHeight 255），面板自然高度（矩阵 460 / 投票 887 / 雷达 124），滚动到底「🐺 狼队·暴露雷达」完整可见。
+- 左缘拖拽：宽度 320 → 620（≤ min(720, 90vw)），面板 right/top **不变**（不漂移）。
+- 全程 0 console error。

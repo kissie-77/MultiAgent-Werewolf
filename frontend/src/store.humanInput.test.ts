@@ -105,3 +105,23 @@ describe("store seat-view human input", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe("store: cast + selection", () => {
+  it("triggerCast sets activeCast and clearCast clears it", () => {
+    useGameStore.getState().triggerCast({
+      casterId: "USER", casterName: "Player1", role: "Witch",
+      skillName: "女巫施药", skillSub: "解药 / 毒药",
+      targetId: 3, targetName: "Player3", effectType: "heal",
+    });
+    expect(useGameStore.getState().activeCast?.effectType).toBe("heal");
+    useGameStore.getState().clearCast();
+    expect(useGameStore.getState().activeCast).toBeNull();
+  });
+
+  it("setSelectedTargetSeat updates selection", () => {
+    useGameStore.getState().setSelectedTargetSeat(4);
+    expect(useGameStore.getState().selectedTargetSeat).toBe(4);
+    useGameStore.getState().setSelectedTargetSeat(null);
+    expect(useGameStore.getState().selectedTargetSeat).toBeNull();
+  });
+});

@@ -467,10 +467,11 @@ interface SpeakerPillarProps {
   isUser: boolean;
   isSpeaking: boolean;
   isThinking: boolean;
+  isTargeted: boolean;
   angle: number;
 }
 
-function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, angle }: SpeakerPillarProps) {
+function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, isTargeted, angle }: SpeakerPillarProps) {
   const setupCount = useGameStore((state) => state.setupCount);
   const statePlayersCount = useGameStore((state) => state.state?.players?.length) || 0;
   const playersCount = setupCount !== null ? setupCount : (statePlayersCount || 6);
@@ -545,6 +546,13 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, angle 
               <mesh position={[0, -0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.5, 0.62, 24]} />
                 <meshBasicMaterial color="#22d3ee" transparent opacity={0.45} side={THREE.DoubleSide} />
+              </mesh>
+            )}
+            {/* Amber targeting ring — the seat the human is selecting as a skill/vote target */}
+            {isTargeted && (
+              <mesh position={[0, 0.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.7, 0.92, 32]} />
+                <meshBasicMaterial color="#f59e0b" transparent opacity={0.8} side={THREE.DoubleSide} />
               </mesh>
             )}
           </>
@@ -727,6 +735,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   const setupCount = useGameStore((state) => state.setupCount);
   const victimId = gameState?.victimId;
   const thinkingSeat = gameState?.liveCue?.thinking?.seat ?? null;
+  const selectedTargetSeat = useGameStore((state) => state.selectedTargetSeat);
 
   // 跟踪服务器日志中最近的 isNight 状态以正确反映叙事状态
   const lastLogIsNight = gameState?.speechLogs?.[gameState.speechLogs.length - 1]?.isNight;
@@ -864,6 +873,7 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
                 isUser={p.isUser}
                 isSpeaking={p.isSpeaking}
                 isThinking={thinkingSeat === p.id}
+                isTargeted={selectedTargetSeat === p.id}
                 angle={angle}
               />
             );

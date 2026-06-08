@@ -6,14 +6,18 @@ import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import ExposureRadarStrip from "./ExposureRadarStrip";
 import VoteIntentionPanel from "./VoteIntentionPanel";
 import WolfExposurePanel from "./WolfExposurePanel";
+import WolfGodRoleColumn from "./WolfGodRoleColumn";
+import GodRoleIntelPanel from "./GodRoleIntelPanel";
+import { selectWolfMatrices } from "../lib/godRoleIntel";
 import { clampDockWidth } from "../lib/dockWidth";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default React.memo(function InsightDock({ runId }: { runId: string | null }) {
-  const { beliefs, voteSnapshot, players, speakerSeat } = useGameInsight(runId);
+  const { beliefs, voteSnapshot, players, speakerSeat, wolfCampMinds } = useGameInsight(runId);
   const gameState = useGameStore(state => state.state);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showIdentities, setShowIdentities] = useState(true);
+  const [godRoleOpen, setGodRoleOpen] = useState(false);
   const [width, setWidth] = useState(320);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const dragControls = useDragControls();
@@ -40,6 +44,9 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
   const roundLabel = beliefs.length > 0 ? `R${beliefs[0].round}·昼` : "-";
   const isLLMOnly = gameState?.gameMode === "llmOnly";
   const canShowIdentities = isLLMOnly && showIdentities;
+
+  const round = beliefs.length > 0 ? beliefs[0].round : 0;
+  const wolfMatrices = selectWolfMatrices(players, wolfCampMinds, round);
 
   const onResizeDown = (e: React.PointerEvent) => {
     e.stopPropagation(); // 阻止 framer-motion 的「拖拽移动面板」
@@ -72,13 +79,23 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
           maxHeight: isExpanded ? 'calc(100vh - 4rem)' : '2.5rem'
         }}
       >
-        {isExpanded && (
+        {isExpanded && !(canShowIdentities && godRoleOpen) && (
           <div
             onPointerDown={onResizeDown}
             onPointerMove={onResizeMove}
             onPointerUp={onResizeUp}
             className="absolute left-0 top-0 h-full w-1.5 z-30 cursor-ew-resize bg-amber-500/0 hover:bg-amber-500/40 transition-colors"
             title="拖拽调整宽度"
+          />
+        )}
+
+        {isExpanded && canShowIdentities && (
+          <WolfGodRoleColumn
+            matrices={wolfMatrices}
+            players={players}
+            round={round}
+            isOpen={godRoleOpen}
+            onToggle={() => setGodRoleOpen((v) => !v)}
           />
         )}
 
@@ -194,8 +211,19 @@ export default React.memo(function InsightDock({ runId }: { runId: string | null
               />
 
               {canShowIdentities && <WolfExposurePanel beliefs={beliefs} players={players} />}
+
+              {canShowIdentities && wolfMatrices.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <div className="text-rose-400 font-serif font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                    🔪 狼·神职预测 <span className="text-rose-500/60 text-[10px] font-sans">R{round}</span>
+                  </div>
+                  {wolfMatrices.map((m) => (
+                    <GodRoleIntelPanel key={m.owner_seat} record={m} players={players} />
+                  ))}
+                </div>
+              )}
             </div>
-            
+
             {/* Close button for mobile */}
             <button 
               onClick={() => setIsExpanded(false)}

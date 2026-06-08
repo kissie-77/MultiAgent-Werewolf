@@ -17,6 +17,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import LiveCueAnchors from "../components/LiveCueAnchors";
 import PhaseTransitionCard from "../components/PhaseTransitionCard";
 import PhaseBadge from "../components/PhaseBadge";
+import GameAudioBridge from "../components/GameAudioBridge";
 
 export default function GameApp() {
   const navigate = useNavigate();
@@ -212,6 +213,7 @@ export default function GameApp() {
       <div className={`absolute inset-x-0 bottom-0 h-2 bg-gradient-to-t pointer-events-none z-50 transition-colors duration-[2000ms] ${isNight ? "from-[#3b82f6]/40" : "from-[#f59e0b]/40"} to-transparent`} />
 
       <PhaseTransitionCard />
+      <GameAudioBridge />
       <AlertOverlays />
       <LiveCueAnchors />
       <CastSkillOverlay />

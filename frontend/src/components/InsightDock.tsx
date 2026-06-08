@@ -14,6 +14,8 @@ export default function InsightDock({ runId }: { runId: string | null }) {
   const gameState = useGameStore(state => state.state);
   const [isExpanded, setIsExpanded] = useState(true);
   const [showIdentities, setShowIdentities] = useState(true);
+  const [width, setWidth] = useState(320);
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   if (!beliefs || !voteSnapshot) {
     return (
@@ -37,9 +39,6 @@ export default function InsightDock({ runId }: { runId: string | null }) {
   const roundLabel = beliefs.length > 0 ? `R${beliefs[0].round}·昼` : "-";
   const isLLMOnly = gameState?.gameMode === "llmOnly";
   const canShowIdentities = isLLMOnly && showIdentities;
-
-  const [width, setWidth] = useState(320);
-  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   const onResizeDown = (e: React.PointerEvent) => {
     e.stopPropagation(); // 阻止 framer-motion 的「拖拽移动面板」
@@ -111,7 +110,7 @@ export default function InsightDock({ runId }: { runId: string | null }) {
            </div>
         </div>
 
-        <div className={`w-full flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 custom-scrollbar z-10 relative transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 custom-scrollbar z-10 relative transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>
           
           <BeliefMatrixPanel
             beliefs={beliefs}

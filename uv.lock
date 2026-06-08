@@ -19,7 +19,7 @@ resolution-markers = [
 
 [[package]]
 name = "agentscope"
-version = "1.0.20"
+version = "1.0.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -46,9 +46,9 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "tiktoken" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f2/66/71ddfad23e4aea45d9507d81bd73898890aabf404704152b379de29b8a5f/agentscope-1.0.20.tar.gz", hash = "sha256:8084d21d194c2689b2df10d8bc2f9ff9f57e81ddb4258184bc3b50fee3588d22", size = 297217, upload-time = "2026-05-15T08:26:16.008Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0a/96/45fdad50f96eeaff9bb203ab7e84ade1c69a8609f6a00934fda5f41cfc5c/agentscope-1.0.21.tar.gz", hash = "sha256:e73392ac446932fc4fe480eda6918525320b9a5701a18b2d197311d140d6d183", size = 306133, upload-time = "2026-05-25T09:36:29.902Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/94/2ee70ff0712f27fccc14a0aa18df22cbeceb06669a886e4db03ec3c7dfea/agentscope-1.0.20-py3-none-any.whl", hash = "sha256:c2b5d4c55ba51fa304e39e44d870c7051cd4f4ffe9fa4feeef91a19ee13a7e3d", size = 417719, upload-time = "2026-05-15T08:26:14.458Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/45/b97613ee93bdcb6dcae12f9b87184a4e9a1635fec7ac8470d8785e9110fd/agentscope-1.0.21-py3-none-any.whl", hash = "sha256:4a14507be793f798b803f3fe8b18a33acea6d3dedbdbfa99d1d7500891c77323", size = 430172, upload-time = "2026-05-25T09:36:27.887Z" },
 ]
 
 [[package]]
@@ -2077,7 +2077,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agentscope", specifier = ">=1.0.20" },
+    { name = "agentscope", specifier = ">=1.0.21" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "fire", specifier = ">=0.7.1" },
     { name = "logfire", specifier = ">=4.27.0" },
@@ -2113,7 +2113,7 @@ docs = [
     { name = "tabulate" },
 ]
 test = [
-    { name = "agentscope", specifier = ">=1.0.20" },
+    { name = "agentscope", specifier = ">=1.0.21" },
     { name = "genbadge", extras = ["all"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },

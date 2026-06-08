@@ -8,9 +8,10 @@ import {
   reduceEvent,
 } from "./lib/gameReducer";
 import { streamUrl } from "./api/sse";
-import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat } from "./lib/insightMap";
+import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat, mapWolfCampEvent } from "./lib/insightMap";
 import { castFromSkillSubmit, castFromEvent } from "./lib/castMap";
 import type { CoarseStage } from "./lib/phaseStage";
+import type { WolfCampMindV2 } from "./lib/godRoleIntel";
 
 /** Monotonic token so stale SSE connect callbacks are ignored after disconnect/switch. */
 let sseConnectGen = 0;
@@ -30,6 +31,7 @@ interface GameStore {
   insightBeliefs: import("./api/insightTypes").BeliefSnapshot[] | null;
   insightVote: import("./api/insightTypes").VoteIntentionSnapshot | null;
   insightSpeakerSeat: number | null;
+  insightWolfCampMinds: Record<number, WolfCampMindV2> | null;
   spectateRoster: import("./lib/insightMap").RosterEntry[] | null;
   /** Transient phase-transition signal (drives the cinematic card, flash, and camera). */
   stageFx: { stage: CoarseStage; nonce: number } | null;
@@ -78,6 +80,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   insightBeliefs: null,
   insightVote: null,
   insightSpeakerSeat: null,
+  insightWolfCampMinds: null,
   spectateRoster: null,
   stageFx: null,
 
@@ -92,6 +95,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       insightBeliefs: null,
       insightVote: null,
       insightSpeakerSeat: null,
+      insightWolfCampMinds: null,
       spectateRoster: null,
       spectateError: null,
       humanInputError: null,
@@ -126,6 +130,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           set({ insightBeliefs: mapBeliefEvent(ev.data), insightSpeakerSeat: mapSpeakerSeat(ev.data) });
         } else if (ev.event_type === "vote_intention_snapshot") {
           set({ insightVote: mapVoteEvent(ev.data) });
+        } else if (ev.event_type === "wolf_camp_snapshot") {
+          set({ insightWolfCampMinds: mapWolfCampEvent(ev.data) });
         }
       } catch (err) {
         console.error("bad sse event", err);
@@ -232,6 +238,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       insightBeliefs: null,
       insightVote: null,
       insightSpeakerSeat: null,
+      insightWolfCampMinds: null,
       spectateRoster: null,
       pendingInput: null,
       humanInputError: null,

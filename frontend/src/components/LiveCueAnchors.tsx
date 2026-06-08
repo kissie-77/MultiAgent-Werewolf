@@ -1,3 +1,4 @@
+import React from "react";
 import { useGameStore } from "../store";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
 import { isRoleRevealed } from "../lib/humanPrompt";

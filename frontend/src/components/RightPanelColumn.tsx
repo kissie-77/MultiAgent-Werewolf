@@ -5,6 +5,7 @@ import NightActionLog from "./NightActionLog";
 import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import ExposureRadarStrip from "./ExposureRadarStrip";
 import WolfExposurePanel from "./WolfExposurePanel";
+import GodRoleIntelPanel from "./GodRoleIntelPanel";
 import { ChevronDown, ChevronUp, Loader2, Eye, EyeOff } from "lucide-react";
 
 /* ─── Color scheme definitions ─── */
@@ -127,25 +128,13 @@ function AlivePlayerList() {
   );
 }
 
-/* ─── Module 6 placeholder: 神机待测 ─── */
-function PlaceholderCard({ title, icon, colorScheme }: { title: string; icon: string; colorScheme: ColorScheme }) {
-  return (
-    <CollapsibleCard title={title} icon={icon} colorScheme={colorScheme} defaultOpen={false}>
-      <div className="flex flex-col items-center justify-center py-6 gap-2 text-zinc-600">
-        <Loader2 className="w-4 h-4 animate-spin text-amber-500/30" />
-        <span className="font-mono text-[10px] tracking-wider">等待数据流接入...</span>
-      </div>
-    </CollapsibleCard>
-  );
-}
-
 /* ─── Root ─── */
 export default React.memo(function RightPanelColumn({
   runId,
 }: {
   runId: string | null;
 }) {
-  const { beliefs, voteSnapshot, players, speakerSeat } = useGameInsight(runId);
+  const { beliefs, voteSnapshot, players, speakerSeat, wolfCampMinds } = useGameInsight(runId);
   const gameState = useGameStore((s) => s.state);
   const isLLMOnly = gameState?.gameMode === "llmOnly";
   const [showIdentities, setShowIdentities] = useState(true);
@@ -227,8 +216,22 @@ export default React.memo(function RightPanelColumn({
         )}
       </CollapsibleCard>
 
-      {/* ── 6. 神机待测（预留） ── */}
-      <PlaceholderCard title="神机待测" icon="🔮" colorScheme="rose" />
+      {/* ── 6. 神机待测（狼队上帝视角推理矩阵） ── */}
+      <CollapsibleCard title="神机待测" icon="🔮" colorScheme="rose" defaultOpen={false}>
+        {canShowIdentities && wolfCampMinds && Object.keys(wolfCampMinds).length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {Object.values(wolfCampMinds).map((m) => (
+              <GodRoleIntelPanel key={m.owner_seat} record={m} players={players} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-4 gap-2 text-zinc-600">
+            <span className="text-[10px] font-mono tracking-wider">
+              {!isLLMOnly ? "仅观战模式可用" : "等待狼队推理数据..."}
+            </span>
+          </div>
+        )}
+      </CollapsibleCard>
     </div>
   );
 });

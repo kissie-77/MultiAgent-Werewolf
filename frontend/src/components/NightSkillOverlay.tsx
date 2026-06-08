@@ -145,6 +145,29 @@ const DEFAULT_THEME: SkillTheme = {
   bg: "bg-zinc-900/30",
 };
 
+/**
+ * Maps an action type to a tarot card art stem (frontend/public/tarot/<stem>.png).
+ * Unifies the skill overlay onto the tarot visual language — the card is "dealt"
+ * onto the board instead of an emoji glyph. Actions without a tarot fall back to
+ * the themed emoji icon above.
+ */
+const ACTION_TAROT: Record<string, string> = {
+  seer_checked: "Seer",
+  werewolf_killed: "Werewolf",
+  white_wolf_killed: "WhiteWolf",
+  witch_saved: "Witch",
+  witch_poison_used: "Witch",
+  witch_poisoned: "Witch",
+  guard_protected: "Guard",
+  lovers_linked: "Lover",
+  wolf_beauty_charmed: "WolfBeauty",
+  nightmare_blocked: "NightmareWolf",
+  guardian_wolf_protected: "GuardianWolf",
+  raven_marked: "Raven",
+  graveyard_keeper_check: "GraveyardKeeper",
+  magician_swapped: "Magician",
+};
+
 /** Build the description text for the overlay. */
 function buildDesc(fx: SkillFx, theme: typeof DEFAULT_THEME): string {
   const target = fx.targetName || (fx.targetSeat != null ? `${fx.targetSeat}号` : "");
@@ -219,6 +242,7 @@ export default function NightSkillOverlay() {
   const theme = SKILL_THEME[skillFx.actionType] ?? DEFAULT_THEME;
   const desc = buildDesc(skillFx, theme);
   const bad = isResultBad(skillFx);
+  const tarot = ACTION_TAROT[skillFx.actionType];
 
   return (
     <AnimatePresence>
@@ -260,15 +284,28 @@ export default function NightSkillOverlay() {
               style={{ backgroundColor: theme.glow.replace(/[\d.]+\)$/, "1)"), boxShadow: `0 0 12px ${theme.glow}` }}
             />
 
-            {/* Icon */}
-            <motion.span
-              initial={{ scale: 0, rotate: -30 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.1 }}
-              className="text-5xl mb-3 relative z-10"
-            >
-              {theme.icon}
-            </motion.span>
+            {/* Tarot card (dealt onto the board) — falls back to the themed emoji */}
+            {tarot ? (
+              <motion.img
+                src={`/tarot/${tarot}.png`}
+                alt={theme.label}
+                initial={{ scale: 0.3, rotateY: 180, y: -60, opacity: 0 }}
+                animate={{ scale: 1, rotateY: 0, y: 0, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.05 }}
+                className="w-28 h-40 object-cover rounded-lg mb-3 relative z-10 border-2"
+                style={{ borderColor: theme.glow.replace(/[\d.]+\)$/, "0.8)"), boxShadow: `0 0 40px ${theme.glow}` }}
+                draggable={false}
+              />
+            ) : (
+              <motion.span
+                initial={{ scale: 0, rotate: -30 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.1 }}
+                className="text-5xl mb-3 relative z-10"
+              >
+                {theme.icon}
+              </motion.span>
+            )}
 
             {/* Label */}
             <span className={`font-serif text-sm tracking-[0.4em] uppercase mb-1 relative z-10 ${theme.accent} font-bold`}>

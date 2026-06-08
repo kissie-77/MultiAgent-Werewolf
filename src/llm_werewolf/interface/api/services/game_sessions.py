@@ -243,6 +243,14 @@ def _force_human_seat_role(engine: GameEngine, seat: int | None, requested: str 
         return
     donor_seat = players.index(donor) + 1
     human.role, donor.role = donor.role, human.role
+    # Each role instance carries a ``self.player`` back-reference (set at construction)
+    # that the night layer uses to resolve the acting seat AND its agent
+    # (``role.player`` / ``role.player.agent`` in role_night_plans). Swapping the
+    # instances leaves those back-references crossed — which routed one role's prompt to
+    # the wrong seat's agent (e.g. a human who picked Seer got the LLM Witch's prompt via
+    # the human's broker). Re-point each instance at its new owner.
+    human.role.player = human
+    donor.role.player = donor
     # Re-bind both agents to their new roles (setup_game bound them to the old ones).
     for player, seat_number in ((human, seat), (donor, donor_seat)):
         agent = getattr(player, "agent", None)

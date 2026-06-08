@@ -61,6 +61,11 @@ class HumanInputBroker:
         allow_skip: bool = False,
         allow_witch_save: bool = True,
         multi_count: int = 0,
+        self_role: str = "",
+        kill_target_seat: int | None = None,
+        remaining_potions: dict[str, bool] | None = None,
+        question: str = "",
+        target_meta: list[dict[str, object]] | None = None,
     ) -> str:
         """Register + publish ``awaiting_input`` + await the future.
 
@@ -100,6 +105,11 @@ class HumanInputBroker:
                 "allow_skip": allow_skip,
                 "allow_witch_save": allow_witch_save,
                 "multi_count": multi_count,
+                "self_role": self_role,
+                "kill_target_seat": kill_target_seat,
+                "remaining_potions": remaining_potions,
+                "question": question,
+                "target_meta": list(target_meta or []),
             }
         )
         try:

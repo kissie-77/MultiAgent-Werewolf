@@ -9,7 +9,8 @@ import GameOverPanel from "../components/GameOverPanel";
 import { useGameStore } from "../store";
 import { Skull, Moon, MessageSquare } from "lucide-react";
 import AlertOverlays from "../components/AlertOverlays";
-import HumanInputPanel from "../components/HumanInputPanel";
+import SeatCommandDock from "../components/SeatCommandDock";
+import IdentityHud from "../components/IdentityHud";
 import ErrorBoundary from "../components/ErrorBoundary";
 import PhaseTransitionCard from "../components/PhaseTransitionCard";
 import RightPanelColumn from "../components/RightPanelColumn";
@@ -234,7 +235,8 @@ export default function GameApp() {
       <PhaseTransitionCard />
       <AlertOverlays />
       <NightSkillOverlay />
-      {isSeatView && <HumanInputPanel />}
+      {isSeatView && <IdentityHud />}
+      {isSeatView && <SeatCommandDock />}
     </div>
   );
 }

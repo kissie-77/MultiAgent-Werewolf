@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useDragControls } from "motion/react";
 import { useGameInsight } from "../hooks/useGameInsight";
 import { useGameStore } from "../store";
 import BeliefMatrixPanel from "./BeliefMatrixPanel";
@@ -16,6 +16,7 @@ export default function InsightDock({ runId }: { runId: string | null }) {
   const [showIdentities, setShowIdentities] = useState(true);
   const [width, setWidth] = useState(320);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const dragControls = useDragControls();
 
   if (!beliefs || !voteSnapshot) {
     return (
@@ -62,6 +63,8 @@ export default function InsightDock({ runId }: { runId: string | null }) {
       {/* Desktop Down-Accordion Panel */}
       <motion.div
         drag
+        dragListener={false}
+        dragControls={dragControls}
         dragMomentum={false}
         className="pointer-events-auto shrink-0 border border-t-0 border-amber-900/40 shadow-[0_4px_24px_rgba(0,0,0,0.8)] overflow-hidden relative bg-[#0c0a09]/95 hidden md:flex flex-col z-40 transition-[max-height] duration-500 ease-in-out rounded-b-xl absolute right-6 top-12"
         style={{
@@ -85,6 +88,7 @@ export default function InsightDock({ runId }: { runId: string | null }) {
         {/* Accordion Toggle Header */}
         <div 
           onClick={() => setIsExpanded(!isExpanded)}
+          onPointerDown={(e) => dragControls.start(e)}
           className="text-amber-500 font-serif font-black text-sm uppercase tracking-widest px-3 py-2 flex items-center justify-between border-b border-amber-900/50 drop-shadow cursor-grab active:cursor-grabbing hover:bg-black/40 transition-colors z-20 h-[2.5rem] shrink-0"
         >
            <div className="flex items-center gap-2 relative">

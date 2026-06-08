@@ -15,7 +15,7 @@ import {
 
 export type BoardSetupMode = "curated" | "standard" | "custom";
 
-export default function BoardSetupPanel({
+export default React.memo(function BoardSetupPanel({
   mode,
   onModeChange,
   presets,
@@ -237,6 +237,6 @@ export default function BoardSetupPanel({
       </div>
     </div>
   );
-}
+})
 
 export { roleDisplayName };

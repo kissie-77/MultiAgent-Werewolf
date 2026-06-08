@@ -1,3 +1,4 @@
+import React from "react";
 import { useGameStore } from "../store";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
 import { isRoleRevealed } from "../lib/humanPrompt";
@@ -6,7 +7,7 @@ import { isRoleRevealed } from "../lib/humanPrompt";
  * Minimal DOM anchors for animators — attach effects via data-live-cue attributes.
  * In seat view, role names are hidden unless revealed to the human player.
  */
-export default function LiveCueAnchors() {
+export default React.memo(function LiveCueAnchors() {
   const liveCue = useGameStore((s) => s.state?.liveCue);
   const humanSeat = useGameStore((s) => s.humanSeat);
   const isSeatView = humanSeat != null;
@@ -54,4 +55,4 @@ export default function LiveCueAnchors() {
       )}
     </div>
   );
-}
+})

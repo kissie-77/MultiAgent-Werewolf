@@ -58,8 +58,8 @@ export function playInspectSFX() {
     modGain.connect(filter);
     mod.start(now);
     mod.stop(now + 1.3);
-  } catch (e) {
-    console.warn("Web Audio Inspect SFX was blocked or failed:", e);
+  } catch {
+    // Web Audio blocked by browser policy — silently ignored
   }
 }
 
@@ -97,8 +97,8 @@ export function playHealSFX() {
       osc.start(now + idx * 0.15);
       osc.stop(now + idx * 0.15 + 1.1);
     });
-  } catch (e) {
-    console.warn("Web Audio Heal SFX failed:", e);
+  } catch {
+    // Web Audio blocked by browser policy — silently ignored
   }
 }
 
@@ -172,8 +172,8 @@ export function playPoisonSFX() {
 
     noise.start(now + 0.2);
     noise.stop(now + 1.8);
-  } catch (e) {
-    console.warn("Web Audio Poison SFX failed:", e);
+  } catch {
+    // Web Audio blocked by browser policy — silently ignored
   }
 }
 
@@ -230,8 +230,8 @@ export function playBiteSFX() {
 
     noiseSou.start(now + 0.05);
     noiseSou.stop(now + 0.4);
-  } catch (e) {
-    console.warn("Web Audio Bite SFX failed:", e);
+  } catch {
+    // Web Audio blocked by browser policy — silently ignored
   }
 }
 
@@ -282,8 +282,8 @@ export function playShootSFX() {
 
     click.start(now);
     click.stop(now + 0.25);
-  } catch (e) {
-    console.warn("Web Audio Shoot SFX failed:", e);
+  } catch {
+    // Web Audio blocked by browser policy — silently ignored
   }
 }
 
@@ -316,7 +316,7 @@ export function playVoteSFX() {
       osc.start(now);
       osc.stop(now + duration + 0.2);
     });
-  } catch (e) {
-    console.warn("Web Audio Vote SFX failed:", e);
+  } catch {
+    // Web Audio blocked by browser policy — silently ignored
   }
 }

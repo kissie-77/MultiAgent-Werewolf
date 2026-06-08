@@ -4,7 +4,7 @@ import { BrainCircuit, SlidersHorizontal } from "lucide-react";
 import type { AvailableModelOption } from "../api/types";
 
 /** 左栏：智脑深度 + 警长竞选 */
-export function SetupBrainSheriffPanel({
+export const SetupBrainSheriffPanel = React.memo(function SetupBrainSheriffPanel({
   enableDeepGame,
   onToggleDeepGame,
   hasSheriff,
@@ -85,10 +85,10 @@ export function SetupBrainSheriffPanel({
       </div>
     </div>
   );
-}
+})
 
 /** 右栏：身份卡下方 — 各席位 AI 模型编排 */
-export function SetupModelPanel({
+export const SetupModelPanel = React.memo(function SetupModelPanel({
   customizeModels,
   onToggleCustomizeModels,
   modelsLoading,
@@ -187,4 +187,4 @@ export function SetupModelPanel({
       </AnimatePresence>
     </div>
   );
-}
+})

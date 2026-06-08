@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
+    "lint": "eslint . --ext ts,tsx && tsc --noEmit",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
     "test": "vitest run"
   },
   "dependencies": {
@@ -26,14 +27,23 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@fontsource/cinzel": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@tailwindcss/vite": "^4.1.14",
     "@types/node": "^22.14.0",
+    "@types/react-dom": "^19.0.0",
     "@types/three": "^0.184.1",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
+    "eslint": "^10.4.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
-    "@types/react-dom": "^19.0.0",
+    "typescript-eslint": "^8.60.1",
     "vite": "^6.2.3",
     "vitest": "^2.1.9"
   }

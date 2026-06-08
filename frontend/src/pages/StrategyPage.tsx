@@ -30,7 +30,6 @@ export default function StrategyPage() {
       })
       .catch((err) => {
         if (active) {
-          console.error(err);
           setError("虚空网络被封阻，无法索取全智能圆桌战术册。");
           setLoading(false);
         }

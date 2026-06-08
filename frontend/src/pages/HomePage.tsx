@@ -33,7 +33,6 @@ export default function HomePage() {
       })
       .catch((err) => {
         if (active) {
-          console.error("Failed loading home data:", err);
           setError("无法呼唤虚境之光，审判厅法阵传输受阻。");
           setLoading(false);
         }

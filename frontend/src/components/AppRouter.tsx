@@ -2,24 +2,30 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 import AppLayout from "./AppLayout";
 import ErrorBoundary from "./ErrorBoundary";
-import HomePage from "../pages/HomePage";
-import GameApp from "../pages/GameApp";
-import RolesPage from "../pages/RolesPage";
-import RoleDetailPage from "../pages/RoleDetailPage";
-import ModelsPage from "../pages/ModelsPage";
-import ModelDetailPage from "../pages/ModelDetailPage";
-import ModelComparePage from "../pages/ModelComparePage";
-import ReplayPage from "../pages/ReplayPage";
-import SharePage from "../pages/SharePage";
-import AboutPage from "../pages/AboutPage";
-import FeaturesPage from "../pages/FeaturesPage";
-import HowToPlayPage from "../pages/HowToPlayPage";
-import NightPhasePage from "../pages/NightPhasePage";
-import StrategyPage from "../pages/StrategyPage";
-import RunsPage from "../pages/RunsPage";
 
-// 全屏回退组件，防止 GameApp 渲染崩溃（例如损坏的游戏状态）
-// 显示可恢复界面而非白屏
+const GameApp = React.lazy(() => import("../pages/GameApp"));
+const HomePage = React.lazy(() => import("../pages/HomePage"));
+const RolesPage = React.lazy(() => import("../pages/RolesPage"));
+const RoleDetailPage = React.lazy(() => import("../pages/RoleDetailPage"));
+const ModelsPage = React.lazy(() => import("../pages/ModelsPage"));
+const ModelDetailPage = React.lazy(() => import("../pages/ModelDetailPage"));
+const ModelComparePage = React.lazy(() => import("../pages/ModelComparePage"));
+const ReplayPage = React.lazy(() => import("../pages/ReplayPage"));
+const SharePage = React.lazy(() => import("../pages/SharePage"));
+const AboutPage = React.lazy(() => import("../pages/AboutPage"));
+const FeaturesPage = React.lazy(() => import("../pages/FeaturesPage"));
+const HowToPlayPage = React.lazy(() => import("../pages/HowToPlayPage"));
+const NightPhasePage = React.lazy(() => import("../pages/NightPhasePage"));
+const StrategyPage = React.lazy(() => import("../pages/StrategyPage"));
+const RunsPage = React.lazy(() => import("../pages/RunsPage"));
+
+const PageLoader = () => (
+  <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs uppercase tracking-widest gap-2">
+    <div className="w-6 h-6 border-2 border-t-amber-500 border-zinc-800 rounded-full animate-spin" />
+    <span>Loading...</span>
+  </div>
+);
+
 const gameErrorFallback = (
   <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center gap-4 text-zinc-200 text-center px-6">
     <span className="text-2xl font-black tracking-widest">对局界面渲染异常</span>
@@ -31,152 +37,48 @@ const gameErrorFallback = (
   </div>
 );
 
+function LazyRoute({ children }: { children: React.ReactNode }) {
+  return <React.Suspense fallback={<PageLoader />}>{children}</React.Suspense>;
+}
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Full screen gameplay route doesn't use standard AppLayout navigation */}
-        <Route path="/" element={<ErrorBoundary label="GameApp" fallback={gameErrorFallback}><GameApp /></ErrorBoundary>} />
-        {/* /game renders GameApp directly (NOT a redirect) so ?run_id= survives —
-            the backend's start_game returns game_page_path="/game?run_id=..." */}
-        <Route path="/game" element={<ErrorBoundary label="GameApp" fallback={gameErrorFallback}><GameApp /></ErrorBoundary>} />
+        <Route path="/" element={
+          <LazyRoute>
+            <ErrorBoundary label="GameApp" fallback={gameErrorFallback}>
+              <GameApp />
+            </ErrorBoundary>
+          </LazyRoute>
+        } />
+        <Route path="/game" element={
+          <LazyRoute>
+            <ErrorBoundary label="GameApp" fallback={gameErrorFallback}>
+              <GameApp />
+            </ErrorBoundary>
+          </LazyRoute>
+        } />
 
-        {/* Roles pages wrapped inside standard interactive AppLayout */}
-        <Route
-          path="/roles"
-          element={
-            <AppLayout>
-              <RolesPage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/roles/:roleKey"
-          element={
-            <AppLayout>
-              <RoleDetailPage />
-            </AppLayout>
-          }
-        />
+        <Route path="/roles" element={<LazyRoute><AppLayout><RolesPage /></AppLayout></LazyRoute>} />
+        <Route path="/roles/:roleKey" element={<LazyRoute><AppLayout><RoleDetailPage /></AppLayout></LazyRoute>} />
 
-        {/* Models pages wrapped inside standard interactive AppLayout */}
-        <Route
-          path="/models"
-          element={
-            <AppLayout>
-              <ModelsPage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/models/compare"
-          element={
-            <AppLayout>
-              <ModelComparePage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/models/:modelId"
-          element={
-            <AppLayout>
-              <ModelDetailPage />
-            </AppLayout>
-          }
-        />
+        <Route path="/models" element={<LazyRoute><AppLayout><ModelsPage /></AppLayout></LazyRoute>} />
+        <Route path="/models/compare" element={<LazyRoute><AppLayout><ModelComparePage /></AppLayout></LazyRoute>} />
+        <Route path="/models/:modelId" element={<LazyRoute><AppLayout><ModelDetailPage /></AppLayout></LazyRoute>} />
 
-        {/* Replay related pages wrapped inside standard interactive AppLayout */}
-        <Route
-          path="/replay/:runId"
-          element={
-            <AppLayout>
-              <ReplayPage />
-            </AppLayout>
-          }
-        />
-        <Route
-          path="/share/:runId"
-          element={
-            <AppLayout>
-              <SharePage />
-            </AppLayout>
-          }
-        />
+        <Route path="/replay/:runId" element={<LazyRoute><AppLayout><ReplayPage /></AppLayout></LazyRoute>} />
+        <Route path="/share/:runId" element={<LazyRoute><AppLayout><SharePage /></AppLayout></LazyRoute>} />
 
-        {/* Other routes wrapped inside standard interactive AppLayout */}
-        <Route
-          path="/home"
-          element={
-            <AppLayout>
-              <HomePage />
-            </AppLayout>
-          }
-        />
+        <Route path="/home" element={<LazyRoute><AppLayout><HomePage /></AppLayout></LazyRoute>} />
+        <Route path="/rules" element={<LazyRoute><AppLayout><HowToPlayPage /></AppLayout></LazyRoute>} />
+        <Route path="/how-to-play" element={<LazyRoute><AppLayout><HowToPlayPage /></AppLayout></LazyRoute>} />
+        <Route path="/features" element={<LazyRoute><AppLayout><FeaturesPage /></AppLayout></LazyRoute>} />
+        <Route path="/night-phase" element={<LazyRoute><AppLayout><NightPhasePage /></AppLayout></LazyRoute>} />
+        <Route path="/strategy" element={<LazyRoute><AppLayout><StrategyPage /></AppLayout></LazyRoute>} />
+        <Route path="/runs" element={<LazyRoute><AppLayout><RunsPage /></AppLayout></LazyRoute>} />
+        <Route path="/about" element={<LazyRoute><AppLayout><AboutPage /></AppLayout></LazyRoute>} />
 
-        <Route
-          path="/rules"
-          element={
-            <AppLayout>
-              <HowToPlayPage />
-            </AppLayout>
-          }
-        />
-
-        <Route
-          path="/how-to-play"
-          element={
-            <AppLayout>
-              <HowToPlayPage />
-            </AppLayout>
-          }
-        />
-
-        <Route
-          path="/features"
-          element={
-            <AppLayout>
-              <FeaturesPage />
-            </AppLayout>
-          }
-        />
-
-        <Route
-          path="/night-phase"
-          element={
-            <AppLayout>
-              <NightPhasePage />
-            </AppLayout>
-          }
-        />
-
-        <Route
-          path="/strategy"
-          element={
-            <AppLayout>
-              <StrategyPage />
-            </AppLayout>
-          }
-        />
-
-        <Route
-          path="/runs"
-          element={
-            <AppLayout>
-              <RunsPage />
-            </AppLayout>
-          }
-        />
-
-        <Route
-          path="/about"
-          element={
-            <AppLayout>
-              <AboutPage />
-            </AppLayout>
-          }
-        />
-
-        {/* Fallback redirecting back to home page */}
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </BrowserRouter>

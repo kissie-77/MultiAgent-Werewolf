@@ -5,6 +5,7 @@ import {
   rosterToInsightPlayers,
   mapSpeakerSeat,
   selectExposureRow,
+  mapWolfCampEvent,
 } from "./insightMap";
 
 describe("insightMap", () => {
@@ -90,5 +91,27 @@ describe("selectExposureRow", () => {
     expect(selectExposureRow(beliefs, null)).toEqual([]);
     expect(selectExposureRow(beliefs, 9)).toEqual([]);
     expect(selectExposureRow(null, 3)).toEqual([]);
+  });
+});
+
+describe("mapWolfCampEvent", () => {
+  it("keys per-wolf records by owner_seat", () => {
+    const data = {
+      round: 2,
+      minds: [
+        { schema: "wolf_camp_mind_v2", owner_seat: 3, round: 2, contributor_seat: 3, god_role_intel: {}, exposure_radar: {} },
+        { schema: "wolf_camp_mind_v2", owner_seat: 4, round: 2, contributor_seat: 4, god_role_intel: {}, exposure_radar: {} },
+      ],
+    };
+    const out = mapWolfCampEvent(data);
+    expect(Object.keys(out).sort()).toEqual(["3", "4"]);
+    expect(out[3].owner_seat).toBe(3);
+  });
+
+  it("returns {} for missing / malformed payloads", () => {
+    expect(mapWolfCampEvent(null)).toEqual({});
+    expect(mapWolfCampEvent({})).toEqual({});
+    expect(mapWolfCampEvent({ minds: "nope" })).toEqual({});
+    expect(mapWolfCampEvent({ minds: [{ god_role_intel: {} }] })).toEqual({});
   });
 });

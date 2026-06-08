@@ -9,7 +9,7 @@ import {
 } from "./lib/gameReducer";
 import { streamUrl } from "./api/sse";
 import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat, mapWolfCampEvent } from "./lib/insightMap";
-import { castFromSkillSubmit, castFromEvent, effectTypeForEvent, effectTypeForRole } from "./lib/castMap";
+import { castFromSkillSubmit, castFromEvent, effectTypeForEvent } from "./lib/castMap";
 import { soundManager } from "./audio/soundManager";
 import { effectTypeSfx, eventSfx, type SfxId } from "./audio/soundMap";
 import type { SseEvent } from "./lib/gameReducer";
@@ -264,8 +264,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
             targetName,
           })
         );
-        soundManager.playGameplay(effectTypeSfx[effectTypeForRole(selfRole)]);
       }
+      // Skill sound is NOT played here: the actor receives their own private
+      // result event (e.g. witch_poison_used vs witch_saved) over SSE, which
+      // dispatchSseSound maps to the CORRECT sound (deduped + gated). Playing a
+      // role-guessed sound here would mis-fire (witch poison → heal) + double up.
       set({ selectedTargetSeat: null });
     } catch (err) {
       console.error("Failed to submit human input:", err);

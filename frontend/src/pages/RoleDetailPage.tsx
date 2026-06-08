@@ -30,8 +30,7 @@ export default function RoleDetailPage() {
         setRole(data);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error(err);
+      .catch(() => {
         setError("命运卷宗残破，可能星盘中并无此角色印记，或审判传输错误。");
         setLoading(false);
       });

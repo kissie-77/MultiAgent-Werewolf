@@ -6,7 +6,7 @@ import { getRoleImage } from "../utils/roles";
 import { THINKING_CONTEXT_LABEL } from "../lib/liveCue";
 import { isRoleRevealed } from "../lib/humanPrompt";
 
-export default function SpeechConsole({
+export default React.memo(function SpeechConsole({
   highlightSelfSeat = false,
 }: {
   /** True on human seat view — show 本人 badge for the seated player only. */
@@ -284,4 +284,4 @@ export default function SpeechConsole({
       )}
     </div>
   );
-}
+})

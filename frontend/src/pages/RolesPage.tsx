@@ -38,7 +38,6 @@ export default function RolesPage() {
       })
       .catch((err) => {
         if (active) {
-          console.error(err);
           setError("暗海翻卷，圣史官卷宗传输受阻，无法读取身份碑。");
           setLoading(false);
         }

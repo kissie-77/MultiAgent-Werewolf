@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { BeliefAnchor } from "../api/types";
 import { Play, Pause, ChevronLeft, ChevronRight } from "lucide-react";
 
-export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) {
+export default React.memo(function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) {
   const [cursor, setCursor] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<{ obs: string, target: string, reason?: string, note?: string, prob: number } | null>(null);
@@ -157,4 +157,4 @@ export default function BeliefHeatmap({ anchors }: { anchors: BeliefAnchor[] }) 
       </div>
     </div>
   );
-}
+})

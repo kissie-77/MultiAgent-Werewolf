@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useGameStore } from "../store";
 import { getTarotImage } from "../utils/roles";
 import { isRoleRevealed } from "../lib/humanPrompt";
+import { playToggle } from "../lib/uiSound";
 
 /** Corner HUD for the seated human: role tarot + remaining potions + collapsible raw detail. */
 export default function IdentityHud() {
@@ -42,7 +43,7 @@ export default function IdentityHud() {
           <div className="mt-2 border-t border-amber-900/30 pt-2">
             <button
               type="button"
-              onClick={() => setOpen((v) => !v)}
+              onClick={() => { playToggle(!open); setOpen((v) => !v); }}
               className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-amber-500/80 hover:text-amber-300 cursor-pointer"
             >
               {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}

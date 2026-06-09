@@ -3,6 +3,7 @@ import { useGameStore } from "../store";
 import { Player } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { getRoleImage } from "../utils/roles";
+import { soundManager } from "../audio/soundManager";
 
 // Black and White high-contrast woodcut-themed SVGs for each role illustration
 function RoleIllustration({ roleColor, role, isExposed }: { roleColor: string; role: string; isExposed: boolean }) {
@@ -52,6 +53,7 @@ export default function CardDeck() {
     if (!player.isAlive) return; // dead players don't spark action inputs
     const targets = pendingInput?.valid_targets ?? [];
     if (pendingInput && !targets.includes(player.id)) return;
+    soundManager.playUi("ui_click");
     setSelectedCardId(selectedCardId === player.id ? null : player.id);
   };
 
@@ -75,7 +77,7 @@ export default function CardDeck() {
         <div className="flex items-center justify-between mb-4 border border-indigo-800/80 bg-slate-900/60 px-3 py-2 rounded-lg shadow-inner">
           <span className="text-[11px] font-sans font-bold text-indigo-300">全局上帝视角 👁️</span>
           <button 
-            onClick={() => setLlmExposeAll(!llmExposeAll)}
+            onClick={() => { soundManager.playUi("ui_click"); setLlmExposeAll(!llmExposeAll); }}
             className={`w-9 h-5 rounded-full relative transition-colors shadow-inner ${llmExposeAll ? 'bg-blue-500' : 'bg-slate-700'}`}
           >
             <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow ${llmExposeAll ? 'translate-x-4' : 'translate-x-0'}`} />

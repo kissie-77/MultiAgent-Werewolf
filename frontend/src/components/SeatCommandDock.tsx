@@ -128,7 +128,7 @@ export default function SeatCommandDock() {
         {humanInputError && (
           <div className="mb-3 px-3 py-2 rounded border border-rose-800/60 bg-rose-950/40 text-[11px] font-mono text-rose-200 flex items-center justify-between gap-2">
             <span>{humanInputError}</span>
-            <button type="button" onClick={clearHumanInputError} className="underline shrink-0">关闭</button>
+            <button type="button" onClick={() => { soundManager.playUi("ui_panel_close"); clearHumanInputError(); }} className="underline shrink-0">关闭</button>
           </div>
         )}
 

@@ -4,6 +4,7 @@ import { useGameStore } from "../store";
 import { motion, AnimatePresence } from "motion/react";
 import { getRoleImage } from "../utils/roles";
 import { isRoleRevealed } from "../lib/humanPrompt";
+import { playToggle } from "../lib/uiSound";
 
 export default React.memo(function SpeechConsole({
   highlightSelfSeat = false,
@@ -21,6 +22,9 @@ export default React.memo(function SpeechConsole({
   // 跟踪哪些日志的思考过程已展开
   const [expandedThoughts, setExpandedThoughts] = useState<Record<number, boolean>>({});
   const [showPureTextHistory, setShowPureTextHistory] = useState(false);
+  // Mirror the overlay state so the (once-attached) toggle listener can sound the
+  // correct open/close cue without re-subscribing or double-firing under StrictMode.
+  const pureTextOpenRef = useRef(false);
 
   const toggleThought = (index: number) => {
     setExpandedThoughts((prev) => ({
@@ -38,9 +42,17 @@ export default React.memo(function SpeechConsole({
     return () => clearTimeout(timer);
   }, [speechLogs.length, currentSpeakerId, expandedThoughts, showPureTextHistory]);
 
-  // 监听底部通知栏的"纯文本记录"按钮事件
   useEffect(() => {
-    const handler = () => setShowPureTextHistory((v) => !v);
+    pureTextOpenRef.current = showPureTextHistory;
+  }, [showPureTextHistory]);
+
+  // 监听底部通知栏的"纯文本记录"按钮事件（开/合分音在此单点派发）
+  useEffect(() => {
+    const handler = () => {
+      const next = !pureTextOpenRef.current;
+      playToggle(next);
+      setShowPureTextHistory(next);
+    };
     window.addEventListener("toggle-pure-text-history", handler);
     return () => window.removeEventListener("toggle-pure-text-history", handler);
   }, []);
@@ -68,7 +80,7 @@ export default React.memo(function SpeechConsole({
         <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur flex flex-col pt-12 pb-4 overflow-hidden">
           <button 
              className="absolute top-3 right-4 text-xs font-mono text-zinc-400 hover:text-zinc-100 bg-zinc-900 px-3 py-1 rounded border border-zinc-700 transition"
-             onClick={() => setShowPureTextHistory(false)}
+             onClick={() => { playToggle(false); setShowPureTextHistory(false); }}
           >
             [ 关闭纯文本 / CLOSE ]
           </button>
@@ -193,7 +205,7 @@ export default React.memo(function SpeechConsole({
                     {showReasoning && (
                       <div className="mb-3">
                         <button 
-                          onClick={() => toggleThought(index)}
+                          onClick={() => { playToggle(!isThoughtExpanded); toggleThought(index); }}
                           className={`flex items-center gap-1.5 font-mono text-[10px] uppercase font-bold tracking-wider transition-colors active:scale-95 ${isThoughtExpanded ? "text-indigo-900" : "text-indigo-600 hover:text-indigo-800"}`}
                         >
                           <BrainCircuit className="w-3.5 h-3.5" />

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Moon, ChevronDown } from "lucide-react";
 import { useGameStore } from "../store";
 import { isRoleRevealed } from "../lib/humanPrompt";
+import { playToggle } from "../lib/uiSound";
 import type { NightActionEntry } from "../types";
 
 const STARDUST =
@@ -135,10 +136,11 @@ export default React.memo(function NightActionLog({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setCollapsed((c) => !c)}
+        onClick={() => { playToggle(collapsed); setCollapsed((c) => !c); }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
+            playToggle(collapsed);
             setCollapsed((c) => !c);
           }
         }}

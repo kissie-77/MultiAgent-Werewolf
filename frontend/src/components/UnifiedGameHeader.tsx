@@ -4,6 +4,7 @@ import { useGameStore } from "../store";
 import { stageBadge } from "../lib/phaseStage";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
 import { isRoleRevealed } from "../lib/humanPrompt";
+import { soundManager } from "../audio/soundManager";
 
 // ─────────────────────────────────────────────────────────
 // Per-role flavor descriptions (never expose role name directly)
@@ -500,7 +501,7 @@ export default React.memo(function UnifiedGameHeader({
         {/* 返回 — 鎏金石雕 */}
         <button
           type="button"
-          onClick={() => window.history.back()}
+          onClick={() => { soundManager.playUi("ui_click"); window.history.back(); }}
           className="gilt-btn h-9 px-4 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100/90 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)] [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]"
         >
           返回
@@ -510,6 +511,7 @@ export default React.memo(function UnifiedGameHeader({
         <button
           type="button"
           onClick={() => {
+            soundManager.playUi("ui_click");
             window.location.href = "/home";
           }}
           className="gilt-btn h-9 px-4 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)] [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]"
@@ -523,10 +525,12 @@ export default React.memo(function UnifiedGameHeader({
           type="button"
           onClick={() => {
             if (confirmExit) {
+              soundManager.playUi("ui_submit");
               if (onExit) void onExit();
               else exitGame();
               setConfirmExit(false);
             } else {
+              soundManager.playUi("ui_error");
               setConfirmExit(true);
             }
           }}

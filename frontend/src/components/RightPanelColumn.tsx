@@ -6,6 +6,8 @@ import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import ExposureRadarStrip from "./ExposureRadarStrip";
 import WolfExposurePanel from "./WolfExposurePanel";
 import GodRoleIntelPanel from "./GodRoleIntelPanel";
+import { soundManager } from "../audio/soundManager";
+import { playToggle } from "../lib/uiSound";
 import {
   ChevronDown,
   Loader2,
@@ -52,10 +54,11 @@ function CollapsibleCard({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => { playToggle(!open); setOpen((v) => !v); }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
+            playToggle(!open);
             setOpen((v) => !v);
           }
         }}
@@ -163,6 +166,7 @@ export default React.memo(function RightPanelColumn({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                soundManager.playUi("ui_click");
                 setShowIdentities((v) => !v);
               }}
               className="flex items-center ml-1.5 px-1.5 py-0.5 rounded border border-amber-900/50 hover:bg-amber-900/30 text-amber-500/80 hover:text-amber-400 focus:outline-none transition-colors"

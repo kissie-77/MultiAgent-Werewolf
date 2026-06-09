@@ -7,6 +7,7 @@ import { ApiClient } from "../api/client";
 import { isPostGameReady, replayPathFor } from "../lib/settlement";
 import type { ReplayPageData } from "../api/types";
 import { resolveMvpView, resolveBoard, resolveWinnerIsGood, isWolfRole } from "../lib/gameOver";
+import { soundManager } from "../audio/soundManager";
 
 const POST_GAME_POLL_INTERVAL_MS = 2500;
 
@@ -323,7 +324,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
         </h4>
         <div className="flex flex-wrap items-center justify-center gap-4">
           <button
-            onClick={() => onRestart("预言家")}
+            onClick={() => { soundManager.playUi("ui_click"); onRestart("预言家"); }}
             className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-black bg-yellow-500 hover:bg-yellow-400 border border-yellow-700/60 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5"
           >
             <RefreshCw className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
@@ -331,7 +332,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
           </button>
 
           <button
-            onClick={() => onRestart("女巫")}
+            onClick={() => { soundManager.playUi("ui_click"); onRestart("女巫"); }}
             className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-white bg-fuchsia-850 hover:bg-fuchsia-750 border border-fuchsia-800/40 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 bg-fuchsia-900"
           >
             <Heart className="w-3.5 h-3.5" />
@@ -339,7 +340,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
           </button>
 
           <button
-            onClick={() => onRestart("猎人")}
+            onClick={() => { soundManager.playUi("ui_click"); onRestart("猎人"); }}
             className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-white bg-teal-850 hover:bg-teal-750 border border-teal-800/40 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 bg-emerald-800"
           >
             <ShieldAlert className="w-3.5 h-3.5" />
@@ -347,7 +348,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
           </button>
 
           <button
-            onClick={() => onRestart("村民")}
+            onClick={() => { soundManager.playUi("ui_click"); onRestart("村民"); }}
             className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5"
           >
             <Users className="w-3.5 h-3.5" />
@@ -355,7 +356,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
           </button>
 
           <button
-            onClick={() => onRestart("狼人")}
+            onClick={() => { soundManager.playUi("ui_click"); onRestart("狼人"); }}
             className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-white bg-red-850 hover:bg-red-750 border border-red-800/40 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 bg-red-950"
           >
             <Flame className="w-3.5 h-3.5" />
@@ -366,6 +367,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
             postGameReady ? (
               <Link
                 to={replayPathFor(runId)}
+                onClick={() => soundManager.playUi("ui_click")}
                 className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-950 bg-yellow-500 hover:bg-yellow-400 border border-yellow-600 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 text-center font-bold"
               >
                 <BrainCircuit className="w-3.5 h-3.5 animate-pulse" />
@@ -384,6 +386,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
           ) : (
             <Link
               to={`/replay/run-gameover-${gameState.winner?.toLowerCase()}`}
+              onClick={() => soundManager.playUi("ui_click")}
               className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-950 bg-yellow-500 hover:bg-yellow-400 border border-yellow-600 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5 text-center font-bold"
             >
               <BrainCircuit className="w-3.5 h-3.5 animate-pulse" />
@@ -392,7 +395,7 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
           )}
 
           <button
-            onClick={onExit}
+            onClick={() => { soundManager.playUi("ui_click"); onExit(); }}
             className="group relative px-6 py-2.5 font-sans font-black text-[10px] uppercase tracking-wider text-zinc-300 bg-zinc-950 border border-zinc-800 hover:bg-zinc-900 hover:text-white hover:border-zinc-500 rounded shadow-lg transition-transform transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-1.5"
           >
             <LogOut className="w-3.5 h-3.5" />

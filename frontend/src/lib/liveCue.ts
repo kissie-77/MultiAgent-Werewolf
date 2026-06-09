@@ -37,9 +37,9 @@ export const THINKING_CONTEXT_LABEL: Record<ThinkingContext, string> = {
 };
 
 export const NIGHT_SUB_PHASE_LABEL: Record<string, string> = {
-  pre_wolf: "预狼行动",
-  werewolf_kill: "狼队刀人",
-  werewolf_chat: "狼队夜聊",
-  witch_decide: "女巫用药",
-  seer_check: "神职查验",
+  pre_wolf: "狼群集结潜伏",
+  werewolf_kill: "狼人嗜血猎杀",
+  werewolf_chat: "狼群暗语密谋",
+  witch_decide: "女巫秘药熬制",
+  seer_check: "先知灵视窥探",
 };

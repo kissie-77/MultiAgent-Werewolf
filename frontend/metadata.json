@@ -1,6 +1,0 @@
-{
-  "name": "AI Werewolf",
-  "description": "An interactive AI-powered Werewolf game featuring a 3D審判法阵 background, 3D speaker-tracking camera animations, and a hand-drawn dark woodcut aesthetic UI.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

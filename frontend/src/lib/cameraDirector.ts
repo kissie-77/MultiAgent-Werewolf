@@ -1,4 +1,5 @@
 import type { GameState } from "../types";
+import { isLobbyPhase } from "./phaseStage";
 
 export type Vec3 = [number, number, number];
 
@@ -47,10 +48,10 @@ export const SPEAKER_LOOK_FACTOR = 0.5;
 export const SPEAKER_LOOK_Y = 0.6;
 
 // Damping lambdas for THREE.MathUtils.damp (frame-rate independent; higher = snappier).
-export const FAST_LAMBDA = 7.0; // decisive cut back to wide
-export const SLOW_LAMBDA = 3.0; // unhurried push-in / gentle drift
-export const FAST_LOOK_LAMBDA = 7.5;
-export const SLOW_LOOK_LAMBDA = 3.5;
+export const WIDE_LAMBDA = 3.5; // eased pull-back to wide (replaces the old hard FAST cut of 7.0)
+export const SLOW_LAMBDA = 2.5; // unhurried push-in / gentle drift (slowed from 3.0)
+export const WIDE_LOOK_LAMBDA = 4.0;
+export const SLOW_LOOK_LAMBDA = 3.0;
 
 /** Seat-ring radius — mirrors the value SpeakerSeat/render use so the camera lines up. */
 export function tableRadius(count: number): number {
@@ -88,7 +89,7 @@ export function decideCamera(input: CamInput): CamDecision {
   const home = homePose(count);
 
   // Lobby keeps its bespoke time-based orbit in the component; pose here is a fallback.
-  if (phase === "START_SCREEN") {
+  if (isLobbyPhase(phase)) {
     return {
       mode: "lobby",
       pos: home.pos,
@@ -99,14 +100,14 @@ export function decideCamera(input: CamInput): CamDecision {
   }
 
   // Forced wide window: a phase-change establish beat OR a post-speech hold.
-  // Fast, decisive cut — and it deliberately overrides a freshly-set next speaker.
+  // An eased (not snapped) pull-back — and it deliberately overrides a freshly-set next speaker.
   if (nowMs < establishUntilMs || nowMs < recenterUntilMs) {
     return {
       mode: "wide",
       pos: home.pos,
       look: home.look,
-      posLambda: FAST_LAMBDA,
-      lookLambda: FAST_LOOK_LAMBDA,
+      posLambda: WIDE_LAMBDA,
+      lookLambda: WIDE_LOOK_LAMBDA,
     };
   }
 

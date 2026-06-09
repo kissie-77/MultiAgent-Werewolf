@@ -40,6 +40,8 @@ import { mapHomePage } from "../lib/homeMap";
 import { mapRoleDetail, mapRolesPage } from "../lib/rolesMap";
 import { mapHowToPlayPage } from "../lib/howToPlayMap";
 import { mapAboutPage } from "../lib/aboutMap";
+import { mapStrategyPage, BackendStrategyPageData } from "../lib/strategyMap";
+import { mapNightPhasePage, BackendNightPhasePageData } from "../lib/nightPhaseMap";
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -191,11 +193,13 @@ export class ApiClient {
   }
 
   static async getNightPhasePageData(): Promise<NightPhasePageData> {
-    return this.get<NightPhasePageData>("/api/v1/pages/night-phase");
+    const raw = await this.get<BackendNightPhasePageData>("/api/v1/pages/night-phase");
+    return mapNightPhasePage(raw);
   }
 
   static async getStrategyPageData(): Promise<StrategyPageData> {
-    return this.get<StrategyPageData>("/api/v1/pages/strategy");
+    const raw = await this.get<BackendStrategyPageData>("/api/v1/pages/strategy");
+    return mapStrategyPage(raw);
   }
 
   static async getRunsPageData(page = 1, pageSize = 20): Promise<RunListPageData> {

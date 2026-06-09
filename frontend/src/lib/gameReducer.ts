@@ -1,5 +1,10 @@
-import type { GameState, LiveCue, Player } from "../types";
+import type { GameState, LiveCue, NightActionEntry, Player, SkillFx } from "../types";
 import { initialLiveCue, parseThinkingContext } from "./liveCue";
+
+/** Monotonic counter so every NightActionEntry gets a unique id for React keys. */
+let nightActionId = 0;
+/** Monotonic counter for SkillFx nonce. */
+let skillFxNonce = 0;
 
 export interface SseEvent {
   event_type: string;
@@ -149,14 +154,97 @@ function clearNightCues(s: GameState): void {
   };
 }
 
+/** Extract the target name from event data, falling back to the raw message. */
+function targetNameFromEvent(ev: SseEvent): string {
+  const t = ev.data?.target_name;
+  if (typeof t === "string" && t) return t;
+  const tid = ev.data?.target_id;
+  if (typeof tid === "string") {
+    // tid may be "player_5" — strip prefix to get seat number for display.
+    const m = tid.match(/(\d+)$/);
+    return m ? `${m[1]}号` : tid;
+  }
+  if (typeof tid === "number") return `${tid}号`;
+  return ev.message ?? "?";
+}
+
+/** Extract the result string from event data, converting camp to Chinese. */
+function resultFromEvent(ev: SseEvent): string | null {
+  const r = ev.data?.result;
+  if (typeof r === "string" && r) {
+    if (r === "werewolf" || r === "wolf") return "狼人";
+    if (r === "human" || r === "villager") return "好人";
+    return r;
+  }
+  return null;
+}
+
+function appendNightAction(s: GameState, ev: SseEvent): void {
+  const etype = ev.event_type;
+  const seat = seatOf(ev.data);
+  const round = ev.round_number ?? s.dayNumber ?? 0;
+  const role = (ev.data?.role ?? s.players.find((p) => p.id === seat)?.role ?? "") as string;
+  const targetSeat = (() => {
+    const tid = ev.data?.target_id;
+    if (typeof tid === "number") return tid;
+    if (typeof tid === "string") {
+      const m = tid.match(/(\d+)$/);
+      return m ? Number(m[1]) : null;
+    }
+    return null;
+  })();
+
+  const entry: NightActionEntry = {
+    id: ++nightActionId,
+    round,
+    seat: seat ?? 0,
+    role: String(role),
+    actionType: etype,
+    targetSeat,
+    targetName: targetNameFromEvent(ev),
+    result: resultFromEvent(ev),
+    message: ev.message ?? "",
+  };
+  s.nightActionLog = [...(s.nightActionLog ?? []), entry];
+
+  // Fire the skill-effect overlay
+  s.skillFx = {
+    nonce: ++skillFxNonce,
+    actionType: etype,
+    seat: seat ?? 0,
+    role: String(role),
+    targetSeat,
+    targetName: targetNameFromEvent(ev),
+    result: resultFromEvent(ev),
+  };
+
+  // Also update the dedicated result fields on GameState
+  if (etype === "seer_checked") {
+    if (targetSeat != null) s.seerVerifiedTarget = targetSeat;
+    const res = ev.data?.result;
+    if (res === "werewolf") s.seerVerificationResult = "WEREWOLF";
+    else if (res === "human" || res === "villager") s.seerVerificationResult = "HUMAN";
+  } else if (etype === "witch_saved") {
+    s.witchSaved = true;
+  } else if (etype === "witch_poison_used" || etype === "witch_poisoned") {
+    if (targetSeat != null) s.witchPoisonedTarget = targetSeat;
+  } else if (etype === "werewolf_killed") {
+    if (targetSeat != null) s.wolfKilledTarget = targetSeat;
+  }
+}
+
+function clearNightActions(s: GameState): void {
+  s.nightActionLog = [];
+}
+
 export function initialSpectateState(): GameState {
   return {
     players: [], dayNumber: 0, phase: "START_SCREEN", currentSpeakerId: null,
-    countdown: 0, speechLogs: [], eventLog: [], narration: "", winner: null,
+    countdown: 0, speechLogs: [], eventLog: [], nightActionLog: [], narration: "", winner: null,
     wolfKilledTarget: null, witchSaved: false, witchPoisonedTarget: null,
     seerVerifiedTarget: null, seerVerificationResult: null, victimId: null,
     discussionIndex: 0, executionId: null, gameMode: "llmOnly",
-    liveCue: initialLiveCue(),
+    liveCue: initialLiveCue(), skillFx: null,
   };
 }
 
@@ -280,6 +368,8 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       }
       if (phaseKey && String(phaseKey) !== "night") {
         clearNightCues(s);
+        // Keep nightActionLog so players can review actions during the day
+        s.skillFx = null;
       }
       const stage = ev.data?.stage;
       if (stage === "campaign") {
@@ -315,6 +405,8 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       s.winner = camp === "werewolf" ? "WOLVES" : camp === "villager" ? "VILLAGERS" : s.winner;
       clearThinking(s);
       clearNightCues(s);
+      clearNightActions(s);
+      s.skillFx = null;
       s.liveCue = { ...s.liveCue, sheriffStage: null };
       break;
     }
@@ -324,6 +416,26 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       s.failureMessage = ev.message ?? "对局异常中断";
       clearThinking(s);
       clearNightCues(s);
+      clearNightActions(s);
+      s.skillFx = null;
+      break;
+    }
+    // ─── Night action events — accumulate into nightActionLog ───
+    case "seer_checked":
+    case "witch_saved":
+    case "witch_poison_used":
+    case "witch_poisoned":
+    case "werewolf_killed":
+    case "guard_protected":
+    case "lovers_linked":
+    case "white_wolf_killed":
+    case "wolf_beauty_charmed":
+    case "nightmare_blocked":
+    case "guardian_wolf_protected":
+    case "raven_marked":
+    case "graveyard_keeper_check":
+    case "magician_swapped": {
+      appendNightAction(s, ev);
       break;
     }
     default: {

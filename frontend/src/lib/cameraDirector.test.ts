@@ -5,7 +5,7 @@ import {
   speakerPose,
   decideCamera,
   RECENTER_HOLD_MS,
-  FAST_LAMBDA,
+  WIDE_LAMBDA,
   SLOW_LAMBDA,
 } from "./cameraDirector";
 
@@ -71,7 +71,7 @@ describe("decideCamera", () => {
       establishUntilMs: 10_500,
     });
     expect(d.mode).toBe("wide");
-    expect(d.posLambda).toBe(FAST_LAMBDA);
+    expect(d.posLambda).toBe(WIDE_LAMBDA);
     expect(d.pos).toEqual(homePose(6).pos);
   });
 
@@ -83,8 +83,13 @@ describe("decideCamera", () => {
       recenterUntilMs: 10_400,
     });
     expect(d.mode).toBe("wide");
-    expect(d.posLambda).toBe(FAST_LAMBDA);
+    expect(d.posLambda).toBe(WIDE_LAMBDA);
     expect(d.pos).toEqual(homePose(6).pos);
+  });
+
+  it("the wide pull-back eases rather than snapping (gentler than the old fast cut)", () => {
+    expect(WIDE_LAMBDA).toBeLessThan(5);
+    expect(WIDE_LAMBDA).toBeGreaterThan(SLOW_LAMBDA);
   });
 
   it("returns to a gentle wide overview when no one is speaking", () => {

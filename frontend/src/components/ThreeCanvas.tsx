@@ -4,61 +4,54 @@ import { Line } from "@react-three/drei";
 import * as THREE from "three";
 import { useReducedMotion } from "motion/react";
 import { useGameStore } from "../store";
-import { ESTABLISH_MS } from "../lib/phaseStage";
+import { ESTABLISH_MS, isLobbyPhase } from "../lib/phaseStage";
 import { decideCamera, RECENTER_HOLD_MS } from "../lib/cameraDirector";
+import { buildPreviewSeats } from "../lib/previewSeats";
+import { resolveSceneMode, sceneTheme, type SceneMode } from "../lib/sceneTheme";
+import GroundPlane from "./GroundPlane";
 import type { GameState } from "../types";
 
-function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
+function EnvironmentController({ mode }: { mode: SceneMode }) {
   const { scene } = useThree();
-  
-  const theme = React.useMemo(() => {
-     const bg = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02";
-     const ambientColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c";
-     const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38;
-     const dirColor = isMurderAlert ? "#dc2626" : isNight ? "#d946ef" : "#ff6a00";
-     const dirPos = isNight ? new THREE.Vector3(-10, 14, -5) : new THREE.Vector3(10, 15, 5);
-     const dirIntensity = isNight ? 4.5 : 5.5;
 
-     return {
-       bg: new THREE.Color(bg),
-       ambientColor: new THREE.Color(ambientColor),
-       ambientIntensity,
-       dirColor: new THREE.Color(dirColor),
-       dirPos,
-       dirIntensity
-     };
-  }, [isNight, isMurderAlert]);
+  const theme = React.useMemo(() => {
+    const t = sceneTheme(mode);
+    return {
+      bg: new THREE.Color(t.bg),
+      ambientColor: new THREE.Color(t.ambientColor),
+      ambientIntensity: t.ambientIntensity,
+      dirColor: new THREE.Color(t.dirColor),
+      dirPos: new THREE.Vector3(t.dirPos[0], t.dirPos[1], t.dirPos[2]),
+      dirIntensity: t.dirIntensity,
+    };
+  }, [mode]);
 
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const dirRef = useRef<THREE.DirectionalLight>(null);
 
   useEffect(() => {
-    scene.fog = new THREE.Fog(theme.bg, 10, 30);
+    scene.fog = new THREE.Fog(theme.bg, 12, 38);
     scene.background = theme.bg.clone();
     return () => {
       scene.fog = null;
       scene.background = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene]);
 
-  useFrame((state, delta) => {
-    const s = 1 - Math.exp(-3 * delta); // 平滑帧率无关衰减
+  useFrame((_, delta) => {
+    const s = 1 - Math.exp(-3 * delta); // 帧率无关的平滑衰减
 
-    // 背景和雾效线性插值
     if (scene.background instanceof THREE.Color) {
       scene.background.lerp(theme.bg, s);
     }
-    if (scene.fog && 'color' in scene.fog) {
+    if (scene.fog && "color" in scene.fog) {
       (scene.fog as THREE.Fog).color.lerp(theme.bg, s);
     }
-
-    // 环境光线性插值
     if (ambientRef.current) {
       ambientRef.current.color.lerp(theme.ambientColor, s);
       ambientRef.current.intensity = THREE.MathUtils.lerp(ambientRef.current.intensity, theme.ambientIntensity, s);
     }
-
-    // 方向光线性插值
     if (dirRef.current) {
       dirRef.current.color.lerp(theme.dirColor, s);
       dirRef.current.intensity = THREE.MathUtils.lerp(dirRef.current.intensity, theme.dirIntensity, s);
@@ -74,6 +67,13 @@ function EnvironmentController({ isNight, isMurderAlert }: { isNight: boolean, i
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
+        shadow-bias={-0.0004}
+        shadow-camera-near={1}
+        shadow-camera-far={60}
+        shadow-camera-left={-24}
+        shadow-camera-right={24}
+        shadow-camera-top={24}
+        shadow-camera-bottom={-24}
       />
     </>
   );
@@ -120,7 +120,8 @@ function CameraTracker() {
 
   useFrame((state, delta) => {
     // Lobby keeps its bespoke slow-orbit framing, untouched.
-    if (phase === "START_SCREEN") {
+    // (undefined phase = pre-connect landing page, also lobby — see isLobbyPhase.)
+    if (isLobbyPhase(phase)) {
       const time = state.clock.getElapsedTime();
       const orbitSpeed = 0.08;
       const pCount = setupCount !== null ? setupCount : (players.length || 6);
@@ -187,11 +188,10 @@ function CameraTracker() {
 // 审判法阵的程序化纹理
 interface TrialSigilProps {
   tableRadius: number;
-  isNight: boolean;
-  isMurderAlert?: boolean;
+  mode: SceneMode;
 }
 
-function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
+function TrialSigil({ tableRadius, mode }: TrialSigilProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
 
@@ -202,13 +202,20 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
     canvas.height = 512;
     const ctx = canvas.getContext("2d");
     if (ctx) {
+      // 与 sceneTheme 同族的昼/夜/命案配色（夜=冷蓝靛，昼=暖金，命案=赤红）
+      const stroke = mode === "murder" ? "#ef4444" : mode === "night" ? "#818cf8" : "#fbbf24";
+      const strokeDeep = mode === "murder" ? "#991b1b" : mode === "night" ? "#3730a3" : "#92400e";
+      const strokeSoft = mode === "murder" ? "#fca5a5" : mode === "night" ? "#a5b4fc" : "#fef08a";
+      const star = mode === "murder" ? "#ef4444" : mode === "night" ? "#6366f1" : "#f59e0b";
+      const rune = mode === "murder" ? "#fee2e2" : mode === "night" ? "#c7d2fe" : "#ffedd5";
+
       // 暗黑哥特木刻主题背景
       ctx.fillStyle = "#050308";
       ctx.fillRect(0, 0, 512, 512);
 
       // 厚重手绘轮廓线
-      ctx.strokeStyle = isMurderAlert ? "#ef4444" : (isNight ? "#c084fc" : "#fbbf24"); // 鲜红或鲜紫 vs 鲜金
-      ctx.shadowColor = isMurderAlert ? "#dc2626" : (isNight ? "#a855f7" : "#d97706");
+      ctx.strokeStyle = stroke; // 鲜红或冷蓝靛 vs 鲜金
+      ctx.shadowColor = stroke;
       ctx.shadowBlur = 15;
       ctx.lineWidth = 6;
 
@@ -217,7 +224,7 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.arc(256, 256, 220, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.strokeStyle = isMurderAlert ? "#991b1b" : (isNight ? "#4c1d95" : "#92400e");
+      ctx.strokeStyle = strokeDeep;
       ctx.lineWidth = 14;
       ctx.shadowBlur = 0;
       ctx.beginPath();
@@ -225,8 +232,8 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.stroke();
 
       // 双环内边框
-      ctx.strokeStyle = isMurderAlert ? "#fca5a5" : (isNight ? "#f472b6" : "#fef08a"); // 浅红/粉 vs 浅黄
-      ctx.shadowColor = isMurderAlert ? "#ef4444" : (isNight ? "#ec4899" : "#facc15");
+      ctx.strokeStyle = strokeSoft; // 浅红/粉 / 浅靛 vs 浅黄
+      ctx.shadowColor = strokeSoft;
       ctx.shadowBlur = 12;
       ctx.lineWidth = 4;
       ctx.beginPath();
@@ -234,9 +241,9 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.stroke();
 
       // 大卫之星/六芒星审判图案
-      ctx.strokeStyle = isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#f59e0b");
+      ctx.strokeStyle = star;
       ctx.lineWidth = 5;
-      ctx.shadowColor = isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#f59e0b");
+      ctx.shadowColor = star;
       ctx.shadowBlur = 20;
 
       // 三角形 1
@@ -256,8 +263,8 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       ctx.stroke();
 
       // 墨水雕刻、与游戏状态匹配的神秘符文
-      ctx.fillStyle = isMurderAlert ? "#fee2e2" : (isNight ? "#fde047" : "#ffedd5"); // 霓虹黄光 vs 白金
-      ctx.shadowColor = isMurderAlert ? "#fca5a5" : (isNight ? "#facc15" : "#fed7aa");
+      ctx.fillStyle = rune; // 冷蓝靛微光 vs 白金
+      ctx.shadowColor = rune;
       ctx.shadowBlur = 15;
       ctx.font = "italic bold 18px 'Courier New', monospace";
       ctx.textAlign = "center";
@@ -292,7 +299,7 @@ function TrialSigil({ tableRadius, isNight, isMurderAlert }: TrialSigilProps) {
       textureRef.current.needsUpdate = true;
     }
     canvasRef.current = canvas;
-  }, [isNight, isMurderAlert]);
+  }, [mode]);
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.46, 0]}>
@@ -415,21 +422,22 @@ function ChessPiece({ isSpeaking, isUser, isAlive, playerId }: HoodedFigureProps
     metalness: isSpeaking ? 0.4 : 0.8,
     clearcoat: 1.0,
     clearcoatRoughness: 0.1,
-    transmission: isSpeaking ? 0.2 : 0, 
     emissive: theme.primaryAccent,
     emissiveIntensity: isSpeaking ? 0.7 : (isUser ? 0.2 : 0.05),
   };
 
   return (
     <group position={[0, 0.4, 0]}>
-       <pointLight
-        position={[0, 1.5, 0]}
-        distance={4.0}
-        intensity={isSpeaking ? 1.5 : 0.3}
-        color={theme.primaryAccent}
-      />
+       {isSpeaking && (
+         <pointLight
+          position={[0, 1.5, 0]}
+          distance={4.0}
+          intensity={1.5}
+          color={theme.primaryAccent}
+        />
+       )}
       {/* Main body lathe */}
-      <mesh>
+      <mesh castShadow>
         <latheGeometry args={[points, 64]} />
         <meshPhysicalMaterial {...materialProps} />
       </mesh>
@@ -501,7 +509,7 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, isTarg
   return (
     <group position={[x, 0, z]}>
       {/* Stone Pillar / Obelisk Base */}
-      <mesh position={[0, 0.5, 0]}>
+      <mesh position={[0, 0.5, 0]} castShadow>
         <cylinderGeometry args={[0.6, 0.75, 1.2, 8]} />
         <meshPhysicalMaterial
           color={stoneColor}
@@ -575,7 +583,7 @@ function SpeakerSeat({ id, name, isAlive, isUser, isSpeaking, isThinking, isTarg
 }
 
 // 悬浮魔法元素/余烬，颜色随昼夜设置变化
-function MagicalSparks({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
+function MagicalSparks({ mode }: { mode: SceneMode }) {
   const pointsRef = useRef<THREE.Points>(null);
   const count = 75;
   const positions = React.useMemo(() => {
@@ -588,7 +596,7 @@ function MagicalSparks({ isNight, isMurderAlert }: { isNight: boolean, isMurderA
     return pos;
   }, []);
 
-  const targetColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#ef4444" : (isNight ? "#c084fc" : "#ff781f")), [isNight, isMurderAlert]);
+  const targetColor = React.useMemo(() => new THREE.Color(sceneTheme(mode).accent), [mode]);
   const matRef = useRef<THREE.PointsMaterial>(null);
 
   useFrame((state, delta) => {
@@ -639,9 +647,10 @@ function MagicalSparks({ isNight, isMurderAlert }: { isNight: boolean, isMurderA
   );
 }
 
-function TableRim({ tableRadius, isNight, isMurderAlert }: { tableRadius: number, isNight: boolean, isMurderAlert?: boolean }) {
-  const targetWireColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#dc2626" : isNight ? "#a855f7" : "#ea580c"), [isNight, isMurderAlert]);
-  const targetSolidColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#ef4444" : isNight ? "#d946ef" : "#fbbf24"), [isNight, isMurderAlert]);
+function TableRim({ tableRadius, mode }: { tableRadius: number; mode: SceneMode }) {
+  const theme = sceneTheme(mode);
+  const targetWireColor = React.useMemo(() => new THREE.Color(theme.accent), [theme.accent]);
+  const targetSolidColor = React.useMemo(() => new THREE.Color(theme.accentSoft), [theme.accentSoft]);
   
   const wireMatRef = useRef<THREE.MeshBasicMaterial>(null);
   const solidMatRef = useRef<THREE.MeshBasicMaterial>(null);
@@ -665,13 +674,14 @@ function TableRim({ tableRadius, isNight, isMurderAlert }: { tableRadius: number
     </>
   );
 }
-function CentralEnergyOrb({ isNight, isMurderAlert }: { isNight: boolean, isMurderAlert?: boolean }) {
+function CentralEnergyOrb({ mode }: { mode: SceneMode }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const lightRef = useRef<THREE.PointLight>(null);
 
-  const targetLightColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#ef4444" : (isNight ? "#d946ef" : "#ff6a00")), [isNight, isMurderAlert]);
-  const targetMatColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#dc2626" : (isNight ? "#8b5cf6" : "#ea580c")), [isNight, isMurderAlert]);
-  const targetEmissiveColor = React.useMemo(() => new THREE.Color(isMurderAlert ? "#fca5a5" : (isNight ? "#f472b6" : "#fbbf24")), [isNight, isMurderAlert]);
+  const theme = sceneTheme(mode);
+  const targetLightColor = React.useMemo(() => new THREE.Color(theme.accent), [theme.accent]);
+  const targetMatColor = React.useMemo(() => new THREE.Color(theme.accent), [theme.accent]);
+  const targetEmissiveColor = React.useMemo(() => new THREE.Color(theme.accentSoft), [theme.accentSoft]);
 
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
 
@@ -687,7 +697,7 @@ function CentralEnergyOrb({ isNight, isMurderAlert }: { isNight: boolean, isMurd
     }
     if (lightRef.current) {
       // 极度活跃的光晕脉动结合线性插值
-      const targetIntensity = (isNight ? 14.0 : 9.0) + Math.sin(time * 5) * 3.0;
+      const targetIntensity = (mode === "night" ? 14.0 : 9.0) + Math.sin(time * 5) * 3.0;
       lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, targetIntensity, s);
       lightRef.current.color.lerp(targetLightColor, s);
     }
@@ -703,8 +713,6 @@ function CentralEnergyOrb({ isNight, isMurderAlert }: { isNight: boolean, isMurd
         ref={lightRef}
         intensity={10}
         distance={12}
-        castShadow
-        shadow-bias={-0.0005}
       />
       <mesh ref={meshRef}>
         <dodecahedronGeometry args={[0.32, 1]} />
@@ -737,30 +745,19 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   // 根据昼夜切换切换环境颜色
   const isNight = phase?.startsWith("NIGHT") || lastLogIsNight || false;
   const isMurderAlert = phase === "DAY_ANNOUNCEMENT" && victimId !== null && victimId !== undefined;
-  
-  const fogColor = isMurderAlert ? "#2a0404" : isNight ? "#0d0415" : "#1e0b02"; // 神秘深紫雾 vs 燃烧赤陶金橙尘
-  const lightColor = isMurderAlert ? "#ff1100" : isNight ? "#7c3aed" : "#ea580c"; // 深霓虹紫环境光 vs 强烈旭日橙金环境光
-  const ambientIntensity = isMurderAlert ? 0.8 : isNight ? 0.15 : 0.38; // 精细调优使选择性光束脱颖而出
+  const sceneMode: SceneMode = resolveSceneMode(Boolean(isNight), Boolean(isMurderAlert));
 
-  // START_SCREEN 配置期间的座位动态预览数组
-  const previewPlayers = React.useMemo(() => {
-    if (phase === "START_SCREEN" && setupCount !== null) {
-      return Array.from({ length: setupCount }, (_, idx) => ({
-        id: idx + 1,
-        name: `席位 ${idx + 1}`,
-        isAlive: true,
-        isUser: idx === 0,
-        isSpeaking: false,
-      }));
-    }
-    return players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      isAlive: p.isAlive,
-      isUser: p.isUser,
-      isSpeaking: currentSpeakerId === p.id,
-    }));
-  }, [phase, setupCount, players, currentSpeakerId]);
+  // START_SCREEN / 落地页（phase=undefined）渲染预览圆桌；否则映射真实玩家。
+  const previewPlayers = React.useMemo(
+    () =>
+      buildPreviewSeats({
+        phase,
+        setupCount,
+        players,
+        currentSpeakerId: currentSpeakerId ?? null,
+      }),
+    [phase, setupCount, players, currentSpeakerId],
+  );
 
   // 计算活跃发言者位置以将戏剧性灯光聚焦于其上
   let speakerLight = null;
@@ -772,6 +769,8 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
       const radius = Math.max(5, total * 0.72);
       const sX = Math.sin(angle) * radius;
       const sZ = Math.cos(angle) * radius;
+      const sTheme = sceneTheme(sceneMode);
+      const beamStrong = sceneMode === "night";
       speakerLight = (
         <group>
           {/* Spotlight beam representing the divine/guilt trial beam */}
@@ -779,26 +778,23 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
             position={[sX, 6.5, sZ]}
             angle={0.4}
             penumbra={0.7}
-            intensity={isNight ? 32.0 : 25.0} // 动态高功率主题光束
-            color={isNight ? "#d946ef" : "#ff6a00"} // 皇家紫 vs 炽烈日落橙
-            castShadow
-            shadow-mapSize-width={512}
-            shadow-mapSize-height={512}
+            intensity={beamStrong ? 32.0 : 25.0} // 动态高功率主题光束
+            color={sTheme.accent}
           />
           {/* Neon secondary light aura on the hooded figure */}
           <pointLight
             position={[sX, 1.8, sZ]}
             intensity={6.0}
             distance={6}
-            color={isNight ? "#a855f7" : "#ff781f"} // 霓虹紫水晶紫 vs 太阳烈焰橙
+            color={sTheme.accentSoft}
           />
           {/* Volumetric Visual Light Cone Cylinder (Additive spectacular atmosphere beam!) */}
           <mesh position={[sX, 3.4, sZ]}>
             <cylinderGeometry args={[0.08, 1.5, 6.0, 32, 1, true]} />
             <meshBasicMaterial
-              color={isNight ? "#d946ef" : "#ff6a00"}
+              color={sTheme.accent}
               transparent
-              opacity={isNight ? 0.18 : 0.14}
+              opacity={beamStrong ? 0.18 : 0.14}
               blending={THREE.AdditiveBlending}
               side={THREE.DoubleSide}
               depthWrite={false}
@@ -813,14 +809,22 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
     <div className="absolute inset-0 w-full h-full z-0 pointer-events-none">
       <Canvas
         shadows
-        gl={{ antialias: true }}
+        dpr={[1, 1.5]}
+        gl={{ antialias: true, powerPreference: "high-performance" }}
         camera={{ position: [0, 9.25, 13], fov: 45 }}
         style={{ pointerEvents: "auto" }}
       >
-        <EnvironmentController isNight={isNight} isMurderAlert={isMurderAlert} />
+        <EnvironmentController mode={sceneMode} />
+
+        {/* Multi-layer atmospheric ground (textured, shadow-receiving) + glowing rune rings */}
+        {(() => {
+          const radius = Math.max(5, previewPlayers.length * 0.72);
+          const groundTableRadius = Math.max(3.5, radius * 0.7);
+          return <GroundPlane mode={sceneMode} tableRadius={groundTableRadius} />;
+        })()}
 
         {/* Floating Sparks in the atmospheric space */}
-        <MagicalSparks isNight={isNight} isMurderAlert={isMurderAlert} />
+        <MagicalSparks mode={sceneMode} />
 
         {/* Theatrical speaking spot highlight */}
         {speakerLight}
@@ -845,16 +849,16 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
                 </mesh>
                 
                 {/* Glowing neon edge rim */}
-                <TableRim tableRadius={tableRadius} isNight={isNight} isMurderAlert={isMurderAlert} />
+                <TableRim tableRadius={tableRadius} mode={sceneMode} />
 
                 {/* Central Trial sigil / Magic trial floor decals */}
-                <TrialSigil tableRadius={tableRadius} isNight={isNight} isMurderAlert={isMurderAlert} />
+                <TrialSigil tableRadius={tableRadius} mode={sceneMode} />
               </>
             );
           })()}
 
           {/* Central neon glowing magical orb of judgement */}
-          <CentralEnergyOrb isNight={isNight} isMurderAlert={isMurderAlert} />
+          <CentralEnergyOrb mode={sceneMode} />
 
           {/* Render circular array of players sitting seats */}
           {previewPlayers.map((p, idx) => {

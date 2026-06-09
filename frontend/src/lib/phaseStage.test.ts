@@ -4,8 +4,24 @@ import {
   shouldShowCard,
   stageCardText,
   stageBadge,
+  isLobbyPhase,
   MIN_GAP_MS,
 } from "./phaseStage";
+
+describe("isLobbyPhase", () => {
+  it("treats undefined (pre-connect landing page) as lobby", () => {
+    expect(isLobbyPhase(undefined)).toBe(true);
+  });
+  it("treats START_SCREEN / ROLE_CHOICE as lobby", () => {
+    expect(isLobbyPhase("START_SCREEN")).toBe(true);
+    expect(isLobbyPhase("ROLE_CHOICE")).toBe(true);
+  });
+  it("treats in-game phases as not lobby", () => {
+    expect(isLobbyPhase("DAY_DEBATE")).toBe(false);
+    expect(isLobbyPhase("NIGHT_WOLF")).toBe(false);
+    expect(isLobbyPhase("GAME_OVER")).toBe(false);
+  });
+});
 
 describe("coarseStage", () => {
   it("maps fine phases to coarse buckets", () => {

@@ -16,6 +16,11 @@ export function coarseStage(phase: GameState["phase"]): CoarseStage {
   return "day";
 }
 
+/** Lobby includes the pre-connect landing page, where `state` (and thus phase) is still null. */
+export function isLobbyPhase(phase: GameState["phase"] | undefined): boolean {
+  return phase == null || phase === "START_SCREEN" || phase === "ROLE_CHOICE";
+}
+
 /** True when entering night/day is a genuine, non-burst boundary worth a card. */
 export function shouldShowCard(
   prev: CoarseStage,

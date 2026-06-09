@@ -175,11 +175,8 @@ export default function GameApp() {
         </div>
 
         <div className="flex-grow flex flex-row w-full min-h-0 relative">
-          {isSeatView && (
-            <div className="w-[300px] shrink-0 h-full overflow-y-auto pointer-events-auto hidden md:block">
-              <CardDeck />
-            </div>
-          )}
+          {/* Left seat-roster deck — both modes (seat view + spectate); self-collapsing */}
+          <CardDeck />
           <div className="flex-grow flex flex-col min-w-0 h-full relative pointer-events-auto bg-transparent">
             <div className="flex-grow flex flex-col min-h-0 overflow-hidden relative">
               {gameState?.winner && (

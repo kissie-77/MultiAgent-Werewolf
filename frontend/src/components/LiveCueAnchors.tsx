@@ -22,7 +22,7 @@ export default React.memo(function LiveCueAnchors() {
     !isSeatView || seat === humanSeat || isRoleRevealed(role);
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-[15] flex flex-col gap-1 items-end">
+    <div className="pointer-events-none fixed bottom-[72px] right-4 z-[15] flex flex-col gap-1 items-end">
       {sheriffStage && (
         <div
           data-live-cue="sheriff-stage"

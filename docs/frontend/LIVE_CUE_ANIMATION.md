@@ -199,7 +199,7 @@ actor_thinking(seat=4)  →  下一位思考…
 | `phase` | 大背景（日/夜、警长、投票）；夜间细粒度可看 `nightSubPhase` |
 | `speechLogs` | 历史发言；`speechContext` 区分 `day` / `sheriff` / `wolf` |
 
-注意：`ThreeCanvas` 目前仍主要读 `currentSpeakerId`，**尚未**接 `liveCue.thinking`——思考动效需要你们新接。
+注意：`ThreeCanvas` 已接入 `liveCue.thinking`：`thinkingSeat` → `isThinking` prop → `SpeakerSeat` 渲染青色光环。
 
 ---
 
@@ -283,10 +283,11 @@ useEffect(() => {
 
 ---
 
-## 10. 尚未接入（勿假设已有）
+## 10. 设计约束
 
-- `CastSkillOverlay` 在 live 对局默认**不渲染**（`GameApp` 中 `!isLiveRun`）  
 - 技能**结果**（查验阵营、刀口等）多数为私有事件，占位层**故意不暴露**  
-- `ThreeCanvas` 思考态动效需自行接 `liveCue.thinking`  
+- **回顾（已接入）**：  
+  - `CastSkillOverlay` 已在 live 对局中渲染（`GameApp` live 分支，由 `activeCast` 触发）  
+  - `ThreeCanvas` 已通过 `gameState.liveCue.thinking.seat` 接入思考态动效（`SpeakerSeat` 青色光环）  
 
 如有新环节需要占位，请后端补 `actor_thinking` / `sub_phase` 事件，前端在 `gameReducer` 扩展即可。

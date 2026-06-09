@@ -68,8 +68,27 @@ def load_belief_snapshots(run_dir: Path, *, limit: int = 500) -> list[dict]:
 
 
 def load_wolf_camp_snapshots(run_dir: Path, *, limit: int = 200) -> list[dict]:
-    """Load wolf-team shared panel history."""
-    return _load_jsonl(run_dir / "wolf_camp_mind.jsonl", limit=limit)
+    """Load wolf-team shared panel history from events.jsonl WOLF_CAMP_SNAPSHOT events."""
+    ctx = load_run_context(run_dir)
+    rows: list[dict] = []
+    for event in ctx.events:
+        if event.get("event_type") != "wolf_camp_snapshot":
+            continue
+        data = event.get("data") or {}
+        # Flatten the event data into a per-round snapshot row that matches
+        # the front-end WolfCampSnapshot shape.
+        row = {
+            "day": int(event.get("round_number", 0)),
+            "camp_strategy": data.get("camp_strategy", ""),
+            "target_selection_id": data.get("wolf_target_id", 0),
+            "target_selection_name": data.get("wolf_target_name", ""),
+            "wolf_votes": data.get("wolf_votes", []),
+            "minds": data.get("minds", []),
+        }
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 def summarize_belief_heatmap(snapshots: list[dict]) -> dict[str, Any]:
@@ -86,7 +105,7 @@ def summarize_belief_heatmap(snapshots: list[dict]) -> dict[str, Any]:
     return {"observers": heatmap, "snapshot_count": len(snapshots)}
 
 
-_REPLAY_ONLY_EVENT_TYPES = frozenset({"vote_intention_snapshot", "belief_snapshot"})
+_REPLAY_ONLY_EVENT_TYPES = frozenset({"vote_intention_snapshot", "belief_snapshot", "wolf_camp_snapshot"})
 
 
 def _event_visible_for_replay(

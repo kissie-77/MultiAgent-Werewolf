@@ -2,7 +2,7 @@
 
 > **模块**：evaluation
 > **状态**：active
-> **最后更新**：2026-06-05
+> **最后更新**：2026-06-09
 > **关联代码**：`src/llm_werewolf/evaluation/`
 > **关联测试**：`tests/evaluation/`
 > **Agent Skill**：`.agents/skills/generated/evaluation/`
@@ -16,7 +16,7 @@
 | Per-role 版本控制          | ✅ Done        | `RoleVersionManifest`；默认 latest（非全局 v2） |
 | Leaderboard / A/B + 显著性 | ✅ Done        | Wilson CI、z 检验                               |
 | PostGame 质量门控           | ✅ Done        | roster / matched / MVP / proposal / evolver 门控 |
-| Phase 2                    | 🔄 In Progress | benefit 完整规则、信念校准、按分筛 Skill        |
+| Phase 2                    | ✅ Done        | benefit 完整规则、信念校准、按分筛 Skill        |
 | Skill 闭环显式证明         | 🔄 In Progress | 写回 → 下局使用 → 20+ 局 A/B                    |
 | Leaderboard Web            | 📋 Planned     | 依赖 frontend                                   |
 
@@ -36,12 +36,12 @@
 - [x] 文档：evaluation 仅保留 README / DESIGN / ROADMAP
 - [x] Runtime error / Timeout / structured 中断进入 `data_quality`，自动降低赛后评分置信度
 - [x] PromptBadCaseChecker 增加「公开事实无支撑」检测，标记凭空跳身份/报技能结果类发言
+- [x] `benefit_scores.json` 完整规则（`scoring/benefit.py`：55% MVP + 45% 规则层，含 game_won/elimination_aligned/camp_persuasion/night_kill/skill_hit/survival）
+- [x] 信念校准接入 PostGame + replay API（`scoring/belief_calibration.py`：Brier score 计算 + `write_belief_calibration`）
 - [x] `scan_run_dir` 批量扫描固定包含 `PromptBadCaseChecker`（observability / werewolf-watch 消费）
 
 ## 进行中
 
-- [ ] `benefit_scores.json` 完整规则
-- [ ] 信念校准接入 PostGame + replay API
 - [ ] 初始版 vs 终局版 **20 局以上** A/B 显著提升证据
 - [ ] 信息隔离 0 泄漏汇总报告
 - [ ] 历史 run backfill 脚本（见 architecture/evaluation/task_for_mimo.md）
@@ -115,6 +115,7 @@ uv run werewolf-evidence --eval_root artifacts/eval_runs --evolution_root artifa
 
 | 日期       | 摘要                                               |
 | ---------- | -------------------------------------------------- |
+| 2026-06-09 | 代码审核：Phase 2（benefit 完整规则、信念校准）已实现，标记为 Done；进行中任务精简为 A/B 证据和泄漏报告 |
 | 2026-06-05 | 目录重组：`evidence_pack.py` / `time_analysis.py` 移入 `core/` |
 | 2026-06-05 | Task 6/7：补充信念矩阵、PostGame、Leaderboard/A/B 与证据包的答辩证据链；明确剩余可评分证据缺口 |
 | 2026-06-02 | `scan_run_dir` 固定跑 PromptBadCaseChecker；后端文档批次对齐 |

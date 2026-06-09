@@ -114,6 +114,47 @@ def _parse_legacy_scalar_text(text: str, model: type[T]) -> T | None:
             return model.model_validate({"choice": upper == "YES", "reason": None})
         if seat_match and seat_match.group(1) in {"0", "1"}:
             return model.model_validate({"choice": seat_match.group(1) == "1", "reason": None})
+
+    # ── 中文文本兜底：从自然语言中提取座位号 ──
+    if model.__name__ in {"SeatChoiceDecision", "VoteIntentionDecision", "MindStateDecision"}:
+        cn_seat = re.search(r"(\d+)\s*号", stripped)
+        if cn_seat:
+            return model.model_validate({"seat": int(cn_seat.group(1)), "reason": None})
+
+    if model.__name__ == "YesNoDecision":
+        if re.search(r"\b是\b|\b同意\b|好", stripped):
+            return model.model_validate({"choice": True, "reason": None})
+        if re.search(r"\b不\b|\b否\b|\b拒绝\b|\b不要\b", stripped):
+            return model.model_validate({"choice": False, "reason": None})
+
+    return None
+
+
+def _parse_yaml_like_lines(text: str, model: type[T]) -> T | None:
+    """当模型以 `key: value` 形式而非完整 JSON 输出时的兜底解析。"""
+    pairs: dict[str, Any] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        m = re.match(r"^\s*(\w+)\s*:\s*(.+)\s*$", line)
+        if m:
+            key, val = m.group(1), m.group(2).strip().strip('"').strip("'")
+            if val.lower() in {"true", "false"}:
+                pairs[key] = val.lower() == "true"
+            elif val.isdigit():
+                pairs[key] = int(val)
+            elif val == "null" or val == "none":
+                pairs[key] = None
+            else:
+                pairs[key] = val
+    if pairs:
+        try:
+            # 优先严格校验，失败则用 model_construct 宽松兜底
+            return model.model_validate(pairs)
+        except ValidationError:
+            try:
+                return model.model_construct(**pairs)
+            except (ValidationError, TypeError):
+                pass
     return None
 
 
@@ -141,7 +182,11 @@ def parse_structured_from_text(text: str, model: type[T]) -> T | None:
             parsed = model.model_validate(data)
         except ValidationError:
             continue
-    return parsed
+    if parsed is not None:
+        return parsed
+
+    # ── 最终兜底：YAML 风格 key:value 行解析 ──
+    return _parse_yaml_like_lines(text, model)
 
 
 async def invoke_structured(

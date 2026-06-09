@@ -11,7 +11,7 @@
 | AgentScope 接入 | ✅ Done | WerewolfAgent, ReAct, Prompt |
 | Skill 按版本目录加载 | ✅ Done | `skills/<role>/<version>/`；默认 latest |
 | 记忆四层 + RuntimeMemoryManager | ✅ Done | 见 [memory/ROADMAP.md](./memory/ROADMAP.md) |
-| Skill 写回消费 | 🔄 In Progress | evaluation 门控写库；when_to_use 合并 +0.15；稀疏 bump |
+| Skill 写回消费 | ✅ Done | evaluation 门控写库；when_to_use 合并 +0.15；稀疏 bump |
 | 信念驱动 Skill 注入 | ✅ Done | 信念矩阵匹配 + 自动 belief_signals；私密决策前统一 refresh |
 | 目录重组 | ✅ Done | `bridge/` 子包 + `fast_react_agent` 归入 `agents/` |
 
@@ -25,7 +25,7 @@
 
 ## 进行中
 
-- [ ] Skill 写回闭环证明
+（当前无进行中任务）
 
 ## 变更记录
 

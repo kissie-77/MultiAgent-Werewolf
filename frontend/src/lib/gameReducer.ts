@@ -167,6 +167,7 @@ function clearNightCues(s: GameState): void {
     ...s.liveCue,
     nightSubPhase: null,
     nightSkill: null,
+    thinking: null,
   };
 }
 
@@ -384,6 +385,7 @@ export function reduceEvent(prev: GameState, ev: SseEvent): GameState {
       }
       if (phaseKey && String(phaseKey) !== "night") {
         clearNightCues(s);
+        s.currentSpeakerId = null;
         // Keep nightActionLog so players can review actions during the day
         s.skillFx = null;
       }

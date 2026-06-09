@@ -5,15 +5,17 @@ status: active
 source: initial_curated
 camp: villager
 quality_passed: True
-weight: 0.95
+weight: 0.90
 win_count: 0
-use_count: 1
+use_count: 2
 when_to_use: 第1夜守卫行动阶段，尚无白天公开信息时；信念矩阵触发：场上狼信分散，需预判狼队首刀高价值位
 belief_pattern: dispersed
 belief_signals: vote_watching
 created_at: 2026-06-07T10:20:41+00:00
-updated_at: 2026-06-07T10:20:41+00:00
+updated_at: 2026-06-09T14:37:41+00:00
 ---
+
+描述：第1夜守卫行动阶段，尚无白天公开信息时；信念矩阵触发：场上狼信分散，需预判狼队首刀高价值位的情况下，使用该 skill
 
 描述：第1夜守卫行动阶段，尚无白天公开信息时；信念矩阵触发：场上狼信分散，需预判狼队首刀高价值位的情况下，使用该 skill
 

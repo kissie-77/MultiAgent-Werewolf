@@ -31,16 +31,13 @@
 
 ## 进行中
 
-- [ ] 信念格式化 / `belief_updater` 与运行时边界文档细化
-
-## 计划中
-
 - [ ] 更多 phase/plan 版本 A/B（按需 bump `v2`）
 
 ## 变更记录
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-09 | 代码审核：信念格式化与信号检测已完整实现（`belief/format.py`：522 行，含 B1/B2 格式化、signal 自动标注、pattern 检测、Skill 信念匹配），移除"进行中"状态 |
 | 2026-06-05 | 目录重组：`belief/` `contracts/` `registry/` `voting/` `wolf/` 子包；README 目录结构图 |
 | 2026-06-05 | 文档日期对齐；uv.lock + CI 矩阵 3.10/3.12 修复（基础设施批次） |
 | 2026-06-02 | 私密决策 belief skill refresh 文档对齐（agent_team）；phase prompt Schema 化 |

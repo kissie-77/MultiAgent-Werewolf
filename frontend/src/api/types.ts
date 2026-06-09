@@ -239,6 +239,7 @@ export interface ModelDetail extends ModelSummary {
 export interface ModelUsageStat {
   model_id: string;
   display_name: string;
+  role_name?: string | null;
   run_count: number;
   win_rate: number;
   avg_mvp: number;
@@ -334,7 +335,10 @@ export interface BeliefSnapshot {
   playerBeliefs: {
     playerId: number;
     playerName: string;
-    targetBeliefs: { targetPlayerId: number; targetPlayerName: string; wolfProbability: number }[]; // 0-100%
+    /** B1：一阶信念，观察者认为目标为狼的概率 (0-100%) */
+    targetBeliefs: { targetPlayerId: number; targetPlayerName: string; wolfProbability: number }[];
+    /** B2：二阶信念，观察者认为「他人怀疑自己」的程度 (0-100%) */
+    secondOrderBeliefs?: { observerId: number; observerName: string; suspectsMe: number }[];
   }[];
 }
 
@@ -363,7 +367,10 @@ export interface BeliefAnchor {
 
 export interface BeliefObserverSnapshot {
   observer_id: string; // e.g. "P1"
+  /** B1：一阶信念，该观察者对每个目标的狼概率判断 */
   targets: BeliefTargetSnapshot[];
+  /** B2：二阶信念，该观察者认为「目标怀疑自己」的程度 (0-1) */
+  secondOrderTargets?: BeliefTargetSnapshot[];
 }
 
 export interface BeliefTargetSnapshot {
@@ -697,6 +704,7 @@ export interface BackendReplayPageData {
 export interface BackendModelUsageStat {
   model_id: string;
   display_name: string;
+  role_name?: string | null;
   run_count: number;
   win_rate: number | null; // 0..1 fraction, or null when no runs
   avg_mvp: number | null;

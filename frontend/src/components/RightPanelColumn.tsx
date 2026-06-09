@@ -215,14 +215,14 @@ export default React.memo(function RightPanelColumn({
 
       {/* ── 6. 神机待测（狼队上帝视角推理矩阵） ── */}
       <CollapsibleCard title="神机待测" icon={<Sparkles className="w-3.5 h-3.5" />} defaultOpen={false}>
-        {canShowIdentities && wolfCampMinds && Object.keys(wolfCampMinds).length > 0 ? (
+        {wolfCampMinds && Object.keys(wolfCampMinds).length > 0 ? (
           <div className="flex flex-col gap-2">
             {Object.values(wolfCampMinds).map((m) => (
               <GodRoleIntelPanel key={m.owner_seat} record={m} players={players} />
             ))}
           </div>
         ) : (
-          <GatedPlaceholder text={!isLLMOnly ? "仅观战模式可用" : "等待狼队推理数据……"} />
+          <GatedPlaceholder text="等待狼队推理数据……" />
         )}
       </CollapsibleCard>
     </div>

@@ -28,6 +28,7 @@ PRIVATE_ACTOR_TYPES: frozenset[EventType] = frozenset({
 REPLAY_ONLY_TYPES: frozenset[EventType] = frozenset({
     EventType.VOTE_INTENTION_SNAPSHOT,
     EventType.BELIEF_SNAPSHOT,
+    EventType.WOLF_CAMP_SNAPSHOT,
 })
 
 WOLF_TEAM_TYPES: frozenset[EventType] = frozenset({

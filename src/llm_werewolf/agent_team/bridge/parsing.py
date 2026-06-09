@@ -21,7 +21,12 @@ if TYPE_CHECKING:
 def parse_target_selection(
     response: str, possible_targets: list[PlayerProtocol], allow_skip: bool = False
 ) -> PlayerProtocol | None:
-    if allow_skip and re.search(r"\bskip\b", response, flags=re.I):
+    if allow_skip and (
+        re.search(r"\bskip\b", response, flags=re.I)
+        or "跳过" in response
+        or "弃票" in response
+        or "放弃" in response
+    ):
         return None
 
     numbers = re.findall(r"\d+", response.strip())
@@ -29,7 +34,9 @@ def parse_target_selection(
         return None
 
     try:
-        seat = int(numbers[0])
+        # 优先匹配带 "号" 的数字（更可能是座位号）
+        cn_seat = re.search(r"(\d+)\s*号", response)
+        seat = int(cn_seat.group(1)) if cn_seat else int(numbers[0])
         if allow_skip and seat == 0:
             return None
         return resolve_player_by_seat(seat, possible_targets)

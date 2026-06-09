@@ -43,7 +43,7 @@ interface/
 | Web API 基础 | ✅ Done | FastAPI、actions + pages 路由 |
 | 控制台展示 | ✅ Done | CLI 挂载 `ui.ConsolePresenter`（TUI 已移除） |
 | 人机对战 | ✅ Done | `--human_seat` 混合座位 |
-| API 回放功能 | 🔄 In Progress | replay / runs 页面 API |
+| API 回放功能 | ✅ Done | replay / runs 页面 API（`replay.py`：belief_snapshots、wolf_camp_snapshots、heatmap、timeline、MVP；`runs.py`：list/paginate/detail） |
 | 标准板子 YAML（4/6/8/12/16） | ✅ Done | `standard-*p.yaml`，默认豆包 |
 | 供应商 env 模板 | ✅ Done | 8 家 · [PROVIDERS.md](./PROVIDERS.md) |
 | 设置 API（浏览器写 `.env`） | ✅ Done | `GET/POST /settings/api-keys` + `GET /settings/providers` |
@@ -93,6 +93,7 @@ interface/
 
 | 日期 | 摘要 |
 |------|------|
+| 2026-06-09 | 代码审核：API 回放功能（replay/runs）已完整实现，标记为 Done；信念矩阵日志聚合 API 已从 replay 消费，标记为 Done |
 | 2026-06-07 | 日志观战：`replay_only`、run 元数据推断、providers API、SSE roster 回退；`f1f655d`：`effective_player_count`、god_roster 容错、分享/模型页人数 |
 | 2026-06-05 | 目录重组：删除 10 个根目录 shim，`watch_cli.py→cli/watch.py`，17 处 import + pyproject.toml 同步更新 |
 | 2026-06-02 | 人机混战：显式配置优先级、极简人类输入提示、提交后等待提示 |

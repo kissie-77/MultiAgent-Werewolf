@@ -51,6 +51,8 @@ export default function ModelsPage() {
   };
 
   const sortedModels = [...models].sort((a, b) => b[sortOrder] - a[sortOrder]);
+  // Extract raw model_id from composite key for RadarCompare
+  const modelIdsForRadar = selectedIds.map((k) => k.split("|")[0]);
 
   if (loading) {
     return <PageLoadState variant="loading" loadingText="同步沙场战报与智脑阶级..." />;
@@ -127,9 +129,10 @@ export default function ModelsPage() {
                   </tr>
                 ) : (
                 sortedModels.map((model, idx) => {
-                  const isSelected = selectedIds.includes(model.model_id);
+                  const compositeKey = model.model_id + "|" + (model.role_name ?? "");
+                  const isSelected = selectedIds.includes(compositeKey);
                   return (
-                    <tr key={model.model_id} className={`transition-colors hover:bg-zinc-900/20 ${isSelected ? 'bg-amber-500/5' : ''}`}>
+                    <tr key={compositeKey} className={`transition-colors hover:bg-zinc-900/20 ${isSelected ? 'bg-amber-500/5' : ''}`}>
                        <td className="px-6 py-4 text-center font-mono text-xs text-zinc-500">{idx + 1}</td>
                        <td className="px-6 py-4 font-bold text-zinc-200">{model.display_name}</td>
                        <td className="px-6 py-4 text-right font-mono text-zinc-400">{model.run_count}</td>
@@ -137,7 +140,7 @@ export default function ModelsPage() {
                        <td className="px-6 py-4 text-right font-mono text-blue-400">{model.avg_mvp.toFixed(1)}</td>
                        <td className="px-6 py-4 text-center">
                           <button
-                            onClick={() => toggleSelect(model.model_id)}
+                            onClick={() => toggleSelect(compositeKey)}
                             className="text-zinc-500 hover:text-amber-500 transition-colors"
                           >
                              {isSelected ? <CheckSquare className="w-5 h-5 text-amber-500 mx-auto" /> : <Square className="w-5 h-5 mx-auto" />}
@@ -165,7 +168,7 @@ export default function ModelsPage() {
               Radar Analytical Superposition
            </p>
 
-           <RadarCompare selectedIds={selectedIds} />
+           <RadarCompare selectedIds={modelIdsForRadar} />
         </motion.div>
       ) : (
         <div className="border border-zinc-900 border-dashed rounded-lg p-10 text-center text-zinc-600 font-mono text-xs">

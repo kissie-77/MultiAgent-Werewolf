@@ -426,6 +426,83 @@ class GameEngineBase:
             },
         )
 
+        # 同步快照狼队神职推理（wolf_camp_minds 已在 sync_all_belief_memories 中更新完毕）
+        self._log_wolf_camp_snapshot(round_number=round_number)
+
+    def _log_wolf_camp_snapshot(self, *, round_number: int) -> None:
+        """记录狼队神职推理与暴露雷达快照，供前端狼人矩阵面板使用。"""
+        if not self.game_state or not self.game_state.wolf_camp_minds:
+            return
+        minds_snapshot: list[dict] = []
+        for owner_seat, model in sorted(self.game_state.wolf_camp_minds.items()):
+            minds_snapshot.append({
+                "schema": "wolf_camp_mind_v2",
+                "owner_seat": owner_seat,
+                "round": round_number,
+                "contributor_seat": owner_seat,
+                "god_role_intel": {
+                    str(k): v.to_dict() for k, v in model.god_role_intel.items()
+                },
+                "exposure_radar": {
+                    str(k): v.to_dict() for k, v in model.exposure_radar.items()
+                },
+            })
+        if not minds_snapshot:
+            return
+
+        # ── 补充狼队投票与猎杀目标数据 ──
+        player_names = {p.player_id: p.name for p in self.game_state.players}
+        player_seats = {p.player_id: p.seat for p in self.game_state.players}
+
+        # 狼队投票详情
+        wolf_votes_data: list[dict] = []
+        for voter_id, target_id in self.game_state.werewolf_votes.items():
+            wolf_votes_data.append({
+                "wolf_player_id": player_seats.get(voter_id, 0),
+                "wolf_player_name": player_names.get(voter_id, voter_id),
+                "voted_for_id": player_seats.get(target_id, 0),
+                "voted_for_name": player_names.get(target_id, target_id),
+            })
+
+        # 最终猎杀目标
+        wolf_target_id = self.game_state.werewolf_target
+        wolf_target_name = player_names.get(wolf_target_id, "") if wolf_target_id else ""
+        wolf_target_seat = player_seats.get(wolf_target_id, 0) if wolf_target_id else 0
+
+        # 推导狼队策略摘要：从狼人神职推理中提取最高优先级的刺杀目标
+        strategy_parts: list[str] = []
+        seen_targets: set[int] = set()
+        for m in minds_snapshot:
+            for seat_str, intel in m.get("god_role_intel", {}).items():
+                if not isinstance(intel, dict):
+                    continue
+                t_seat = intel.get("target_seat", 0)
+                priority = intel.get("priority", "")
+                if t_seat and t_seat not in seen_targets and priority == "kill_tonight":
+                    seen_targets.add(t_seat)
+                    threat = intel.get("threat_score", 0)
+                    strategy_parts.append(f"P{t_seat}(威胁{threat:.0%})")
+        camp_strategy = "、".join(strategy_parts) if strategy_parts else "狼队策略待评估"
+
+        revision_parts = []
+        for m in minds_snapshot:
+            rev = getattr(m, "revision", getattr(m, "_revision", 0))
+            revision_parts.append(f"{m['owner_seat']}号狼")
+        message = f"【狼队神机·第 {round_number} 轮】{'·'.join(revision_parts)}"
+
+        self._log_event(
+            EventType.WOLF_CAMP_SNAPSHOT,
+            message,
+            data={
+                "round": round_number,
+                "minds": minds_snapshot,
+                "wolf_votes": wolf_votes_data,
+                "wolf_target_id": wolf_target_seat,
+                "wolf_target_name": wolf_target_name,
+                "camp_strategy": camp_strategy,
+            },
+        )
+
     def _sync_beliefs_after_public_death(self, player: PlayerProtocol) -> None:
         """公开身份出局后，所有 Agent 信念矩阵塌缩该列。"""
         if not self.game_state or self.game_state.belief_log is None:

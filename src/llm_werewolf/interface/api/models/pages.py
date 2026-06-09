@@ -251,6 +251,7 @@ class ModelConfigBrief(BaseModel):
 class ModelUsageStat(BaseModel):
     model_id: str
     display_name: str
+    role_name: str | None = None
     run_count: int = 0
     win_rate: float | None = None
     avg_mvp: float | None = None

@@ -4,7 +4,7 @@ import { ApiClient } from "../api/client";
 import { ReplayPageData } from "../api/types";
 import { motion } from "motion/react";
 import TimelinePlayback from "../components/TimelinePlayback";
-import BeliefHeatmap from "../components/BeliefHeatmap";
+import BeliefTrendChart from "../components/BeliefTrendChart";
 import VoteSwing from "../components/VoteSwing";
 import MvpTab from "../components/MvpTab";
 import {  
@@ -194,7 +194,7 @@ export default function ReplayPage() {
                   <thead className="bg-zinc-950">
                     <tr>
                       {headers.map((h, hIdx) => (
-                        <th key={hIdx} className="px-4 py-2.5 text-left text-[10px] font-mono tracking-widest text-[#eae5db] uppercase border-r border-zinc-900 last:border-0">
+                        <th key={hIdx} className="px-4 py-2.5 text-left text-xs font-mono tracking-widest text-[#eae5db] uppercase border-r border-zinc-900 last:border-0">
                           {h.replace(/\*\*/g, "")}
                         </th>
                       ))}
@@ -259,9 +259,9 @@ export default function ReplayPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full mb-6 border-b border-zinc-900 pb-2 flex flex-col md:flex-row items-center justify-between gap-4"
       >
-        <div className="flex items-center gap-3 text-xs font-mono text-zinc-400">
+        <div className="flex items-center gap-3 text-sm font-mono text-zinc-400">
           <Link to="/runs" className="hover:text-amber-500 transition-colors flex items-center gap-1.5">
-             <ChevronRight className="w-4 h-4 rotate-180" /> 返回
+             <ChevronRight className="w-5 h-5 rotate-180" /> 返回
           </Link>
           <span className="text-zinc-700">|</span>
           <span className="tracking-widest">#{runId?.slice(0, 16)}</span>
@@ -277,23 +277,6 @@ export default function ReplayPage() {
           <span>{run.initial_players}人</span>
           <span className="text-zinc-700">|</span>
           <span className="uppercase">{run.model_name || "DEEPSEEK-V4-FLASH"}</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-mono text-zinc-500 flex items-center gap-2">
-            视角:
-            <select 
-              value={viewScope}
-              onChange={(e) => setViewScope(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 text-zinc-300 rounded px-2 py-1 outline-none focus:border-amber-500 transition-colors"
-            >
-               <option value="ALL">上帝视角</option>
-               <option value="PUBLIC">公开视角</option>
-               {seatNumbers.map((n) => (
-                 <option key={n} value={`P${n}`}>P{n} 视角</option>
-               ))}
-            </select>
-          </label>
         </div>
       </motion.div>
 
@@ -312,7 +295,7 @@ export default function ReplayPage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as any)}
-                className={`flex items-center gap-2 px-6 py-3.5 border-b-2 text-xs font-mono tracking-widest transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-6 py-3.5 border-b-2 text-sm font-mono tracking-widest transition-all whitespace-nowrap cursor-pointer ${
                   isActive 
                     ? "border-amber-500 text-amber-500 font-bold bg-[#eae5db]/[0.02]" 
                     : "border-transparent text-zinc-500 hover:text-zinc-300"
@@ -341,7 +324,7 @@ export default function ReplayPage() {
             animate={{ opacity: 1, y: 0 }}
             className="w-full"
           >
-            <TimelinePlayback timeline={timeline} viewScope={viewScope} run={run} players={scores} />
+            <TimelinePlayback timeline={timeline} viewScope={viewScope} setViewScope={setViewScope} seatNumbers={seatNumbers} run={run} players={scores} />
           </motion.div>
         )}
 
@@ -425,7 +408,7 @@ export default function ReplayPage() {
                             <div className="space-y-2">
                               {pb.targetBeliefs.map((tb, tbIdx) => (
                                 <div key={tbIdx} className="space-y-1">
-                                  <div className="flex justify-between text-[11px] font-mono">
+                                  <div className="flex justify-between text-sm font-mono">
                                     <span className="text-zinc-400">研判 {tb.targetPlayerName} 为狼人概率:</span>
                                     <span className={`font-bold ${
                                       tb.wolfProbability >= 80 ? "text-red-500" : tb.wolfProbability >= 50 ? "text-orange-400" : "text-zinc-500"
@@ -445,6 +428,48 @@ export default function ReplayPage() {
                           </div>
                         ))}
                       </div>
+
+                      {/* ═══════════════ B2：二阶信念 · 他人疑我 ═══════════════ */}
+                      {snap.playerBeliefs[0]?.secondOrderBeliefs && snap.playerBeliefs.some(pb => (pb.secondOrderBeliefs?.length ?? 0) > 0) && (
+                        <div className="mt-8 pt-6 border-t border-zinc-900">
+                          <h4 className="font-serif text-sm font-black tracking-widest text-violet-400/90 mb-4 flex items-center gap-2">
+                            <Eye className="w-4 h-4 text-violet-500" />
+                            二阶信念矩阵 · 他人疑我概率
+                          </h4>
+
+                          {snap.playerBeliefs.map((pb, pbIdx) => {
+                            const sobs = pb.secondOrderBeliefs ?? [];
+                            if (sobs.length === 0) return null;
+                            return (
+                              <div key={pbIdx} className="p-4 bg-zinc-900/20 border border-zinc-900 rounded space-y-3 mb-3">
+                                <span className="font-serif text-xs font-bold text-violet-400 block">
+                                  【{pb.playerName}】感知到他人的怀疑程度：
+                                </span>
+                                <div className="space-y-2">
+                                  {sobs.map((sob, sIdx) => (
+                                    <div key={sIdx} className="space-y-1">
+                                      <div className="flex justify-between text-sm font-mono">
+                                        <span className="text-zinc-400">感知 {sob.observerName} 怀疑自己:</span>
+                                        <span className={`font-bold ${
+                                          sob.suspectsMe >= 70 ? "text-violet-500" : sob.suspectsMe >= 40 ? "text-fuchsia-400" : "text-zinc-500"
+                                        }`}>{sob.suspectsMe}%</span>
+                                      </div>
+                                      <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                                        <div 
+                                          className={`h-full transition-all ${
+                                            sob.suspectsMe >= 70 ? 'bg-violet-500' : sob.suspectsMe >= 40 ? 'bg-fuchsia-500' : 'bg-zinc-600'
+                                          }`} 
+                                          style={{ width: `${sob.suspectsMe}%` }} 
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ))
                 }
@@ -457,12 +482,20 @@ export default function ReplayPage() {
                   邪灵恶狼幽影日志
                 </h3>
 
-                {wolf_camp_snapshots
-                  .filter((v) => v.day === selectedSnapshotDay)
-                  .map((wolfSnap, wIdx) => (
+                {(() => {
+                  const dayWolfData = wolf_camp_snapshots.filter((v) => v.day === selectedSnapshotDay);
+                  if (dayWolfData.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-10 text-zinc-600">
+                        <p className="text-xs font-sans text-zinc-500">该轮次暂无狼队日志数据。</p>
+                        <p className="text-[10px] font-sans text-zinc-700 mt-1">对战尚未产生狼队内部推理记录。</p>
+                      </div>
+                    );
+                  }
+                  return dayWolfData.map((wolfSnap, wIdx) => (
                     <div key={wIdx} className="space-y-4">
                       <div className="p-4 bg-red-950/5 border border-red-900/10 rounded">
-                        <span className="text-[10px] font-sans tracking-widest text-red-500/90 block mb-1">狼队核心战术战略</span>
+                        <span className="text-xs font-sans tracking-widest text-red-500/90 block mb-1">狼队核心战术战略</span>
                         <p className="text-xs text-zinc-300 font-sans leading-relaxed">
                           {wolfSnap.campStrategy}
                         </p>
@@ -470,14 +503,14 @@ export default function ReplayPage() {
 
                       <div className="p-4 bg-zinc-900/10 border border-zinc-900 rounded text-xs space-y-3.5">
                         <div className="flex justify-between items-center pb-2 border-b border-zinc-900/60">
-                          <span className="text-zinc-500 font-sans text-[10px]">夜猎首要指定目标:</span>
+                          <span className="text-zinc-500 font-sans text-xs">夜猎首要指定目标:</span>
                           <span className="font-serif text-sm font-bold text-[#eae5db]">{wolfSnap.targetSelectionName}</span>
                         </div>
 
                         <div className="space-y-2">
-                          <span className="text-zinc-500 block font-sans text-[10px] mb-1">夜里狼队最终投票倾向：</span>
+                          <span className="text-zinc-500 block font-sans text-xs mb-1">夜里狼队最终投票倾向：</span>
                           {wolfSnap.wolfVotes.map((wv, wvIdx) => (
-                            <div key={wvIdx} className="flex justify-between font-mono text-[11px] bg-zinc-950/40 p-2 rounded">
+                            <div key={wvIdx} className="flex justify-between font-mono text-sm bg-zinc-950/40 p-2 rounded">
                               <span className="text-zinc-400">暗桩 【{wv.wolfPlayerName}】 投</span>
                               <span className="text-red-400 font-bold">{wv.votedForName}</span>
                             </div>
@@ -485,13 +518,13 @@ export default function ReplayPage() {
                         </div>
                       </div>
                     </div>
-                  ))
-                }
+                  ));
+                })()}
               </div>
             </div>
 
-            {/* Distrust Distrust Heatmap! Required!! */}
-            <BeliefHeatmap anchors={belief_matrix_anchors} />
+            {/* Belief evolution trend line chart — replaces static heatmap */}
+            <BeliefTrendChart anchors={belief_matrix_anchors} timeline={timeline} />
           </motion.div>
         )}
       </div>

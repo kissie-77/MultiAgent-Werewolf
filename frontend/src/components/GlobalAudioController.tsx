@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useGameStore } from "../store";
 import { soundManager } from "../audio/soundManager";
 import { bgmIdForPhase } from "../audio/soundMap";
+import { resolveClickSfx } from "../lib/clickSfx";
 
 /** 对局路由：此时背景音乐跟随真实游戏阶段；其余页面统一放大厅曲。 */
 const GAME_ROUTES = new Set(["/", "/game"]);
@@ -20,6 +21,18 @@ export default function GlobalAudioController() {
     const unlock = () => soundManager.unlock();
     window.addEventListener("pointerdown", unlock, { once: true });
     return () => window.removeEventListener("pointerdown", unlock);
+  }, []);
+
+  // 全局点击委托：所有界面的 button / 链接 / role=button 自动出交互音。
+  // 判音规则见 resolveClickSfx；对局内根 data-sfx-silent 整块跳过（已内联接音）。
+  // 用 capture 阶段，确保即使目标 onClick 调了 stopPropagation 也能听到。
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const id = resolveClickSfx(e.target as Element | null);
+      if (id) soundManager.playUi(id);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
   }, []);
 
   // 路由 + 对局阶段 → 目标背景音乐（交叉淡变；同曲重复调用是空操作）。

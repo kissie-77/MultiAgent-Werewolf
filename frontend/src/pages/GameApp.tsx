@@ -144,7 +144,7 @@ export default function GameApp() {
   const isNight = gameState?.phase?.startsWith("NIGHT") || false;
 
   return (
-    <div className={`relative w-screen h-screen flex flex-col transition-colors duration-[2000ms] ease-in-out ${isNight ? "bg-gradient-to-br from-[#0d0415] via-slate-900 to-[#1a0b2e] shadow-[inset_0_0_120px_rgba(76,29,149,0.4)]" : "bg-gradient-to-br from-amber-950 via-[#27150a] to-[#3f1905] shadow-[inset_0_0_120px_rgba(217,119,6,0.2)]"} text-slate-100 overflow-hidden font-sans select-none antialiased`}>
+    <div data-sfx-silent className={`relative w-screen h-screen flex flex-col transition-colors duration-[2000ms] ease-in-out ${isNight ? "bg-gradient-to-br from-[#0d0415] via-slate-900 to-[#1a0b2e] shadow-[inset_0_0_120px_rgba(76,29,149,0.4)]" : "bg-gradient-to-br from-amber-950 via-[#27150a] to-[#3f1905] shadow-[inset_0_0_120px_rgba(217,119,6,0.2)]"} text-slate-100 overflow-hidden font-sans select-none antialiased`}>
       <div className="absolute inset-0 bg-woodcut-dark opacity-30 mix-blend-multiply pointer-events-none z-0" />
       <ThreeCanvas />
 

@@ -219,6 +219,7 @@ const LandingPage = React.memo(function _LandingPage({ onEnter }: { onEnter: () 
       <div className="w-full flex flex-col gap-3 relative z-20 mt-2">
         <button
           onClick={onEnter}
+          data-sfx="submit"
           className="relative w-full px-4 py-3 font-gothic text-amber-950 text-base lg:text-lg tracking-[0.15em] transition-all duration-300 rounded overflow-hidden group shadow-[0_0_20px_rgba(245,158,11,0.1)] hover:shadow-[0_0_40px_rgba(245,158,11,0.3)] active:translate-y-px"
           style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%)" }}
         >
@@ -496,6 +497,7 @@ const SettingsPage = React.memo(function _SettingsPage({
       <div className="w-full flex flex-col gap-3 mt-6 relative z-20">
         <button
           onClick={onStartGame}
+          data-sfx="submit"
           disabled={starting}
           className="relative w-full px-8 py-5 flex items-center justify-center font-serif text-amber-950 transition-all duration-300 rounded overflow-hidden group shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:shadow-[0_0_40px_rgba(245,158,11,0.4)] active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
           style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)" }}

@@ -50,7 +50,7 @@ export default function AudioControls({ className }: { className?: string }) {
   }, [open]);
 
   return (
-    <div ref={rootRef} className={`inline-flex ${className ?? "relative"}`}>
+    <div ref={rootRef} data-sfx="off" className={`inline-flex ${className ?? "relative"}`}>
       {/* 折叠态触发图标 —— 反映静音状态 */}
       <button
         type="button"

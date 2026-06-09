@@ -54,11 +54,13 @@ export default function CardDeck() {
     setSelectedCardId(selectedCardId === player.id ? null : player.id);
   };
 
-  const isLLMOnly = gameState?.gameMode === "llmOnly";
+  // Spectator = god view (no human seat). gameState.gameMode is unreliable for this —
+  // the live reducer defaults it to "llmOnly" for every run — so key off humanSeat,
+  // the same signal LiveCueAnchors uses. A seated human never gets the reveal-all
+  // toggle (would be cheating); spectate reveals everyone by default.
+  const humanSeat = useGameStore((s) => s.humanSeat);
+  const isSpectator = humanSeat == null;
 
-  // Spectate (上帝观战) reveals everyone by default — matches the speech console
-  // showing real roles. The toggle flips it OFF to play "blind". Seat view never
-  // shows this toggle (would be cheating), so it stays exposed-by-self only.
   const [llmExposeAll, setLlmExposeAll] = React.useState(true);
 
   // Collapse to the left, leaving a slim re-open handle. Local state persists for
@@ -76,7 +78,7 @@ export default function CardDeck() {
       >
         <div className="flex flex-col h-full w-[312px] bg-indigo-950/40 bg-woodcut backdrop-blur-md px-4 py-4 select-none shadow-2xl overflow-y-auto">
 
-          {isLLMOnly && (
+          {isSpectator && (
             <div className="flex items-center justify-between mb-4 border border-indigo-800/80 bg-slate-900/60 px-3 py-2 rounded-lg shadow-inner shrink-0">
               <span className="text-[11px] font-sans font-bold text-indigo-300">全局上帝视角 👁️</span>
               <button
@@ -97,7 +99,7 @@ export default function CardDeck() {
 
                 // Identity exposure: expose if it is the User themselves, OR if they are dead, OR if game is over,
                 // OR (spectate only) when the god-view toggle is on. A redacted seat (role="") stays 秘匿.
-                const isExposed = (p.isUser || !p.isAlive || phase === "GAME_OVER" || (isLLMOnly && llmExposeAll)) && !!p.role;
+                const isExposed = (p.isUser || !p.isAlive || phase === "GAME_OVER" || (isSpectator && llmExposeAll)) && !!p.role;
 
                 // Color tags for role highlights
                 let roleColor = "text-zinc-400";

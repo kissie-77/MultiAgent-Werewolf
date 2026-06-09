@@ -6,30 +6,31 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getRoleImage } from "../utils/roles";
 import { soundManager } from "../audio/soundManager";
 
-// Portrait woodcut "秘匿" placeholder for unknown identities. Uses a fixed portrait
-// ratio (~0.58, Seer-like) so hidden cards stay uniform and never leak orientation.
+// Landscape woodcut "秘匿" placeholder for unknown identities. Matches the material
+// art ratio (3:2) so hidden cards line up with revealed illustrations; the SVG fills
+// (and may crop) its box — only hidden cards are allowed to crop, revealed art is not.
 function RoleIllustration() {
   return (
-    <svg viewBox="0 0 116 200" className="w-full h-full text-zinc-400 bg-zinc-950" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 150 100" preserveAspectRatio="xMidYMid slice" className="w-full h-full text-zinc-400 bg-zinc-950" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Woodcut frame border */}
-      <rect x="6" y="6" width="104" height="188" rx="4" stroke="currentColor" strokeWidth="3" fill="none" />
-      <rect x="10" y="10" width="96" height="180" rx="3" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" fill="none" />
+      <rect x="5" y="5" width="140" height="90" rx="3" stroke="currentColor" strokeWidth="3" fill="none" />
+      <rect x="8" y="8" width="134" height="84" rx="2" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" fill="none" />
 
       {/* Moon phase */}
-      <circle cx="58" cy="40" r="7" fill="currentColor" />
-      <line x1="58" y1="56" x2="58" y2="80" stroke="currentColor" strokeWidth="2" />
+      <circle cx="75" cy="22" r="5" fill="currentColor" />
+      <line x1="75" y1="27" x2="75" y2="38" stroke="currentColor" strokeWidth="2" />
 
       {/* Central mystical pattern (All-Seeing Eye) */}
-      <path d="M58 80 L86 140 L30 140 Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="miter" />
-      <circle cx="58" cy="120" r="14" stroke="currentColor" strokeWidth="3" />
-      <line x1="22" y1="158" x2="94" y2="158" stroke="currentColor" strokeWidth="2" />
+      <path d="M75 38 L100 72 L50 72 Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="miter" />
+      <circle cx="75" cy="58" r="11" stroke="currentColor" strokeWidth="3" />
+      <line x1="45" y1="80" x2="105" y2="80" stroke="currentColor" strokeWidth="2" />
 
       {/* Hand drawn scratch indicators */}
-      <line x1="18" y1="20" x2="28" y2="30" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-      <line x1="98" y1="180" x2="88" y2="170" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+      <line x1="15" y1="15" x2="25" y2="25" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+      <line x1="135" y1="85" x2="125" y2="75" stroke="currentColor" strokeWidth="1" opacity="0.3" />
 
       {/* Label "秘 匿" */}
-      <text x="58" y="124" fill="currentColor" fontSize="13" fontWeight="bold" fontFamily="monospace" textAnchor="middle" letterSpacing="2" opacity="0.55">秘 匿</text>
+      <text x="75" y="61" fill="currentColor" fontSize="11" fontWeight="bold" fontFamily="monospace" textAnchor="middle" letterSpacing="2" opacity="0.55">秘 匿</text>
     </svg>
   );
 }
@@ -143,7 +144,7 @@ export default function CardDeck() {
                       {isExposed ? (
                         <img src={getRoleImage(p.role)} alt={p.role} className="w-full h-auto block" />
                       ) : (
-                        <div className="w-full aspect-[58/100]">
+                        <div className="w-full aspect-[3/2]">
                           <RoleIllustration />
                         </div>
                       )}

@@ -82,7 +82,7 @@ name = "llm_werewolf"
 version = "0.1.0"
 description = "AI-powered Werewolf game with LLM integration, CLI, and frontend interfaces"
 dependencies = [
-    "agentscope>=1.0.20",
+    "agentscope>=1.0.21",
     "fire>=0.7.1",
     "logfire>=4.27.0",
     "openai>=2.26.0",
@@ -121,7 +121,7 @@ dev = [
     "ty",
 ]
 test = [
-    "agentscope>=1.0.20",
+    "agentscope>=1.0.21",
     "genbadge[all]",
     "pytest",
     "pytest-asyncio",

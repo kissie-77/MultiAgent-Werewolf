@@ -345,6 +345,26 @@ async def _stream_events(
                 ev = redact_event_for_seat(ev, seat)
             yield _sse(ev)
 
+    # 2b) re-emit any currently-pending awaiting_input for this seat (BUG#3).
+    # awaiting_input is published live but never persisted, so a client that
+    # connects/reconnects after the prompt was emitted would otherwise never see it
+    # and the human would be stuck until timeout. The broker still holds the unresolved
+    # future + request_id, so re-emitting the cached payload is safe and idempotent —
+    # the client just answers it. Seat-scoped: only the owner's stream gets it.
+    if seat is not None:
+        broker = get_input_broker(run_id)
+        if broker is not None:
+            for pending_ev in broker.pending_events_for_seat(seat):
+                if not event_visible_for(pending_ev, view=view, seat=seat):
+                    continue
+                ev = pending_ev
+                if view == "seat":
+                    ev = redact_event_for_seat(ev, seat)
+                # No SSE ``id`` here on purpose: the awaiting_input was never persisted
+                # so it has no event_id, and an empty id: would reset the browser's
+                # Last-Event-ID resume cursor. Omitting id: leaves the cursor unchanged.
+                yield {"data": json.dumps(ev, ensure_ascii=False)}
+
     # 3) if the run is live, stream new events until it closes
     if broadcaster is not None and not broadcaster.closed:
         replayed = max(last_event_id, _count_events(run_dir))

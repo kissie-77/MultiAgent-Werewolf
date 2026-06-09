@@ -32,6 +32,10 @@ class PendingRequest:
     seat: int
     kind: str
     future: "asyncio.Future[str]"
+    # The exact awaiting_input event payload published for this request (already
+    # including ``visible_to``). Cached so a late/reconnecting seat stream can re-emit
+    # the still-pending prompt verbatim (BUG#3). ``None`` only before it is built.
+    event: dict[str, Any] | None = None
 
 
 class HumanInputBroker:
@@ -76,9 +80,10 @@ class HumanInputBroker:
         rid = f"{self.run_id}-{self.seat}-{self._counter}"
         self._counter += 1
         future: asyncio.Future[str] = loop.create_future()
-        self._pending[rid] = PendingRequest(
+        pending = PendingRequest(
             request_id=rid, seat=self.seat, kind=kind, future=future
         )
+        self._pending[rid] = pending
         self._publish_public(
             {
                 "event_type": "actor_thinking",
@@ -91,27 +96,31 @@ class HumanInputBroker:
                 "visible_to": None,
             }
         )
-        self._publish(
-            {
-                "event_type": "awaiting_input",
-                "seat": self.seat,
-                "request_id": rid,
-                "kind": kind,
-                "prompt": prompt,
-                "valid_targets": list(valid_targets),
-                "deadline": deadline,
-                "ui_hint": ui_hint,
-                "title": title,
-                "allow_skip": allow_skip,
-                "allow_witch_save": allow_witch_save,
-                "multi_count": multi_count,
-                "self_role": self_role,
-                "kill_target_seat": kill_target_seat,
-                "remaining_potions": remaining_potions,
-                "question": question,
-                "target_meta": list(target_meta or []),
-            }
-        )
+        awaiting_event = {
+            "event_type": "awaiting_input",
+            "seat": self.seat,
+            "request_id": rid,
+            "kind": kind,
+            "prompt": prompt,
+            "valid_targets": list(valid_targets),
+            "deadline": deadline,
+            "ui_hint": ui_hint,
+            "title": title,
+            "allow_skip": allow_skip,
+            "allow_witch_save": allow_witch_save,
+            "multi_count": multi_count,
+            "self_role": self_role,
+            "kill_target_seat": kill_target_seat,
+            "remaining_potions": remaining_potions,
+            "question": question,
+            "target_meta": list(target_meta or []),
+            "visible_to": [f"player_{self.seat}"],
+        }
+        # Cache the seat-scoped payload so a late/reconnecting seat stream can re-emit
+        # this still-pending prompt verbatim (BUG#3). The payload already carries
+        # visible_to, so publish via _publish_public to avoid _publish re-stamping it.
+        pending.event = awaiting_event
+        self._publish_public(awaiting_event)
         try:
             return await asyncio.wait_for(future, deadline)
         except asyncio.TimeoutError:
@@ -145,6 +154,24 @@ class HumanInputBroker:
 
     def pending_ids(self) -> set[str]:
         return set(self._pending)
+
+    def pending_events_for_seat(self, seat: int) -> list[dict[str, Any]]:
+        """Return the awaiting_input payload(s) currently outstanding for ``seat``.
+
+        Used by the seat SSE connect path to re-emit a still-pending prompt that was
+        published before this (re)connecting client subscribed (BUG#3). Only entries
+        whose future is unresolved are returned; the cached payload is the exact event
+        first published (seat-scoped via ``visible_to``), so re-emitting it is idempotent
+        — the client answers it with the same ``request_id``.
+        """
+        out: list[dict[str, Any]] = []
+        for pending in self._pending.values():
+            if pending.seat != seat or pending.event is None:
+                continue
+            if pending.future.done():
+                continue
+            out.append(pending.event)
+        return out
 
     # ------------------------------------------------------------------
     # Internal

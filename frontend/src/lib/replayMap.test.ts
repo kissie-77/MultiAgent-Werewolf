@@ -368,7 +368,7 @@ describe("mapBeliefAnchors", () => {
     ];
     const out = mapBeliefAnchors(rows);
     expect(out).toHaveLength(2);
-    const initial = out.find((a) => a.anchor_id === "initial")!;
+    const initial = out.find((a) => a.anchor_id === "1_initial")!;
     expect(initial.round).toBe(1);
     expect(initial.observers.map((o) => o.observer_id)).toEqual(["P1", "P2"]);
     const p1 = initial.observers.find((o) => o.observer_id === "P1")!;

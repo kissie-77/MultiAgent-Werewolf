@@ -18,6 +18,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import PhaseTransitionCard from "../components/PhaseTransitionCard";
 import GameAudioBridge from "../components/GameAudioBridge";
 import RightPanelColumn from "../components/RightPanelColumn";
+import AudioControls from "../components/AudioControls";
 
 export default function GameApp() {
   const navigate = useNavigate();
@@ -72,6 +73,7 @@ export default function GameApp() {
   if (!gameState) {
     return (
       <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center text-zinc-400 font-mono text-xs uppercase tracking-widest gap-2">
+        <AudioControls className="fixed top-4 right-4 z-[60]" />
         <div className="w-6 h-6 border-2 border-t-yellow-500 border-zinc-800 rounded-full animate-spin" />
         <span>召唤宿命之光...</span>
       </div>
@@ -85,6 +87,7 @@ export default function GameApp() {
   if (spectateError) {
     return (
       <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center text-zinc-300 font-sans gap-4 px-6 text-center">
+        <AudioControls className="fixed top-4 right-4 z-[60]" />
         <p className="text-amber-500/90 font-sans text-xs">观战不可用</p>
         <p className="text-sm text-zinc-400 max-w-md">{spectateError}</p>
         <div className="flex gap-3">
@@ -119,6 +122,7 @@ export default function GameApp() {
   if (spectateBooting) {
     return (
       <div className="min-h-screen bg-[#0d0907] flex flex-col items-center justify-center gap-5 text-zinc-400">
+        <AudioControls className="fixed top-4 right-4 z-[60]" />
         <div className="relative w-20 h-20 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border border-violet-700/40 animate-ping" />
           <div className="absolute inset-2 rounded-full border border-amber-700/30 animate-ping [animation-delay:400ms]" />

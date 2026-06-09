@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Shield, Home, Scroll, History, Info, Users, Cpu, ArrowLeft, AlertTriangle } from "lucide-react";
 import ErrorBoundary from "./ErrorBoundary";
+import AudioControls from "./AudioControls";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -15,6 +16,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-slate-100 flex flex-col relative">
+      {/* 首页隐藏了顶栏 —— 用浮层保证音量控件仍在场。 */}
+      {isHome && <AudioControls className="fixed top-4 right-4 z-50" />}
       {!isHome && (
         <header className="border-b border-indigo-900/50 bg-slate-950/60 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between select-none shadow-md">
           <div className="flex items-center gap-4">
@@ -56,9 +59,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </Link>
           </nav>
 
-          <Link to="/" className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 font-sans font-black text-[10px] tracking-wider rounded-lg shadow-[0_4px_15px_rgba(79,70,229,0.4)] transition-all transform hover:scale-105">
-            重返星盘 →
-          </Link>
+          <div className="flex items-center gap-3">
+            <AudioControls />
+            <Link to="/" className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 font-sans font-black text-[10px] tracking-wider rounded-lg shadow-[0_4px_15px_rgba(79,70,229,0.4)] transition-all transform hover:scale-105">
+              重返星盘 →
+            </Link>
+          </div>
         </header>
       )}
 

@@ -46,6 +46,37 @@ export function stageSfx(stage: CoarseStage): SfxId | null {
   return null;
 }
 
+/** 背景音乐文件 id（按需懒加载，不进 ALL_SFX_IDS 预加载——单首约 2.8MB）。 */
+export const BGM_IDS: SfxId[] = [
+  "bgm_lobby", "bgm_night", "bgm_day", "bgm_tension", "bgm_settlement",
+];
+
+/**
+ * 当前 phase → 背景音乐 id。
+ * 对局外（信息页 / 未连接）传 null → 大厅曲。投票/警长公投用张力曲,终局用结算曲。
+ */
+export function bgmIdForPhase(phase: string | null | undefined): SfxId {
+  switch (phase) {
+    case "NIGHT_WOLF":
+    case "NIGHT_SEER":
+    case "NIGHT_WITCH":
+      return "bgm_night";
+    case "DAY_VOTE":
+    case "DAY_SHERIFF_VOTE":
+      return "bgm_tension";
+    case "DAY_SHERIFF_RUN":
+    case "DAY_ANNOUNCEMENT":
+    case "DAY_DEBATE":
+      return "bgm_day";
+    case "GAME_OVER":
+      return "bgm_settlement";
+    case "START_SCREEN":
+    case "ROLE_CHOICE":
+    default:
+      return "bgm_lobby";
+  }
+}
+
 /** 磁盘上有文件的全部 id（供预加载）。 */
 export const ALL_SFX_IDS: SfxId[] = [
   "skill_bite", "skill_inspect", "skill_heal", "skill_poison", "skill_shoot", "skill_vote",

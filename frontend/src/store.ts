@@ -16,17 +16,21 @@ import type { SseEvent } from "./lib/gameReducer";
 import type { CoarseStage } from "./lib/phaseStage";
 import type { WolfCampMindV2 } from "./lib/godRoleIntel";
 
-function readAudioPref(): { muted: boolean; volume: number } {
+function readAudioPref(): { muted: boolean; volume: number; bgmVolume: number } {
   try {
     const raw = localStorage.getItem("ww_audio");
     if (raw) {
       const p = JSON.parse(raw);
-      return { muted: !!p.muted, volume: typeof p.volume === "number" ? p.volume : 0.8 };
+      return {
+        muted: !!p.muted,
+        volume: typeof p.volume === "number" ? p.volume : 0.8,
+        bgmVolume: typeof p.bgmVolume === "number" ? p.bgmVolume : 0.5,
+      };
     }
   } catch { /* ignore */ }
-  return { muted: false, volume: 0.8 };
+  return { muted: false, volume: 0.8, bgmVolume: 0.5 };
 }
-function writeAudioPref(p: { muted: boolean; volume: number }): void {
+function writeAudioPref(p: { muted: boolean; volume: number; bgmVolume: number }): void {
   try { localStorage.setItem("ww_audio", JSON.stringify(p)); } catch { /* ignore */ }
 }
 
@@ -59,8 +63,10 @@ interface GameStore {
   insightEnabled: boolean;
   audioMuted: boolean;
   sfxVolume: number;
+  bgmVolume: number;
   setAudioMuted: (m: boolean) => void;
   setSfxVolume: (v: number) => void;
+  setBgmVolume: (v: number) => void;
   setSetupCount: (count: number | null) => void;
   setInsightEnabled: (enabled: boolean) => void;
   exitGame: () => void;
@@ -110,15 +116,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
   insightEnabled: true,
   audioMuted: readAudioPref().muted,
   sfxVolume: readAudioPref().volume,
+  bgmVolume: readAudioPref().bgmVolume,
   setAudioMuted: (m) => {
     soundManager.setMuted(m);
-    writeAudioPref({ muted: m, volume: get().sfxVolume });
+    writeAudioPref({ muted: m, volume: get().sfxVolume, bgmVolume: get().bgmVolume });
     set({ audioMuted: m });
   },
   setSfxVolume: (v) => {
     soundManager.setSfxVolume(v);
-    writeAudioPref({ muted: get().audioMuted, volume: v });
+    writeAudioPref({ muted: get().audioMuted, volume: v, bgmVolume: get().bgmVolume });
     set({ sfxVolume: v });
+  },
+  setBgmVolume: (v) => {
+    soundManager.setBgmVolume(v);
+    writeAudioPref({ muted: get().audioMuted, volume: get().sfxVolume, bgmVolume: v });
+    set({ bgmVolume: v });
   },
 
   setSetupCount: (count) => set({ setupCount: count }),
@@ -381,4 +393,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
   const init = useGameStore.getState();
   soundManager.setMuted(init.audioMuted);
   soundManager.setSfxVolume(init.sfxVolume);
+  soundManager.setBgmVolume(init.bgmVolume);
 }

@@ -5,6 +5,7 @@ import { stageBadge } from "../lib/phaseStage";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
 import { isRoleRevealed } from "../lib/humanPrompt";
 import { soundManager } from "../audio/soundManager";
+import AudioControls from "./AudioControls";
 
 // ─────────────────────────────────────────────────────────
 // Per-role flavor descriptions (never expose role name directly)
@@ -498,6 +499,9 @@ export default React.memo(function UnifiedGameHeader({
             <span className="font-mono text-red-200">{gameState.players.filter((p) => !p.isAlive).length}</span>
           </div>
         </div>
+
+        {/* 音量控件 — 总静音 + 背景音乐/音效双滑块 */}
+        <AudioControls />
 
         {/* 返回 — 鎏金石雕 */}
         <button

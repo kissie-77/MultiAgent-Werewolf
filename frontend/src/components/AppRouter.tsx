@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 import AppLayout from "./AppLayout";
 import ErrorBoundary from "./ErrorBoundary";
+import GlobalAudioController from "./GlobalAudioController";
 
 const GameApp = React.lazy(() => import("../pages/GameApp"));
 const HomePage = React.lazy(() => import("../pages/HomePage"));
@@ -44,6 +45,7 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 export default function AppRouter() {
   return (
     <BrowserRouter>
+      <GlobalAudioController />
       <Routes>
         <Route path="/" element={
           <LazyRoute>

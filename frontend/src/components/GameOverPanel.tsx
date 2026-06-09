@@ -8,6 +8,7 @@ import { isPostGameReady, replayPathFor } from "../lib/settlement";
 import type { ReplayPageData } from "../api/types";
 import { resolveMvpView, resolveBoard, resolveWinnerIsGood, isWolfRole } from "../lib/gameOver";
 import { soundManager } from "../audio/soundManager";
+import AudioControls from "./AudioControls";
 
 const POST_GAME_POLL_INTERVAL_MS = 2500;
 
@@ -99,6 +100,9 @@ export default function GameOverPanel({ gameState, onRestart, onExit, runId, use
       animate={{ opacity: 1, scale: 1 }}
       className="absolute inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex flex-col justify-between p-6 md:p-8 text-zinc-100 font-sans pointer-events-auto"
     >
+      {/* 音量键 —— 结算遮罩盖住了顶栏，这里补一个 */}
+      <AudioControls className="absolute top-4 right-4 z-[60]" />
+
       {/* Decorative Woodcut borders */}
       <div className="absolute inset-4 pointer-events-none border border-yellow-600/35 rounded z-0" />
       <div className="absolute inset-5 pointer-events-none border border-zinc-800/80 rounded z-0" />

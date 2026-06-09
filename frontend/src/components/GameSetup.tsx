@@ -6,6 +6,7 @@ import { SetupBrainSheriffPanel, SetupModelPanel } from "./SetupAdvancedPanel";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, Shield, Cpu, Zap, Eye, Skull, Settings, Play } from "lucide-react";
 import ApiKeysSettingsModal from "./ApiKeysSettingsModal";
+import AudioControls from "./AudioControls";
 import { ApiClient } from "../api/client";
 import { getTarotImage } from "../utils/roles";
 
@@ -148,12 +149,16 @@ export default function GameSetup() {
           )}
         </AnimatePresence>
 
-        <button
-          onClick={() => setShowSettingsModal(true)}
-          className="fixed top-6 right-6 md:top-8 md:right-8 z-50 p-2 md:p-2.5 bg-zinc-900/60 border border-zinc-800/80 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-xl backdrop-blur-md transition-all active:scale-95"
-        >
-          <Settings className="w-5 h-5 md:w-6 md:h-6" />
-        </button>
+        {/* 右上角控件组：音量键 + 设置齿轮 —— 同一 flex 行，等高等大对齐、两步共用 */}
+        <div className="fixed top-6 right-6 md:top-8 md:right-8 z-50 flex items-center gap-2.5">
+          <AudioControls className="relative" />
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center justify-center p-2 md:p-2.5 bg-zinc-900/60 border border-zinc-800/80 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 shadow-xl backdrop-blur-md transition-all active:scale-95"
+          >
+            <Settings className="w-5 h-5 md:w-6 md:h-6" />
+          </button>
+        </div>
 
         <ApiKeysSettingsModal
           open={showSettingsModal}

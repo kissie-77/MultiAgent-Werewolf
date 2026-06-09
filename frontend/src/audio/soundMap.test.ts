@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   effectTypeSfx, eventSfx, stageSfx, sfxPath,
   createBurstGate, createEventDedup,
+  bgmIdForPhase, BGM_IDS, ALL_SFX_IDS,
 } from "./soundMap";
 
 describe("effectTypeSfx", () => {
@@ -70,5 +71,38 @@ describe("createEventDedup", () => {
     const d = createEventDedup();
     expect(d.seen(undefined)).toBe(false);
     expect(d.seen(undefined)).toBe(false);
+  });
+});
+
+describe("bgmIdForPhase", () => {
+  it("maps night phases to the night loop", () => {
+    expect(bgmIdForPhase("NIGHT_WOLF")).toBe("bgm_night");
+    expect(bgmIdForPhase("NIGHT_SEER")).toBe("bgm_night");
+    expect(bgmIdForPhase("NIGHT_WITCH")).toBe("bgm_night");
+  });
+  it("maps voting phases to the tension loop", () => {
+    expect(bgmIdForPhase("DAY_VOTE")).toBe("bgm_tension");
+    expect(bgmIdForPhase("DAY_SHERIFF_VOTE")).toBe("bgm_tension");
+  });
+  it("maps daytime talk phases to the day ambience", () => {
+    expect(bgmIdForPhase("DAY_SHERIFF_RUN")).toBe("bgm_day");
+    expect(bgmIdForPhase("DAY_ANNOUNCEMENT")).toBe("bgm_day");
+    expect(bgmIdForPhase("DAY_DEBATE")).toBe("bgm_day");
+  });
+  it("maps game over to the settlement track", () => {
+    expect(bgmIdForPhase("GAME_OVER")).toBe("bgm_settlement");
+  });
+  it("falls back to the lobby track for lobby phases and null (off-game pages)", () => {
+    expect(bgmIdForPhase("START_SCREEN")).toBe("bgm_lobby");
+    expect(bgmIdForPhase("ROLE_CHOICE")).toBe("bgm_lobby");
+    expect(bgmIdForPhase(null)).toBe("bgm_lobby");
+    expect(bgmIdForPhase(undefined)).toBe("bgm_lobby");
+  });
+  it("only ever returns ids present in BGM_IDS", () => {
+    const phases = ["NIGHT_WOLF", "DAY_VOTE", "DAY_DEBATE", "GAME_OVER", "START_SCREEN", null, undefined, "??"];
+    for (const p of phases) expect(BGM_IDS).toContain(bgmIdForPhase(p));
+  });
+  it("keeps BGM out of the SFX preload list (large files load lazily)", () => {
+    for (const id of BGM_IDS) expect(ALL_SFX_IDS).not.toContain(id);
   });
 });

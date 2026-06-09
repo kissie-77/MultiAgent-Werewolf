@@ -22,6 +22,7 @@ from llm_werewolf.game_runtime.actions.villager import (
     CupidLinkAction,
     RavenMarkAction,
     SeerCheckAction,
+    ThiefChooseAction,
     WitchSaveAction,
     WitchPoisonAction,
     GuardProtectAction,
@@ -586,6 +587,33 @@ async def plan_graveyard_check(
     return []
 
 
+async def plan_thief_choose(
+    role: Role, game_state: GameStateProtocol, interaction: PhaseInteraction
+) -> list[ActionProtocol]:
+    """盗贼首夜选阵营。
+
+    MVP：引擎未发额外身份牌，故以一个 yes/no 决定是否加入狼队。
+    仅首夜且未选择过时触发；产出 ThiefChooseAction 由 ActionProcessor 结算。
+    """
+    if game_state.round_number != 1:
+        return []
+    if getattr(role, "has_chosen", False):
+        return []
+    if not role.player.is_alive() or not role.player.agent:
+        return []
+
+    join_wolves = await interaction.request_yes_no(
+        role.player,
+        role.player.agent,
+        role_name="Thief",
+        question="首夜择牌：你是否选择加入狼人阵营？（是=成为狼人；否=成为好人）",
+        context="选定后本局阵营与胜利目标随之确定，整局仅可选择一次。",
+        round_number=game_state.round_number,
+        phase="Night",
+    )
+    return [ThiefChooseAction(role.player, join_wolves, game_state)]
+
+
 async def plan_noop_night_action(
     role: Role, game_state: GameStateProtocol, interaction: PhaseInteraction
 ) -> list[ActionProtocol]:
@@ -612,8 +640,8 @@ NIGHT_PLAN_SPECS: dict[str, NightPlanSpec] = {
         action_classes=("GuardianWolfProtectAction",),
     ),
     "Thief": NightPlanSpec(
-        "Thief", plan_noop_night_action, PRE_WOLF_STAGE, order=50,
-        action_classes=(),
+        "Thief", plan_thief_choose, PRE_WOLF_STAGE, order=50,
+        action_classes=("ThiefChooseAction",),
     ),
     # ── 狼票阶段（stage=None, wolf_vote=True）──────────────────────
     "Werewolf": NightPlanSpec(

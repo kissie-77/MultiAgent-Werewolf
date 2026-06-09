@@ -362,3 +362,43 @@ class KnightDuelAction(Action):
             self.actor.role.has_dueled = True
 
         return messages
+
+
+class ThiefChooseAction(Action):
+    """盗贼首夜选择阵营的行动。
+
+    MVP：引擎不发额外身份牌，故盗贼首夜以一个 yes/no 决定是否加入狼队：
+    join_wolves=True 则阵营翻为狼人；False 则落为好人。两者均置 has_chosen=True，
+    使 check_thief_victory 能按所选阵营结算。
+    """
+
+    def __init__(
+        self,
+        actor: PlayerProtocol,
+        join_wolves: bool,
+        game_state: GameStateProtocol,
+    ) -> None:
+        super().__init__(actor, game_state)
+        self.join_wolves = join_wolves
+
+    def get_action_type(self) -> ActionType:
+        """获取行动类型。"""
+        return ActionType.THIEF_CHOOSE
+
+    def validate(self) -> bool:
+        """校验盗贼选择：仅存活且尚未选择过。"""
+        if not hasattr(self.actor.role, "has_chosen"):
+            return False
+        if self.actor.role.has_chosen:
+            return False
+        return self.actor.is_alive()
+
+    def execute(self) -> list[str]:
+        """执行盗贼阵营选择：翻转 camp 并标记 has_chosen。"""
+        target_camp = Camp.WEREWOLF if self.join_wolves else Camp.VILLAGER
+        role = self.actor.role
+        role.config = role.config.model_copy(update={"camp": target_camp})
+        if hasattr(role, "has_chosen"):
+            role.has_chosen = True
+        camp_label = "werewolves" if self.join_wolves else "villagers"
+        return [f"Thief {self.actor.name} joins the {camp_label}"]

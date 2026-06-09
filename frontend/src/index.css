@@ -38,6 +38,18 @@ body,
   font-family: var(--font-sans);
 }
 
+/* ═══════════════════════════════════════════════════════
+   右侧「存亡名录」名录列：粗罗马衬线统一。
+   data-roster-font 容器内所有文字——拉丁字符走 Cinzel 罗马体，
+   中文（标题等）自动落思源宋体兜底。仅改 font-family，
+   各元素自有的字重 / 鎏金辉光 / 颜色 / 字距一律不动。
+   选择器特异度 (0,1,1) 高于 Tailwind 的 font-mono/font-sans (0,1,0)，
+   故无需 !important 即可覆盖。SVG 图标与 emoji 不受 font-family 影响。
+   ═══════════════════════════════════════════════════════ */
+[data-roster-font] * {
+  font-family: "Cinzel", "Noto Serif SC", serif;
+}
+
 /* Sophisticated Dark Theme Specific classes */
 .manga-border { 
   border: 4px solid #1e293b; 

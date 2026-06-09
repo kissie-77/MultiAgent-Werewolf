@@ -228,7 +228,7 @@ export default function GameApp() {
                 // trigger the pure text history overlay in SpeechConsole via a custom event
                 window.dispatchEvent(new CustomEvent("toggle-pure-text-history"));
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/50 rounded-lg font-mono text-xs text-zinc-300 uppercase tracking-widest transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/50 rounded-lg font-sans font-bold text-xs text-zinc-300 tracking-widest transition-colors cursor-pointer shrink-0"
             >
               <MessageSquare className="w-4 h-4 text-yellow-500" />
               <span>纯文本记录 / {gameState?.speechLogs?.length ?? 0} 条</span>

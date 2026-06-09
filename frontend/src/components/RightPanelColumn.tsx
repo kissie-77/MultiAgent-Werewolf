@@ -146,7 +146,7 @@ export default React.memo(function RightPanelColumn({
   const dataReady = beliefs && voteSnapshot;
 
   return (
-    <div className="flex flex-col gap-3 w-full">
+    <div className="flex flex-col gap-3 w-full" data-roster-font>
       {/* ── 1. 存亡名录 ── */}
       <CollapsibleCard title="存亡名录" icon={<Users className="w-3.5 h-3.5" />} defaultOpen={true}>
         <AlivePlayerList />

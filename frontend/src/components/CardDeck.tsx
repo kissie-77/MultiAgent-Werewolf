@@ -2,7 +2,7 @@ import React from "react";
 import { useGameStore } from "../store";
 import { Player } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { getRoleImage } from "../utils/roles";
 import { soundManager } from "../audio/soundManager";
 
@@ -80,13 +80,20 @@ export default function CardDeck() {
         <div className="flex flex-col h-full w-[312px] bg-indigo-950/40 bg-woodcut backdrop-blur-md px-4 py-4 select-none shadow-2xl overflow-y-auto">
 
           {isSpectator && (
-            <div className="flex items-center justify-between mb-4 border border-indigo-800/80 bg-slate-900/60 px-3 py-2 rounded-lg shadow-inner shrink-0">
-              <span className="text-[11px] font-sans font-bold text-indigo-300">全局上帝视角 👁️</span>
+            <div className="flex justify-end mb-4 shrink-0">
               <button
+                type="button"
                 onClick={() => { soundManager.playUi("ui_click"); setLlmExposeAll(!llmExposeAll); }}
-                className={`w-9 h-5 rounded-full relative transition-colors shadow-inner ${llmExposeAll ? 'bg-blue-500' : 'bg-slate-700'}`}
+                title="全局上帝视角"
+                aria-label="全局上帝视角"
+                aria-pressed={llmExposeAll}
+                className={`flex items-center justify-center w-9 h-9 rounded-md border bg-slate-950/70 bg-woodcut-dark backdrop-blur shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),2px_2px_0_rgba(0,0,0,0.5)] transition-colors cursor-pointer ${
+                  llmExposeAll
+                    ? "border-amber-500/60 text-amber-300 hover:text-amber-100 hover:border-amber-400"
+                    : "border-slate-700/70 text-slate-500 hover:text-slate-300 hover:border-slate-500"
+                }`}
               >
-                <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow ${llmExposeAll ? 'translate-x-4' : 'translate-x-0'}`} />
+                {llmExposeAll ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
             </div>
           )}

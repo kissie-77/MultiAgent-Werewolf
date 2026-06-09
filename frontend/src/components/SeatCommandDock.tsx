@@ -113,7 +113,7 @@ export default function SeatCommandDock() {
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-[110] px-4 pb-4 pointer-events-none">
-      <div className="mx-auto max-w-3xl pointer-events-auto bg-slate-950/92 bg-woodcut-dark border border-amber-700/50 rounded-xl shadow-[0_-8px_40px_rgba(0,0,0,0.7)] p-4 backdrop-blur-md">
+      <div className="mx-auto max-w-3xl pointer-events-auto bg-slate-950/70 bg-woodcut-dark border border-amber-700/50 rounded-xl shadow-[0_-8px_40px_rgba(0,0,0,0.7)] p-4 backdrop-blur-md">
         <div className="flex items-center justify-between gap-3 mb-3 border-b border-amber-900/40 pb-2">
           <span className="font-serif text-sm font-black text-amber-400 tracking-wide truncate">
             {pendingInput ? (pendingInput.question || pendingInput.title || "轮到你了") : idleLabel}

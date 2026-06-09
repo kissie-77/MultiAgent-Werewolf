@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Hourglass, LogOut, Home, BrainCircuit, MessageCircle, Swords, Flame, Skull } from "lucide-react";
+import { Sun, Moon, Hourglass, LogOut, Home, ArrowLeft, BrainCircuit, MessageCircle, Swords, Flame, Skull } from "lucide-react";
 import { useGameStore } from "../store";
 import { stageBadge } from "../lib/phaseStage";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
@@ -488,14 +488,14 @@ export default React.memo(function UnifiedGameHeader({
       <div className="flex items-center gap-2.5 shrink-0">
         {/* 存活 / 死亡 计数 — 鎏金石框 */}
         <div className="hidden md:flex flex-col gap-1 px-3 py-1.5 rounded-sm border-2 border-amber-500/50 bg-gradient-to-br from-zinc-950/80 to-black/70 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),3px_3px_0_rgba(0,0,0,0.5)] leading-none">
-          <div className="flex items-center gap-1.5 text-amber-200 font-sans font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+          <div className="flex items-center gap-1.5 text-amber-200 font-serif font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
             <Flame className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.6)]" />
-            存活
+            ALIVE
             <span className="font-mono text-amber-100">{gameState.players.filter((p) => p.isAlive).length}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-red-300 font-sans font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+          <div className="flex items-center gap-1.5 text-red-300 font-serif font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
             <Skull className="w-3.5 h-3.5 text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.6)]" />
-            死亡
+            DEAD
             <span className="font-mono text-red-200">{gameState.players.filter((p) => !p.isAlive).length}</span>
           </div>
         </div>
@@ -503,29 +503,32 @@ export default React.memo(function UnifiedGameHeader({
         {/* 音量控件 — 总静音 + 背景音乐/音效双滑块 */}
         <AudioControls />
 
-        {/* 返回 — 鎏金石雕 */}
+        {/* 返回 — 鎏金石雕（纯图标） */}
         <button
           type="button"
           onClick={() => { soundManager.playUi("ui_click"); window.history.back(); }}
-          className="gilt-btn h-9 px-4 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100/90 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)] [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]"
+          title="返回"
+          aria-label="返回"
+          className="gilt-btn h-9 w-9 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100/90 flex items-center justify-center cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)]"
         >
-          返回
+          <ArrowLeft className="w-4 h-4" />
         </button>
 
-        {/* 主页 — 鎏金石雕 */}
+        {/* 主页 — 鎏金石雕（纯图标） */}
         <button
           type="button"
           onClick={() => {
             soundManager.playUi("ui_click");
             window.location.href = "/home";
           }}
-          className="gilt-btn h-9 px-4 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)] [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]"
+          title="主页"
+          aria-label="主页"
+          className="gilt-btn h-9 w-9 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100 flex items-center justify-center cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)]"
         >
-          <Home className="w-3.5 h-3.5" />
-          主页
+          <Home className="w-4 h-4" />
         </button>
 
-        {/* 退出 — 鎏金石雕 + 危险态 */}
+        {/* 退出 — 鎏金石雕 + 危险态（纯图标；二次确认变红脉冲） */}
         <button
           type="button"
           onClick={() => {
@@ -539,14 +542,15 @@ export default React.memo(function UnifiedGameHeader({
               setConfirmExit(true);
             }
           }}
-          className={`h-9 px-4 rounded-sm border-2 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 [text-shadow:0_1px_2px_rgba(0,0,0,0.7)] ${
+          title={confirmExit ? "再次点击确认退出" : "退出"}
+          aria-label={confirmExit ? "再次点击确认退出" : "退出"}
+          className={`h-9 w-9 rounded-sm border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
             confirmExit
               ? "border-red-500 bg-gradient-to-br from-red-800/80 to-red-950/90 text-red-50 shadow-[0_0_16px_rgba(239,68,68,0.45),3px_3px_0_rgba(0,0,0,0.5)] animate-pulse"
               : "gilt-btn border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-red-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)]"
           }`}
         >
-          <LogOut className="w-3.5 h-3.5" />
-          {confirmExit ? "确认退出?" : "退出"}
+          <LogOut className="w-4 h-4" />
         </button>
       </div>
     </div>

@@ -9,7 +9,7 @@ import {
 } from "./lib/gameReducer";
 import { streamUrl } from "./api/sse";
 import { mapBeliefEvent, mapVoteEvent, mapSpeakerSeat, mapWolfCampEvent } from "./lib/insightMap";
-import { castFromSkillSubmit, castFromEvent, effectTypeForEvent } from "./lib/castMap";
+import { castFromSkillSubmit, castFromEvent, effectTypeForRole } from "./lib/castMap";
 import { soundManager } from "./audio/soundManager";
 import { effectTypeSfx, eventSfx, type SfxId } from "./audio/soundMap";
 import type { SseEvent } from "./lib/gameReducer";
@@ -30,10 +30,22 @@ function writeAudioPref(p: { muted: boolean; volume: number }): void {
   try { localStorage.setItem("ww_audio", JSON.stringify(p)); } catch { /* ignore */ }
 }
 
-/** 单点：从一条 SSE 事件派发"技能/事件"音（座位安全由流可见性保证）。 */
-function dispatchSseSound(ev: SseEvent): void {
-  const et = effectTypeForEvent(ev.event_type);
-  const sid: SfxId | null = et ? effectTypeSfx[et] : eventSfx(ev);
+/**
+ * 单点派发"技能/事件"音。
+ * 技能音走 `role_acting`：引擎对每个夜间行动者都稳定下发（细分结果事件 seer_checked/
+ * witch_* 多数局根本不发），且只有 god 流携带真实 role。故仅 god 视角播技能音；座位视角
+ * 播他人 role_acting 会泄漏身份，本人技能改由 submitHumanInput 播。事件音（死亡/放逐/计票/
+ * 胜负等公共事件）两视角都播，不泄漏。
+ */
+function dispatchSseSound(ev: SseEvent, view: "god" | "seat"): void {
+  if (view === "god" && ev.event_type === "role_acting") {
+    const role = String(ev.data?.role ?? "");
+    if (role) {
+      soundManager.playGameplay(effectTypeSfx[effectTypeForRole(role)], ev.event_id);
+      return;
+    }
+  }
+  const sid: SfxId | null = eventSfx(ev);
   if (sid) soundManager.playGameplay(sid, ev.event_id);
 }
 
@@ -169,7 +181,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ state: reduceEvent(cur, ev) });
         const cast = castFromEvent(ev, get().state?.players);
         if (cast) get().triggerCast(cast);
-        dispatchSseSound(ev);
+        dispatchSseSound(ev, "god");
         if (ev.event_type === "belief_snapshot") {
           set({ insightBeliefs: mapBeliefEvent(ev.data), insightSpeakerSeat: mapSpeakerSeat(ev.data) });
         } else if (ev.event_type === "vote_intention_snapshot") {
@@ -273,10 +285,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
           })
         );
       }
-      // Skill sound is NOT played here: the actor receives their own private
-      // result event (e.g. witch_poison_used vs witch_saved) over SSE, which
-      // dispatchSseSound maps to the CORRECT sound (deduped + gated). Playing a
-      // role-guessed sound here would mis-fire (witch poison → heal) + double up.
+      // The human's own skill sound plays here: seat view does not sound others'
+      // role_acting (would leak), and the engine rarely emits the specific result
+      // event, so submit-time is the reliable moment. Generic by role.
+      if (selfRole && (kind === "seat" || kind === "witch")) {
+        soundManager.playGameplay(effectTypeSfx[effectTypeForRole(selfRole)]);
+      }
       set({ selectedTargetSeat: null });
     } catch (err) {
       console.error("Failed to submit human input:", err);
@@ -337,7 +351,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const cast = castFromEvent(ev, get().state?.players);
           if (cast) get().triggerCast(cast);
         }
-        dispatchSseSound(ev);
+        dispatchSseSound(ev, "seat");
       } catch (err) {
         console.error("bad sse event", err);
       }

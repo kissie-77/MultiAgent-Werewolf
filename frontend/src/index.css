@@ -3,16 +3,33 @@
 @import '@fontsource/cinzel/900.css';
 @import '@fontsource/jetbrains-mono/500.css';
 @import '@fontsource/jetbrains-mono/800.css';
+/* 思源宋体（Noto Serif SC）— 全站中文正文 + 哥特展示标题用的宋体。
+   @fontsource 按 unicode-range 分片，浏览器只下载实际用到的字形子集。 */
+@import '@fontsource/noto-serif-sc/400.css';
+@import '@fontsource/noto-serif-sc/700.css';
+@import '@fontsource/noto-serif-sc/900.css';
 
 @theme {
   --font-sans: "Noto Serif SC", ui-serif, "Georgia", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-serif: "Cinzel", "Times New Roman", serif;
   --font-gothic: "UnifrakturMaguntia", cursive;
+  /* 中文哥特展示体：宋体重字重，用于面板标题/动作标签等。 */
+  --font-display-cn: "Noto Serif SC", "Songti SC", "SimSun", serif;
 }
 
 @utility font-gothic {
   font-family: var(--font-gothic);
+}
+
+/* 宋体展示标题：宋体 + 重字重 + 字距 + 鎏金辉光（替代分散的 drop-shadow）。 */
+@utility font-display-cn {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 0 12px rgba(212, 175, 55, 0.45),
+    1px 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 html,
@@ -177,4 +194,88 @@ body,
 
 .animate-spin-slow {
   animation: spin-slow 12s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════
+   鎏金石雕按钮（琥珀-黑曜，雕刻立体感）— 顶栏 返回/主页/退出
+   纯外观：渐变金边 + 内凹石刻阴影 + 3px 投影；hover 描边变亮+辉光。
+   ═══════════════════════════════════════════════════════ */
+.gilt-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.gilt-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(212, 175, 55, 0.16) 0%,
+    transparent 45%,
+    rgba(0, 0, 0, 0.32) 100%
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.gilt-btn:hover {
+  border-color: #f4d03f !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.12),
+    inset -3px -3px 0 rgba(0, 0, 0, 0.85),
+    3px 3px 0 rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(212, 175, 55, 0.3) !important;
+}
+
+.gilt-btn:active {
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.65),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.05) !important;
+  transform: translateY(1px);
+}
+
+/* ═══════════════════════════════════════════════════════
+   中央牌框「...」呼吸灯 — 演员标签末尾的进行中指示点
+   三点错调淡入淡出 + 辉光；尊重 prefers-reduced-motion。
+   ═══════════════════════════════════════════════════════ */
+@keyframes breathing-dot-pulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.78);
+    filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.3));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(0 0 7px rgba(212, 175, 55, 0.85));
+  }
+}
+
+.breathing-dots {
+  display: inline-flex;
+  gap: 0.28em;
+  align-items: center;
+  margin-left: 0.4em;
+  vertical-align: middle;
+}
+
+.breathing-dot {
+  width: 0.32em;
+  height: 0.32em;
+  border-radius: 50%;
+  background: currentColor;
+  animation: breathing-dot-pulse 1.4s ease-in-out infinite;
+  will-change: opacity, transform, filter;
+}
+
+.breathing-dot:nth-child(1) { animation-delay: 0s; }
+.breathing-dot:nth-child(2) { animation-delay: 0.32s; }
+.breathing-dot:nth-child(3) { animation-delay: 0.64s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .breathing-dot {
+    animation: none;
+    opacity: 0.6;
+  }
 }

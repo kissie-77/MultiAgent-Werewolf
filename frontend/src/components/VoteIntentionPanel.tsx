@@ -48,7 +48,7 @@ export default React.memo(function VoteIntentionPanel({ snapshot, players, showI
       <div className="flex justify-between items-center px-3 py-2 border-b border-amber-900/40 bg-zinc-950/80 relative z-10">
         <div className="flex items-center gap-2 text-amber-500">
           <Users className="w-3.5 h-3.5 text-amber-600" />
-          <span className="font-serif font-black tracking-widest text-[#d4af37] drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]">投票意向</span>
+          <span className="font-display-cn tracking-widest text-[#d4af37]">投票意向</span>
         </div>
         {snapshot.swing_count > 0 && (
           <motion.div 

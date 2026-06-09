@@ -82,7 +82,7 @@ const ActionItem = React.memo(function ActionItem({
       <span className="text-sm shrink-0 mt-0.5">{meta.icon}</span>
       <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`font-mono text-[11px] font-black tracking-wider uppercase ${meta.color}`}>
+          <span className={`font-display-cn text-[12px] tracking-wider ${meta.color}`}>
             {meta.label}
           </span>
           <span className="font-mono text-[9px] text-zinc-500">
@@ -146,7 +146,7 @@ export default React.memo(function NightActionLog({
       >
         <div className="flex items-center gap-2 text-amber-500 min-w-0">
           <Moon className={`w-3.5 h-3.5 shrink-0 ${isNight ? "animate-pulse" : ""}`} />
-          <span className="font-serif font-black tracking-widest text-[#d4af37] drop-shadow-[0_0_8px_rgba(212,175,55,0.4)] whitespace-nowrap">
+          <span className="font-display-cn tracking-widest text-[#d4af37] whitespace-nowrap">
             暗夜行迹
           </span>
           {!isNight && hasContent && (

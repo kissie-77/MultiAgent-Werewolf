@@ -7,7 +7,7 @@ import { useGameStore } from "../store";
 import { ESTABLISH_MS, isLobbyPhase } from "../lib/phaseStage";
 import { decideCamera, RECENTER_HOLD_MS } from "../lib/cameraDirector";
 import { buildPreviewSeats } from "../lib/previewSeats";
-import { resolveSceneMode, sceneTheme, type SceneMode } from "../lib/sceneTheme";
+import { resolveSceneMode, sceneTheme, sceneIsNight, type SceneMode } from "../lib/sceneTheme";
 import GroundPlane from "./GroundPlane";
 import type { GameState } from "../types";
 
@@ -740,10 +740,9 @@ const ThreeCanvas = React.memo(function ThreeCanvas() {
   const thinkingSeat = gameState?.liveCue?.thinking?.seat ?? null;
   const selectedTargetSeat = useGameStore((state) => state.selectedTargetSeat);
 
-  // 跟踪服务器日志中最近的 isNight 状态以正确反映叙事状态
-  const lastLogIsNight = gameState?.speechLogs?.[gameState.speechLogs.length - 1]?.isNight;
-  // 根据昼夜切换切换环境颜色
-  const isNight = phase?.startsWith("NIGHT") || lastLogIsNight || false;
+  // 昼夜由 phase 单一驱动，与顶栏 UnifiedGameHeader 完全一致——
+  // 不再回退到「最后一条发言日志的 isNight」(狼聊恒为夜，会让天亮第1日误判为黑夜)。
+  const isNight = sceneIsNight(phase);
   const isMurderAlert = phase === "DAY_ANNOUNCEMENT" && victimId !== null && victimId !== undefined;
   const sceneMode: SceneMode = resolveSceneMode(Boolean(isNight), Boolean(isMurderAlert));
 

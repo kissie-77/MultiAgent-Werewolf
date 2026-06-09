@@ -1,5 +1,32 @@
 import { describe, it, expect } from "vitest";
-import { resolveSceneMode, sceneTheme } from "./sceneTheme";
+import { resolveSceneMode, sceneTheme, sceneIsNight } from "./sceneTheme";
+
+describe("sceneIsNight (phase-driven night, matches header)", () => {
+  it("is night for every NIGHT_* phase", () => {
+    expect(sceneIsNight("NIGHT_WOLF")).toBe(true);
+    expect(sceneIsNight("NIGHT_SEER")).toBe(true);
+    expect(sceneIsNight("NIGHT_WITCH")).toBe(true);
+  });
+
+  it("is NOT night for any day phase (the bug: day-1 must not read as night)", () => {
+    expect(sceneIsNight("DAY_SHERIFF_RUN")).toBe(false);
+    expect(sceneIsNight("DAY_SHERIFF_VOTE")).toBe(false);
+    expect(sceneIsNight("DAY_ANNOUNCEMENT")).toBe(false);
+    expect(sceneIsNight("DAY_DEBATE")).toBe(false);
+    expect(sceneIsNight("DAY_VOTE")).toBe(false);
+  });
+
+  it("is NOT night for lobby / role-choice / game-over", () => {
+    expect(sceneIsNight("START_SCREEN")).toBe(false);
+    expect(sceneIsNight("ROLE_CHOICE")).toBe(false);
+    expect(sceneIsNight("GAME_OVER")).toBe(false);
+  });
+
+  it("is NOT night for undefined / empty phase", () => {
+    expect(sceneIsNight(undefined)).toBe(false);
+    expect(sceneIsNight("")).toBe(false);
+  });
+});
 
 describe("resolveSceneMode", () => {
   it("murder alert beats night beats day", () => {

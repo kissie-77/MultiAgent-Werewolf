@@ -63,7 +63,7 @@ function CollapsibleCard({
       >
         <div className="flex items-center gap-2 text-amber-500 min-w-0">
           <span className="shrink-0 flex items-center text-amber-500">{icon}</span>
-          <span className="font-serif font-black tracking-widest text-[#d4af37] drop-shadow-[0_0_8px_rgba(212,175,55,0.4)] whitespace-nowrap">
+          <span className="font-display-cn tracking-widest text-[#d4af37] whitespace-nowrap">
             {title}
           </span>
           {subtitle && (

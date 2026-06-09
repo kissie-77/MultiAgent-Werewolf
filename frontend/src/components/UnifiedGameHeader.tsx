@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Hourglass, LogOut, Home, BrainCircuit, MessageCircle, Swords } from "lucide-react";
+import { Sun, Moon, Hourglass, LogOut, Home, BrainCircuit, MessageCircle, Swords, Flame, Skull } from "lucide-react";
 import { useGameStore } from "../store";
 import { stageBadge } from "../lib/phaseStage";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
@@ -187,6 +187,20 @@ const DAY_PHASE_DESC: Record<string, string> = {
   DAY_VOTE: "封印放逐·公投裁决中",
   GAME_OVER: "终局·审判庭已做出最终裁决",
 };
+
+// ─────────────────────────────────────────────────────────
+// 进行中状态的「...」呼吸灯：三点错调淡入淡出（鎏金色），
+// 接在中央牌框演员标签末尾，暗示「正在进行」。
+// ─────────────────────────────────────────────────────────
+function BreathingDots() {
+  return (
+    <span className="breathing-dots text-[#d4af37]" aria-hidden="true">
+      <span className="breathing-dot" />
+      <span className="breathing-dot" />
+      <span className="breathing-dot" />
+    </span>
+  );
+}
 
 // ─────────────────────────────────────────────────────────
 // Component
@@ -437,8 +451,9 @@ export default React.memo(function UnifiedGameHeader({
                 ? "神职行动"
                 : "法庭陈词"} —
             </span>
-            <p className="font-serif text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
+            <p className="font-sans text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
               {actorInfo.label}
+              <BreathingDots />
             </p>
           </div>
         )}
@@ -449,8 +464,9 @@ export default React.memo(function UnifiedGameHeader({
             <span className="block font-mono text-[8px] text-red-500 font-black tracking-widest uppercase mb-0.5">
               — 法庭实况 —
             </span>
-            <p className="font-serif text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
+            <p className="font-sans text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
               {cueFallback}
+              {phase !== "GAME_OVER" && <BreathingDots />}
             </p>
           </div>
         )}
@@ -465,52 +481,59 @@ export default React.memo(function UnifiedGameHeader({
       {/* separator */}
       <div className="w-px h-11 bg-white/8 shrink-0" />
 
-      {/* ═══════════════ RIGHT: Stats + Buttons ═══════════════ */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Alive / Dead counts */}
-        <div className="text-right font-mono text-xs leading-tight hidden md:block">
-          <div className="text-emerald-400 font-extrabold uppercase tracking-wider">
-            存活&nbsp;{gameState.players.filter((p) => p.isAlive).length}
+      {/* ═══════════════ RIGHT: Stats + Buttons (鎏金石雕) ═══════════════ */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        {/* 存活 / 死亡 计数 — 鎏金石框 */}
+        <div className="hidden md:flex flex-col gap-1 px-3 py-1.5 rounded-sm border-2 border-amber-500/50 bg-gradient-to-br from-zinc-950/80 to-black/70 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),3px_3px_0_rgba(0,0,0,0.5)] leading-none">
+          <div className="flex items-center gap-1.5 text-amber-200 font-sans font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+            <Flame className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.6)]" />
+            存活
+            <span className="font-mono text-amber-100">{gameState.players.filter((p) => p.isAlive).length}</span>
           </div>
-          <div className="text-red-400 font-black uppercase tracking-wider mt-0.5">
-            死亡&nbsp;{gameState.players.filter((p) => !p.isAlive).length}
+          <div className="flex items-center gap-1.5 text-red-300 font-sans font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+            <Skull className="w-3.5 h-3.5 text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.6)]" />
+            死亡
+            <span className="font-mono text-red-200">{gameState.players.filter((p) => !p.isAlive).length}</span>
           </div>
         </div>
 
-        {/* Navigation buttons */}
+        {/* 返回 — 鎏金石雕 */}
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="h-8 px-3 rounded-lg border border-white/10 bg-white/5 text-zinc-400 text-[11px] font-mono hover:text-white hover:bg-white/10 hover:border-white/20 cursor-pointer whitespace-nowrap flex items-center gap-1.5 transition-all duration-200"
+          className="gilt-btn h-9 px-4 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100/90 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)] [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]"
         >
           返回
         </button>
 
+        {/* 主页 — 鎏金石雕 */}
         <button
           type="button"
           onClick={() => {
             window.location.href = "/home";
           }}
-          className="h-8 px-3 rounded-lg border border-indigo-700/40 bg-indigo-950/30 text-indigo-300 text-[11px] font-mono hover:text-white hover:bg-indigo-900/40 hover:border-indigo-500/60 cursor-pointer whitespace-nowrap flex items-center gap-1.5 transition-all duration-200"
+          className="gilt-btn h-9 px-4 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)] [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]"
         >
           <Home className="w-3.5 h-3.5" />
           主页
         </button>
 
+        {/* 退出 — 鎏金石雕 + 危险态 */}
         <button
           type="button"
           onClick={() => {
             if (confirmExit) {
-              onExit ? void onExit() : exitGame();
+              if (onExit) void onExit();
+              else exitGame();
               setConfirmExit(false);
             } else {
               setConfirmExit(true);
             }
           }}
-          className={`h-8 px-3 rounded-lg border text-[11px] font-sans font-bold tracking-wider cursor-pointer flex items-center gap-1.5 transition-all duration-200 ${
+          className={`h-9 px-4 rounded-sm border-2 text-xs font-sans font-bold tracking-wide whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all duration-200 [text-shadow:0_1px_2px_rgba(0,0,0,0.7)] ${
             confirmExit
-              ? "border-red-500 bg-red-600 text-white shadow-[0_0_16px_rgba(239,68,68,0.4)] animate-pulse"
-              : "border-red-800/40 bg-red-950/20 text-red-300 hover:text-white hover:bg-red-900/40 hover:border-red-600/60"
+              ? "border-red-500 bg-gradient-to-br from-red-800/80 to-red-950/90 text-red-50 shadow-[0_0_16px_rgba(239,68,68,0.45),3px_3px_0_rgba(0,0,0,0.5)] animate-pulse"
+              : "gilt-btn border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-red-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)]"
           }`}
         >
           <LogOut className="w-3.5 h-3.5" />

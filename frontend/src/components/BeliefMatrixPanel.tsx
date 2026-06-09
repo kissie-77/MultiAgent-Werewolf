@@ -40,7 +40,7 @@ export default function BeliefMatrixPanel({ beliefs, players, roundLabel, scope,
       <div className="flex justify-between items-center px-3 py-2 border-b border-amber-900/40 bg-zinc-950/80 relative z-10">
         <div className="flex items-center gap-2 text-amber-500">
           <Eye className="w-3.5 h-3.5" />
-          <span className="font-serif font-black tracking-widest text-[#d4af37] drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]">信念矩阵</span>
+          <span className="font-display-cn tracking-widest text-[#d4af37]">信念矩阵</span>
           <span className="text-amber-500/80 text-[10px] font-sans border-l border-amber-900/50 pl-2">谁认为谁是狼</span>
         </div>
         <div className="font-mono text-amber-500/90 font-bold tracking-widest bg-amber-950/30 px-1.5 py-0.5 rounded border border-amber-900/40">{roundLabel}</div>

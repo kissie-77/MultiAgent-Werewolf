@@ -30,6 +30,7 @@
     "@eslint/js": "^10.0.1",
     "@fontsource/cinzel": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/noto-serif-sc": "^5.2.8",
     "@tailwindcss/vite": "^4.1.14",
     "@types/node": "^22.14.0",
     "@types/react-dom": "^19.0.0",

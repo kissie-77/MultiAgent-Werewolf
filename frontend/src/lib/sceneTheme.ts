@@ -16,6 +16,16 @@ export interface SceneTheme {
   accentSoft: string;
 }
 
+/**
+ * Whether the 3D scene should render as night, derived SOLELY from the game phase.
+ * Night applies to every NIGHT_* phase; day / lobby / game-over are not night.
+ * This is the single source of truth shared with the header (UnifiedGameHeader),
+ * so the day/night chrome and the 3D background can never disagree.
+ */
+export function sceneIsNight(phase: string | undefined): boolean {
+  return phase?.startsWith("NIGHT") ?? false;
+}
+
 /** Murder alert overrides night, which overrides day. */
 export function resolveSceneMode(isNight: boolean, isMurderAlert: boolean): SceneMode {
   if (isMurderAlert) return "murder";

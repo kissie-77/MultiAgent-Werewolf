@@ -56,8 +56,17 @@ export function skillMetaForRole(role: string): { skillName: string; skillSub: s
     case "bite": return { skillName: "狼人袭击", skillSub: "獠牙撕裂黑夜" };
     case "inspect": return { skillName: "预言查验", skillSub: "窥探灵魂真伪" };
     case "heal": return { skillName: "女巫施药", skillSub: "解药 / 毒药" };
+    case "poison": return { skillName: "女巫毒药", skillSub: "剧毒蚀骨" };
     case "shoot": return { skillName: "猎人开枪", skillSub: "临终一击" };
     case "vote": return { skillName: "投票表决", skillSub: "民意裁断" };
+    case "guard": return { skillName: "守卫守护", skillSub: "以身御灾" };
+    case "charm": return { skillName: "狼美人魅惑", skillSub: "致命之吻" };
+    case "mark": return { skillName: "乌鸦标记", skillSub: "不祥之印" };
+    case "link": return { skillName: "丘比特连心", skillSub: "命运红线" };
+    case "duel": return { skillName: "骑士决斗", skillSub: "荣耀对决" };
+    case "swap": return { skillName: "魔术换牌", skillSub: "偷天换日" };
+    case "corpse": return { skillName: "守墓查验", skillSub: "亡者低语" };
+    case "fear": return { skillName: "梦魇封锁", skillSub: "噩梦缠身" };
     default: return { skillName: "神秘技能", skillSub: "命运之手" };
   }
 }

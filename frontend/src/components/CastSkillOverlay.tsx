@@ -11,6 +11,14 @@ function themeFor(effectType: string): { accentColor: string; particleColor: str
     case "poison": return { accentColor: "#10b981", particleColor: "bg-emerald-400" };
     case "bite": return { accentColor: "#ef4444", particleColor: "bg-red-500" };
     case "shoot": return { accentColor: "#eab308", particleColor: "bg-yellow-400" };
+    case "guard": return { accentColor: "#38bdf8", particleColor: "bg-sky-400" };
+    case "charm": return { accentColor: "#ec4899", particleColor: "bg-pink-400" };
+    case "mark": return { accentColor: "#a3a3a3", particleColor: "bg-neutral-400" };
+    case "link": return { accentColor: "#fb7185", particleColor: "bg-rose-400" };
+    case "duel": return { accentColor: "#f59e0b", particleColor: "bg-amber-400" };
+    case "swap": return { accentColor: "#8b5cf6", particleColor: "bg-violet-400" };
+    case "corpse": return { accentColor: "#84cc16", particleColor: "bg-lime-400" };
+    case "fear": return { accentColor: "#7c3aed", particleColor: "bg-purple-500" };
     default: return { accentColor: "#3b82f6", particleColor: "bg-blue-400" }; // vote / rally
   }
 }
@@ -23,6 +31,14 @@ const LATIN: Record<string, string> = {
   bite: "WEREWOLF · BLOODLUST",
   shoot: "HUNTER · STEEL BOLT",
   vote: "VILLAGER · VERDICT",
+  guard: "GUARD · AEGIS",
+  charm: "WOLF BEAUTY · ALLURE",
+  mark: "RAVEN · OMEN",
+  link: "CUPID · BOND",
+  duel: "KNIGHT · DUEL",
+  swap: "MAGICIAN · SLEIGHT",
+  corpse: "KEEPER · REQUIEM",
+  fear: "NIGHTMARE · DREAD",
   rally: "ARCANA · FATE",
 };
 

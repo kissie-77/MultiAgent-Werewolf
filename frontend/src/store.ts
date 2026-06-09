@@ -268,12 +268,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
       set({ pendingInput: null, humanInputError: null });
       soundManager.playUi("ui_submit");
-      // Fire the local tarot-cast cinematic for the human's own skill action.
+      // Fire the local tarot-cast cinematic + own skill sound for the human's action.
+      // Covers targeted skills: seat (seer/guard/wolf/raven/graveyard…), witch (potions),
+      // and multi (magician swap / cupid link). yesno + speech are decisions, not targeted
+      // casts, so they get no cinematic. Seat view never sounds others' role_acting (would
+      // leak), and the engine rarely emits the specific result event, so submit-time is the
+      // reliable moment.
       const kind = pendingInput.kind;
       const players = get().state?.players ?? [];
-      const selfRole = pendingInput.self_role ?? players.find((p) => p.isUser)?.role ?? "";
-      if (selfRole && (kind === "seat" || kind === "witch")) {
-        const targetSeat = get().selectedTargetSeat;
+      // Fall back with `||` (not `??`): the backend always sends `self_role`, often
+      // as an empty string, so `??` would keep "" and skip the cast cinematic + sound.
+      // `||` lets an empty self_role fall back to the seat roster's own role.
+      const selfRole = pendingInput.self_role || players.find((p) => p.isUser)?.role || "";
+      const castKind = kind === "seat" || kind === "witch" || kind === "multi";
+      if (selfRole && castKind) {
+        // Representative target from the selection (multi -> first picked seat; witch save
+        // has no target). Reading the selection is more robust than selectedTargetSeat,
+        // which the multi dock never sets.
+        let targetSeat: number | null = null;
+        if (selection.kind === "seat") targetSeat = selection.skip ? null : selection.seat ?? null;
+        else if (selection.kind === "multi") targetSeat = selection.seats[0] ?? null;
+        else if (selection.kind === "witch") targetSeat = selection.action === "poison" ? selection.seat ?? null : null;
         const targetName =
           targetSeat != null ? players.find((p) => p.id === targetSeat)?.name ?? null : null;
         get().triggerCast(
@@ -284,11 +299,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
             targetName,
           })
         );
-      }
-      // The human's own skill sound plays here: seat view does not sound others'
-      // role_acting (would leak), and the engine rarely emits the specific result
-      // event, so submit-time is the reliable moment. Generic by role.
-      if (selfRole && (kind === "seat" || kind === "witch")) {
         soundManager.playGameplay(effectTypeSfx[effectTypeForRole(selfRole)]);
       }
       set({ selectedTargetSeat: null });

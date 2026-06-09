@@ -15,7 +15,8 @@ export type ThinkingContext =
  */
 export interface LiveCue {
   thinking: {
-    seat: number;
+    /** `null` = identity withheld (seat view, another player thinking at night). */
+    seat: number | null;
     playerName: string;
     role: string;
     context: ThinkingContext;

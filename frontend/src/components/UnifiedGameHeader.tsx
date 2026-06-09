@@ -273,8 +273,9 @@ export default React.memo(function UnifiedGameHeader({
         return null;
       }
 
-      // Seat view: hide night thinker identity entirely
-      if (isSeatView && isNightThink) {
+      // Seat view: hide night thinker identity entirely. `seat == null` is the
+      // reducer's "identity withheld" marker — always treat it as anonymous night.
+      if (isSeatView && (isNightThink || thinkingCue.seat == null)) {
         return {
           icon: BrainCircuit,
           label: "夜间推演中……",

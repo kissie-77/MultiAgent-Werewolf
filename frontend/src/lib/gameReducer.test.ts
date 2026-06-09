@@ -117,3 +117,66 @@ describe("public dialogue + event timeline", () => {
     expect(s.speechLogs.at(-1)?.reasoning).toBeUndefined();
   });
 });
+
+describe("seat-view night thinking is anonymized (no identity leak)", () => {
+  const seatSnap = {
+    event_type: "snapshot",
+    selfSeat: 1,
+    roster: [
+      { seat: 1, name: "P1", role: "Villager", is_alive: true },
+      { seat: 4, name: "Player4", role: null, is_alive: true },
+    ],
+  };
+
+  it("withholds another seat's identity for night thinking (seat view)", () => {
+    let s = reduceEvent(initialSpectateState(), seatSnap as any);
+    s = reduceEvent(s, {
+      event_type: "actor_thinking",
+      phase: "night",
+      selfSeat: 1,
+      data: { player_id: "player_4", player_name: "Player4", context: "werewolf_chat" },
+    } as any);
+    // seat=null is the "identity withheld" marker honored by dock / 3D ring / header
+    expect(s.liveCue.thinking?.seat).toBeNull();
+    expect(s.liveCue.thinking?.playerName ?? "").not.toContain("Player4");
+    expect(s.liveCue.thinking?.role).toBe("");
+  });
+
+  it("keeps the actor identity for daytime thinking (about-to-speak is public)", () => {
+    let s = reduceEvent(initialSpectateState(), seatSnap as any);
+    s = reduceEvent(s, {
+      event_type: "actor_thinking",
+      phase: "day_discussion",
+      selfSeat: 1,
+      data: { player_id: "player_4", player_name: "Player4", context: "day_speech" },
+    } as any);
+    expect(s.liveCue.thinking?.seat).toBe(4);
+  });
+
+  it("keeps own night thinking identifiable (it's the human themselves)", () => {
+    let s = reduceEvent(initialSpectateState(), seatSnap as any);
+    s = reduceEvent(s, {
+      event_type: "actor_thinking",
+      phase: "night",
+      selfSeat: 1,
+      data: { player_id: "player_1", player_name: "P1", context: "night_skill" },
+    } as any);
+    expect(s.liveCue.thinking?.seat).toBe(1);
+  });
+
+  it("keeps full identity in pure-LLM/god view (no selfSeat) — LLM battle unchanged", () => {
+    let s = reduceEvent(initialSpectateState(), {
+      event_type: "snapshot",
+      roster: [{ seat: 4, name: "Player4", role: "Werewolf", is_alive: true }],
+    } as any);
+    s = reduceEvent(s, {
+      event_type: "actor_thinking",
+      phase: "night",
+      data: { player_id: "player_4", player_name: "Player4", role: "Werewolf", context: "werewolf_chat" },
+    } as any);
+    // Spectate is untouched: seat, name and role-for-flavor all preserved.
+    expect(s.liveCue.thinking?.seat).toBe(4);
+    expect(s.liveCue.thinking?.playerName).toBe("Player4");
+    expect(s.liveCue.thinking?.role).toBe("Werewolf");
+  });
+});

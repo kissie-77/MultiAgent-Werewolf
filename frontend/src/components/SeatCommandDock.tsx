@@ -85,7 +85,13 @@ export default function SeatCommandDock() {
   const idleLabel = (() => {
     const ns = liveCue?.nightSkill;
     if (ns) return `${ns.playerName}（${ns.seat}号）夜间行动中…`;
-    if (liveCue?.thinking) return `${liveCue.thinking.playerName}（${liveCue.thinking.seat}号）思考中…`;
+    const tk = liveCue?.thinking;
+    if (tk) {
+      // seat=null → identity withheld (another player thinking at night); never
+      // reveal who is acting in the dark, only that the night is unfolding.
+      if (tk.seat == null) return "夜幕之下，众人正在暗中行动…";
+      return `${tk.playerName}（${tk.seat}号）思考中…`;
+    }
     return "等待其他玩家行动…";
   })();
 

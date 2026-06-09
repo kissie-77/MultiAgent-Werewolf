@@ -92,8 +92,24 @@ function setThinkingFromEvent(s: GameState, ev: SseEvent): void {
   if (seat == null) return;
   const context = parseThinkingContext(ev.data?.context);
   const selfSeat = ev.selfSeat;
+  const isSeatView = selfSeat != null;
+  const isSelf = seat === selfSeat;
+
+  // Seat view: actor_thinking is broadcast publicly with the actor's seat intact.
+  // Surfacing WHICH seat is thinking at night leaks wolves (werewolf_chat) and god
+  // roles (each acts in its own sub-phase) by timing. Withhold the identity entirely
+  // for other players at night — seat=null is the marker honored by dock/3D/header.
+  if (isSeatView && !isSelf && ev.phase === "night") {
+    s.liveCue = {
+      ...s.liveCue,
+      thinking: { seat: null, playerName: "", role: "", context },
+    };
+    s.currentSpeakerId = null;
+    return;
+  }
+
   const role =
-    selfSeat != null && seat !== selfSeat
+    isSeatView && !isSelf
       ? ""
       : String(ev.data?.role ?? s.players.find((p) => p.id === seat)?.role ?? "");
   s.liveCue = {

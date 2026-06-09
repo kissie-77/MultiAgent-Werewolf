@@ -1,0 +1,26 @@
+# 依赖与构建
+node_modules
+dist
+.vite
+
+# 开发配置
+.env.development
+.env.local
+.env.*.local
+
+# IDE & OS
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# 测试与文档
+coverage
+*.test.ts
+*.test.tsx
+__mocks__
+
+# Git
+.git
+.gitignore

@@ -39,6 +39,7 @@ export function mapModelsPage(
   const models: ModelUsageStat[] = stats.map((s) => ({
     model_id: s?.model_id ?? "",
     display_name: s?.display_name ?? s?.model_id ?? "",
+    role_name: s?.role_name ?? null,
     run_count: num(s?.run_count),
     win_rate: toWinRate(s?.win_rate), // robust: handles both 0..1 and 0..100
     avg_mvp: num(s?.avg_mvp), // null -> 0 so the page's .toFixed(1) is safe

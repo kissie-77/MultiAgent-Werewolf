@@ -309,6 +309,46 @@ def get_run_detail(
     )
 
 
+# 角色英文名 → 中文显示名（用于模型-角色联合分组显示）
+ROLE_CN_MAP: dict[str, str] = {
+    "Werewolf": "狼人",
+    "AlphaWolf": "狼王",
+    "WhiteWolf": "白狼",
+    "WolfBeauty": "狼美人",
+    "GuardianWolf": "守卫狼",
+    "HiddenWolf": "隐狼",
+    "BloodMoonApostle": "血月使徒",
+    "NightmareWolf": "梦魇狼",
+    "Villager": "村民",
+    "Seer": "预言家",
+    "Witch": "女巫",
+    "Hunter": "猎人",
+    "Guard": "守卫",
+    "Idiot": "白痴",
+    "Elder": "长老",
+    "Knight": "骑士",
+    "Magician": "魔术师",
+    "Cupid": "丘比特",
+    "Raven": "乌鸦",
+    "GraveyardKeeper": "守墓人",
+    "Thief": "盗贼",
+    "Lover": "恋人",
+}
+
+
+def role_cn_name(role_name: str | None) -> str | None:
+    """角色英文名 → 中文显示名；未知角色返回原值。"""
+    if not role_name:
+        return None
+    # 先精确匹配
+    cn = ROLE_CN_MAP.get(role_name)
+    if cn:
+        return cn
+    # 再尝试 PascalCase 归一化
+    stem = re.sub(r"\s+", "", role_name)  # "Alpha Wolf" -> "AlphaWolf"
+    return ROLE_CN_MAP.get(stem) or role_name
+
+
 # Human-controlled seats are not AI models; they must not pollute the leaderboard.
 _HUMAN_SEAT_MODELS = frozenset({"human", "web-human"})
 
@@ -429,18 +469,24 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
     not carry it); MVP averages come from ``mvp_scores.json`` (``mvp_total``). Wins
     are counted once per run so the win rate stays in ``[0, 1]``, and human-controlled
     seats are excluded — they are not AI models.
+
+    Entries are grouped by ``(model_id, role_name)`` pair so the leaderboard can
+    display e.g. "哈吉豆（狼人）" alongside "哈吉豆（预言家）".
     """
     if runs_dir is None:
         runs_dir = Path("artifacts/runs")
     if eval_runs_dir is None:
         eval_runs_dir = Path("artifacts/eval_runs")
 
+    # stats: composite_key -> bucket
+    # composite_key = f"{model_id}|{role_name}"  (role_name is "" for "no role")
     stats: dict[str, dict] = {}
     # model_id -> model_env mapping (collected across all runs)
     model_env_map: dict[str, str] = {}
 
-    def _bucket(model: str) -> dict:
-        return stats.setdefault(model, {"runs": 0, "wins": 0, "mvp": []})
+    def _bucket(model: str, role: str = "") -> dict:
+        key = f"{model}|{role}" if role else model
+        return stats.setdefault(key, {"model": model, "role": role, "runs": 0, "wins": 0, "mvp": []})
 
     for summary in list_run_dirs(runs_dir, eval_runs_dir):
         path = Path(summary.path)
@@ -456,24 +502,42 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
         with contextlib.suppress(Exception):
             ctx = load_run_context(path)
 
-        models_in_run: set[str] = set()
-        winners_in_run: set[str] = set()
         if ctx is None:
             continue
+
+        # Track which (model, role) pairs appear in this run, per-seat
+        seat_keys: set[str] = set()
         for entry in ctx.roster.values():
             model = getattr(entry, "ai_model", None) or _resolve_seat_model(
                 entry.player_id, entry.player_name, launch_models
             )
             if not model or model in _HUMAN_SEAT_MODELS:
                 continue
-            models_in_run.add(model)
-            if winner_camp and entry.camp == winner_camp:
-                winners_in_run.add(model)
-        for model in models_in_run:
-            bucket = _bucket(model)
+            role = (entry.role_name or "").strip()
+            key = f"{model}|{role}" if role else model
+            seat_keys.add(key)
+            seat_keys.add(model)  # also aggregate without role (total for the model)
+
+        for key in seat_keys:
+            # Parse model & role from the composite key
+            parts = key.split("|", 1)
+            m = parts[0]
+            r = parts[1] if len(parts) > 1 else ""
+            bucket = _bucket(m, r)
             bucket["runs"] += 1
-            if model in winners_in_run:
-                bucket["wins"] += 1
+            if winner_camp:
+                # Check if any entry with this model+role is on the winning camp
+                for entry in ctx.roster.values():
+                    emodel = getattr(entry, "ai_model", None) or _resolve_seat_model(
+                        entry.player_id, entry.player_name, launch_models
+                    )
+                    if emodel != m:
+                        continue
+                    if r and (entry.role_name or "") != r:
+                        continue
+                    if winner_camp and entry.camp == winner_camp:
+                        bucket["wins"] += 1
+                        break
 
         for row in _mvp_rows(path):
             model = (
@@ -481,22 +545,38 @@ def aggregate_model_usage(runs_dir: Path | None = None, eval_runs_dir: Path | No
                 or row.get("model")
                 or _resolve_seat_model(str(row.get("player_id", "")), row.get("player_name"), launch_models)
             )
+            role = (row.get("role_name") or row.get("role") or "").strip()
             score = row.get("mvp_total")
             if score is None:
                 score = row.get("total") or row.get("score")
             if model and model not in _HUMAN_SEAT_MODELS and isinstance(score, (int, float)):
-                _bucket(str(model))["mvp"].append(float(score))
+                # Bucket both role-specific and role-agnostic
+                key = f"{model}|{role}" if role else model
+                if key in stats:
+                    stats[key]["mvp"].append(float(score))
+                # Also put into the role-agnostic bucket
+                if model in stats:
+                    stats[model]["mvp"].append(float(score))
 
     result: list[ModelUsageStat] = []
-    for model_id, bucket in stats.items():
+    for key, bucket in stats.items():
         run_count = bucket.get("runs", 0)
         wins = bucket.get("wins", 0)
         mvp_scores = bucket.get("mvp", [])
-        display_name = _resolve_display_name(model_id, model_env_map)
+        model_id: str = bucket.get("model", key)
+        role: str = bucket.get("role", "")
+
+        raw_display = _resolve_display_name(model_id, model_env_map)
+        if role:
+            display_name = f"{raw_display}（{role_cn_name(role)}）"
+        else:
+            display_name = raw_display
+
         result.append(
             ModelUsageStat(
                 model_id=model_id,
                 display_name=display_name,
+                role_name=role or None,
                 run_count=run_count,
                 win_rate=(wins / run_count) if run_count else None,
                 avg_mvp=(sum(mvp_scores) / len(mvp_scores)) if mvp_scores else None,

@@ -70,7 +70,7 @@ export function mapRunInfo(run: BackendRunDetail | null | undefined): ReplayRunI
 // --- timeline ---
 
 /** God view injects these snapshot events into the timeline; hide them here. */
-const REPLAY_ONLY_EVENT_TYPES = new Set(["belief_snapshot", "vote_intention_snapshot"]);
+const REPLAY_ONLY_EVENT_TYPES = new Set(["belief_snapshot", "vote_intention_snapshot", "wolf_camp_snapshot"]);
 
 /** backend event_type -> front-end TimelineEvent.type (default "system"). */
 const EVENT_KIND: Record<string, NonNullable<TimelineEvent["type"]>> = {
@@ -353,10 +353,18 @@ function rowToObserver(row: BackendBeliefRow): BeliefObserverSnapshot {
     ...(c?.reason != null ? { reason: String(c.reason) } : {}),
     ...(c?.note != null ? { note: String(c.note) } : {}),
   }));
-  return { observer_id: seatLabel(row?.observer_seat), targets };
+  // B2: second-order — who suspects this observer
+  const soCells = Array.isArray(row?.second_order) ? row.second_order : [];
+  const secondOrderTargets: BeliefTargetSnapshot[] = soCells.map((c: any) => ({
+    target_seat: seatLabel(c?.observer_seat),
+    wolf_probability: num(c?.suspects_me_as_wolf),
+    ...(c?.reason != null ? { reason: String(c.reason) } : {}),
+    ...(c?.note != null ? { note: String(c.note) } : {}),
+  }));
+  return { observer_id: seatLabel(row?.observer_seat), targets, secondOrderTargets };
 }
 
-/** Group god-view belief rows by `anchor` into the BeliefHeatmap's anchor model. */
+/** Group god-view belief rows by round+anchor into the BeliefTrendChart's anchor model. */
 export function mapBeliefAnchors(
   rows: BackendBeliefRow[] | null | undefined,
 ): BeliefAnchor[] {
@@ -364,17 +372,21 @@ export function mapBeliefAnchors(
   const groups = new Map<string, BeliefAnchor>();
   const order: string[] = [];
   for (const row of rows) {
+    const round = num(row?.round);
     const anchor = String(row?.anchor ?? "");
-    let group = groups.get(anchor);
+    // Key must be unique per round+anchor so data from different rounds
+    // doesn't get merged into a single anchor.
+    const key = `${round}_${anchor}`;
+    let group = groups.get(key);
     if (!group) {
       group = {
-        anchor_id: anchor,
-        round: num(row?.round),
-        label: `R${num(row?.round)} ${anchor}`.trim(),
+        anchor_id: key,
+        round,
+        label: `R${round} ${anchor}`.trim(),
         observers: [],
       };
-      groups.set(anchor, group);
-      order.push(anchor);
+      groups.set(key, group);
+      order.push(key);
     }
     group.observers.push(rowToObserver(row));
   }
@@ -414,6 +426,12 @@ export function mapBeliefColumns(
           targetPlayerId: num(c?.target_seat),
           targetPlayerName: seatLabel(c?.target_seat),
           wolfProbability: Math.round(num(c?.wolf_probability) * 100),
+        })),
+        // B2: second-order — who suspects this observer
+        secondOrderBeliefs: (Array.isArray(row?.second_order) ? row.second_order : []).map((c: any) => ({
+          observerId: num(c?.observer_seat),
+          observerName: seatLabel(c?.observer_seat),
+          suspectsMe: Math.round(num(c?.suspects_me_as_wolf) * 100),
         })),
       })),
     }));

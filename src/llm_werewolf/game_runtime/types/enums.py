@@ -125,6 +125,7 @@ class EventType(str, Enum):
     VOTE_CAST = "vote_cast"
     VOTE_INTENTION_SNAPSHOT = "vote_intention_snapshot"
     BELIEF_SNAPSHOT = "belief_snapshot"
+    WOLF_CAMP_SNAPSHOT = "wolf_camp_snapshot"
     VOTE_RESULT = "vote_result"
     PLAYER_ELIMINATED = "player_eliminated"
 

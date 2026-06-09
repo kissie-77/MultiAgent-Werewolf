@@ -213,7 +213,12 @@ def _role_matches(role: object, requested: str) -> bool:
     get_config = getattr(role, "get_config", None)
     cfg = get_config() if callable(get_config) else None
     role_name = str(getattr(cfg, "name", "") or getattr(role, "name", "") or "")
-    return role_name.strip().lower() == target.lower()
+    # Normalize spaces: catalog keys are spaceless ("NightmareWolf") but dealt
+    # RoleConfig names are spaced ("Nightmare Wolf"); compare without spaces so
+    # multi-word roles (advanced wolves, GraveyardKeeper) match and the human's
+    # chosen role actually swaps in. (Without this, _force_human_seat_role finds
+    # no donor and silently keeps the random deal — a user-facing bug.)
+    return role_name.strip().lower().replace(" ", "") == target.lower().replace(" ", "")
 
 
 def _force_human_seat_role(engine: GameEngine, seat: int | None, requested: str | None) -> None:

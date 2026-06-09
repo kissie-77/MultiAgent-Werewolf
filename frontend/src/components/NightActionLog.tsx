@@ -1,61 +1,12 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Moon, ChevronDown, ChevronUp } from "lucide-react";
+import { Moon, ChevronDown } from "lucide-react";
 import { useGameStore } from "../store";
 import { isRoleRevealed } from "../lib/humanPrompt";
 import type { NightActionEntry } from "../types";
-import type { ColorScheme } from "./RightPanelColumn";
 
-/* ─── NightActionLog color scheme ─── */
-const LOG_COLORS: Record<
-  ColorScheme,
-  {
-    header: string;
-    icon: string;
-    iconDim: string;
-    body: string;
-    dot: string;
-    text: string;
-    shadow: string;
-  }
-> = {
-  emerald: {
-    header: "border-emerald-700/50 text-emerald-300",
-    icon: "text-emerald-400",
-    iconDim: "text-emerald-500",
-    body: "border-emerald-900/50 bg-black/60 backdrop-blur-md",
-    dot: "bg-emerald-600",
-    text: "text-emerald-500/70",
-    shadow: "rgba(5,150,105,0.1)",
-  },
-  violet: {
-    header: "border-violet-900/50 text-violet-300",
-    icon: "text-violet-400",
-    iconDim: "text-violet-500",
-    body: "border-violet-900/50 bg-black/60 backdrop-blur-md",
-    dot: "bg-violet-600",
-    text: "text-violet-500/70",
-    shadow: "rgba(109,40,217,0.1)",
-  },
-  amber: {
-    header: "border-amber-700/50 text-amber-300",
-    icon: "text-amber-400",
-    iconDim: "text-amber-500",
-    body: "border-amber-900/50 bg-black/60 backdrop-blur-md",
-    dot: "bg-amber-600",
-    text: "text-amber-500/70",
-    shadow: "rgba(217,119,6,0.1)",
-  },
-  rose: {
-    header: "border-rose-800/50 text-rose-300",
-    icon: "text-rose-400",
-    iconDim: "text-rose-500",
-    body: "border-rose-900/50 bg-black/60 backdrop-blur-md",
-    dot: "bg-rose-600",
-    text: "text-rose-500/70",
-    shadow: "rgba(190,18,60,0.1)",
-  },
-};
+const STARDUST =
+  "bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]";
 
 /** Icon and label for each night action type. */
 const ACTION_META: Record<string, { icon: string; label: string; color: string }> = {
@@ -152,10 +103,8 @@ const ActionItem = React.memo(function ActionItem({
 });
 
 export default React.memo(function NightActionLog({
-  colorScheme = "violet",
   defaultOpen = true,
 }: {
-  colorScheme?: ColorScheme;
   defaultOpen?: boolean;
 }) {
   const nightActionLog = useGameStore((s) => s.state?.nightActionLog ?? []);
@@ -163,7 +112,6 @@ export default React.memo(function NightActionLog({
   const humanSeat = useGameStore((s) => s.humanSeat);
   const isSeatView = humanSeat != null;
   const [collapsed, setCollapsed] = useState(!defaultOpen);
-  const cc = LOG_COLORS[colorScheme];
 
   const isNight = phase?.startsWith("NIGHT") ?? false;
 
@@ -181,24 +129,36 @@ export default React.memo(function NightActionLog({
   const hasContent = uniqueActions.length > 0;
 
   return (
-    <div className="w-full pointer-events-auto">
-      {/* Toggle button — always visible */}
-      <button
-        type="button"
+    <div className="flex flex-col border border-amber-900/30 bg-[#0a0808]/90 rounded-md overflow-hidden text-amber-100 font-sans shadow-[0_4px_20px_rgba(0,0,0,0.6)] text-[10px] relative pointer-events-auto w-full">
+      <div className={`absolute inset-0 pointer-events-none opacity-20 ${STARDUST} mix-blend-overlay`} />
+      {/* header */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setCollapsed((c) => !c)}
-        className={`w-full flex items-center justify-between px-3 py-2 bg-black/60 border ${cc.header} rounded-t-xl hover:bg-black/70 transition-colors cursor-pointer`}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setCollapsed((c) => !c);
+          }
+        }}
+        className="flex justify-between items-center px-3 py-2 border-b border-amber-900/40 bg-zinc-950/80 relative z-10 cursor-pointer select-none hover:bg-zinc-900/70 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <Moon className={`w-3.5 h-3.5 ${isNight ? "animate-pulse " + cc.icon : cc.iconDim}`} />
-          <span className="font-serif text-[11px] font-black tracking-[0.2em] uppercase">
+        <div className="flex items-center gap-2 text-amber-500 min-w-0">
+          <Moon className={`w-3.5 h-3.5 shrink-0 ${isNight ? "animate-pulse" : ""}`} />
+          <span className="font-serif font-black tracking-widest text-[#d4af37] drop-shadow-[0_0_8px_rgba(212,175,55,0.4)] whitespace-nowrap">
             暗夜行迹
           </span>
           {!isNight && hasContent && (
-            <span className="font-mono text-[9px] text-zinc-500">（昼间可查）</span>
+            <span className="text-amber-500/80 text-[10px] font-sans border-l border-amber-900/50 pl-2 whitespace-nowrap">
+              昼间可查
+            </span>
           )}
         </div>
-        {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-      </button>
+        <ChevronDown
+          className={`w-3.5 h-3.5 shrink-0 text-amber-500/70 transition-transform duration-300 ${collapsed ? "" : "rotate-180"}`}
+        />
+      </div>
 
       {/* Collapsible content */}
       <AnimatePresence initial={false}>
@@ -209,23 +169,22 @@ export default React.memo(function NightActionLog({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden"
+            className="overflow-hidden relative z-10"
           >
-            <div className={`${cc.body} border-x border-b rounded-b-xl px-3 py-2 min-w-0`}
-              style={{ boxShadow: `0 0 20px ${cc.shadow}` }}>
+            <div className="px-3 py-2.5 min-w-0">
               {!hasContent ? (
-                <div className="py-3 flex items-center justify-center gap-2">
+                <div className="py-4 flex items-center justify-center gap-2">
                   <div className="flex gap-1">
-                    <div className={`w-1 h-1 ${cc.dot} rounded-full animate-bounce`} />
-                    <div className={`w-1 h-1 ${cc.dot} rounded-full animate-bounce [animation-delay:150ms]`} />
-                    <div className={`w-1 h-1 ${cc.dot} rounded-full animate-bounce [animation-delay:300ms]`} />
+                    <span className="w-1 h-1 rounded-full bg-amber-500/70 animate-bounce" />
+                    <span className="w-1 h-1 rounded-full bg-amber-500/70 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1 h-1 rounded-full bg-amber-500/70 animate-bounce [animation-delay:300ms]" />
                   </div>
-                  <span className={`font-mono text-[10px] ${cc.text} tracking-wider`}>
-                    {isNight ? "等待夜色中的行动..." : "暂无行动记录"}
+                  <span className="font-serif text-[10px] tracking-[0.18em] text-amber-500/70">
+                    {isNight ? "等待夜色中的行动……" : "暂无行动记录"}
                   </span>
                 </div>
               ) : (
-                <div className="max-h-[300px] overflow-y-auto">
+                <div className="max-h-[300px] overflow-y-auto scrollbar-none">
                   <AnimatePresence initial={false}>
                     {uniqueActions.map((entry) => (
                       <ActionItem

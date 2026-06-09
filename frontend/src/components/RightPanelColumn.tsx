@@ -6,87 +6,83 @@ import BeliefMatrixPanel from "./BeliefMatrixPanel";
 import ExposureRadarStrip from "./ExposureRadarStrip";
 import WolfExposurePanel from "./WolfExposurePanel";
 import GodRoleIntelPanel from "./GodRoleIntelPanel";
-import { ChevronDown, ChevronUp, Loader2, Eye, EyeOff } from "lucide-react";
+import {
+  ChevronDown,
+  Loader2,
+  Eye,
+  EyeOff,
+  Users,
+  Crosshair,
+  Footprints,
+  Sparkles,
+} from "lucide-react";
 
-/* ─── Color scheme definitions ─── */
-export type ColorScheme = "emerald" | "violet" | "amber" | "rose";
+/* ─────────────────────────────────────────────────────────────
+   Right-column modules wear the same restrained amber-on-obsidian
+   panel chrome as the 信念矩阵 / 投票意向 insight panels:
+     border-amber-900/30 · bg-[#0a0808]/90 · zinc-950 header bar ·
+     gilt #d4af37 serif title · subtle stardust overlay.
+   No heavy gold frames / corners — clean, scannable, cohesive.
+   ───────────────────────────────────────────────────────────── */
 
-const CARD_COLORS: Record<
-  ColorScheme,
-  { header: string; chevron: string; body: string }
-> = {
-  emerald: {
-    header:
-      "border-emerald-700/50 text-emerald-400 bg-black/70 hover:bg-black/80",
-    chevron: "text-emerald-500/60",
-    body: "border-emerald-900/30 bg-black/50",
-  },
-  violet: {
-    header:
-      "border-violet-700/50 text-violet-300 bg-black/70 hover:bg-black/80",
-    chevron: "text-violet-500/60",
-    body: "border-violet-900/30 bg-black/50",
-  },
-  amber: {
-    header:
-      "border-amber-700/50 text-amber-400 bg-black/70 hover:bg-black/80",
-    chevron: "text-amber-500/60",
-    body: "border-amber-900/30 bg-black/50",
-  },
-  rose: {
-    header:
-      "border-rose-800/50 text-rose-400 bg-black/70 hover:bg-black/80",
-    chevron: "text-rose-500/60",
-    body: "border-rose-900/30 bg-black/50",
-  },
-};
+const STARDUST =
+  "bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]";
 
-/* ─── Collapsible card wrapper for each module ─── */
+/* ─── Collapsible amber panel wrapper for each module ─── */
 function CollapsibleCard({
   title,
   icon,
-  colorScheme = "amber",
+  subtitle,
   defaultOpen = true,
   children,
   extraHeader,
 }: {
   title: string;
-  icon: string;
-  colorScheme?: ColorScheme;
+  icon: React.ReactNode;
+  subtitle?: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
   extraHeader?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const cc = CARD_COLORS[colorScheme];
   return (
-    <div className="pointer-events-auto w-full">
-      <button
-        type="button"
+    <div className="flex flex-col border border-amber-900/30 bg-[#0a0808]/90 rounded-md overflow-hidden text-amber-100 font-sans shadow-[0_4px_20px_rgba(0,0,0,0.6)] text-[10px] relative pointer-events-auto">
+      <div className={`absolute inset-0 pointer-events-none opacity-20 ${STARDUST} mix-blend-overlay`} />
+      {/* header — div+role so the optional inner toggle button is valid HTML */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center justify-between w-full px-3 py-2 ${cc.header} transition-colors cursor-pointer shrink-0 ${
-          open ? "rounded-t-lg" : "rounded-lg"
-        }`}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+        className="flex justify-between items-center px-3 py-2 border-b border-amber-900/40 bg-zinc-950/80 relative z-10 cursor-pointer select-none hover:bg-zinc-900/70 transition-colors"
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[13px] shrink-0">{icon}</span>
-          <span className="font-serif text-[11px] font-black tracking-[0.15em] uppercase whitespace-nowrap">
+        <div className="flex items-center gap-2 text-amber-500 min-w-0">
+          <span className="shrink-0 flex items-center text-amber-500">{icon}</span>
+          <span className="font-serif font-black tracking-widest text-[#d4af37] drop-shadow-[0_0_8px_rgba(212,175,55,0.4)] whitespace-nowrap">
             {title}
           </span>
+          {subtitle && (
+            <span className="text-amber-500/80 text-[10px] font-sans border-l border-amber-900/50 pl-2 whitespace-nowrap">
+              {subtitle}
+            </span>
+          )}
           {extraHeader}
         </div>
-        {open ? (
-          <ChevronUp className={`w-3.5 h-3.5 shrink-0 ${cc.chevron}`} />
-        ) : (
-          <ChevronDown className={`w-3.5 h-3.5 shrink-0 ${cc.chevron}`} />
-        )}
-      </button>
+        <ChevronDown
+          className={`w-3.5 h-3.5 shrink-0 text-amber-500/70 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+        />
+      </div>
       <div
-        className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${
-          open ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+        className={`relative z-10 overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${
+          open ? "max-h-[620px] opacity-100" : "max-h-0 opacity-0"
         }`}
       >
-        <div className={`border-x border-b ${cc.body} rounded-b-lg px-3 py-2 max-h-[400px] overflow-y-auto`}>
+        <div className="px-3 py-2.5 max-h-[400px] overflow-y-auto scrollbar-none">
           {children}
         </div>
       </div>
@@ -99,17 +95,17 @@ function AlivePlayerList() {
   const players = useGameStore((s) => s.state?.players ?? []);
   const alive = players.filter((p) => p.isAlive);
   return (
-    <div className="flex flex-col gap-1">
-      <span className="font-mono text-[10px] text-zinc-500 tracking-wider">
-        存活 {alive.length}/{players.length}
+    <div className="flex flex-col gap-1.5">
+      <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-amber-500/80">
+        存活 {alive.length} / {players.length}
       </span>
       <div className="flex flex-wrap gap-1.5">
         {alive.map((p) => (
           <span
             key={p.id}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-700/40 bg-emerald-950/30 text-emerald-300 font-mono text-[11px] font-bold"
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-amber-900/40 bg-amber-950/20 font-serif font-bold text-[11px] tracking-wide text-amber-200/90"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse" />
             {p.name}
           </span>
         ))}
@@ -118,8 +114,9 @@ function AlivePlayerList() {
           .map((p) => (
             <span
               key={p.id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900/60 text-zinc-600 font-mono text-[11px] line-through"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-zinc-800/70 bg-black/30 font-serif text-[11px] text-zinc-600 line-through decoration-rose-900/70"
             >
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
               {p.name}
             </span>
           ))}
@@ -146,20 +143,19 @@ export default React.memo(function RightPanelColumn({
   const dataReady = beliefs && voteSnapshot;
 
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex flex-col gap-3 w-full">
       {/* ── 1. 存亡名录 ── */}
-      <CollapsibleCard title="存亡名录" icon="👥" colorScheme="emerald" defaultOpen={true}>
+      <CollapsibleCard title="存亡名录" icon={<Users className="w-3.5 h-3.5" />} defaultOpen={true}>
         <AlivePlayerList />
       </CollapsibleCard>
 
       {/* ── 2. 暗夜行迹 ── */}
-      <NightActionLog colorScheme="violet" defaultOpen={true} />
+      <NightActionLog defaultOpen={true} />
 
       {/* ── 3. 疑心矩阵 ── */}
       <CollapsibleCard
         title="疑心矩阵"
-        icon="🔍"
-        colorScheme="amber"
+        icon={<Eye className="w-3.5 h-3.5" />}
         defaultOpen={false}
         extraHeader={
           isLLMOnly ? (
@@ -169,7 +165,8 @@ export default React.memo(function RightPanelColumn({
                 e.stopPropagation();
                 setShowIdentities((v) => !v);
               }}
-              className="flex items-center ml-1.5 px-1 py-0.5 rounded border border-amber-900/50 hover:bg-amber-900/30 text-amber-500/70 hover:text-amber-400 transition-colors"
+              className="flex items-center ml-1.5 px-1.5 py-0.5 rounded border border-amber-900/50 hover:bg-amber-900/30 text-amber-500/80 hover:text-amber-400 focus:outline-none transition-colors"
+              title={showIdentities ? "隐藏身份" : "显示身份"}
             >
               {showIdentities ? (
                 <EyeOff className="w-3 h-3" />
@@ -195,7 +192,7 @@ export default React.memo(function RightPanelColumn({
       </CollapsibleCard>
 
       {/* ── 4. 众矢之的 ── */}
-      <CollapsibleCard title="众矢之的" icon="🎯" colorScheme="amber" defaultOpen={false}>
+      <CollapsibleCard title="众矢之的" icon={<Crosshair className="w-3.5 h-3.5" />} defaultOpen={false}>
         {dataReady ? (
           <ExposureRadarStrip beliefs={beliefs} speakerSeat={speakerSeat} />
         ) : (
@@ -204,20 +201,16 @@ export default React.memo(function RightPanelColumn({
       </CollapsibleCard>
 
       {/* ── 5. 狼踪浮影 ── */}
-      <CollapsibleCard title="狼踪浮影" icon="🐺" colorScheme="rose" defaultOpen={false}>
+      <CollapsibleCard title="狼踪浮影" icon={<Footprints className="w-3.5 h-3.5" />} defaultOpen={false}>
         {dataReady && canShowIdentities ? (
           <WolfExposurePanel beliefs={beliefs} players={players} />
         ) : (
-          <div className="flex flex-col items-center justify-center py-4 gap-2 text-zinc-600">
-            <span className="text-[10px] font-mono tracking-wider">
-              {!isLLMOnly ? "仅观战模式可用" : "等待狼人身份数据..."}
-            </span>
-          </div>
+          <GatedPlaceholder text={!isLLMOnly ? "仅观战模式可用" : "等待狼人身份数据……"} />
         )}
       </CollapsibleCard>
 
       {/* ── 6. 神机待测（狼队上帝视角推理矩阵） ── */}
-      <CollapsibleCard title="神机待测" icon="🔮" colorScheme="rose" defaultOpen={false}>
+      <CollapsibleCard title="神机待测" icon={<Sparkles className="w-3.5 h-3.5" />} defaultOpen={false}>
         {canShowIdentities && wolfCampMinds && Object.keys(wolfCampMinds).length > 0 ? (
           <div className="flex flex-col gap-2">
             {Object.values(wolfCampMinds).map((m) => (
@@ -225,11 +218,7 @@ export default React.memo(function RightPanelColumn({
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-4 gap-2 text-zinc-600">
-            <span className="text-[10px] font-mono tracking-wider">
-              {!isLLMOnly ? "仅观战模式可用" : "等待狼队推理数据..."}
-            </span>
-          </div>
+          <GatedPlaceholder text={!isLLMOnly ? "仅观战模式可用" : "等待狼队推理数据……"} />
         )}
       </CollapsibleCard>
     </div>
@@ -238,9 +227,22 @@ export default React.memo(function RightPanelColumn({
 
 function LoadingPlaceholder() {
   return (
-    <div className="flex items-center justify-center py-4 gap-2 text-zinc-500">
-      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500/40" />
-      <span className="text-[10px] font-mono tracking-wider">洞察加载中...</span>
+    <div className="flex items-center justify-center py-5 gap-2.5">
+      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500/60" />
+      <span className="text-[10px] font-serif tracking-[0.2em] uppercase text-amber-500/70">
+        洞察推演中……
+      </span>
+    </div>
+  );
+}
+
+function GatedPlaceholder({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-5 gap-2">
+      <Loader2 className="w-4 h-4 animate-spin text-amber-500/40" />
+      <span className="text-[10px] font-serif tracking-[0.18em] text-amber-500/70">
+        {text}
+      </span>
     </div>
   );
 }

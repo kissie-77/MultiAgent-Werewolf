@@ -421,33 +421,37 @@ export default React.memo(function UnifiedGameHeader({
 
       {/* ═══════════════ CENTER: Actor info / phase status ═══════════════ */}
       <div className="flex items-center gap-3 min-w-0 flex-1 justify-center overflow-hidden">
-        {actorInfo && (() => {
-          const Icon = actorInfo.icon;
-          return (
-            <div
-              className={`flex items-center gap-3 bg-gradient-to-r from-black/60 via-black/40 to-transparent border border-white/8 px-5 py-2 rounded-xl shadow-lg ${actorInfo.color}`}
-              data-live-cue={actorInfo.cueType}
+        {actorInfo && (
+          <div
+            className="bg-black border-2 border-[#eab308] px-5 py-1 rounded shadow-[3px_3px_0_#000] text-center max-w-full"
+            data-live-cue={actorInfo.cueType}
+          >
+            <span
+              className={`block font-mono text-[8px] text-red-500 font-black tracking-widest uppercase mb-0.5 ${
+                actorInfo.cueType === "thinking" ? "animate-pulse" : ""
+              }`}
             >
-              {/* Bouncing dots only for thinking */}
-              {thinkingCue && (
-                <div className="flex gap-1 mr-0.5">
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:120ms]" />
-                  <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:240ms]" />
-                </div>
-              )}
-              {!thinkingCue && <Icon className="w-[18px] h-[18px] shrink-0 opacity-80" />}
-              <span className="font-mono text-sm font-bold tracking-wide whitespace-nowrap">
-                {actorInfo.label}
-              </span>
-            </div>
-          );
-        })()}
+              — {actorInfo.cueType === "thinking"
+                ? "心证推演"
+                : actorInfo.cueType === "acting"
+                ? "神职行动"
+                : "法庭陈词"} —
+            </span>
+            <p className="font-serif text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
+              {actorInfo.label}
+            </p>
+          </div>
+        )}
 
         {/* Fallback: generic cue when nobody is acting/speaking/thinking */}
         {!actorInfo && cueFallback && (
-          <div className="font-mono text-sm text-zinc-400 font-bold tracking-wider bg-black/30 px-4 py-1.5 rounded-lg border border-white/5 whitespace-nowrap">
-            {cueFallback}
+          <div className="bg-black border-2 border-[#eab308] px-5 py-1 rounded shadow-[3px_3px_0_#000] text-center max-w-full">
+            <span className="block font-mono text-[8px] text-red-500 font-black tracking-widest uppercase mb-0.5">
+              — 法庭实况 —
+            </span>
+            <p className="font-serif text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
+              {cueFallback}
+            </p>
           </div>
         )}
 

@@ -11,6 +11,7 @@ const RoleDetailPage = React.lazy(() => import("../pages/RoleDetailPage"));
 const ModelsPage = React.lazy(() => import("../pages/ModelsPage"));
 const ModelDetailPage = React.lazy(() => import("../pages/ModelDetailPage"));
 const ModelComparePage = React.lazy(() => import("../pages/ModelComparePage"));
+const ModelOverallPage = React.lazy(() => import("../pages/ModelOverallPage"));
 const ReplayPage = React.lazy(() => import("../pages/ReplayPage"));
 const SharePage = React.lazy(() => import("../pages/SharePage"));
 const AboutPage = React.lazy(() => import("../pages/AboutPage"));
@@ -67,6 +68,7 @@ export default function AppRouter() {
 
         <Route path="/models" element={<LazyRoute><AppLayout><ModelsPage /></AppLayout></LazyRoute>} />
         <Route path="/models/compare" element={<LazyRoute><AppLayout><ModelComparePage /></AppLayout></LazyRoute>} />
+        <Route path="/models/overall" element={<LazyRoute><AppLayout><ModelOverallPage /></AppLayout></LazyRoute>} />
         <Route path="/models/:modelId" element={<LazyRoute><AppLayout><ModelDetailPage /></AppLayout></LazyRoute>} />
 
         <Route path="/replay/:runId" element={<LazyRoute><AppLayout><ReplayPage /></AppLayout></LazyRoute>} />

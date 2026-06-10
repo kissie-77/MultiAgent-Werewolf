@@ -91,17 +91,26 @@ export default function ModelsPage() {
       <div className="bg-zinc-950/60 border border-zinc-900 rounded-lg overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-zinc-900 flex justify-between items-center bg-zinc-950">
            <h3 className="text-sm font-sans tracking-widest text-[#eae5db] font-bold">全网出战模型总序</h3>
-           <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
-             排位依据:
-             <select 
-               value={sortOrder} 
-               onChange={(e) => setSortOrder(e.target.value as any)}
-               className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 outline-none focus:border-amber-500 transition-colors text-zinc-300"
+           <div className="flex items-center gap-4">
+             <Link
+               to="/models/overall"
+               className="flex items-center gap-1 text-xs font-mono text-amber-500/80 hover:text-amber-400 transition-colors whitespace-nowrap"
              >
-               <option value="win_rate">胜率 (Win Rate)</option>
-               <option value="run_count">对局数 (Run Count)</option>
-               <option value="avg_mvp">平均MVP分 (MVP Score)</option>
-             </select>
+               总胜率对比
+               <ArrowRight className="w-3.5 h-3.5" />
+             </Link>
+             <div className="flex items-center gap-2 text-xs font-mono text-zinc-500">
+               排位依据:
+               <select
+                 value={sortOrder}
+                 onChange={(e) => setSortOrder(e.target.value as any)}
+                 className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 outline-none focus:border-amber-500 transition-colors text-zinc-300"
+               >
+                 <option value="win_rate">胜率 (Win Rate)</option>
+                 <option value="run_count">对局数 (Run Count)</option>
+                 <option value="avg_mvp">平均MVP分 (MVP Score)</option>
+               </select>
+             </div>
            </div>
         </div>
         <div className="overflow-x-auto">

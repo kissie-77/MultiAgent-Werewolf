@@ -13,7 +13,13 @@ import { playToggle } from "../lib/uiSound";
  * @param className 施加在根容器上的定位类。缺省 "relative"（顶栏内联用）；
  *                  浮层场景传如 "fixed top-4 right-4 z-50"。
  */
-export default function AudioControls({ className }: { className?: string }) {
+export default function AudioControls({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const audioMuted = useGameStore((s) => s.audioMuted);
   const sfxVolume = useGameStore((s) => s.sfxVolume);
   const bgmVolume = useGameStore((s) => s.bgmVolume);
@@ -58,13 +64,19 @@ export default function AudioControls({ className }: { className?: string }) {
         aria-label="音量设置"
         aria-expanded={open}
         title="音量设置"
-        className={`flex items-center justify-center rounded-full border p-2 md:p-2.5 bg-zinc-900/60 backdrop-blur-md shadow-xl cursor-pointer transition-all active:scale-95 ${
+        className={`flex items-center justify-center rounded-full border bg-zinc-900/60 backdrop-blur-md shadow-xl cursor-pointer transition-all active:scale-95 ${
+          compact ? "p-1.5" : "p-2 md:p-2.5"
+        } ${
           audioMuted
             ? "border-red-500/50 text-red-300/90 hover:text-red-200 hover:bg-zinc-800"
             : "border-amber-500/50 text-amber-200/90 hover:text-amber-100 hover:bg-zinc-800"
         }`}
       >
-        {audioMuted ? <VolumeX className="w-5 h-5 md:w-6 md:h-6" /> : <Volume2 className="w-5 h-5 md:w-6 md:h-6" />}
+        {audioMuted ? (
+          <VolumeX className={compact ? "w-4 h-4" : "w-5 h-5 md:w-6 md:h-6"} />
+        ) : (
+          <Volume2 className={compact ? "w-4 h-4" : "w-5 h-5 md:w-6 md:h-6"} />
+        )}
       </button>
 
       {/* 展开态浮层 —— 右对齐于图标下方 */}

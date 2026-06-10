@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Hourglass, LogOut, Home, ArrowLeft, BrainCircuit, MessageCircle, Swords, Flame, Skull } from "lucide-react";
+import { Sun, Moon, Hourglass, LogOut, Home, BrainCircuit, MessageCircle, Swords } from "lucide-react";
 import { useGameStore } from "../store";
 import { stageBadge } from "../lib/phaseStage";
 import { NIGHT_SUB_PHASE_LABEL } from "../lib/liveCue";
@@ -378,157 +378,125 @@ export default React.memo(function UnifiedGameHeader({
 
   return (
     <div
-      className="w-full bg-gradient-to-b from-black/75 via-black/50 to-black/30 backdrop-blur-md border-b border-white/5 px-5 py-3 shrink-0 flex items-center justify-between relative z-10 shadow-[0_4px_24px_rgba(0,0,0,0.6)] gap-4"
+      className="w-full h-12 bg-black/45 backdrop-blur-md border-b border-zinc-900/60 px-6 py-1.5 shrink-0 flex items-center justify-between relative z-10 shadow-md gap-4"
       data-unified-header
     >
-      {/* ═══════════════ LEFT: Icon + Day/Phase ═══════════════ */}
-      {badge && (
-        <div className="flex items-center gap-4 shrink-0 min-w-0">
-          {/* Glowing icon */}
-          <div
-            className={`relative w-12 h-12 rounded-full border-2 flex items-center justify-center shrink-0 ${
-              isMoon
-                ? "border-red-500/60 bg-gradient-to-br from-red-950/40 to-black shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-                : isWait
-                ? "border-zinc-600/50 bg-zinc-900/50"
-                : "border-amber-500/60 bg-gradient-to-br from-amber-950/40 to-black shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-            }`}
-          >
-            {isMoon ? (
-              <Moon className="w-6 h-6 text-red-400 animate-pulse fill-current drop-shadow-[0_0_6px_rgba(239,68,68,0.6)]" />
-            ) : isWait ? (
-              <Hourglass className="w-5 h-5 text-zinc-300 animate-spin" style={{ animationDuration: "3s" }} />
-            ) : (
-              <Sun className="w-6 h-6 text-amber-400 animate-spin-slow drop-shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
-            )}
-          </div>
-
-          {/* Day/night + phase */}
-          <div className="flex flex-col leading-tight min-w-0">
-            <span
-              className={`font-serif font-black text-xl tracking-wider whitespace-nowrap ${
-                isMoon
-                  ? "text-red-100 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]"
-                  : isWait
-                  ? "text-zinc-300"
-                  : "text-amber-100 drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]"
-              }`}
-            >
-              {dayLabel}
-            </span>
-            {phaseSubText && (
-              <span
-                className={`font-mono text-xs uppercase tracking-widest font-bold whitespace-nowrap mt-0.5 ${
-                  isMoon
-                    ? "text-violet-300/80"
-                    : isWait
-                    ? "text-zinc-500"
-                    : "text-amber-300/80"
-                }`}
-              >
-                {phaseSubText}
-              </span>
-            )}
-          </div>
+      {/* ═══════════════ LEFT: logo + 标题 ═══════════════ */}
+      <div className="flex items-center gap-1 shrink-0">
+        <div className="w-1.5 h-5 bg-red-600" />
+        <div className="w-0.5 h-5 bg-red-800" />
+        <div className="hidden sm:flex flex-col ml-2 font-sans text-[9px] text-zinc-100 uppercase tracking-widest font-black leading-tight">
+          <span>狼人杀神圣审判厅</span>
+          <span className="text-[8px] text-zinc-500">{gameState.winner ? "已结案" : "对决轮转中"}</span>
         </div>
-      )}
+      </div>
 
-      {/* separator */}
-      <div className="w-px h-11 bg-white/8 shrink-0" />
-
-      {/* ═══════════════ CENTER: Actor info / phase status ═══════════════ */}
-      <div className="flex items-center gap-3 min-w-0 flex-1 justify-center overflow-hidden">
-        {actorInfo && (
+      {/* ═══════════════ CENTER: 石碑法阵框(阶段 + 实况) ═══════════════ */}
+      <div className="flex items-center min-w-0 flex-1 justify-center overflow-hidden">
+        {badge ? (
           <div
-            className="bg-black border-2 border-[#eab308] px-5 py-1 rounded shadow-[3px_3px_0_#000] text-center max-w-full"
-            data-live-cue={actorInfo.cueType}
+            className="flex items-center gap-4 bg-black/55 border border-zinc-800/50 px-6 py-1 rounded relative shadow-[0_2px_4px_rgba(0,0,0,0.4)] max-w-full"
+            style={{ clipPath: "polygon(0 0, 100% 0, 97% 100%, 3% 100%)" }}
+            data-live-cue={actorInfo?.cueType ?? undefined}
           >
-            <span
-              className={`block font-mono text-[8px] text-red-500 font-black tracking-widest uppercase mb-0.5 ${
-                actorInfo.cueType === "thinking" ? "animate-pulse" : ""
-              }`}
-            >
-              — {actorInfo.cueType === "thinking"
-                ? "心证推演"
-                : actorInfo.cueType === "acting"
-                ? "神职行动"
-                : "法庭陈词"} —
-            </span>
-            <p className="font-sans text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
-              {actorInfo.label}
-              <BreathingDots />
-            </p>
-          </div>
-        )}
+            {/* 阶段图标 */}
+            {isMoon ? (
+              <div className="w-7 h-7 rounded-full bg-black border-2 border-[#ef4444] flex items-center justify-center text-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] shrink-0">
+                <Moon className="w-4 h-4 fill-red-500 animate-pulse" />
+              </div>
+            ) : isWait ? (
+              <div className="w-7 h-7 rounded-full bg-black border-2 border-zinc-600 flex items-center justify-center text-zinc-300 shrink-0">
+                <Hourglass className="w-4 h-4 animate-spin" style={{ animationDuration: "3s" }} />
+              </div>
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-black border-2 border-yellow-500 flex items-center justify-center text-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)] shrink-0">
+                <Sun className="w-4 h-4 animate-spin-slow" />
+              </div>
+            )}
 
-        {/* Fallback: generic cue when nobody is acting/speaking/thinking */}
-        {!actorInfo && cueFallback && (
-          <div className="bg-black border-2 border-[#eab308] px-5 py-1 rounded shadow-[3px_3px_0_#000] text-center max-w-full">
-            <span className="block font-mono text-[8px] text-red-500 font-black tracking-widest uppercase mb-0.5">
-              — 法庭实况 —
-            </span>
-            <p className="font-sans text-sm text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
-              {cueFallback}
-              {phase !== "GAME_OVER" && <BreathingDots />}
-            </p>
-          </div>
-        )}
+            {/* 日期 + 阶段副标 */}
+            <div className="flex flex-col shrink-0">
+              <span className="font-serif font-black text-xs text-zinc-100 tracking-wider whitespace-nowrap">
+                {dayLabel}
+              </span>
+              {phaseSubText && (
+                <span className="font-mono text-[9px] text-[#eab308]/90 tracking-widest font-black uppercase whitespace-nowrap">
+                  {phaseSubText}
+                </span>
+              )}
+            </div>
 
-        {!actorInfo && !cueFallback && (
-          <span className="font-mono text-sm text-zinc-500 italic tracking-wider">
-            {phaseSubText || (phase === "ROLE_CHOICE" && "宿命契约抉择") || (phase === "START_SCREEN" && "等待入场")}
+            {/* 分隔 + 实况台词(现有 actorInfo / cueFallback 文案原样) */}
+            {(actorInfo || cueFallback) && (
+              <>
+                <div className="w-px h-6 bg-zinc-700 shrink-0" />
+                <div className="flex flex-col min-w-0 text-left">
+                  <span
+                    className={`font-mono text-[8px] text-red-500 font-black tracking-widest uppercase ${
+                      actorInfo?.cueType === "thinking" ? "animate-pulse" : ""
+                    }`}
+                  >
+                    — {actorInfo
+                      ? actorInfo.cueType === "thinking"
+                        ? "心证推演"
+                        : actorInfo.cueType === "acting"
+                        ? "神职行动"
+                        : "法庭陈词"
+                      : "法庭实况"} —
+                  </span>
+                  <p className="font-sans text-xs text-[#e0e0e0] font-black tracking-[0.14em] whitespace-nowrap leading-tight">
+                    {actorInfo ? actorInfo.label : cueFallback}
+                    {(actorInfo || phase !== "GAME_OVER") && <BreathingDots />}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <span className="font-mono text-xs text-zinc-500 italic tracking-wider">
+            {phaseSubText || (phase === "ROLE_CHOICE" && "宿命契约抉择") || "等待入场"}
           </span>
         )}
       </div>
 
-      {/* separator */}
-      <div className="w-px h-11 bg-white/8 shrink-0" />
-
-      {/* ═══════════════ RIGHT: Stats + Buttons (鎏金石雕) ═══════════════ */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        {/* 存活 / 死亡 计数 — 鎏金石框 */}
-        <div className="hidden md:flex flex-col gap-1 px-3 py-1.5 rounded-sm border-2 border-amber-500/50 bg-gradient-to-br from-zinc-950/80 to-black/70 shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),3px_3px_0_rgba(0,0,0,0.5)] leading-none">
-          <div className="flex items-center gap-1.5 text-amber-200 font-serif font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
-            <Flame className="w-3.5 h-3.5 text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.6)]" />
-            ALIVE
-            <span className="font-mono text-amber-100">{gameState.players.filter((p) => p.isAlive).length}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-red-300 font-serif font-bold text-[11px] tracking-widest [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
-            <Skull className="w-3.5 h-3.5 text-red-500 drop-shadow-[0_0_5px_rgba(239,68,68,0.6)]" />
-            DEAD
-            <span className="font-mono text-red-200">{gameState.players.filter((p) => !p.isAlive).length}</span>
-          </div>
-        </div>
-
-        {/* 音量控件 — 总静音 + 背景音乐/音效双滑块 */}
-        <AudioControls />
-
-        {/* 返回 — 鎏金石雕（纯图标） */}
+      {/* ═══════════════ RIGHT: 文字按钮 + 存活统计 + 音量 ═══════════════ */}
+      <div className="flex items-center gap-3 shrink-0">
+        {/* 返回上一级 */}
         <button
           type="button"
-          onClick={() => { soundManager.playUi("ui_click"); window.history.back(); }}
-          title="返回"
-          aria-label="返回"
-          className="gilt-btn h-9 w-9 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100/90 flex items-center justify-center cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)]"
+          onClick={() => {
+            soundManager.playUi("ui_click");
+            window.history.back();
+          }}
+          className="h-7 px-2.5 rounded border border-zinc-800 transition-all duration-200 bg-zinc-950/30 hover:bg-zinc-900/50 text-zinc-400 text-[10px] font-mono hover:text-zinc-200 uppercase tracking-widest cursor-pointer whitespace-nowrap flex items-center gap-1.5"
         >
-          <ArrowLeft className="w-4 h-4" />
+          返回上一级
         </button>
 
-        {/* 主页 — 鎏金石雕（纯图标） */}
+        {/* 回到主界面 */}
         <button
           type="button"
           onClick={() => {
             soundManager.playUi("ui_click");
             window.location.href = "/home";
           }}
-          title="主页"
-          aria-label="主页"
-          className="gilt-btn h-9 w-9 rounded-sm border-2 border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-amber-100 flex items-center justify-center cursor-pointer transition-all duration-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)]"
+          className="h-7 px-2.5 rounded border border-indigo-900/60 transition-all duration-200 bg-indigo-950/30 hover:bg-indigo-900/40 text-blue-200 text-[10px] font-mono hover:text-white uppercase tracking-widest cursor-pointer whitespace-nowrap flex items-center gap-1.5"
         >
-          <Home className="w-4 h-4" />
+          <Home className="w-3.5 h-3.5" />
+          回到主界面
         </button>
 
-        {/* 退出 — 鎏金石雕 + 危险态（纯图标；二次确认变红脉冲） */}
+        {/* 存活 / 死亡统计(参考版两行小字) */}
+        <div className="text-right font-mono text-[9.5px] leading-tight hidden md:block">
+          <div className="text-yellow-500 font-extrabold uppercase tracking-wider">
+            存活已降临: {gameState.players.filter((p) => p.isAlive).length}名
+          </div>
+          <div className="text-red-600 font-black uppercase tracking-wider mt-0.5">
+            已被撕咬放逐: {gameState.players.filter((p) => !p.isAlive).length}名
+          </div>
+        </div>
+
+        {/* 退出游戏(二次确认状态机原样保留) */}
         <button
           type="button"
           onClick={() => {
@@ -542,16 +510,19 @@ export default React.memo(function UnifiedGameHeader({
               setConfirmExit(true);
             }
           }}
-          title={confirmExit ? "再次点击确认退出" : "退出"}
-          aria-label={confirmExit ? "再次点击确认退出" : "退出"}
-          className={`h-9 w-9 rounded-sm border-2 flex items-center justify-center cursor-pointer transition-all duration-200 ${
+          title={confirmExit ? "再次点击确认退出" : "退出游戏"}
+          className={`h-7 px-2.5 rounded border text-[10px] font-sans font-bold tracking-wider cursor-pointer flex items-center gap-1 transition-all duration-200 whitespace-nowrap ${
             confirmExit
-              ? "border-red-500 bg-gradient-to-br from-red-800/80 to-red-950/90 text-red-50 shadow-[0_0_16px_rgba(239,68,68,0.45),3px_3px_0_rgba(0,0,0,0.5)] animate-pulse"
-              : "gilt-btn border-amber-500/60 bg-gradient-to-br from-zinc-950/80 to-black/70 text-red-200 shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),3px_3px_0_rgba(0,0,0,0.5)]"
+              ? "border-red-500 bg-red-600 text-white shadow-[0_0_12px_rgba(239,68,68,0.4)] animate-pulse"
+              : "border-red-900/60 bg-red-950/30 hover:bg-red-900/40 text-red-100 hover:text-white"
           }`}
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-3 h-3" />
+          <span>{confirmExit ? "二次点击确认退出" : "退出游戏"}</span>
         </button>
+
+        {/* 音量控件(紧凑形态) */}
+        <AudioControls compact />
       </div>
     </div>
   );

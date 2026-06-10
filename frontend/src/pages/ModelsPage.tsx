@@ -103,7 +103,7 @@ export default function ModelsPage() {
                排位依据:
                <select
                  value={sortOrder}
-                 onChange={(e) => setSortOrder(e.target.value as any)}
+                 onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
                  className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 outline-none focus:border-amber-500 transition-colors text-zinc-300"
                >
                  <option value="win_rate">胜率 (Win Rate)</option>

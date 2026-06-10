@@ -59,7 +59,7 @@ function upsertPlayer(s: GameState, seat: number, patch: Partial<Player>): void 
     isAlive: patch.isAlive ?? true,
     avatarSeed: patch.name ?? `P${seat}`,
     lastSpeech: patch.lastSpeech ?? "",
-    statusNotes: "",
+    statusNotes: patch.statusNotes ?? "",
   });
 }
 
@@ -241,6 +241,13 @@ function appendNightAction(s: GameState, ev: SseEvent): void {
     const res = ev.data?.result;
     if (res === "werewolf") s.seerVerificationResult = "WEREWOLF";
     else if (res === "human" || res === "villager") s.seerVerificationResult = "HUMAN";
+    // Human seer's own check: persist the camp verdict on the target's seat card.
+    // statusNotes is the CardDeck slot reserved for seer annotations; spectate
+    // (no selfSeat) keeps its existing surfaces (NightActionLog / god toggle).
+    const verdict = resultFromEvent(ev);
+    if (ev.selfSeat != null && seat === ev.selfSeat && targetSeat != null && verdict) {
+      upsertPlayer(s, targetSeat, { statusNotes: `🔮 第${round}夜查验 · ${verdict}` });
+    }
   } else if (etype === "witch_saved") {
     s.witchSaved = true;
   } else if (etype === "witch_poison_used" || etype === "witch_poisoned") {

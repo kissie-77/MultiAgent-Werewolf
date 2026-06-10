@@ -118,6 +118,49 @@ describe("public dialogue + event timeline", () => {
   });
 });
 
+describe("human seer check annotates the target's seat card", () => {
+  const seerSeatSnap = {
+    event_type: "snapshot",
+    selfSeat: 1,
+    roster: [
+      { seat: 1, name: "P1", role: "Seer", is_alive: true },
+      { seat: 2, name: "P2", role: null, is_alive: true },
+      { seat: 3, name: "P3", role: null, is_alive: true },
+    ],
+  };
+
+  it("writes the wolf verdict into the checked player's statusNotes (seat view)", () => {
+    let s = reduceEvent(initialSpectateState(), seerSeatSnap as any);
+    s = reduceEvent(s, {
+      event_type: "seer_checked", round_number: 1, phase: "night", selfSeat: 1,
+      data: { player_id: "player_1", target_id: "player_2", result: "werewolf" },
+    } as any);
+    const target = s.players.find((p) => p.id === 2)!;
+    expect(target.statusNotes).toContain("查验");
+    expect(target.statusNotes).toContain("狼人");
+    // The seer learns the camp, not the exact card — role stays redacted.
+    expect(target.role).toBe("");
+  });
+
+  it("maps a human/villager result to 好人", () => {
+    let s = reduceEvent(initialSpectateState(), seerSeatSnap as any);
+    s = reduceEvent(s, {
+      event_type: "seer_checked", round_number: 2, phase: "night", selfSeat: 1,
+      data: { player_id: "player_1", target_id: "player_3", result: "villager" },
+    } as any);
+    expect(s.players.find((p) => p.id === 3)!.statusNotes).toContain("好人");
+  });
+
+  it("leaves statusNotes empty in spectate/god view (no selfSeat)", () => {
+    let s = reduceEvent(initialSpectateState(), snapshot as any);
+    s = reduceEvent(s, {
+      event_type: "seer_checked", round_number: 1, phase: "night",
+      data: { player_id: "player_1", target_id: "player_2", result: "werewolf" },
+    } as any);
+    expect(s.players.find((p) => p.id === 2)!.statusNotes).toBe("");
+  });
+});
+
 describe("seat-view night thinking is anonymized (no identity leak)", () => {
   const seatSnap = {
     event_type: "snapshot",

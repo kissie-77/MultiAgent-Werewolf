@@ -2,11 +2,28 @@
 
 基于多 Agent 协作框架的狼人杀智能体博弈系统。
 
+[![CI](https://github.com/kissie-77/MultiAgent-Werewolf/actions/workflows/test.yml/badge.svg)](https://github.com/kissie-77/MultiAgent-Werewolf/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ## 项目简介
 
 本项目构建一个多智能体协作/对抗的狼人杀博弈系统。每个 Agent 根据其扮演角色（狼人、预言家、女巫等）拥有独立的目标、策略与行动空间，在信息隔离的约束下进行推理、发言与决策。
 
 **技术路线**：AgentScope 作为 Agent 执行底座 + 自建 GameEngine 管理游戏逻辑
+
+**核心特性**：
+
+- 🎭 **20+ 角色系统**：支持标准板子与自定义板子（4/6/8/12/16 人）
+- 🧠 **多层记忆系统**：工作记忆、情景记忆、语义记忆、程序记忆
+- 📊 **信念矩阵**：一阶/二阶信念追踪，支持信念模式识别与信号检测
+- 🗳️ **投票意向追踪**：Foaster 风格的投票意向复盘与说服分析
+- 🌐 **Web 全栈**：FastAPI + React/Three.js + SSE 实时直播 + 人机对战
+- 🚀 **并行多栈（fleet）**：同时开多局，支持批量评测
+- 📝 **结构化日志**：JSONL 事件流 + SSE 推送 + 赛后复盘视图
+- 🔊 **音频系统**：BGM + 事件音效，增强沉浸感
+- 📦 **Docker 部署**：一键生产部署，含健康检查与告警
+- 🔬 **多模型评测**：同一局内混排 8 种模型、3 个服务商，统一事件协议与评分口径
+- 🔄 **Prompt/Skill 自进化**：A/B 实验验证 Wolf Benefit +35.7%、MVP +9.3%
 
 ## 快速开始
 
@@ -29,13 +46,13 @@ make check-env
 
 脚本会检测以下工具是否存在、版本是否达标，并对缺失工具给出安装指引：
 
-| 工具 | 版本 | 用途 |
-|------|------|------|
-| Python | ≥ 3.10 | 运行后端游戏引擎 |
-| [uv](https://docs.astral.sh/uv/) | ≥ 0.4 | Python 依赖管理（uv 会自动获取 Python） |
-| Node.js | ≥ 18 | 前端 React 开发（仅全栈开发需要） |
-| npm | 随 Node.js | 前端依赖安装 |
-| Docker（可选） | 20+ | 生产部署 |
+| 工具                          | 版本       | 用途                                    |
+| ----------------------------- | ---------- | --------------------------------------- |
+| Python                        | ≥ 3.10    | 运行后端游戏引擎                        |
+| [uv](https://docs.astral.sh/uv/) | ≥ 0.4     | Python 依赖管理（uv 会自动获取 Python） |
+| Node.js                       | ≥ 18      | 前端 React 开发（仅全栈开发需要）       |
+| npm                           | 随 Node.js | 前端依赖安装                            |
+| Docker（可选）                | 20+        | 生产部署                                |
 
 ### 2. 一键初始化
 
@@ -51,6 +68,7 @@ make setup
 4. **安装前端依赖**（检测到 Node.js 时自动执行 `npm install`）
 
 > **Windows 用户注意**：如果本机没有 `make`，可以使用 Git Bash（`winget install Git.Git`），或手动执行：
+>
 > ```powershell
 > uv sync --group dev --group test
 > if (-not (Test-Path .env)) { Copy-Item .env.example .env }
@@ -105,11 +123,11 @@ make docker-up                    # 构建并启动
 
 `llm-werewolf` 与 `werewolf-tui` 支持以下可选参数（缺省时行为与原来完全一致）：
 
-| 参数                              | 作用                                        | 默认              |
-| --------------------------------- | ------------------------------------------- | ----------------- |
+| 参数                                  | 作用                                              | 默认              |
+| ------------------------------------- | ------------------------------------------------- | ----------------- |
 | `--human_seat 1`（或 `1,3`）      | 指定 1-based 座位为**人类玩家**（可多座位） | 无（纯 Agent 局） |
-| `--players N`                     | 覆盖**总座位数（含人类）**，范围 6–20       | 沿用 YAML 名单    |
-| `--badge_flow` / `--nobadge_flow` | 开 / 关**警长·警徽流**                      | 关                |
+| `--players N`                       | 覆盖**总座位数（含人类）**，范围 6–20      | 沿用 YAML 名单    |
+| `--badge_flow` / `--nobadge_flow` | 开 / 关**警长·警徽流**                     | 关                |
 
 ```bash
 # 纯 LLM 对战
@@ -209,12 +227,12 @@ make docker-down            # 停止
 
 **关键环境变量**（写入 `.env`）：
 
-| 变量 | 说明 | 示例 |
-|------|------|------|
-| `OPENAI_API_KEY` / `ARK_API_KEY` | LLM 接入密钥 | `sk-...` |
-| `OBS_ALERT_WEBHOOK_URL` | 告警推送地址（可选） | `https://open.feishu.cn/...` |
-| `OBS_ALERT_MIN_SEVERITY` | 最低告警级别 | `warning`（默认） |
-| `WEB_PORT` | 前端监听端口 | `80`（默认） |
+| 变量                                 | 说明                 | 示例                           |
+| ------------------------------------ | -------------------- | ------------------------------ |
+| `OPENAI_API_KEY` / `ARK_API_KEY` | LLM 接入密钥         | `sk-...`                     |
+| `OBS_ALERT_WEBHOOK_URL`            | 告警推送地址（可选） | `https://open.feishu.cn/...` |
+| `OBS_ALERT_MIN_SEVERITY`           | 最低告警级别         | `warning`（默认）            |
+| `WEB_PORT`                         | 前端监听端口         | `80`（默认）                 |
 
 > 告警链路：游戏异常 → `AlertDispatcher` → `WebhookNotifier` → Webhook URL（飞书/钉钉/Slack 均可）
 
@@ -236,6 +254,7 @@ make help            # 查看所有可用命令
 ```
 
 > **使用 `poe`**（`poethepoet` 已内置在 dev 依赖中）：
+>
 > ```bash
 > uv run poe test-fast     # 等价于 make test-fast
 > uv run poe lint          # 等价于 make lint
@@ -276,39 +295,77 @@ src/llm_werewolf/
 
 ### 模块边界
 
-| 模块 | 职责 | 不负责 |
-|------|------|--------|
-| `game_runtime` | 狼人杀规则、阶段推进、状态与事件 | LLM 调用、Prompt 设计 |
-| `agent_team` | Agent 创建、信息隔离、记忆、Skill 注入、LLM 调用适配 | 规则判定、赛后评分 |
-| `strategy` | Prompt 资产、结构化决策契约、信念矩阵、投票意向 | Agent 生命周期、游戏状态 |
-| `evaluation` | 复盘、评分、Skill 生成、版本进化实验 | 实时对局推进 |
-| `interface` | CLI/API/fleet 装配入口 | 核心规则和策略实现 |
-| `frontend` | React 观战、人机对战、回放与配置界面 | 后端规则执行 |
+| 模块             | 职责                                                 | 不负责                   |
+| ---------------- | ---------------------------------------------------- | ------------------------ |
+| `game_runtime` | 狼人杀规则、阶段推进、状态与事件                     | LLM 调用、Prompt 设计    |
+| `agent_team`   | Agent 创建、信息隔离、记忆、Skill 注入、LLM 调用适配 | 规则判定、赛后评分       |
+| `strategy`     | Prompt 资产、结构化决策契约、信念矩阵、投票意向      | Agent 生命周期、游戏状态 |
+| `evaluation`   | 复盘、评分、Skill 生成、版本进化实验                 | 实时对局推进             |
+| `interface`    | CLI/API/fleet 装配入口                               | 核心规则和策略实现       |
+| `frontend`     | React 观战、人机对战、回放与配置界面                 | 后端规则执行             |
 
 更完整的模块文档见 [docs/README.md](docs/README.md)。
 
 ## 当前进度
 
-- [x] 游戏引擎核心流程（异步化改造完成）
-- [x] 多模型支持（OpenAI/Anthropic/DeepSeek/Ollama）
-- [x] 20+ 角色系统
-- [x] YAML 配置
-- [x] Demo 模式验证
-- [x] AgentScope 接入（ReAct + agent_team + InformationHub）
-- [x] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
-- [x] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)）
-- [ ] 结构化日志（JSON 事件流）
-- [x] Web 前端观战 UI / 人机对战（FastAPI + React/Three.js + SSE 实时直播 + 座位输入，详见上方「本地全栈开发」）
-- [x] 评测与复盘（vote intention / swing 分析）
-- [x] 女巫 / 守卫毒奶规则与死亡链（915 项自动化测试）
+- [X] 游戏引擎核心流程（异步化改造完成）
+- [X] 多模型支持（OpenAI/Anthropic/DeepSeek/Ollama/Doubao/Kimi/Gemini）
+- [X] 20+ 角色系统（含标准板子 4/6/8/12/16 人）
+- [X] YAML 配置（对局、角色板子、模型提供商）
+- [X] Demo 模式验证（无需 API Key）
+- [X] AgentScope 接入（ReAct + agent_team + InformationHub）
+- [X] 阶段内 AI 经 PhaseInteraction / InformationHub 统一调度
+- [X] 人机对战 / 可配置人数 / 警徽流（命令行参数，详见 [docs/reports/人机对战与命令行模式.md](docs/reports/%E4%BA%BA%E6%9C%BA%E5%AF%B9%E6%88%98%E4%B8%8E%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%A8%A1%E5%BC%8F.md)）
+- [X] 结构化日志（JSONL 事件流 + SSE 推送 + log_views 赛后复盘视图）
+- [X] Web 前端观战 UI / 人机对战（FastAPI + React/Three.js + SSE 实时直播 + 座位输入，详见上方「本地全栈开发」）
+- [X] 评测与复盘（vote intention / swing 分析 / 反事实推演 / MVP 评分）
+- [X] 女巫 / 守卫毒奶规则与死亡链（182 项自动化测试）
+- [X] 多层记忆系统（工作记忆 / 情景记忆 / 语义记忆 / 程序记忆）
+- [X] 信念矩阵（一阶/二阶信念 / 信念模式识别 / 信号检测）
+- [X] 投票意向追踪（Foaster 风格复盘）
+- [X] 音频系统（BGM + 事件音效）
+- [X] 并行多栈 fleet（批量评测 / 多局并发）
+- [X] 监控预警（健康检查 / Webhook 告警）
+- [X] Prompt 自动进化与 A/B 对比实验（Wolf Benefit +35.7%、MVP +9.3%；Prophet+Witch MVP +20.4%）
+
+## 实验验证
+
+### 多模型 8P 对局评测
+
+8 局标准 8 人局（7 局多模型混排 + 1 局同模型基线），覆盖 8 种模型、3 个服务商（Ark / OpenAI / SiliconFlow）：
+
+| 指标 | 结果 |
+|---|---|
+| 完成对局 | 8 |
+| 好人胜利 / 狼人胜利 | 4 / 4 |
+| 平均 Benefit | 27.61 |
+| 平均 MVP | 63.33 |
+| 平均 Alert 数 | 2.25 |
+
+**结论**：多模型混排未让某一阵营系统性失衡；平台可在同一博弈环境中公平对抗评测，并识别"败方高贡献玩家"。详见 [multi_model_8p_report.md](../multi_model_8p_report.md)。
+
+### Prompt/Skill 自进化 A/B 对比
+
+固定目标角色、5 局有效样本、异常重跑、输局保留：
+
+| 测试组 | 版本 | 胜率 | 平均 Benefit | 平均 MVP |
+|---|---|---|---|---|
+| Wolf | v1 | 80.0% | 30.05 | 65.48 |
+| Wolf | v2 | 40.0% | **40.79 (+35.7%)** | **71.56 (+9.3%)** |
+| Prophet+Witch | v1 | 60.0% | 42.48 | 62.64 |
+| Prophet+Witch | v2 | 40.0% | 38.57 | **75.40 (+20.4%)** |
+
+**结论**：v2 从"角色原则"升级为"局面触发策略"，显著提升过程评分；平台形成"经验沉淀 → 策略调用 → 指标提升 → 继续迭代"的自进化闭环。详见 [prompt_skill_ab_report.md](../prompt_skill_ab_report.md)。
 
 ## 团队分工
 
-| 成员 | 负责模块                       |
-| ---- | ------------------------------ |
-| A    | AgentScope 接入 + `agent_team` |
-| B    | GameEngine 改造 + 异步化       |
-| C    | 前端 + API + 日志              |
+| 成员 | 负责模块                                              |
+| ---- | ----------------------------------------------------- |
+| A    | AgentScope 接入 +`agent_team` + 记忆系统 + 信念矩阵 |
+| B    | GameEngine 改造 + 异步化 + 角色系统 + 规则引擎        |
+| C    | 前端 + API + 结构化日志 + 音频系统 + fleet 并行       |
+
+> 注：具体分工可能随项目迭代调整，详见各模块 `docs/*/ROADMAP.md`。
 
 ## 致谢
 
@@ -320,13 +377,12 @@ MIT
 
 ## 仓库说明
 
-- `src/`：后端源码，按 `game_runtime`、`agent_team`、`strategy`、`evaluation`、`interface` 等模块组织。
+- `src/`：后端源码，按 `game_runtime`、`agent_team`、`strategy`、`evaluation`、`interface`、`observability` 等模块组织。
 - `frontend/`：React/Vite 前端，用于观战、人机对战、回放和配置管理。
-- `tests/`：自动化测试，覆盖规则、策略、评测、接口、观测等模块。
-- `configs/`：对局、角色板子、模型提供商与本地演示配置。
+- `tests/`：自动化测试（182 项），覆盖规则、策略、评测、接口、观测等模块。
+- `configs/`：对局、角色板子、模型提供商与本地演示配置（含标准 4/6/8/12/16 人板子）。
 - `scripts/`：实验、回填、连通性检查、版本整理等辅助脚本。
 - `docs/`：设计、Roadmap、专题报告与归档文档，目录说明见 [docs/README.md](docs/README.md)。
-- `项目评分报告.md`：模块评分、问题核实与修复状态（2026-06-05）。
 - `artifacts/`、`outputs/`：本地运行、实验和赛后分析产物，不建议纳入版本管理。
 - `.env`：本地 API Key 和 endpoint，只在本机保存，不提交。
 - `.tmp/`、`.venv/`、`.uv-cache/`、`.uv-python/`、`.pytest_cache/`、`__pycache__/`：本地临时、依赖、缓存目录，不纳入版本管理。

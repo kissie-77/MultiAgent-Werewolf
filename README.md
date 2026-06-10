@@ -243,15 +243,49 @@ make help            # 查看所有可用命令
 
 ## 项目架构
 
+项目采用“规则引擎 / Agent 执行 / 策略资产 / 接口与评测”分层，核心目标是让狼人杀规则、LLM 调用、Prompt/Skill 版本和赛后评测彼此解耦。
+
 ```
 src/llm_werewolf/
-├── game_runtime/          # 狼人杀规则、角色、动作、状态、引擎与配置
-├── agent_team/            # AgentScope Agent、消息路由、信息隔离、LLM 调用封装
-├── strategy/              # 角色 Prompt、结构化决策、阶段输出契约、投票意向
-├── interface/             # CLI 入口（cli/）+ FastAPI（api/）
-├── ui/                    # 控制台 Rich 展示（ConsolePresenter）
-└── evaluation/            # 对局评测、日志记录、复盘分析
+├── game_runtime/          # 规则引擎：角色、夜间行动、死亡链、投票、胜负与事件
+├── agent_team/            # Agent 执行层：AgentScope、InformationHub、信息隔离、记忆、Skill 注入
+├── strategy/              # 策略契约层：Prompt 包、结构化输出 schema、信念矩阵、投票意向
+├── evaluation/            # 评测闭环：赛后评分、复盘、Skill 抽取、版本进化与 leaderboard
+├── interface/             # 入口层：CLI、FastAPI、fleet 多进程调度
+├── observability/         # 健康检查、告警规则、Webhook 通知
+└── ui/                    # CLI/Rich 展示组件
 ```
+
+### 运行链路
+
+1. `interface` 读取 YAML 配置，解析座位、角色、模型、Prompt/Skill 版本。
+2. `game_runtime` 创建 `GameEngine`，按昼夜阶段推进规则，并通过事件流记录状态变化。
+3. `agent_team` 为每个座位装配 AgentScope Agent，`InformationHub` 按可见性分发公开/私密信息。
+4. `strategy` 为发言、投票、夜间行动等阶段提供角色 Prompt、结构化决策 schema 和信念矩阵上下文。
+5. Agent 输出经 `WerewolfAdapterBridge` 解析为 `SpeechDecision`、`SeatChoiceDecision`、`WitchNightDecision` 等结构化决策，再回写到引擎。
+6. 对局结束后，`evaluation` 读取事件、票型、发言和信念变化，生成评分、复盘、Skill 候选和版本对比数据。
+
+### Prompt 与 Skill 版本体系
+
+- 角色 Prompt：`src/llm_werewolf/strategy/prompts/roles/<role>/<version>/`
+- 阶段 Prompt：`src/llm_werewolf/strategy/prompts/phase/<version>/`
+- Plan 策略：`src/llm_werewolf/strategy/prompts/plans/<version>/`
+- Skill 卡片：`src/llm_werewolf/agent_team/skills/<role>/<version>/*.md`
+- 运行时版本映射由 `RoleVersionManifest` 管理，可以按角色分别 pin prompt 和 skill 版本。
+- 未显式 pin 的角色默认解析磁盘上的最新版本；正式实验建议在配置或实验脚本中显式指定版本，避免新增目录影响基线。
+
+### 模块边界
+
+| 模块 | 职责 | 不负责 |
+|------|------|--------|
+| `game_runtime` | 狼人杀规则、阶段推进、状态与事件 | LLM 调用、Prompt 设计 |
+| `agent_team` | Agent 创建、信息隔离、记忆、Skill 注入、LLM 调用适配 | 规则判定、赛后评分 |
+| `strategy` | Prompt 资产、结构化决策契约、信念矩阵、投票意向 | Agent 生命周期、游戏状态 |
+| `evaluation` | 复盘、评分、Skill 生成、版本进化实验 | 实时对局推进 |
+| `interface` | CLI/API/fleet 装配入口 | 核心规则和策略实现 |
+| `frontend` | React 观战、人机对战、回放与配置界面 | 后端规则执行 |
+
+更完整的模块文档见 [docs/README.md](docs/README.md)。
 
 ## 当前进度
 
@@ -286,17 +320,16 @@ MIT
 
 ## 仓库说明
 
-- `src/`：项目源码，按六大板块组织
-- `tests/`：自动化测试
-- `configs/`：对局与模型配置
-- `scripts/`：辅助脚本
-- `docs/`：设计、记录、评测与归档文档，目录说明见 [docs/README.md](docs/README.md)
-- `项目评分报告.md`：模块评分、问题核实与修复状态（2026-06-05）
-- `artifacts/`：本地运行产物与数据目录，不纳入版本管理
-- `artifacts/runs/`：单局对战与赛后分析产物
-- `artifacts/data/`：本地数据目录
-- `.tmp/`：本地临时文件目录，不纳入版本管理
-- `.venv/`、`.uv-cache/`、`.pytest_cache/`、`.agents/`、`.claude/`：本地开发/工具环境目录
+- `src/`：后端源码，按 `game_runtime`、`agent_team`、`strategy`、`evaluation`、`interface` 等模块组织。
+- `frontend/`：React/Vite 前端，用于观战、人机对战、回放和配置管理。
+- `tests/`：自动化测试，覆盖规则、策略、评测、接口、观测等模块。
+- `configs/`：对局、角色板子、模型提供商与本地演示配置。
+- `scripts/`：实验、回填、连通性检查、版本整理等辅助脚本。
+- `docs/`：设计、Roadmap、专题报告与归档文档，目录说明见 [docs/README.md](docs/README.md)。
+- `项目评分报告.md`：模块评分、问题核实与修复状态（2026-06-05）。
+- `artifacts/`、`outputs/`：本地运行、实验和赛后分析产物，不建议纳入版本管理。
+- `.env`：本地 API Key 和 endpoint，只在本机保存，不提交。
+- `.tmp/`、`.venv/`、`.uv-cache/`、`.uv-python/`、`.pytest_cache/`、`__pycache__/`：本地临时、依赖、缓存目录，不纳入版本管理。
 
 ## Conventions
 

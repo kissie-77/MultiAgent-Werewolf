@@ -233,6 +233,31 @@ def build_system_prompt(
     return base
 
 
+def _build_generate_kwargs(config: PlayerConfig) -> dict[str, Any]:
+    """Per-model generation params.
+
+    OpenAI GPT-5 / o-series reasoning models reject ``max_tokens`` (they need
+    ``max_completion_tokens``) and only accept the default ``temperature`` (1).
+    For those we switch the token param, give reasoning headroom, and omit
+    temperature. Every other OpenAI-compatible vendor keeps the legacy params.
+    """
+    model_name = (config.model or "").lower()
+    is_openai_reasoning = model_name.startswith("gpt-5") or model_name.startswith(
+        ("o1", "o3", "o4")
+    )
+    if is_openai_reasoning:
+        kwargs: dict[str, Any] = {"max_completion_tokens": 4096}
+        if config.reasoning_effort:
+            kwargs["reasoning_effort"] = config.reasoning_effort
+        return kwargs
+    kwargs = {"max_tokens": 2048}
+    if config.reasoning_effort:
+        kwargs["reasoning_effort"] = config.reasoning_effort
+    if config.temperature is not None:
+        kwargs["temperature"] = config.temperature
+    return kwargs
+
+
 def create_react_agent(
     config: PlayerConfig,
     *,
@@ -254,16 +279,14 @@ def create_react_agent(
         msg = f"base_url is required for AgentScope player '{config.name}'"
         raise ValueError(msg)
 
-    generate_kwargs: dict[str, Any] = {"max_tokens": 2048}
-    if config.reasoning_effort:
-        generate_kwargs["reasoning_effort"] = config.reasoning_effort
-    if config.temperature is not None:
-        generate_kwargs["temperature"] = config.temperature
+    generate_kwargs = _build_generate_kwargs(config)
 
+    # 请求级超时 + 限制 SDK 重试：某些聚合/Pro 端点偶发挂起，无超时会让整局
+    # 永久阻塞在 await 上。卡住的调用快速失败后由 invoke_structured 兜底重试。
     model = OpenAIChatModel(
         model_name=config.model,
         api_key=api_key,
-        client_kwargs={"base_url": config.base_url},
+        client_kwargs={"base_url": config.base_url, "timeout": 100.0, "max_retries": 1},
         stream=False,
         generate_kwargs=generate_kwargs,
     )

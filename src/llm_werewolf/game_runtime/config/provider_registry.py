@@ -297,6 +297,94 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
         default_base_url="https://api.minimaxi.com/v1",
         default_model="abab6.5s-chat",
     ),
+    # --- SiliconFlow aggregator: 6 models behind ONE key (SILICONFLOW_API_KEY) ---
+    # Each model is registered as its own provider_id so it appears as a distinct
+    # entry in the per-seat model picker; they all share the same key + base_url
+    # and differ only by ``default_model`` (the SiliconFlow model string).
+    "sf-deepseek": ProviderSpec(
+        provider_id="sf-deepseek",
+        display_name="SiliconFlow",
+        env_fields=(
+            ProviderEnvField(
+                env_name="SILICONFLOW_API_KEY",
+                label="API Key",
+                example="sk-xxxxxxxx",
+                description="SiliconFlow 聚合接口 Key；多个 SF 模型共用同一把",
+            ),
+        ),
+        default_base_url="https://api.siliconflow.cn/v1",
+        default_model="deepseek-ai/DeepSeek-V4-Flash",
+    ),
+    "sf-kimi": ProviderSpec(
+        provider_id="sf-kimi",
+        display_name="SiliconFlow",
+        env_fields=(
+            ProviderEnvField(
+                env_name="SILICONFLOW_API_KEY",
+                label="API Key",
+                example="sk-xxxxxxxx",
+                description="SiliconFlow 聚合接口 Key；多个 SF 模型共用同一把",
+            ),
+        ),
+        default_base_url="https://api.siliconflow.cn/v1",
+        default_model="Pro/moonshotai/Kimi-K2.6",
+    ),
+    "sf-glm": ProviderSpec(
+        provider_id="sf-glm",
+        display_name="SiliconFlow",
+        env_fields=(
+            ProviderEnvField(
+                env_name="SILICONFLOW_API_KEY",
+                label="API Key",
+                example="sk-xxxxxxxx",
+                description="SiliconFlow 聚合接口 Key；多个 SF 模型共用同一把",
+            ),
+        ),
+        default_base_url="https://api.siliconflow.cn/v1",
+        default_model="Pro/zai-org/GLM-5.1",
+    ),
+    "sf-nex": ProviderSpec(
+        provider_id="sf-nex",
+        display_name="SiliconFlow",
+        env_fields=(
+            ProviderEnvField(
+                env_name="SILICONFLOW_API_KEY",
+                label="API Key",
+                example="sk-xxxxxxxx",
+                description="SiliconFlow 聚合接口 Key；多个 SF 模型共用同一把",
+            ),
+        ),
+        default_base_url="https://api.siliconflow.cn/v1",
+        default_model="nex-agi/Nex-N2-Pro",
+    ),
+    "sf-minimax": ProviderSpec(
+        provider_id="sf-minimax",
+        display_name="SiliconFlow",
+        env_fields=(
+            ProviderEnvField(
+                env_name="SILICONFLOW_API_KEY",
+                label="API Key",
+                example="sk-xxxxxxxx",
+                description="SiliconFlow 聚合接口 Key；多个 SF 模型共用同一把",
+            ),
+        ),
+        default_base_url="https://api.siliconflow.cn/v1",
+        default_model="Pro/MiniMaxAI/MiniMax-M2.5",
+    ),
+    "sf-qwen": ProviderSpec(
+        provider_id="sf-qwen",
+        display_name="SiliconFlow",
+        env_fields=(
+            ProviderEnvField(
+                env_name="SILICONFLOW_API_KEY",
+                label="API Key",
+                example="sk-xxxxxxxx",
+                description="SiliconFlow 聚合接口 Key；多个 SF 模型共用同一把",
+            ),
+        ),
+        default_base_url="https://api.siliconflow.cn/v1",
+        default_model="Qwen/Qwen3.5-397B-A17B",
+    ),
 }
 
 DEFAULT_PROVIDER_ID = "doubao"

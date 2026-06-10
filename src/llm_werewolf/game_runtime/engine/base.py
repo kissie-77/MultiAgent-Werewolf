@@ -451,8 +451,13 @@ class GameEngineBase:
             return
 
         # ── 补充狼队投票与猎杀目标数据 ──
+        # Player 没有 .seat 属性；座位号编码在 player_id/name 末尾，需经 get_player_seat 提取。
+        from llm_werewolf.game_runtime.support.seat import get_player_seat
+
         player_names = {p.player_id: p.name for p in self.game_state.players}
-        player_seats = {p.player_id: p.seat for p in self.game_state.players}
+        player_seats = {
+            p.player_id: (get_player_seat(p) or 0) for p in self.game_state.players
+        }
 
         # 狼队投票详情
         wolf_votes_data: list[dict] = []
